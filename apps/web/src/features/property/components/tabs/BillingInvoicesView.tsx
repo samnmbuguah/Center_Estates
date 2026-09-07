@@ -13,6 +13,7 @@ export function BillingInvoicesView({
   // pipeline props
   onNavigateBilling = () => {},
   onSingleInvoice = () => {},
+  onLettingFeeInvoice = () => {},
   // invoice register props
   rows = [],
   rentInvoices = [],
@@ -39,6 +40,7 @@ export function BillingInvoicesView({
   setBillingSection?: (s: BillingSection) => void;
   onNavigateBilling?: (t: string) => void;
   onSingleInvoice?: (ctx: any) => void;
+  onLettingFeeInvoice?: () => void;
   rows?: Row[];
   rentInvoices?: InvoiceRow[];
   creditNotes?: Row[];
@@ -78,6 +80,7 @@ export function BillingInvoicesView({
             onNavigateBilling(target);
           }}
           onSingleInvoice={onSingleInvoice}
+          onLettingFeeInvoice={onLettingFeeInvoice}
         />
       )}
 

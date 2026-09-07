@@ -11,8 +11,9 @@ import {
   Bell, Check, Settings, Trash2,
   Clock, AlertTriangle, Info, CheckCircle, XCircle, Volume2
 } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
+import { toast } from "@/lib/toast";
 
 export interface NotificationItem {
   id: string;
@@ -126,21 +127,27 @@ export function NotificationCenter() {
   const handleMarkAsRead = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!organizationId) return;
+    const previous = notifications.find((notification) => notification.id === id)?.read_at ?? null;
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
     try {
-      await apiFetch(`/notifications/${id}/mark-read/`, { method: "POST" }, organizationId);
-    } catch {
-      // Revert if error
+      const response = await apiFetch(`/notifications/${id}/mark-read/`, { method: "POST" }, organizationId);
+      if (!response.ok) throw new Error(await apiErrorMessage(response, "This notification could not be marked as read."));
+    } catch (error) {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: previous } : n));
+      toast.error(error instanceof Error ? error.message : "This notification could not be marked as read.");
     }
   };
 
   const handleMarkAllAsRead = async () => {
     if (!organizationId) return;
+    const previous = new Map(notifications.map((notification) => [notification.id, notification.read_at]));
     setNotifications(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
     try {
-      await apiFetch("/notifications/mark-all-read/", { method: "POST" }, organizationId);
-    } catch {
-      // Revert if error
+      const response = await apiFetch("/notifications/mark-all-read/", { method: "POST" }, organizationId);
+      if (!response.ok) throw new Error(await apiErrorMessage(response, "Notifications could not be marked as read."));
+    } catch (error) {
+      setNotifications(prev => prev.map(n => ({ ...n, read_at: previous.get(n.id) ?? null })));
+      toast.error(error instanceof Error ? error.message : "Notifications could not be marked as read.");
     }
   };
 

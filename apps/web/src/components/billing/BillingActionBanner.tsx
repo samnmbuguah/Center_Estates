@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { Box, Button, IconButton, Menu, MenuItem, Paper, Step, StepLabel, Stepper, Tooltip, Typography } from "@mui/material";
-import { Droplets, FilePlus2, MoreHorizontal, RotateCcw, Send } from "lucide-react";
+import { Droplets, FilePlus2, HandCoins, MoreHorizontal, RotateCcw, Send } from "lucide-react";
 import { CHARGE_TYPE_LABEL, InvoiceChargeType } from "./types";
 
 export function BillingActionBanner({
   hasRun, isPreparing, isReview, formattedMonth, ready, selectedCount,
   chargeTypeFilter = "all", billingTarget = "tenant", blockingOpen, busy,
   pendingWaterCount = 0, onLogMeters,
-  canFinance, onInitialize, onRecheck, onGenerate, onSingleInvoice,
+  canFinance, onInitialize, onRecheck, onGenerate, onSingleInvoice, onLettingFeeInvoice,
 }: {
   hasRun: boolean; isPreparing: boolean; isReview: boolean; isApproved: boolean;
   formattedMonth: string; ready: number; issues: number; selectedCount: number;
@@ -19,6 +19,7 @@ export function BillingActionBanner({
   pendingWaterCount?: number; onLogMeters?: () => void;
   onInitialize: () => void; onRecheck: () => void; onApprove: () => void;
   onGenerate: () => void; onSingleInvoice: () => void;
+  onLettingFeeInvoice?: () => void;
 }) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const typeLabel = chargeTypeFilter === "all" ? "" : CHARGE_TYPE_LABEL[chargeTypeFilter];
@@ -60,6 +61,11 @@ export function BillingActionBanner({
           disabled={!canFinance || selectedCount === 0 || Boolean(busy) || blockingOpen}
           onClick={onGenerate}
         >{generateLabel}</Button>
+        {onLettingFeeInvoice && canFinance && (
+          <Button variant="outlined" startIcon={<HandCoins size={17} />} onClick={onLettingFeeInvoice}>
+            Letting fee
+          </Button>
+        )}
         <Tooltip title="More billing actions">
           <IconButton aria-label="More billing actions" onClick={(event) => setMenuAnchor(event.currentTarget)}><MoreHorizontal size={20} /></IconButton>
         </Tooltip>

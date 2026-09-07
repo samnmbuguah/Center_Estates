@@ -23,7 +23,7 @@ export type BillingContext = {
   label: string;
 };
 
-export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNavigate: (tab: string) => void; onSingleInvoice: (ctx: BillingContext) => void }) {
+export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettingFeeInvoice }: { onNavigate: (tab: string) => void; onSingleInvoice: (ctx: BillingContext) => void; onLettingFeeInvoice?: () => void }) {
   const { session, can } = useAuth();
   const organizationId = session?.activeOrganizationId ?? null;
   const now = new Date();
@@ -501,6 +501,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice }: { onNa
           const [ey, em] = period_end.split("-").map(Number);
           return Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
         })(), label: formattedPeriod })}
+        onLettingFeeInvoice={onLettingFeeInvoice}
       />
 
       <CandidateTable

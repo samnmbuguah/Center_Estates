@@ -79,4 +79,20 @@ describe("BillingActionBanner", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: /Create one-off invoice/i }));
     expect(onSingleInvoice).toHaveBeenCalledTimes(1);
   });
+
+  it("exposes agency letting fees directly from the billing workflow", () => {
+    const onLettingFeeInvoice = jest.fn();
+    render(
+      <BillingActionBanner
+        hasRun isPreparing={false} isReview isApproved={false}
+        formattedMonth="July 2026" ready={0} issues={0} selectedCount={0}
+        blockingOpen={false} busy="" canFinance canApprove
+        onInitialize={jest.fn()} onRecheck={jest.fn()} onApprove={jest.fn()}
+        onGenerate={jest.fn()} onSingleInvoice={jest.fn()}
+        onLettingFeeInvoice={onLettingFeeInvoice}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Letting fee/i }));
+    expect(onLettingFeeInvoice).toHaveBeenCalledTimes(1);
+  });
 });

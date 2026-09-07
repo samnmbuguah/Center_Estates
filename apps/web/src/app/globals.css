@@ -6222,15 +6222,27 @@ body,
   color: var(--text-primary);
 }
 
-.module-nav-groups { background: var(--surface-sunken); }
+.module-nav-groups {
+  background: linear-gradient(112deg, #123b78 0%, #1d4ed8 58%, #2563eb 100%);
+  border-bottom-color: rgba(255, 255, 255, .18);
+}
 .module-nav-pages { background: var(--surface-raised); }
-.module-nav-groups button,
+.module-nav-groups button {
+  color: rgba(255, 255, 255, .84);
+}
 .module-nav-pages button,
-.module-nav-groups button.active,
 .module-nav-pages button.active {
   color: var(--text-primary);
 }
-.module-nav-groups button:hover,
+.module-nav-groups button:hover {
+  background: rgba(255, 255, 255, .12);
+  color: #ffffff;
+}
+.module-nav-groups button.active {
+  background: rgba(255, 255, 255, .96);
+  color: #102a56;
+  box-shadow: inset 0 -3px 0 var(--module-accent, #ef4444), 0 4px 12px rgba(15, 23, 42, .18);
+}
 .module-nav-pages button:hover {
   background: var(--interactive-hover);
   color: var(--text-primary);

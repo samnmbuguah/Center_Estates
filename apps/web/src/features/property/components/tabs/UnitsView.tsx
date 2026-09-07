@@ -415,6 +415,13 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
     setLettingFeeModalOpen(true);
   };
 
+  useEffect(() => {
+    if (window.sessionStorage.getItem("ce:open-letting-fee") !== "1") return;
+    window.sessionStorage.removeItem("ce:open-letting-fee");
+    const task = window.setTimeout(() => openLettingFeeModalForUnit(), 0);
+    return () => window.clearTimeout(task);
+  }, []);
+
   const handleCreateLettingInvoice = async () => {
     if (!lettingUnit) {
       toast.error("Please select a unit to invoice the letting fee.");
@@ -1050,8 +1057,9 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
       {/* On-Demand Agency Letting Fee Invoice Modal */}
       {lettingFeeModalOpen && (
         <Modal
-          title="Issue Agency Letting Fee Invoice"
+          title={<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}><span aria-hidden="true">⚡</span> Issue agency letting-fee invoice</Box>}
           onClose={() => setLettingFeeModalOpen(false)}
+          wide
           footer={
             <>
               <Button variant="outlined" onClick={() => setLettingFeeModalOpen(false)} sx={{ textTransform: "none" }}>
@@ -1070,27 +1078,30 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
             </>
           }
         >
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.25 }}>
             {/* Blue Ribbon Banner — Matching Staff Preview Mode Styling */}
             <Box
               sx={{
-                background: "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)",
+                background: "linear-gradient(112deg, #123b78 0%, #1d4ed8 58%, #2563eb 100%)",
                 color: "#ffffff",
-                p: 2,
-                borderRadius: "8px",
+                p: { xs: 2, sm: 2.5 },
+                borderRadius: 2.5,
                 display: "flex",
                 alignItems: "center",
                 gap: 1.5,
                 boxShadow: "0 2px 8px rgba(37, 99, 235, 0.25)",
               }}
             >
-              <span style={{ fontSize: 24 }}>⚡</span>
+              <span style={{ fontSize: 26 }} aria-hidden="true">⚡</span>
               <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800, letterSpacing: "0.02em" }}>
-                  Staff Letting Action: Immediate Agency Invoicing
+                <Typography variant="overline" sx={{ fontWeight: 800, letterSpacing: "0.08em", color: "rgba(255,255,255,.86)" }}>
+                  Agency income · one-off charge
                 </Typography>
-                <Typography variant="caption" sx={{ opacity: 0.9, display: "block" }}>
-                  Billed directly to the Unit Owner/Landlord upon lease closing. Fees can be negotiated and issued any day.
+                <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.25 }}>
+                  Bill the unit owner when a tenancy is successfully placed
+                </Typography>
+                <Typography variant="body2" sx={{ opacity: 0.92, display: "block", mt: 0.5 }}>
+                  Select the unit, confirm the agreed commission, then review the owner invoice before issuing it.
                 </Typography>
               </Box>
             </Box>
@@ -1102,8 +1113,10 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
             )}
 
             {!lettingFeeSuccess && (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
-                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>1. Unit and invoice recipient</Typography>
+                  <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1.35fr 1fr" }, gap: 1.5 }}>
                   <Autocomplete
                     size="small"
                     options={units}
@@ -1131,13 +1144,15 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                     value={lettingFeeOwner}
                     onChange={(e) => setLettingFeeOwner(e.target.value)}
                     placeholder="e.g. Dennis Osame"
-                    helperText="Party responsible for the letting commission"
+                    helperText="Filled from the unit ownership record"
+                    slotProps={{ input: { readOnly: Boolean(lettingUnit?.owner_name) } }}
                   />
+                  </Box>
                 </Box>
 
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--text-secondary)" }}>
-                    Fee Calculation Basis:
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>
+                    2. Fee calculation
                   </Typography>
                   <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
                     {[
@@ -1168,7 +1183,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                   </Box>
                 </Box>
 
-                <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
                   <TextField
                     label="Letting Fee Amount (KES)"
                     size="small"
@@ -1188,6 +1203,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                   />
                 </Box>
 
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: -1 }}>3. Review and issue</Typography>
                 {/* Live Invoice Preview Breakdown Card */}
                 <Box
                   sx={{
@@ -1205,7 +1221,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                   </Typography>
 
                   {lettingUnit ? (
-                    <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, fontSize: 13, pt: 0.5 }}>
+                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1, fontSize: 13, pt: 0.5 }}>
                       <div>
                         <span style={{ color: "var(--text-secondary)" }}>Target Unit:</span>{" "}
                         <strong>{lettingUnit.code}</strong>{" "}
