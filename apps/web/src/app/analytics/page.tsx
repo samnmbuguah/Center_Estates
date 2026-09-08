@@ -29,6 +29,14 @@ type TelemetrySummary = {
   active_members: number;
   adoption_rate: number;
   top_module: string;
+  window_days?: number;
+  period_start?: string;
+  generated_at?: string;
+  inactive_or_pending_members?: number;
+  scope_label?: string;
+  activity_sources?: string[];
+  staff_events?: number;
+  non_staff_or_system_events?: number;
 };
 
 type TelemetryInsight = {
@@ -87,6 +95,7 @@ export default function UsageAnalyticsPage() {
   const [tierFilter, setTierFilter] = useState<"all" | "power" | "active" | "casual" | "inactive">("all");
   const [userSearch, setUserSearch] = useState("");
   const [selectedUserDetail, setSelectedUserDetail] = useState<UserTelemetryStats | null>(null);
+  const [windowDays, setWindowDays] = useState<7 | 30 | 90>(30);
 
   const isAdministrator = Boolean(
     session?.user.isSuperuser || session?.permissions.includes("*") || session?.roles.includes("admin") || session?.roles.some(r => r.includes("admin") || r.includes("manager"))
@@ -96,7 +105,7 @@ export default function UsageAnalyticsPage() {
     setLoading(true);
     setError("");
     try {
-      const response = await apiFetch("/companion/telemetry/", {}, session?.activeOrganizationId ?? null);
+      const response = await apiFetch(`/companion/telemetry/?days=${windowDays}`, { cache: "no-store" }, session?.activeOrganizationId ?? null);
       if (response.ok) {
         setTelemetry(await response.json());
       } else {
@@ -107,7 +116,7 @@ export default function UsageAnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  }, [session?.activeOrganizationId]);
+  }, [session?.activeOrganizationId, windowDays]);
 
   useEffect(() => {
     if (isAdministrator) void loadTelemetry();
@@ -192,7 +201,20 @@ export default function UsageAnalyticsPage() {
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)" }}>
+            Activity period
+            <select
+              value={windowDays}
+              onChange={(event) => setWindowDays(Number(event.target.value) as 7 | 30 | 90)}
+              className="fc-toolbar-btn"
+              aria-label="Analytics activity period"
+            >
+              <option value={7}>Last 7 days</option>
+              <option value={30}>Last 30 days</option>
+              <option value={90}>Last 90 days</option>
+            </select>
+          </label>
           <button onClick={exportUsageReport} className="fc-toolbar-btn" disabled={loading || users.length === 0} title="Export the filtered staff adoption report">
             <ArrowUpRight size={13} />
             <span>{selectedUserDetail ? `Export ${selectedUserDetail.full_name || selectedUserDetail.username}` : "Export CSV"}</span>
@@ -209,19 +231,33 @@ export default function UsageAnalyticsPage() {
         </div>
       </header>
 
+      {telemetry?.summary && (
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface-sunken)", fontSize: 12, color: "var(--text-secondary)" }}>
+          <span>
+            <strong style={{ color: "var(--text-primary)" }}>Coverage:</strong> Operations include all organization activity; the adoption matrix includes only {telemetry.summary.scope_label?.toLowerCase() || "active organization staff accounts"} over the last {telemetry.summary.window_days || windowDays} days.
+          </span>
+          <span title={telemetry.summary.generated_at || undefined}>
+            Refreshed {formatWhen(telemetry.summary.generated_at || null)}
+            {(telemetry.summary.inactive_or_pending_members || 0) > 0
+              ? ` · ${telemetry.summary.inactive_or_pending_members} disabled or pending account(s) excluded`
+              : ""}
+          </span>
+        </div>
+      )}
+
       {/* 2. Executive KPI Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
         {/* Total Operations */}
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
-            <span>Total Logged Operations</span>
+            <span>Logged Operations · {windowDays} Days</span>
             <Activity size={16} style={{ color: "#dc2626" }} />
           </div>
           <div style={{ fontSize: 26, fontWeight: 900, color: "var(--text-primary)" }}>
             {totalEvents.toLocaleString()}
           </div>
           <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-            Aggregated system transactions
+            Organization-wide UI and audited transactions
           </span>
         </div>
 
@@ -254,7 +290,7 @@ export default function UsageAnalyticsPage() {
             {tierCounts.power} Staff
           </div>
           <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-            &gt; 20 operations logged
+            &gt; 20 operations in this period
           </span>
         </div>
 
@@ -268,7 +304,7 @@ export default function UsageAnalyticsPage() {
             {tierCounts.inactive} Staff
           </div>
           <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-            Require onboarding or training
+            No logged activity in this period
           </span>
         </div>
       </div>

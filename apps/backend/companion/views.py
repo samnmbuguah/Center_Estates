@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 
 from django.db import transaction
 from django.views.decorators.csrf import csrf_exempt
@@ -1229,6 +1230,14 @@ class TelemetryViewSet(ViewSet):
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = get_active_organization(request)
+        try:
+            window_days = int(request.query_params.get('days', '30'))
+        except (TypeError, ValueError):
+            raise ValidationError({'days': 'Enter a whole number of days.'})
+        if window_days < 1 or window_days > 365:
+            raise ValidationError({'days': 'Choose a reporting window between 1 and 365 days.'})
+        generated_at = timezone.now()
+        period_start = generated_at - timedelta(days=window_days)
         module_param = request.query_params.get('module', '').strip()
         path_param = request.query_params.get('path', '').strip()
         user_param = request.query_params.get('user', '').strip() or request.query_params.get('actor', '').strip()
@@ -1238,7 +1247,8 @@ class TelemetryViewSet(ViewSet):
 
         queryset = TaskEvent.objects.filter(
             organization=organization,
-            note__startswith='Telemetry ['
+            note__startswith='Telemetry [',
+            created_at__gte=period_start,
         ).select_related('actor')
 
         if module_param:
@@ -1252,12 +1262,14 @@ class TelemetryViewSet(ViewSet):
 
         all_telemetry = TaskEvent.objects.filter(
             organization=organization,
-            note__startswith='Telemetry ['
+            note__startswith='Telemetry [',
+            created_at__gte=period_start,
         ).select_related('actor')
 
         all_audits = AuditEvent.objects.filter(
-            organization=organization
-        ).select_related('actor')[:1000]
+            organization=organization,
+            created_at__gte=period_start,
+        ).select_related('actor')
 
         page_counts = {
             'property': 0,
@@ -1272,8 +1284,15 @@ class TelemetryViewSet(ViewSet):
         hourly_counts = [0] * 24
 
         members = Membership.objects.filter(
-            organization=organization, status=Membership.Status.ACTIVE
+            organization=organization,
+            status=Membership.Status.ACTIVE,
+            user__is_active=True,
         ).select_related('user').prefetch_related('roles')
+
+        membership_counts = Membership.objects.filter(organization=organization).aggregate(
+            active=Count('id', filter=Q(status=Membership.Status.ACTIVE, user__is_active=True)),
+            inactive=Count('id', filter=~Q(status=Membership.Status.ACTIVE) | Q(user__is_active=False)),
+        )
 
         for m in members:
             u_name = m.user.username
@@ -1292,7 +1311,9 @@ class TelemetryViewSet(ViewSet):
                 'tier': 'inactive',
             }
 
-        for ev in all_telemetry[:1000]:
+        # Do not cap these querysets: the analytics page must report the complete
+        # selected period. iterator() keeps memory bounded for larger estates.
+        for ev in all_telemetry.iterator(chunk_size=2000):
             note = ev.note
             mod = "companion"
             if "(Module: " in note:
@@ -1306,26 +1327,17 @@ class TelemetryViewSet(ViewSet):
                 hourly_counts[ev.created_at.hour] += 1
 
             actor_name = ev.actor.username if ev.actor else None
-            if actor_name:
-                stats = user_stats.setdefault(actor_name, {
-                    'user_id': str(ev.actor.id),
-                    'username': actor_name,
-                    'full_name': actor_name,
-                    'email': ev.actor.email or '',
-                    'role': 'Staff',
-                    'is_admin': False,
-                    'events': 0,
-                    'modules': set(),
-                    'last_seen': None,
-                    'tier': 'inactive',
-                })
+            # Adoption is intentionally scoped to current active staff. Former,
+            # disabled, tenant, and landlord portal users must not alter it.
+            if actor_name and actor_name in user_stats:
+                stats = user_stats[actor_name]
                 stats['events'] += 1
                 if mod:
                     stats['modules'].add(mod)
                 if stats['last_seen'] is None or ev.created_at > stats['last_seen']:
                     stats['last_seen'] = ev.created_at
 
-        for audit in all_audits:
+        for audit in all_audits.iterator(chunk_size=2000):
             mod_guess = "property" if "property" in audit.entity_type.lower() or "tenant" in audit.entity_type.lower() or "lease" in audit.entity_type.lower() else (
                 "facility" if "facility" in audit.entity_type.lower() or "work_order" in audit.entity_type.lower() or "asset" in audit.entity_type.lower() or "contractor" in audit.entity_type.lower() else (
                     "valuation" if "valuation" in audit.entity_type.lower() else (
@@ -1372,6 +1384,8 @@ class TelemetryViewSet(ViewSet):
             }
 
         total_users = len(user_stats)
+        total_events = sum(page_counts.values())
+        staff_events = sum(s['events'] for s in user_stats.values())
         active_users_count = sum(1 for s in user_stats.values() if s['tier'] in ('power', 'active', 'casual'))
         adoption_rate = round((active_users_count / total_users * 100), 1) if total_users else 0.0
 
@@ -1408,11 +1422,19 @@ class TelemetryViewSet(ViewSet):
 
         return Response({
             'summary': {
-                'total_events': sum(page_counts.values()),
+                'total_events': total_events,
+                'staff_events': staff_events,
+                'non_staff_or_system_events': max(0, total_events - staff_events),
                 'total_members': total_users,
                 'active_members': active_users_count,
                 'adoption_rate': adoption_rate,
                 'top_module': sorted_modules[0][0] if sorted_modules and sorted_modules[0][1] > 0 else 'facility',
+                'window_days': window_days,
+                'period_start': period_start.isoformat(),
+                'generated_at': generated_at.isoformat(),
+                'inactive_or_pending_members': membership_counts['inactive'] or 0,
+                'scope_label': 'Active organization staff accounts',
+                'activity_sources': ['UI telemetry', 'server audit events'],
             },
             'by_module': page_counts,
             'by_user': by_user,
@@ -1427,6 +1449,9 @@ class TelemetryViewSet(ViewSet):
                 }
                 for e in events
             ]
+        }, headers={
+            'Cache-Control': 'private, no-store, max-age=0',
+            'Pragma': 'no-cache',
         })
 
     @extend_schema(request=None, responses={200: {"type": "object"}})

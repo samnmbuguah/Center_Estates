@@ -349,6 +349,40 @@ class CompanionApiTests(TestCase):
         self.assertIn('property', admin_stats['modules'])
         self.assertIn('facility', admin_stats['modules'])
         self.assertIsNotNone(admin_stats['last_seen'])
+        self.assertEqual(response.data['summary']['window_days'], 30)
+        self.assertEqual(response.data['summary']['scope_label'], 'Active organization staff accounts')
+        self.assertIn('no-store', response['Cache-Control'])
+
+    def test_telemetry_list_is_not_capped_at_one_thousand_events(self):
+        TaskEvent.objects.bulk_create([
+            TaskEvent(
+                organization=self.organization,
+                actor=self.admin,
+                action=TaskEvent.Action.UPDATED,
+                note='Telemetry [user_click] (Module: property)',
+            )
+            for _ in range(1005)
+        ])
+
+        self.login(self.admin)
+        response = self.client.get('/api/v1/companion/telemetry/?days=30')
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.data['summary']['total_events'], 1005)
+        self.assertEqual(response.data['by_user'][self.admin.username]['events'], 1005)
+
+    def test_telemetry_excludes_disabled_staff_and_rejects_invalid_window(self):
+        self.staff.is_active = False
+        self.staff.save(update_fields=['is_active'])
+        self.login(self.admin)
+
+        response = self.client.get('/api/v1/companion/telemetry/?days=30')
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertNotIn(self.staff.username, response.data['by_user'])
+        self.assertEqual(response.data['summary']['inactive_or_pending_members'], 1)
+
+        invalid = self.client.get('/api/v1/companion/telemetry/?days=0')
+        self.assertEqual(invalid.status_code, 400)
 
     # ─── P1: FEEDBACK WORKFLOW ───
 
