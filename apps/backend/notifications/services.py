@@ -8,6 +8,30 @@ from .models import Notification, EmailConfiguration, UserNotificationPreference
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_TEST_RECIPIENT = 'albin.sigei@gmail.com'
+
+
+def get_effective_email_configuration(organization):
+    config = EmailConfiguration.objects.filter(organization=organization, is_active=True).first() if organization else None
+    if not config:
+        platform_slug = getattr(settings, 'PLATFORM_EMAIL_ORGANIZATION_SLUG', 'center-estates-demo')
+        config = EmailConfiguration.objects.filter(organization__slug=platform_slug, is_active=True).first()
+    return config
+
+
+def resolve_email_delivery(organization, intended_recipients):
+    """Return (actual recipients, is_test, intended recipients).
+
+    Test mode is deliberately the fail-safe. A missing SMTP configuration must
+    never cause tenant/customer mail to escape during implementation testing.
+    """
+    intended = [str(value).strip() for value in intended_recipients if str(value).strip()]
+    config = get_effective_email_configuration(organization)
+    if not config or config.delivery_mode != 'live':
+        target = (config.test_recipient if config else '') or getattr(settings, 'EMAIL_TEST_RECIPIENT', DEFAULT_TEST_RECIPIENT)
+        return [target], True, intended
+    return intended, False, intended
+
 
 def get_email_connection_and_sender(organization):
     """
@@ -19,13 +43,7 @@ def get_email_connection_and_sender(organization):
     A customer's active configuration always takes precedence.
     Returns (connection, from_email, from_name).
     """
-    config = EmailConfiguration.objects.filter(organization=organization, is_active=True).first()
-    if not config:
-        platform_slug = getattr(settings, 'PLATFORM_EMAIL_ORGANIZATION_SLUG', 'center-estates-demo')
-        config = EmailConfiguration.objects.filter(
-            organization__slug=platform_slug,
-            is_active=True,
-        ).first()
+    config = get_effective_email_configuration(organization)
     if config and config.backend_type == 'smtp' and config.host:
         connection = get_connection(
             backend='django.core.mail.backends.smtp.EmailBackend',
@@ -100,18 +118,26 @@ def send_email_notification(*, recipient_email, recipient_name, subject, message
             plain_text += f"View details here: {full_action_url}\n\n"
         plain_text += "---\nCeEst Property & Workplace Management"
 
+        actual_recipients, is_test, intended_recipients = resolve_email_delivery(organization, [recipient_email])
+        if is_test:
+            intended_label = ', '.join(intended_recipients) or 'no recipient supplied'
+            subject = f'[TEST — intended for {intended_label}] {subject}'
+            plain_text = f'TEST DELIVERY — original recipient: {intended_label}\n\n{plain_text}'
+            html_content = f'<div style="padding:10px;background:#fff7ed;border:1px solid #fdba74;font-weight:700">TEST DELIVERY — original recipient: {escape(intended_label)}</div>{html_content}'
+
         email = EmailMultiAlternatives(
             subject=subject,
             body=plain_text,
             from_email=from_email,
-            to=[recipient_email],
+            to=actual_recipients,
             connection=connection,
+            headers={'X-CeEst-Original-To': ', '.join(intended_recipients)},
         )
         email.attach_alternative(html_content, 'text/html')
         email.send(fail_silently=False)
         return True
     except Exception as exc:
-        logger.warning('Failed to send email notification to %s: %s', recipient_email, exc)
+        logger.warning('Failed to send email notification for intended recipient %s: %s', recipient_email, exc)
         return False
 
 

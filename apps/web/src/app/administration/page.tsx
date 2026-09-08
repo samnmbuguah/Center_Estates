@@ -240,7 +240,9 @@ function AdministrationContent() {
   const [smtpFromEmail, setSmtpFromEmail] = useState("companion@centerestates.com");
   const [smtpFromName, setSmtpFromName] = useState("Center Estates");
   const [smtpIsActive, setSmtpIsActive] = useState(true);
-  const [testEmailAddress, setTestEmailAddress] = useState("samnmbuguah@gmail.com");
+  const [smtpDeliveryMode, setSmtpDeliveryMode] = useState<"test" | "live">("test");
+  const [smtpTestRecipient, setSmtpTestRecipient] = useState("albin.sigei@gmail.com");
+  const [testEmailAddress, setTestEmailAddress] = useState("albin.sigei@gmail.com");
   const [testingSmtp, setTestingSmtp] = useState(false);
   const [smtpTestResult, setSmtpTestResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -467,6 +469,8 @@ function AdministrationContent() {
           setSmtpFromEmail(activeConfig.from_email || "noreply@centerestates.com");
           setSmtpFromName(activeConfig.from_name || "CeEst");
           setSmtpIsActive(activeConfig.is_active ?? true);
+          setSmtpDeliveryMode(activeConfig.delivery_mode === "live" ? "live" : "test");
+          setSmtpTestRecipient(activeConfig.test_recipient || "albin.sigei@gmail.com");
         }
       }
     } catch (err) {
@@ -539,6 +543,7 @@ function AdministrationContent() {
   async function handleSaveSmtp(e: FormEvent) {
     e.preventDefault();
     if (!organizationId) return;
+    if (smtpDeliveryMode === "live" && !window.confirm("Enable LIVE email delivery? Future invoices, receipts, reports and notifications will be sent to their real recipients.")) return;
     setSaving(true);
     setNotice(null);
     try {
@@ -551,6 +556,8 @@ function AdministrationContent() {
         from_email: smtpFromEmail.trim(),
         from_name: smtpFromName.trim(),
         is_active: smtpIsActive,
+        delivery_mode: smtpDeliveryMode,
+        test_recipient: smtpTestRecipient.trim().toLowerCase(),
       };
       if (smtpPassword) {
         payload.password = smtpPassword;
@@ -1777,6 +1784,29 @@ function AdministrationContent() {
           </div>
 
           <form onSubmit={handleSaveSmtp} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ background: smtpDeliveryMode === "test" ? "#fff7ed" : "#fef2f2", border: `2px solid ${smtpDeliveryMode === "test" ? "#fb923c" : "#dc2626"}`, borderRadius: 10, padding: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: smtpDeliveryMode === "test" ? "#9a3412" : "#991b1b", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                {smtpDeliveryMode === "test" ? "🛡️ Test inbox protection is active" : "⚠️ Live recipient delivery is active"}
+              </div>
+              <p style={{ margin: "0 0 12px", fontSize: 13, color: "#431407" }}>
+                {smtpDeliveryMode === "test"
+                  ? "All invoices, receipts, reports and notifications are redirected to the administrator. Customers will not receive test messages."
+                  : "Messages are sent to the actual tenant, landlord, supplier and staff addresses recorded in the system."}
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, 1fr) minmax(240px, 2fr)", gap: 12 }}>
+                <label style={{ display: "grid", gap: 6, fontSize: 12, fontWeight: 800 }}>
+                  Delivery mode
+                  <select value={smtpDeliveryMode} onChange={(event) => setSmtpDeliveryMode(event.target.value === "live" ? "live" : "test")} style={{ padding: "10px 12px", borderRadius: 7, border: "1px solid #fdba74", background: "#fff" }}>
+                    <option value="test">Test inbox only — safe</option>
+                    <option value="live">Live recipients</option>
+                  </select>
+                </label>
+                <label style={{ display: "grid", gap: 6, fontSize: 12, fontWeight: 800 }}>
+                  Administrator test inbox
+                  <input type="email" required value={smtpTestRecipient} disabled={smtpDeliveryMode === "live"} onChange={(event) => setSmtpTestRecipient(event.target.value)} style={{ padding: "10px 12px", borderRadius: 7, border: "1px solid #fdba74", background: smtpDeliveryMode === "live" ? "#f1f5f9" : "#fff" }} />
+                </label>
+              </div>
+            </div>
             {/* Server Settings */}
             <div style={{ background: "var(--surface-sunken, #f8fafc)", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>

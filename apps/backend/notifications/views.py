@@ -1,7 +1,7 @@
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiParameter, OpenApiTypes
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ReadOnlyModelViewSet
 
@@ -109,12 +109,24 @@ from core.permissions import HasOrganizationContext
 from rest_framework import status
 from .models import EmailConfiguration, UserNotificationPreference
 from .serializers import EmailConfigurationSerializer, UserNotificationPreferenceSerializer
-from .services import get_email_connection_and_sender, send_email_notification
+from .services import get_email_connection_and_sender, resolve_email_delivery, send_email_notification
+
+
+class IsOrganizationEmailAdmin(BasePermission):
+    message = 'Only an organization administrator can change email delivery settings.'
+
+    def has_permission(self, request, view):
+        from core.tenancy import get_active_membership
+        if request.user.is_superuser:
+            return True
+        organization = get_active_organization(request, required=False)
+        membership = get_active_membership(request, organization) if organization else None
+        return bool(membership and membership.is_organization_admin)
 
 
 class EmailConfigurationViewSet(ModelViewSet):
     """Admin endpoint for configuring organizational SMTP settings."""
-    permission_classes = (HasOrganizationContext, IsAuthenticated)
+    permission_classes = (HasOrganizationContext, IsAuthenticated, IsOrganizationEmailAdmin)
     serializer_class = EmailConfigurationSerializer
     queryset = EmailConfiguration.objects.all()
 
@@ -165,11 +177,17 @@ class EmailConfigurationViewSet(ModelViewSet):
                     host=host, port=port, username=username, password=password,
                     use_tls=use_tls, use_ssl=use_ssl, timeout=10,
                 )
+                actual_recipients, is_test, intended = resolve_email_delivery(organization, [recipient_email])
+                subject = '[Center Estates] SMTP Configuration Test'
+                body = f'This is a diagnostic test email from Center Estates sent by {request.user.username}.\n\nSMTP settings: {host}:{port} (TLS: {use_tls}, SSL: {use_ssl})'
+                if is_test:
+                    subject = f'[TEST — intended for {", ".join(intended)}] {subject}'
+                    body = f'TEST DELIVERY — original recipient: {", ".join(intended)}\n\n{body}'
                 email = EmailMultiAlternatives(
-                    subject='[Center Estates] SMTP Configuration Test',
-                    body=f'This is a diagnostic test email from Center Estates sent by {request.user.username}.\n\nSMTP settings: {host}:{port} (TLS: {use_tls}, SSL: {use_ssl})',
+                    subject=subject,
+                    body=body,
                     from_email=f'{from_name} <{from_email}>',
-                    to=[recipient_email],
+                    to=actual_recipients,
                     connection=connection,
                 )
                 email.send(fail_silently=False)
@@ -213,4 +231,3 @@ class UserNotificationPreferenceViewSet(ModelViewSet):
             serializer.save()
             return Response(serializer.data)
         return Response(UserNotificationPreferenceSerializer(pref).data)
-

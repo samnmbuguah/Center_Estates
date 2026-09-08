@@ -51,6 +51,12 @@ class EmailConfiguration(OrganizationOwnedModel):
     from_email = models.EmailField(default='noreply@centerestates.com')
     from_name = models.CharField(max_length=120, default='CeEst ERP')
     is_active = models.BooleanField(default=True)
+    delivery_mode = models.CharField(
+        max_length=16,
+        choices=(('test', 'Test inbox only'), ('live', 'Live recipients')),
+        default='test',
+    )
+    test_recipient = models.EmailField(default='albin.sigei@gmail.com')
 
     class Meta:
         ordering = ('-created_at',)
@@ -78,4 +84,3 @@ class UserNotificationPreference(OrganizationOwnedModel):
 
     def __str__(self):
         return f'{self.user.username} Preferences ({self.organization.name})'
-

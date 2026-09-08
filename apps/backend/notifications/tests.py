@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core import mail
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.test import TestCase, override_settings
@@ -10,11 +11,41 @@ from unittest.mock import patch
 from organizations.models import Membership, Organization
 
 from .models import EmailConfiguration, Notification
-from .services import get_email_connection_and_sender
+from .services import get_email_connection_and_sender, resolve_email_delivery, send_email_notification
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class NotificationTenantTests(TestCase):
+    def test_email_delivery_defaults_to_admin_test_inbox(self):
+        org = Organization.objects.create(name='Sandbox Org', slug='sandbox-org')
+        actual, is_test, intended = resolve_email_delivery(org, ['tenant@example.com'])
+        self.assertTrue(is_test)
+        self.assertEqual(actual, ['albin.sigei@gmail.com'])
+        self.assertEqual(intended, ['tenant@example.com'])
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_notification_email_is_redirected_and_labels_intended_recipient(self):
+        org = Organization.objects.create(name='Sandbox Mail Org', slug='sandbox-mail-org')
+        EmailConfiguration.objects.create(
+            organization=org, backend_type='console', delivery_mode='test',
+            test_recipient='albin.sigei@gmail.com', is_active=True,
+        )
+        sent = send_email_notification(
+            recipient_email='tenant@example.com', recipient_name='Tenant',
+            subject='Invoice INV-1', message='Invoice attached', organization=org,
+        )
+        self.assertTrue(sent)
+        self.assertEqual(mail.outbox[0].to, ['albin.sigei@gmail.com'])
+        self.assertIn('intended for tenant@example.com', mail.outbox[0].subject)
+
+    def test_live_mode_uses_intended_recipient(self):
+        org = Organization.objects.create(name='Live Mail Org', slug='live-mail-org')
+        EmailConfiguration.objects.create(organization=org, delivery_mode='live', is_active=True)
+        actual, is_test, intended = resolve_email_delivery(org, ['tenant@example.com'])
+        self.assertFalse(is_test)
+        self.assertEqual(actual, ['tenant@example.com'])
+        self.assertEqual(intended, actual)
+
     @override_settings(PLATFORM_EMAIL_ORGANIZATION_SLUG='center-estates-demo')
     def test_customer_without_email_gateway_uses_platform_sender(self):
         platform = Organization.objects.create(name='Center Estates Demo', slug='center-estates-demo')

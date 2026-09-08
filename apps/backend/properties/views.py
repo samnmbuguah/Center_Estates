@@ -5173,11 +5173,20 @@ class ScheduledReportViewSet(OrganizationModelViewSet):
             schedule.last_delivery_error = ''
             return
         from django.core.mail import EmailMessage
+        from notifications.services import resolve_email_delivery
         try:
+            actual_recipients, is_test, intended_recipients = resolve_email_delivery(schedule.organization, schedule.recipients)
+            intended_label = ', '.join(intended_recipients)
+            subject = f'Center Estates report: {schedule.definition.name}'
+            body = f'The scheduled {schedule.definition.name} report is attached. Reporting period: {execution.period_start or "default"} to {execution.period_end or "default"}.'
+            if is_test:
+                subject = f'[TEST — intended for {intended_label}] {subject}'
+                body = f'TEST DELIVERY — original recipients: {intended_label}\n\n{body}'
             message = EmailMessage(
-                subject=f'Center Estates report: {schedule.definition.name}',
-                body=f'The scheduled {schedule.definition.name} report is attached. Reporting period: {execution.period_start or "default"} to {execution.period_end or "default"}.',
-                to=schedule.recipients,
+                subject=subject,
+                body=body,
+                to=actual_recipients,
+                headers={'X-CeEst-Original-To': intended_label},
             )
             execution.file.open('rb')
             message.attach(execution.file.name.rsplit('/', 1)[-1], execution.file.read())

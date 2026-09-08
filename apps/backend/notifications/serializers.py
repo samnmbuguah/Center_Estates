@@ -30,6 +30,7 @@ class EmailConfigurationSerializer(serializers.ModelSerializer):
         fields = (
             'id', 'backend_type', 'host', 'port', 'username', 'password',
             'use_tls', 'use_ssl', 'from_email', 'from_name', 'is_active',
+            'delivery_mode', 'test_recipient',
             'created_at', 'updated_at',
         )
         read_only_fields = ('id', 'created_at', 'updated_at')
@@ -45,4 +46,3 @@ class UserNotificationPreferenceSerializer(serializers.ModelSerializer):
             'notify_financial_alerts', 'updated_at',
         )
         read_only_fields = ('id', 'updated_at')
-
