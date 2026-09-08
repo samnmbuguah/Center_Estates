@@ -8,7 +8,6 @@ import {
   Box,
   Button,
   Chip,
-  Divider,
   IconButton,
   List,
   ListItemButton,
@@ -252,6 +251,15 @@ export default function QmChatWindow({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
 
+  useEffect(() => {
+    if (!visible) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose, visible]);
+
   const { pinnedConversations, otherConversations } = useMemo(() => {
     const pinned: StoredConversation[] = [];
     const others: StoredConversation[] = [];
@@ -269,6 +277,7 @@ export default function QmChatWindow({
     <Paper
       role="dialog"
       aria-label="Quartermaster AI companion"
+      aria-modal="false"
       elevation={18}
       sx={{
         position: "fixed",
@@ -276,14 +285,26 @@ export default function QmChatWindow({
         bottom: { xs: 8, sm: 18 },
         zIndex: 1400,
         width: { xs: "calc(100vw - 16px)", sm: 420 },
-        height: { xs: "min(680px, calc(100dvh - 16px))", sm: 610 },
+        maxWidth: "calc(100vw - 16px)",
+        height: "min(610px, calc(100dvh - 16px))",
+        maxHeight: "calc(100dvh - 16px)",
         borderRadius: { xs: 2.5, sm: 3.5 },
         border: 1,
         borderColor: "divider",
         overflow: "hidden",
         display: visible ? "flex" : "none",
         flexDirection: "column",
+        overscrollBehavior: "contain",
         boxShadow: "0 20px 45px rgba(0,0,0,0.22)",
+        "@media (max-width: 600px), (max-height: 700px)": {
+          inset: 0,
+          width: "100vw",
+          maxWidth: "100vw",
+          height: "100dvh",
+          maxHeight: "100dvh",
+          borderRadius: 0,
+          border: 0,
+        },
       }}
     >
       {/* Header */}
@@ -295,6 +316,7 @@ export default function QmChatWindow({
           display: "flex",
           alignItems: "center",
           gap: 1,
+          flexShrink: 0,
         }}
       >
         <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: "rgba(255,255,255,.14)", display: "grid", placeItems: "center" }}>
@@ -317,16 +339,16 @@ export default function QmChatWindow({
         </Box>
 
         <Tooltip title="New Chat">
-          <IconButton size="small" aria-label="Start new chat" onClick={startNewChat} sx={{ color: "white" }}>
+          <IconButton className="qm-secondary-action" size="small" aria-label="Start new chat" onClick={startNewChat} sx={{ color: "white", "@media (max-width: 360px), (max-height: 540px)": { display: "none" } }}>
             <Plus size={18} />
           </IconButton>
         </Tooltip>
         <Tooltip title="Chat History">
-          <IconButton size="small" aria-label="View past conversations" onClick={() => setShowHistory((h) => !h)} sx={{ color: showHistory ? "#2dd4bf" : "white" }}>
+          <IconButton className="qm-secondary-action" size="small" aria-label="View past conversations" onClick={() => setShowHistory((h) => !h)} sx={{ color: showHistory ? "#2dd4bf" : "white", "@media (max-width: 360px), (max-height: 540px)": { display: "none" } }}>
             <History size={17} />
           </IconButton>
         </Tooltip>
-        <IconButton component={Link} href="/companion?tab=qm" size="small" aria-label="Open Quartermaster workspace" sx={{ color: "white" }}>
+        <IconButton className="qm-secondary-action" component={Link} href="/companion?tab=qm" size="small" aria-label="Open Quartermaster workspace" sx={{ color: "white", "@media (max-width: 430px), (max-height: 600px)": { display: "none" } }}>
           <ExternalLink size={16} />
         </IconButton>
         <IconButton size="small" aria-label="Minimize" onClick={onMinimize} sx={{ color: "white" }}>
@@ -437,7 +459,7 @@ export default function QmChatWindow({
           )}
 
           {messages.map((message) => (
-            <Box key={message.id} sx={{ alignSelf: message.role === "user" ? "flex-end" : "flex-start", maxWidth: "88%" }}>
+            <Box key={message.id} sx={{ alignSelf: message.role === "user" ? "flex-end" : "flex-start", maxWidth: { xs: "96%", sm: "88%" }, minWidth: 0 }}>
               <Paper
                 elevation={0}
                 sx={{
@@ -457,30 +479,30 @@ export default function QmChatWindow({
                   </Typography>
                 )}
               </Paper>
-              {/* Tool execution badges — shows which live data sources QM queried */}
+              {/* Read-only provenance badges — these describe the sources QM queried. */}
               {message.role === "assistant" && message.response?.toolsExecuted?.length ? (
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5, alignItems: "center" }}>
+                <Box aria-label="Data sources checked by Quartermaster" sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.75, alignItems: "center" }}>
                   <Typography variant="caption" sx={{ color: "text.disabled", fontSize: 10, mr: 0.25 }}>
-                    Grounded via:
+                    Sources checked (reference only):
                   </Typography>
                   {message.response.toolsExecuted.map((tool) => {
                     const meta = TOOL_LABELS[tool] ?? { label: tool, icon: "📦" };
                     return (
-                      <Tooltip key={tool} title={`Live data: ${meta.label}`} placement="top">
-                        <Chip
-                          size="small"
-                          label={`${meta.icon} ${meta.label}`}
-                          sx={{
-                            height: 18,
-                            fontSize: 10,
-                            fontWeight: 600,
-                            bgcolor: "rgba(13,148,136,0.08)",
-                            color: "#0d9488",
-                            border: "1px solid rgba(13,148,136,0.2)",
-                            "& .MuiChip-label": { px: 0.75 },
-                          }}
-                        />
-                      </Tooltip>
+                      <Chip
+                        key={tool}
+                        size="small"
+                        variant="outlined"
+                        label={`${meta.icon} ${meta.label}`}
+                        sx={{
+                          height: 22,
+                          fontSize: 10,
+                          fontWeight: 600,
+                          bgcolor: "rgba(13,148,136,0.04)",
+                          color: "text.secondary",
+                          borderColor: "divider",
+                          "& .MuiChip-label": { px: 0.75 },
+                        }}
+                      />
                     );
                   })}
                 </Box>
@@ -532,7 +554,7 @@ export default function QmChatWindow({
             </IconButton>
           </Box>
           <Box sx={{ mt: 0.65, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ "@media (max-width: 430px), (max-height: 540px)": { display: "none" } }}>
               Enter to send · Shift+Enter for new line
             </Typography>
             {messages.length > 0 && (
@@ -557,4 +579,3 @@ export default function QmChatWindow({
     </Paper>
   );
 }
-

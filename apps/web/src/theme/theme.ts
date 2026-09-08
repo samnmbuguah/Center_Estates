@@ -92,6 +92,42 @@ export const getTheme = (mode: 'light' | 'dark') => {
         styleOverrides: {
           paper: {
             borderRadius: 12,
+            maxHeight: 'calc(100dvh - 32px)',
+            maxWidth: 'calc(100vw - 32px)',
+            '@media (max-width: 600px), (max-height: 600px)': {
+              margin: 8,
+              width: 'calc(100vw - 16px)',
+              maxWidth: 'calc(100vw - 16px)',
+              maxHeight: 'calc(100dvh - 16px)',
+              borderRadius: 8,
+            },
+          },
+        },
+      },
+      MuiDialogTitle: {
+        styleOverrides: {
+          root: {
+            overflowWrap: 'anywhere',
+            '@media (max-width: 600px)': { padding: '16px 16px 10px' },
+          },
+        },
+      },
+      MuiDialogContent: {
+        styleOverrides: {
+          root: {
+            minWidth: 0,
+            '@media (max-width: 600px)': { paddingLeft: 16, paddingRight: 16 },
+          },
+        },
+      },
+      MuiDialogActions: {
+        styleOverrides: {
+          root: {
+            flexWrap: 'wrap',
+            '@media (max-width: 600px)': {
+              padding: 12,
+              '& > button': { minHeight: 44 },
+            },
           },
         },
       },

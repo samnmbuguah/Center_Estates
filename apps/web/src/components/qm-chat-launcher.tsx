@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge, Box, CircularProgress, Fab, Tooltip } from "@mui/material";
 import { Sparkles } from "lucide-react";
 
@@ -13,12 +13,10 @@ const QmChatWindow = dynamic(() => import("@/components/qm-chat-window"), {
 const LOGIN_BRIEF_KEY = "ce_qm_brief_after_login";
 const DAILY_BRIEF_PROMPT = "Give me a concise briefing for today. Prioritize my overdue and urgent tasks, rent or occupancy issues, and critical facility work I am authorized to see. End with the three most useful actions I should take next.";
 
-export function QmChatLauncher({ enabled, organizationId, offsetForSidebar = false }: { enabled: boolean; organizationId: string | null; offsetForSidebar?: boolean }) {
+export function QmChatLauncher({ enabled, organizationId }: { enabled: boolean; organizationId: string | null; offsetForSidebar?: boolean }) {
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [initialPrompt, setInitialPrompt] = useState<string>();
-  const lastAutomaticHelp = useRef(0);
-
   useEffect(() => {
     if (!enabled) {
       sessionStorage.removeItem(LOGIN_BRIEF_KEY);
@@ -51,7 +49,7 @@ export function QmChatLauncher({ enabled, organizationId, offsetForSidebar = fal
           color="primary"
           aria-label="Open Quartermaster AI companion"
           onClick={() => { setInitialPrompt(undefined); setLoaded(true); setOpen(true); }}
-          sx={{ position: "fixed", right: 18, bottom: 18, zIndex: 1250, background: "linear-gradient(135deg, #0d9488, #0f172a)", boxShadow: 8 }}
+          sx={{ position: "fixed", right: { xs: 12, sm: 18 }, bottom: { xs: "max(12px, env(safe-area-inset-bottom))", sm: 18 }, zIndex: 1250, background: "linear-gradient(135deg, #0d9488, #0f172a)", boxShadow: 8 }}
         >
           <Badge color="success" variant="dot" overlap="circular"><Sparkles size={23} /></Badge>
         </Fab>
