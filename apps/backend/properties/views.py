@@ -1750,6 +1750,102 @@ class UnitViewSet(OrganizationModelViewSet):
         updated = qs.update(unit_type=unit_type)
         return Response({'updated': updated, 'unit_type': unit_type})
 
+    @action(detail=False, methods=('post',), url_path='bulk-service-charges')
+    @transaction.atomic
+    def bulk_service_charges(self, request):
+        """Preview and apply fixed monthly service charges to existing units.
+
+        The preview/apply split prevents a CSV upload from silently creating
+        units or assigning a charge to the wrong property.
+        """
+        organization = get_active_organization(request)
+        property_record = get_active_property(request, organization)
+        if property_record is None:
+            raise ValidationError({'property': 'Select a property before uploading service charges.'})
+        rows = request.data.get('rows')
+        if not isinstance(rows, list) or not rows or len(rows) > 500:
+            raise ValidationError({'rows': 'Provide between 1 and 500 service-charge rows.'})
+
+        parsed = []
+        seen = set()
+        row_errors = []
+        for index, row in enumerate(rows, start=2):
+            code = str((row or {}).get('unit_code') or '').strip().upper() if isinstance(row, dict) else ''
+            raw_amount = str((row or {}).get('amount') or '').replace(',', '').strip() if isinstance(row, dict) else ''
+            if not code:
+                row_errors.append({'row': index, 'unit_code': '', 'detail': 'Unit code is required.'})
+                continue
+            if code in seen:
+                row_errors.append({'row': index, 'unit_code': code, 'detail': 'Unit code is duplicated in the upload.'})
+                continue
+            seen.add(code)
+            try:
+                amount = Decimal(raw_amount).quantize(Decimal('0.01'))
+            except Exception:
+                row_errors.append({'row': index, 'unit_code': code, 'detail': 'Monthly service charge must be a number.'})
+                continue
+            if amount < 0:
+                row_errors.append({'row': index, 'unit_code': code, 'detail': 'Monthly service charge cannot be negative.'})
+                continue
+            parsed.append((code, amount, index))
+
+        units = list(Unit.objects.for_organization(organization).filter(property=property_record, code__in=[code for code, _amount, _row in parsed]))
+        units_by_code = {unit.code.strip().upper(): unit for unit in units}
+        for code, _amount, index in parsed:
+            if code not in units_by_code:
+                row_errors.append({'row': index, 'unit_code': code, 'detail': 'No matching unit exists in the selected property.'})
+        if row_errors:
+            raise ValidationError({'rows': row_errors, 'detail': 'Nothing was changed. Correct the highlighted rows and preview again.'})
+
+        total = sum((amount for _code, amount, _row in parsed), Decimal('0.00'))
+        result = {
+            'property': str(property_record.id),
+            'property_name': property_record.name,
+            'matched': len(parsed),
+            'monthly_total': str(total),
+            'applied': False,
+        }
+        if not request.data.get('apply'):
+            return Response(result)
+
+        billing_item, _ = BillingItem.objects.get_or_create(
+            organization=organization,
+            code='SERVICE_CHARGE',
+            defaults={
+                'name': 'Service charge',
+                'calculation': BillingItem.Calculation.FIXED,
+                'income_category': 'service_charge',
+                'is_recurring': True,
+            },
+        )
+        for code, amount, _row in parsed:
+            unit = units_by_code[code]
+            metadata = dict(unit.metadata or {})
+            metadata['billing_setup'] = {
+                **(metadata.get('billing_setup') or {}),
+                'service_charge_rate': str(amount),
+                'service_charge_calculation': BillingItem.Calculation.FIXED,
+            }
+            unit.common_area_fee_amount = amount
+            unit.metadata = metadata
+            unit.save(update_fields=('common_area_fee_amount', 'metadata', 'updated_at'))
+            UnitChargeRule.objects.update_or_create(
+                organization=organization,
+                unit=unit,
+                billing_item=billing_item,
+                defaults={
+                    'frequency': UnitChargeRule.Frequency.MONTHLY,
+                    'calculation': BillingItem.Calculation.FIXED,
+                    'amount': amount,
+                    'rate': Decimal('0.00'),
+                    'billing_day': 1,
+                    'is_active': True,
+                },
+            )
+        result['applied'] = True
+        result['updated'] = len(parsed)
+        return Response(result)
+
 
 class UnitChargeRuleViewSet(OrganizationModelViewSet):
     write_permission = 'property.operations'

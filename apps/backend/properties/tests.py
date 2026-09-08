@@ -1952,6 +1952,36 @@ class PropertyApiTests(TestCase):
         self.assertIn('billing_readiness', response.data['ownership_schedule'][0])
         self.assertEqual(response.data['lease_expiry'][0]['lease'], self.lease.reference)
 
+    def test_bulk_service_charge_upload_previews_then_updates_existing_units_only(self):
+        headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+        url = '/api/v1/property/units/bulk-service-charges/'
+        rows = [{'unit_code': self.unit.code, 'amount': '3,500.00'}]
+
+        preview = self.client.post(url, {'rows': rows, 'apply': False}, format='json', **headers)
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertEqual(preview.data['matched'], 1)
+        self.assertEqual(preview.data['monthly_total'], '3500.00')
+        self.unit.refresh_from_db()
+        self.assertEqual(self.unit.common_area_fee_amount, Decimal('0.00'))
+        self.assertFalse(UnitChargeRule.objects.filter(unit=self.unit, billing_item__code='SERVICE_CHARGE').exists())
+
+        applied = self.client.post(url, {'rows': rows, 'apply': True}, format='json', **headers)
+        self.assertEqual(applied.status_code, 200, applied.data)
+        self.assertEqual(applied.data['updated'], 1)
+        self.unit.refresh_from_db()
+        self.assertEqual(self.unit.common_area_fee_amount, Decimal('3500.00'))
+        self.assertEqual(self.unit.metadata['billing_setup']['service_charge_rate'], '3500.00')
+        rule = UnitChargeRule.objects.get(unit=self.unit, billing_item__code='SERVICE_CHARGE')
+        self.assertEqual(rule.amount, Decimal('3500.00'))
+        self.assertEqual(rule.calculation, BillingItem.Calculation.FIXED)
+
+        missing = self.client.post(
+            url, {'rows': [{'unit_code': 'NOT-A-UNIT', 'amount': '100'}], 'apply': True},
+            format='json', **headers,
+        )
+        self.assertEqual(missing.status_code, 400)
+        self.assertEqual(Unit.objects.filter(property=self.property).count(), 1)
+
     def test_each_visible_report_tab_exports_its_own_dataset_in_supported_formats(self):
         headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
         report_headings = {

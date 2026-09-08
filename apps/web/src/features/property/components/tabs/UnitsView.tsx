@@ -27,12 +27,16 @@ import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { Upload, Edit2, CheckSquare } from "lucide-react";
 import { LettingFeeModal } from "../modals/LettingFeeModal";
+import { csvColumn, normalizeCsvHeader, parseCsv } from "@/lib/csv";
 
 type StoredFloorPlan = {
   id: string; building: string; floor: string; title: string; version: string;
   original_filename?: string; file_type?: string; original_url?: string; preview_url?: string;
   preview_status?: string; preview_error?: string; created_at?: string;
 };
+
+type ServiceChargeImportRow = { unit_code: string; amount: string };
+type ServiceChargePreview = { property_name: string; matched: number; monthly_total: string };
 
 export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRow }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void; setTab: (t: PropertyTab) => void; onSelectRow?: (r: Row) => void;
@@ -58,6 +62,12 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   const [editingSingleUnit, setEditingSingleUnit] = useState<UnitRow | null>(null);
   const [singleTypologyInput, setSingleTypologyInput] = useState<string>("");
   const [isSingleUpdating, setIsSingleUpdating] = useState<boolean>(false);
+  const [chargeImportOpen, setChargeImportOpen] = useState(false);
+  const [chargeImportRows, setChargeImportRows] = useState<ServiceChargeImportRow[]>([]);
+  const [chargeImportPreview, setChargeImportPreview] = useState<ServiceChargePreview | null>(null);
+  const [chargeImportFile, setChargeImportFile] = useState("");
+  const [chargeImportError, setChargeImportError] = useState("");
+  const [chargeImportBusy, setChargeImportBusy] = useState(false);
 
   // On-demand letting fee invoice state
   const [lettingFeeModalOpen, setLettingFeeModalOpen] = useState(false);
@@ -393,6 +403,89 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
     setLettingFeeModalOpen(true);
   };
 
+  const closeServiceChargeImport = () => {
+    if (chargeImportBusy) return;
+    setChargeImportOpen(false);
+    setChargeImportRows([]);
+    setChargeImportPreview(null);
+    setChargeImportFile("");
+    setChargeImportError("");
+  };
+
+  const previewServiceChargeFile = async (file?: File) => {
+    if (!file) return;
+    setChargeImportOpen(true);
+    setChargeImportBusy(true);
+    setChargeImportError("");
+    setChargeImportPreview(null);
+    setChargeImportFile(file.name);
+    try {
+      const csvRows = parseCsv(await file.text());
+      const headers = (csvRows.shift() ?? []).map(normalizeCsvHeader);
+      const codeColumn = csvColumn(headers, ["unit_no", "unit_number", "unit_code", "unit", "code"]);
+      const amountColumn = csvColumn(headers, ["monthly_service_charge", "service_charge_amount", "service_charge_rate", "sc_amount"]);
+      if (codeColumn < 0 || amountColumn < 0) {
+        throw new Error("The CSV needs a unit_no column and a monthly_service_charge or service_charge_rate column.");
+      }
+      const parsed = csvRows.filter(row => row.some(Boolean)).map(row => ({
+        unit_code: String(row[codeColumn] || "").trim(),
+        amount: String(row[amountColumn] || "").replace(/[\s,]/g, "").trim(),
+      }));
+      if (!parsed.length) throw new Error("The CSV contains no service-charge rows.");
+      await apiFetch("/auth/csrf/");
+      const response = await apiFetch("/property/units/bulk-service-charges/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ rows: parsed, apply: false }),
+      });
+      if (!response.ok) throw new Error(await apiErrorMessage(response, "The service-charge schedule could not be previewed."));
+      setChargeImportRows(parsed);
+      setChargeImportPreview(await response.json() as ServiceChargePreview);
+    } catch (error) {
+      setChargeImportRows([]);
+      setChargeImportError(error instanceof Error ? error.message : "The service-charge schedule could not be read.");
+    } finally {
+      setChargeImportBusy(false);
+    }
+  };
+
+  const applyServiceChargeImport = async () => {
+    if (!chargeImportRows.length || !chargeImportPreview) return;
+    setChargeImportBusy(true);
+    setChargeImportError("");
+    try {
+      await apiFetch("/auth/csrf/");
+      const response = await apiFetch("/property/units/bulk-service-charges/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ rows: chargeImportRows, apply: true }),
+      });
+      if (!response.ok) throw new Error(await apiErrorMessage(response, "The service charges could not be saved."));
+      const amounts = new Map(chargeImportRows.map(row => [row.unit_code.trim().toUpperCase(), row.amount]));
+      setLocalUnits(current => current.map(unit => {
+        const amount = amounts.get(String(unit.code).trim().toUpperCase());
+        if (amount === undefined) return unit;
+        return {
+          ...unit,
+          common_area_fee_amount: amount,
+          metadata: {
+            ...((unit.metadata || {}) as Record<string, unknown>),
+            billing_setup: { service_charge_rate: amount, service_charge_calculation: "fixed" },
+          },
+        };
+      }));
+      toast.success(`${chargeImportPreview.matched} service charges saved. Monthly total: ${money.format(Number(chargeImportPreview.monthly_total))}.`);
+      setChargeImportOpen(false);
+      setChargeImportRows([]);
+      setChargeImportPreview(null);
+      setChargeImportFile("");
+    } catch (error) {
+      setChargeImportError(error instanceof Error ? error.message : "The service charges could not be saved.");
+    } finally {
+      setChargeImportBusy(false);
+    }
+  };
+
   return (
     <>
       <KpiStrip cols={4}>
@@ -408,6 +501,16 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
 
       <ViewToolbar title="Occupancy Register" subtitle="Lettable and non-lettable units at the selected property" search={search} onSearch={setSearch} placeholder="Search by unit code, type or building…">
         <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <Button
+            size="small"
+            variant="outlined"
+            component="label"
+            startIcon={<Upload size={15} />}
+            sx={{ textTransform: "none", fontWeight: 800 }}
+          >
+            Upload service charges
+            <input hidden type="file" accept=".csv,text/csv" onChange={(event) => { void previewServiceChargeFile(event.target.files?.[0]); event.target.value = ""; }} />
+          </Button>
           <button
             type="button"
             className="btn sm"
@@ -980,6 +1083,49 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
         units={units}
         initialUnit={lettingUnit}
       />
+
+      {chargeImportOpen && (
+        <Modal
+          title="Upload monthly service charges"
+          onClose={closeServiceChargeImport}
+          footer={
+            <>
+              <Button variant="outlined" onClick={closeServiceChargeImport} disabled={chargeImportBusy}>Cancel</Button>
+              <Button variant="contained" onClick={() => void applyServiceChargeImport()} disabled={chargeImportBusy || !chargeImportPreview}>
+                {chargeImportBusy ? "Checking…" : `Save ${chargeImportPreview?.matched ?? 0} charges`}
+              </Button>
+            </>
+          }
+        >
+          <Stack spacing={2}>
+            <Alert severity="info">
+              This updates existing units only. It will not create units or change owners, tenants, leases, rent or utility billing.
+            </Alert>
+            <Box>
+              <Typography sx={{ fontWeight: 800 }}>{chargeImportFile || "Service-charge CSV"}</Typography>
+              <Typography variant="body2" color="text.secondary">Every unit code is checked against the currently selected property before saving.</Typography>
+            </Box>
+            {chargeImportBusy && <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}><CircularProgress size={20} /><Typography>Validating every row…</Typography></Box>}
+            {chargeImportError && <Alert severity="error">{chargeImportError}</Alert>}
+            {chargeImportPreview && (
+              <>
+                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3,1fr)" }, gap: 1 }}>
+                  <Box sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 2 }}><Typography variant="caption" color="text.secondary">Property</Typography><Typography sx={{ fontWeight: 800 }}>{chargeImportPreview.property_name}</Typography></Box>
+                  <Box sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 2 }}><Typography variant="caption" color="text.secondary">Matched units</Typography><Typography sx={{ fontWeight: 900 }}>{chargeImportPreview.matched} of {chargeImportRows.length}</Typography></Box>
+                  <Box sx={{ p: 1.5, border: "1px solid", borderColor: "divider", borderRadius: 2 }}><Typography variant="caption" color="text.secondary">Monthly billing total</Typography><Typography sx={{ fontWeight: 900 }}>{money.format(Number(chargeImportPreview.monthly_total))}</Typography></Box>
+                </Box>
+                <Box sx={{ maxHeight: 260, overflow: "auto", border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
+                  <Box component="table" sx={{ width: "100%", borderCollapse: "collapse", "th,td": { p: 1, borderBottom: "1px solid", borderColor: "divider", textAlign: "left" } }}>
+                    <thead><tr><th>Unit</th><th style={{ textAlign: "right" }}>Monthly service charge</th></tr></thead>
+                    <tbody>{chargeImportRows.slice(0, 20).map(row => <tr key={row.unit_code}><td>{row.unit_code}</td><td style={{ textAlign: "right" }}>{money.format(Number(row.amount))}</td></tr>)}</tbody>
+                  </Box>
+                </Box>
+                {chargeImportRows.length > 20 && <Typography variant="caption" color="text.secondary">Showing the first 20 of {chargeImportRows.length} validated rows.</Typography>}
+              </>
+            )}
+          </Stack>
+        </Modal>
+      )}
 
       {billingUnit && <UnitBillingScheduleDrawer unit={billingUnit} onClose={() => setBillingUnit(null)} />}
     </>
