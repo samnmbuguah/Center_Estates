@@ -325,6 +325,9 @@ export function TenantPortalDrawer({ tenant, organizationId, onClose }: {
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [receipts, setReceipts] = useState<ReceiptRow[]>([]);
   const [statement, setStatement] = useState<Record<string, unknown> | null>(null);
+  const [notices, setNotices] = useState<Row[]>([]);
+  const [walletCredit, setWalletCredit] = useState(0);
+  const [walletEntries, setWalletEntries] = useState<Row[]>([]);
   const [gateways, setGateways] = useState<PaymentGateway[]>([]);
   const [stkInvoice, setStkInvoice] = useState<InvoiceRow | null>(null);
   const [stkGateway, setStkGateway] = useState<PaymentGateway | null>(null);
@@ -352,6 +355,9 @@ export function TenantPortalDrawer({ tenant, organizationId, onClose }: {
         if (body.statement && typeof body.statement === "object") portalStatement = body.statement as Record<string, unknown>;
         if (body.tenant && typeof body.tenant === "object") setTenantDetail(body.tenant as Row);
         if (Array.isArray(body.paymentGateways)) portalGateways = body.paymentGateways as PaymentGateway[];
+        if (Array.isArray(body.notices)) setNotices(body.notices as Row[]);
+        if (Array.isArray(body.walletEntries)) setWalletEntries(body.walletEntries as Row[]);
+        setWalletCredit(Number(body.walletCredit || 0));
       }
     }
     if (tenantRes.ok) {
@@ -393,6 +399,15 @@ export function TenantPortalDrawer({ tenant, organizationId, onClose }: {
   const statementPaid = statement?.total_paid !== undefined ? Number(statement.total_paid) : totalPaid;
 
   const mpesaGateway = gateways.find((g) => g.provider === "mpesa") ?? null;
+
+  async function downloadStatement() {
+    if (!organizationId) return;
+    const response = await apiFetch(`/property/portal/statement.pdf?tenant=${tenant.id}`, {}, organizationId);
+    if (!response.ok) return;
+    const url = URL.createObjectURL(await response.blob());
+    window.open(url, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
 
   const PAYABLE_STATUSES = new Set(["issued", "partial", "overdue"]);
 
@@ -462,10 +477,7 @@ export function TenantPortalDrawer({ tenant, organizationId, onClose }: {
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <button
                   type="button"
-                  onClick={() => {
-                    const token = typeof window !== "undefined" ? localStorage.getItem("token") || "" : "";
-                    window.open(`/api/v1/property/tenant-portal/statement.pdf?tenant=${tenant.id}`, "_blank");
-                  }}
+                  onClick={() => void downloadStatement()}
                   style={{
                     padding: "5px 12px", borderRadius: 6, border: "1px solid var(--border)",
                     background: "var(--surface-2)", cursor: "pointer", fontSize: 12, fontWeight: 600,
@@ -475,6 +487,31 @@ export function TenantPortalDrawer({ tenant, organizationId, onClose }: {
                   📥 Download Statement PDF
                 </button>
               </div>
+            </Panel>
+
+            <Panel title="Wallet & account credit" badge={walletEntries.length}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: 10, borderRadius: 8, background: "#ecfdf5", marginBottom: walletEntries.length ? 10 : 0 }}>
+                <span style={{ fontSize: 12, color: "#065f46", fontWeight: 700 }}>Available unapplied credit</span>
+                <strong style={{ color: "#047857" }}>{kM(walletCredit)}</strong>
+              </div>
+              {walletEntries.length > 0 && walletEntries.slice(0, 8).map((entry) => (
+                <div key={String(entry.id)} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "8px 2px", borderBottom: "1px solid var(--border)" }}>
+                  <span style={{ fontSize: 12 }}>{String(entry.note || entry.entry_type || "Wallet transaction")}</span>
+                  <strong style={{ fontSize: 12 }}>{kM(Number(entry.amount || 0))}</strong>
+                </div>
+              ))}
+            </Panel>
+
+            <Panel title="Messages & notices" badge={notices.length}>
+              {notices.length > 0 ? notices.map((notice) => (
+                <div key={String(notice.id)} style={{ padding: "10px 2px", borderBottom: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <strong style={{ fontSize: 12 }}>{String(notice.title || "Notice")}</strong>
+                    <span className="muted" style={{ fontSize: 10 }}>{fmtDate(notice.created_at)}</span>
+                  </div>
+                  <div style={{ fontSize: 12, marginTop: 4, color: "var(--text-secondary)" }}>{String(notice.message || "")}</div>
+                </div>
+              )) : <EmptyState icon="🔔" title="No tenant notices" description="Only messages addressed to this tenant portal account appear here." />}
             </Panel>
 
             {/* M-Pesa availability banner */}

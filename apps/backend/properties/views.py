@@ -1760,10 +1760,10 @@ class TenantViewSet(OrganizationModelViewSet):
     write_permission = 'property.leasing'
     queryset = Tenant.objects.all()
     serializer_class = TenantSerializer
-    search_fields = ('name', 'code', 'email', 'phone')
+    search_fields = ('name', 'code', 'email', 'phone', 'leases__unit__code')
 
     def get_queryset(self):
-        return super().get_queryset().prefetch_related('leases__unit')
+        return super().get_queryset().prefetch_related('leases__unit').distinct()
 
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
@@ -3176,13 +3176,38 @@ class InvoiceViewSet(OrganizationModelViewSet):
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
         lease = serializer.validated_data.get('lease')
+        unit = serializer.validated_data.get('unit') or (lease.unit if lease else None)
+        owner = serializer.validated_data.get('owner')
         if lease:
             validate_lease_billable(lease, timezone.localdate())
-        elif not serializer.validated_data.get('owner') and not serializer.validated_data.get('unit'):
+        elif not owner and not unit:
             raise ValidationError({'lease': 'Either a lease, unit, or owner recipient is required.'})
+        if owner and unit and unit.owner_id != owner.id:
+            raise ValidationError({'owner': 'The selected owner must own the unit being invoiced.'})
         amount = serializer.validated_data['amount']
         issued_on = serializer.validated_data.get('issued_on', timezone.localdate())
-        serializer.save(organization=organization, number=next_invoice_number(organization, issued_on.year), balance=amount, status=Invoice.Status.DRAFT, prepared_by=self.request.user)
+        charge_type = serializer.validated_data.get('charge_type', 'rent')
+        collection_account = serializer.validated_data.get('collection_account')
+        if not collection_account and unit:
+            collection_account = PropertyCollectionAccount.objects.for_organization(organization).filter(
+                property=unit.property, charge_type=charge_type, is_active=True,
+            ).first()
+        mpesa_reference = serializer.validated_data.get('mpesa_reference', '')
+        if not mpesa_reference and unit:
+            reference_format = (collection_account.mpesa_reference_format if collection_account else '') or '{CHARGE}-{UNIT}-{MONTH}-{YEAR}'
+            charge_prefix = 'SC' if charge_type == 'service_charge' else ('RENT' if charge_type == 'rent' else charge_type.upper()[:10])
+            try:
+                mpesa_reference = reference_format.format(
+                    CHARGE=charge_prefix, UNIT=unit.code,
+                    MONTH=f'{issued_on:%m}', YEAR=f'{issued_on:%Y}',
+                )
+            except (KeyError, ValueError):
+                mpesa_reference = f'{charge_prefix}-{unit.code}-{issued_on:%m}-{issued_on:%Y}'
+        serializer.save(
+            organization=organization, number=next_invoice_number(organization, issued_on.year),
+            balance=amount, status=Invoice.Status.DRAFT, prepared_by=self.request.user,
+            collection_account=collection_account, mpesa_reference=mpesa_reference,
+        )
 
     def perform_update(self, serializer):
         invoice = serializer.instance
@@ -6467,7 +6492,9 @@ class TenantPortalViewSet(ViewSet):
 
     @action(detail=False, methods=('get',), url_path='statement.pdf')
     def statement_document(self, request):
-        access = self._access()
+        # Staff support views explicitly name the tenant; tenant users remain
+        # restricted to the portal profile linked to their own account.
+        access = self._access(request.query_params.get('tenant'))
         try:
             start = date.fromisoformat(request.query_params['start']) if request.query_params.get('start') else None
             end = date.fromisoformat(request.query_params['end']) if request.query_params.get('end') else None

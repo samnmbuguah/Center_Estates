@@ -166,7 +166,18 @@ export function TenantsView({
         <button className="fc-toolbar-btn primary" onClick={() => onAdd()}>+ Onboard Tenant</button>
       </ViewToolbar>
 
-      <Panel title={`Tenants ${selectedIds.length ? `(${selectedIds.length} selected)` : ''}`}>
+      {!search.trim() ? (
+        <Panel title="Find a tenant account">
+          <Box sx={{ py: { xs: 4, md: 7 }, px: 2, textAlign: "center", maxWidth: 680, mx: "auto" }}>
+            <Typography sx={{ fontSize: 34, mb: 1 }} aria-hidden="true">⌕</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>Search before opening a tenant record</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Use the search box above with a tenant name, house or unit number, tenant code, phone number, or email. Matching accounts will appear here, then select one to review its profile, statement, invoices, receipts, wallet, and messages.
+            </Typography>
+          </Box>
+        </Panel>
+      ) : (
+      <Panel title={`Search results ${selectedIds.length ? `(${selectedIds.length} selected)` : ''}`}>
         <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No tenants found" emptyDesc="Register a tenant to link leases, invoices and documents.">
           <div className="table-scroll">
             <table className="fc-data-table">
@@ -315,6 +326,7 @@ export function TenantsView({
           <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </ListState>
       </Panel>
+      )}
     </>
   );
 }

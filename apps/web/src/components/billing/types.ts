@@ -20,7 +20,8 @@ export type BillingRun = {
 export type Invoice = {
   id: string; number: string; tenant_name: string; unit_code: string; amount: string; status: string; issued_on: string;
   property_id?: string; property_name?: string; invoice_type?: string; charge_type?: string; amount_paid?: string | number; balance?: string | number;
-  unit?: string; unit_id?: string; owner_id?: string; owner_name?: string; unit_owner_id?: string; unit_owner_name?: string;
+  unit?: string; unit_id?: string; owner?: string; owner_id?: string; owner_name?: string; unit_owner_id?: string; unit_owner_name?: string;
+  metadata?: Record<string, any>;
 };
 
 export type InvoiceChargeType = "rent" | "service_charge" | "utility" | "other";

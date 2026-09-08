@@ -44,7 +44,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
   const [properties, setProperties] = useState<any[]>([]);
   const [owners, setOwners] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
-  const [landlordFeeType, setLandlordFeeType] = useState<"management" | "letting">("management");
+  const [landlordFeeType, setLandlordFeeType] = useState<"management" | "letting" | "service_charge">("management");
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -211,6 +211,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     const startMonthStr = period_start.slice(0, 7);
     const candidatesList: Candidate[] = [];
     const isLetting = landlordFeeType === "letting";
+    const isServiceCharge = landlordFeeType === "service_charge";
 
     // Letting fees are issued on-demand (not auto-scanned). Only show what's already been invoiced.
     if (isLetting) {
@@ -233,6 +234,44 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
           issue_summary: [],
           metadata: { property_id: inv.property, owner_id: inv.owner, rent_collected: 0, fee_rate: 0, unit_codes: inv.metadata?.unit_codes || [], units_display: unitsDisplay, invoice_id: inv.id, invoice_number: inv.number },
         } as any);
+      }
+      return candidatesList;
+    }
+
+    if (isServiceCharge) {
+      const [startYear, startMonth] = period_start.slice(0, 7).split("-").map(Number);
+      const [endYear, endMonth] = period_end.slice(0, 7).split("-").map(Number);
+      const months = Math.max(1, (endYear - startYear) * 12 + endMonth - startMonth + 1);
+      for (const property of properties) {
+        const propertyUnits = units.filter((unit) => String(unit.property_id || unit.property) === String(property.id));
+        for (const unit of propertyUnits) {
+          const ownerId = unit.owner_id || unit.owner;
+          if (!ownerId || String(unit.service_charge_payer || "").toLowerCase() !== "owner") continue;
+          const monthlyAmount = Number(unit.common_area_fee_amount || unit.metadata?.monthly_service_charge_excl_vat || unit.metadata?.service_charge || 0);
+          const subtotal = Math.round(monthlyAmount * months * 100) / 100;
+          const vatRate = Number(unit.metadata?.service_charge_vat_rate ?? unit.metadata?.vat_rate ?? 0);
+          const total = Math.round(subtotal * (1 + vatRate / 100) * 100) / 100;
+          const owner = owners.find((candidate) => String(candidate.id) === String(ownerId));
+          const existing = invoices.find((invoice) =>
+            String(invoice.owner_id || invoice.owner) === String(ownerId) &&
+            String(invoice.unit_id || invoice.unit) === String(unit.id) &&
+            invoiceChargeType(invoice.invoice_type || invoice.charge_type || "") === "service_charge" &&
+            (invoice.metadata?.billing_period === startMonthStr || (invoice.issued_on >= period_start && invoice.issued_on <= period_end))
+          );
+          candidatesList.push({
+            id: `owner-service-charge-${unit.id}`,
+            tenant_name: owner?.name || unit.owner_name || "Unassigned owner",
+            property_name: property.name,
+            unit_code: unit.code,
+            lease_reference: `OWNER-SC-${startMonthStr}`,
+            due_date: period_end,
+            billing_items: [{ code: "service_charge", description: `Owner service charge for Unit ${unit.code} (${months} ${months === 1 ? "month" : "months"})`, amount: String(total), total: String(total), billed: Boolean(existing), invoice_number: existing?.number }],
+            total: String(total),
+            status: existing ? "generated" : subtotal > 0 ? "ready" : "excluded",
+            issue_summary: subtotal > 0 ? [] : [{ code: "NO_SERVICE_CHARGE", message: `Set the owner service-charge amount for Unit ${unit.code} during onboarding.`, severity: "warning" }],
+            metadata: { property_id: property.id, owner_id: ownerId, unit_id: unit.id, unit_codes: [unit.code], units_display: unit.code, subtotal, vat_rate: vatRate, invoice_id: existing?.id, invoice_number: existing?.number },
+          } as any);
+        }
       }
       return candidatesList;
     }
@@ -463,7 +502,44 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
           const rentCollected = meta.rent_collected ?? 0;
           const feeRate = meta.fee_rate ?? 5.0;
           const isLetting = landlordFeeType === "letting";
+          const isServiceCharge = landlordFeeType === "service_charge";
           const billedAmount = Number(cand.total || 0);
+
+          if (isServiceCharge) {
+            const invoiceRes = await apiFetch("/property/invoices/", {
+              method: "POST",
+              body: JSON.stringify({
+                recipient_type: "owner",
+                owner: ownerId,
+                unit: meta.unit_id,
+                invoice_type: "service_charge",
+                charge_type: "service_charge",
+                subtotal: Number(meta.subtotal || billedAmount),
+                tax_rate: Number(meta.vat_rate || 0),
+                amount: billedAmount,
+                issued_on: period_start,
+                due_on: cand.due_date || period_end,
+                metadata: { billing_period: startMonthStr, property_id: propId, unit_codes: meta.unit_codes },
+              }),
+            }, organizationId);
+            if (!invoiceRes.ok) {
+              lastErrorMsg = await apiErrorMessage(invoiceRes, "Failed to create the owner service-charge invoice.");
+              continue;
+            }
+            let created = await invoiceRes.json();
+            if (canApprove) {
+              for (const transition of ["submit-review", "approve", "issue"]) {
+                const transitionRes = await apiFetch(`/property/invoices/${created.id}/${transition}/`, { method: "POST", body: "{}" }, organizationId);
+                if (!transitionRes.ok) {
+                  lastErrorMsg = await apiErrorMessage(transitionRes, `Invoice ${created.number} was created but could not be fully issued.`);
+                  break;
+                }
+                created = await transitionRes.json();
+              }
+            }
+            successCount++;
+            continue;
+          }
 
           const res = await apiFetch(
             "/property/landlord-invoices/",
@@ -500,7 +576,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         }
 
         if (successCount > 0) {
-          const typeLabel = landlordFeeType === "letting" ? "Letting Fee" : "Management Commission";
+          const typeLabel = landlordFeeType === "letting" ? "Letting Fee" : landlordFeeType === "service_charge" ? "Owner Service Charge" : "Management Commission";
           setNotice(`Generated ${successCount} Landlord ${typeLabel} Invoice(s) for ${formattedPeriod}.`);
         }
         if (lastErrorMsg) {
@@ -705,12 +781,12 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
           }}
         >
           <span style={{ fontSize: 11.5, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Landlord Invoicing Fee Mode:
+            Owner Billing Type:
           </span>
           <div style={{ display: "flex", gap: 6 }}>
             <button
               type="button"
-              onClick={() => { setLandlordFeeType("management"); setSelected([]); }}
+              onClick={() => { setLandlordFeeType("management"); setChargeTypeFilter("all"); setSelected([]); }}
               style={{
                 padding: "6px 14px",
                 borderRadius: 8,
@@ -727,7 +803,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
             </button>
             <button
               type="button"
-              onClick={() => { setLandlordFeeType("letting"); setSelected([]); }}
+              onClick={() => { setLandlordFeeType("letting"); setChargeTypeFilter("all"); setSelected([]); }}
               style={{
                 padding: "6px 14px",
                 borderRadius: 8,
@@ -742,11 +818,26 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
             >
               🔑 Letting & Placement Fees
             </button>
+            <button
+              type="button"
+              onClick={() => { setLandlordFeeType("service_charge"); setChargeTypeFilter("service_charge"); setSelected([]); }}
+              style={{
+                padding: "6px 14px", borderRadius: 8, fontSize: 12.5, fontWeight: 750,
+                border: "none", cursor: "pointer",
+                background: landlordFeeType === "service_charge" ? "#0f766e" : "#f1f5f9",
+                color: landlordFeeType === "service_charge" ? "#ffffff" : "#475569",
+                transition: "all 0.15s ease",
+              }}
+            >
+              🧾 Owner Service Charge
+            </button>
           </div>
           <span style={{ marginLeft: "auto", fontSize: 12, color: "#64748b", fontWeight: 600 }}>
             {landlordFeeType === "management"
               ? "Calculated strictly per unit owner based on receipted tenant rent"
-              : "Billed on unit tenant placement agreements"}
+              : landlordFeeType === "letting"
+                ? "Billed on unit tenant placement agreements"
+                : "Generated per unit where onboarding assigns service charge to the owner"}
           </span>
         </div>
       )}
@@ -783,7 +874,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
           const [ey, em] = period_end.split("-").map(Number);
           return Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
         })(), label: formattedPeriod })}
-        onLettingFeeInvoice={() => setLettingModalOpen(true)}
+        onLettingFeeInvoice={landlordFeeType === "letting" ? () => setLettingModalOpen(true) : undefined}
       />
 
       <CandidateTable

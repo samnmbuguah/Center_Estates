@@ -119,6 +119,48 @@ class PropertyApiTests(TestCase):
         self.assertEqual(rows[0]['units_count'], 1)
         self.assertEqual([unit['property_id'] for unit in rows[0]['units_list']], [str(self.property.id)])
 
+    def test_tenant_register_searches_by_house_or_unit_number(self):
+        response = self.client.get(
+            '/api/v1/property/tenants/?search=101',
+            **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)},
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        rows = response.data if isinstance(response.data, list) else response.data['results']
+        self.assertEqual([row['id'] for row in rows], [str(self.tenant.id)])
+
+    def test_owner_service_charge_invoice_uses_unit_owner_and_collection_route(self):
+        owner = Owner.objects.create(
+            organization=self.organization, code='OWN-0201', name='Unit 101 Owner',
+        )
+        self.unit.owner = owner
+        self.unit.service_charge_payer = Unit.PayerChoice.OWNER
+        self.unit.common_area_fee_amount = Decimal('5000.00')
+        self.unit.save(update_fields=('owner', 'service_charge_payer', 'common_area_fee_amount', 'updated_at'))
+        account = PropertyCollectionAccount.objects.create(
+            organization=self.organization, property=self.property,
+            charge_type='service_charge', bank_name='NCBA', account_name='Service Charge',
+            account_number='100200', mpesa_paybill='522522', mpesa_reference_format='SC-{UNIT}-{MONTH}-{YEAR}',
+        )
+
+        response = self.client.post(
+            '/api/v1/property/invoices/',
+            {
+                'recipient_type': 'owner', 'owner': str(owner.id), 'unit': str(self.unit.id),
+                'invoice_type': 'service_charge', 'charge_type': 'service_charge',
+                'subtotal': '5000.00', 'tax_rate': '0.00',
+                'issued_on': '2026-09-01', 'due_on': '2026-09-30',
+            },
+            format='json', **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)},
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        invoice = Invoice.objects.get(pk=response.data['id'])
+        self.assertEqual(invoice.owner, owner)
+        self.assertEqual(invoice.recipient_type, Invoice.RecipientType.OWNER)
+        self.assertEqual(invoice.collection_account, account)
+        self.assertEqual(invoice.mpesa_reference, 'SC-101-09-2026')
+
     def test_list_is_scoped_to_active_organization(self):
         response = self.client.get('/api/v1/property/properties/', **self.headers)
         self.assertEqual(response.status_code, 200)

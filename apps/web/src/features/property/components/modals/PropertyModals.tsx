@@ -19,6 +19,7 @@ import { kM, kN, fmtDate } from "../../utils/property.utils";
 import { TenantApplicationCard } from "@/components/tenant-application-card";
 import { BulkTenantUploader } from "@/components/bulk-tenant-uploader";
 import { useState, useMemo } from "react";
+import { Autocomplete, TextField } from "@mui/material";
 
 
 function EditTenantForm({ tenant, onSave, onCancel }: { tenant: TenantRow; onSave: (data: Record<string, unknown>) => void; onCancel: () => void }) {
@@ -238,6 +239,8 @@ export function PropertyModals(props: PropertyModalsProps) {
 
   const selectedTenantObj = receiptPayerType === "tenant" ? tenantOptions.find(t => String(t.id) === selectedPayerId) : null;
   const selectedOwnerObj = receiptPayerType === "landlord" ? ownerOptions.find(o => String(o.id) === selectedPayerId) : null;
+  const receiptPayerOptions: Row[] = receiptPayerType === "tenant" ? tenantOptions : ownerOptions;
+  const selectedReceiptPayer: Row | null = receiptPayerOptions.find((option) => String(option.id) === selectedPayerId) ?? null;
 
   const payerInvoices = useMemo(() => {
     if (!selectedPayerId) return [];
@@ -583,7 +586,7 @@ export function PropertyModals(props: PropertyModalsProps) {
               </div>
               <div className="grid-2">
                 <Field label="Payer type" required>
-                  <select name="payer_type" value={receiptPayerType} onChange={(event) => setReceiptPayerType(event.target.value as "tenant" | "landlord")} data-testid="receipt-payer-type">
+                  <select name="payer_type" value={receiptPayerType} onChange={(event) => { setReceiptPayerType(event.target.value as "tenant" | "landlord"); setSelectedReceiptPayerKey(""); }} data-testid="receipt-payer-type">
                     <option value="tenant">Tenant</option>
                     <option value="landlord">Landlord / unit owner</option>
                   </select>
@@ -593,19 +596,30 @@ export function PropertyModals(props: PropertyModalsProps) {
                 </div>
               </div>
               <Field label="Payer" required>
-                <select
+                <input type="hidden" name="payer" value={selectedReceiptPayerKey} />
+                <Autocomplete<Row, false, false, false>
                   key={receiptPayerType}
-                  name="payer"
-                  required
-                  value={selectedReceiptPayerKey}
-                  onChange={(e) => setSelectedReceiptPayerKey(e.target.value)}
-                  data-testid="receipt-payer"
-                >
-                  <option value="" disabled>{receiptPayerType === "tenant" ? "Select tenant" : "Select landlord / unit owner"}</option>
-                  {receiptPayerType === "tenant"
-                    ? tenantOptions.map((t) => <option key={`tenant-${String(t.id)}`} value={`tenant:${String(t.id)}`}>{String(t.name)}</option>)
-                    : ownerOptions.map((o) => <option key={`landlord-${String(o.id)}`} value={`landlord:${String(o.id)}`}>{String(o.name)}</option>)}
-                </select>
+                  options={receiptPayerOptions}
+                  value={selectedReceiptPayer}
+                  onChange={(_, option) => setSelectedReceiptPayerKey(option ? `${receiptPayerType}:${String(option.id)}` : "")}
+                  isOptionEqualToValue={(option, value) => String(option.id) === String(value.id)}
+                  getOptionLabel={(option) => {
+                    const unit = String((option as any).unit ?? (option as any).unit_code ?? "").trim();
+                    const code = String((option as any).code ?? "").trim();
+                    const phone = String((option as any).phone ?? "").trim();
+                    return [String(option.name ?? "Unnamed payer"), unit && `Unit ${unit}`, code, phone].filter(Boolean).join(" · ");
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      required
+                      size="small"
+                      data-testid="receipt-payer"
+                      placeholder={receiptPayerType === "tenant" ? "Search name, house/unit, code or phone" : "Search landlord name, unit or code"}
+                      helperText="Type at least part of the payer name, house/unit number, account code or phone."
+                    />
+                  )}
+                />
               </Field>
 
               {selectedReceiptPayerKey && (

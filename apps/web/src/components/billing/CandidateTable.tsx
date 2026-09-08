@@ -58,11 +58,11 @@ export function CandidateTable({
       <Box className="billing-candidate-header">
         <Box>
           <Typography variant="subtitle1">
-            {billingTarget === "landlord" ? "Landlord fee candidates" : "Candidate invoices"} — {formattedMonth}
+            {billingTarget === "landlord" ? "Owner billing candidates" : "Candidate invoices"} — {formattedMonth}
           </Typography>
           <Typography variant="caption" sx={{ color: "var(--text-secondary)", fontSize: 11 }}>
             {billingTarget === "landlord"
-              ? "Automated management commissions, agency letting fees, and pass-through recoveries for property owners."
+              ? "Management commissions, agency letting fees, and owner-paid service charges for the selected property."
               : "Automated charge detection: billed items are tracked, remaining unbilled items are ready for dispatch."}
           </Typography>
         </Box>
@@ -71,18 +71,18 @@ export function CandidateTable({
 
       {run && (
         <Box className="billing-filter-toolbar">
-          <Stack className="billing-charge-filters" direction="row">
+          {billingTarget === "tenant" && <Stack className="billing-charge-filters" direction="row">
             {([
               { key: "all", label: "All charges" },
               { key: "rent", label: `Rent${typeCounts.rent ? ` (${typeCounts.rent})` : ""}` },
               { key: "service_charge", label: `Service charge${typeCounts.service_charge ? ` (${typeCounts.service_charge})` : ""}` },
               { key: "utility", label: `Utilities${typeCounts.utility ? ` (${typeCounts.utility})` : ""}` },
             ] as const).map((item) => <Chip key={item.key} size="small" label={item.label} clickable onClick={() => onChargeTypeFilter(item.key)} color={chargeTypeFilter === item.key ? "primary" : "default"} variant={chargeTypeFilter === item.key ? "filled" : "outlined"} />)}
-          </Stack>
+          </Stack>}
           <Stack className="billing-search-controls" direction="row">
             <TextField
               size="small"
-              placeholder="Search tenant, unit, lease…"
+              placeholder={billingTarget === "landlord" ? "Search owner, unit or property…" : "Search tenant, unit, lease…"}
               value={search}
               onChange={(e) => onSearch(e.target.value)}
               slotProps={{
@@ -124,11 +124,11 @@ export function CandidateTable({
       ) : candidates.length === 0 ? (
         <Box sx={{ p: 3, textAlign: "center" }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 13 }}>
-            {billingTarget === "landlord" ? "No billable landlord items" : "No matching candidate invoices"}
+            {billingTarget === "landlord" ? "No billable owner items" : "No matching candidate invoices"}
           </Typography>
           <Typography variant="body2" sx={{ color: "var(--text-secondary)", mt: 0.5, fontSize: 12 }}>
             {billingTarget === "landlord"
-              ? "There are no ready landlord fee invoices for this period. Receipted rent collections will appear here automatically. Letting fee invoices are raised on-demand from the Units view."
+              ? "No owner billing candidates match this billing type and period. Check unit ownership, payer responsibility, charge amounts, or recorded rent collections in onboarding."
               : "Try switching to \"All Types\" or re-scanning the queue."}
           </Typography>
           {billingTarget !== "landlord" && (
@@ -141,7 +141,7 @@ export function CandidateTable({
             <thead>
               <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
                 <th style={{ padding: "8px 12px", width: 36 }}></th>
-                <th style={{ padding: "8px 12px" }}>Tenant & Lease</th>
+                <th style={{ padding: "8px 12px" }}>{billingTarget === "landlord" ? "Owner & Billing Reference" : "Tenant & Lease"}</th>
                 <th style={{ padding: "8px 12px" }}>Unit</th>
                 <th style={{ padding: "8px 12px" }}>Billable Items</th>
                 <th style={{ padding: "8px 12px" }}>Remaining Due</th>
