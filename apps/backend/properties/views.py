@@ -5913,7 +5913,9 @@ class PropertyAnalyticsViewSet(ViewSet):
         if lease_status:
             leases = leases.filter(status=lease_status)
 
-        active_statuses = (lease_status,) if lease_status else (Lease.Status.ACTIVE, Lease.Status.EXPIRING, Lease.Status.DRAFT)
+        # Draft leases are prospects, not occupied tenancies. Include them only
+        # when the caller explicitly filters for draft status.
+        active_statuses = (lease_status,) if lease_status else (Lease.Status.ACTIVE, Lease.Status.EXPIRING)
         active_leases = leases.filter(
             status__in=active_statuses, starts_on__lte=end, ends_on__gte=start,
         ).prefetch_related('billing_profiles__billing_item', 'escalations')
@@ -6326,7 +6328,7 @@ class PropertyAnalyticsViewSet(ViewSet):
             writer.writerow(('Floor', 'Unit', 'Type', 'Owner / Landlord', 'Owner Code', 'Tenant / Occupant', 'Occupancy', 'Management Mandate', 'Rent Collection', 'Estate Rent Billing', 'Monthly Service Charge', 'Service Charge Payer', 'Utilities Payer', 'Billing Readiness'))
             units = scope_model_queryset(Unit, request, organization).select_related('owner').prefetch_related('charge_rules__billing_item', 'leases__tenant').order_by('code')
             for unit in units:
-                lease = unit.leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING, Lease.Status.DRAFT), starts_on__lte=end, ends_on__gte=start).order_by('-starts_on').first()
+                lease = unit.leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING), starts_on__lte=end, ends_on__gte=start).order_by('-starts_on').first()
                 service_charge = unit.common_area_fee_amount or Decimal('0')
                 if service_charge <= 0:
                     rule = next((r for r in unit.charge_rules.all() if r.is_active and str(r.billing_item.code).upper() in ('SERVICE_CHARGE', 'SC')), None)
