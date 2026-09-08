@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   apiFetch,
   clearApiCache,
+  clearServerSessionCookies,
   csrfFromCookie,
   type DemoIdentityGroup,
   type Session,
@@ -129,6 +130,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (username: string, password: string) => {
     clearApiCache();
+    // Normal-window-only failures indicate stale browser-scoped session data.
+    // Remove every historical API cookie variant before issuing fresh tokens.
+    await clearServerSessionCookies();
     await apiFetch("/auth/csrf/").catch(() => undefined);
     const response = await apiFetch("/auth/login/", {
       method: "POST",
@@ -162,8 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     try {
       clearApiCache();
-      await apiFetch("/auth/csrf/").catch(() => undefined);
-      await apiFetch("/auth/logout/", { method: "POST", headers: { "X-CSRFToken": csrfFromCookie() } }).catch(() => undefined);
+      await clearServerSessionCookies();
     } finally {
       localStorage.removeItem("ce_organization");
       localStorage.removeItem("ce_organization_brand");

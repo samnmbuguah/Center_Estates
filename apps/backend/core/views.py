@@ -856,12 +856,14 @@ class RefreshView(APIView):
 
 
 class LogoutView(APIView):
+    # An invalid access cookie must never prevent the endpoint from removing
+    # that same broken browser session.
+    authentication_classes = ()
     permission_classes = (AllowAny,)
 
     @extend_schema(request=None, responses={204: None})
     def post(self, request):
         response = Response(status=204)
-        cookie_domain = getattr(settings, 'SESSION_COOKIE_DOMAIN', None)
         cookie_names = (
             getattr(settings, 'JWT_ACCESS_COOKIE', 'ce_access'),
             getattr(settings, 'JWT_REFRESH_COOKIE', 'ce_refresh'),
@@ -869,12 +871,26 @@ class LogoutView(APIView):
             'sessionid',
             'csrftoken',
         )
-        for path in ('/api/v1/', '/api/v1/auth/', '/'):
+        # Django's cookie jar retains only one Set-Cookie value per name. A
+        # caller can therefore request one path/domain variant per response and
+        # sweep legacy host-only cookies without variants overwriting each other.
+        path_key = request.query_params.get('path')
+        domain_key = request.query_params.get('domain')
+        if path_key is not None or domain_key is not None:
+            paths = {'access': '/api/v1/', 'refresh': '/api/v1/auth/', 'root': '/'}
+            domains = {'host': None, 'parent': '.centerestates.com'}
+            if path_key not in paths or domain_key not in domains:
+                return Response({'detail': 'Invalid cookie cleanup scope.'}, status=400)
             for name in cookie_names:
-                response.delete_cookie(name, path=path)
-                if cookie_domain:
-                    response.delete_cookie(name, path=path, domain=cookie_domain)
-                response.delete_cookie(name, path=path, domain='.centerestates.com')
+                response.delete_cookie(name, path=paths[path_key], domain=domains[domain_key])
+            return response
+
+        jwt_domain = getattr(settings, 'JWT_COOKIE_DOMAIN', None)
+        response.delete_cookie(settings.JWT_ACCESS_COOKIE, path='/api/v1/', domain=jwt_domain)
+        response.delete_cookie(settings.JWT_REFRESH_COOKIE, path='/api/v1/auth/', domain=jwt_domain)
+        response.delete_cookie(IMPERSONATOR_COOKIE, path='/api/v1/', domain=jwt_domain)
+        response.delete_cookie('sessionid', path='/', domain=getattr(settings, 'SESSION_COOKIE_DOMAIN', None))
+        response.delete_cookie('csrftoken', path='/', domain=getattr(settings, 'CSRF_COOKIE_DOMAIN', None))
         return response
 
 

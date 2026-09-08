@@ -58,6 +58,21 @@ export function clearApiCache() {
   inFlightGets.clear();
 }
 
+/** Remove current and legacy API cookie variants before creating a session. */
+export async function clearServerSessionCookies() {
+  clearApiCache();
+  csrfTokenCache = "";
+  const variants = ["access", "refresh", "root"].flatMap((path) =>
+    ["host", "parent"].map((domain) => ({ path, domain })),
+  );
+  await Promise.allSettled(variants.map(({ path, domain }) =>
+    fetch(`${API_BASE_URL}/auth/logout/?path=${path}&domain=${domain}`, {
+      method: "POST",
+      credentials: "include",
+    }),
+  ));
+}
+
 function rememberGet(cacheKey: string, response: Response) {
   const now = Date.now();
   for (const [key, entry] of getResponseCache) {
@@ -188,11 +203,16 @@ async function rememberCsrfToken(response: Response) {
 
 export async function apiFetch(path: string, init: RequestInit = {}, organizationId?: string | null) {
   const headers = new Headers(init.headers);
+  const normalizedPath = path.replace(/\/{2,}/g, "/");
+  const authPath = normalizedPath.startsWith("/auth/");
+  const authContextAllowed = normalizedPath.startsWith("/auth/me/");
   const activeOrgId = organizationId ?? (typeof window !== "undefined" ? localStorage.getItem("ce_organization") : null);
-  if (activeOrgId && !headers.has("X-Organization-ID")) {
+  if ((!authPath || authContextAllowed) && activeOrgId && !headers.has("X-Organization-ID")) {
     headers.set("X-Organization-ID", activeOrgId);
   }
-  if (typeof window !== "undefined" && !headers.has("X-Property-Scope") && !headers.has("X-Property-ID")) {
+  // A selected property is workspace state, not authentication context. Stale
+  // state from another user must not make /auth/me/ fail after valid login.
+  if (!authPath && typeof window !== "undefined" && !headers.has("X-Property-Scope") && !headers.has("X-Property-ID")) {
     const raw = localStorage.getItem(activeOrgId ? `ce-active-property:${activeOrgId}` : "ce-active-property");
     if (raw) {
       try {

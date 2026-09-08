@@ -473,6 +473,28 @@ class CorsAndPreflightContractTests(TestCase):
         self.assertIn('ce_access', response.cookies)
         self.assertIn('ce_refresh', response.cookies)
         self.assertEqual(response.cookies['ce_access']['max-age'], 0)
+        self.assertEqual(response.cookies['ce_access']['path'], '/api/v1/')
+        self.assertEqual(response.cookies['ce_refresh']['path'], '/api/v1/auth/')
+
+    def test_logout_can_clear_each_legacy_cookie_variant(self):
+        response = self.client.post('/api/v1/auth/logout/?path=root&domain=host')
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.cookies['ce_access']['path'], '/')
+        self.assertEqual(response.cookies['ce_access']['domain'], '')
+
+        response = self.client.post('/api/v1/auth/logout/?path=refresh&domain=parent')
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.cookies['ce_refresh']['path'], '/api/v1/auth/')
+        self.assertEqual(response.cookies['ce_refresh']['domain'], '.centerestates.com')
+
+    def test_logout_rejects_unknown_cleanup_scope(self):
+        response = self.client.post('/api/v1/auth/logout/?path=unknown&domain=host')
+        self.assertEqual(response.status_code, 400)
+
+    def test_expired_access_cookie_does_not_block_logout(self):
+        self.client.cookies['ce_access'] = 'not-a-valid-jwt'
+        response = self.client.post('/api/v1/auth/logout/?path=access&domain=host')
+        self.assertEqual(response.status_code, 204)
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], SECURE_SSL_REDIRECT=False)
@@ -677,4 +699,3 @@ class PropertyManagerScopingTests(TestCase):
         self.assertEqual(resp2.status_code, 200)
         pm2_ids = [str(item['id']) for item in (resp2.data if isinstance(resp2.data, list) else resp2.data.get('results', []))]
         self.assertNotIn(str(pm1_bug.id), pm2_ids)
-
