@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { DetailDrawer, Field } from "@/components/module-ui";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
@@ -41,10 +41,9 @@ export function InventoryView({
 }) {
   const [selected, setSelected] = useState<Row | null>(null);
   const content = copy[variant];
-  const inventoryRows = useMemo(
-    () => rows.filter((row) => content.categories.some((category) => String(row.category ?? "").toLowerCase().includes(category))),
-    [content.categories, rows],
-  );
+  // The API now returns an explicitly typed inventory register. Do not infer
+  // record type from free-text category names in the browser.
+  const inventoryRows = rows;
   const activeItems = inventoryRows.filter((row) => row.is_active !== false).length;
   const unitsOnHand = inventoryRows.reduce((total, row) => total + quantity(row), 0);
 

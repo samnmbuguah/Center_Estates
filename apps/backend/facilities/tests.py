@@ -57,6 +57,24 @@ class FacilityApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual([row['code'] for row in response.data], ['A1'])
 
+    def test_asset_registers_are_separated_by_inventory_type(self):
+        FacilityAsset.objects.create(
+            organization=self.organization, property=self.property, code='SP-1',
+            name='Lift door roller', category='Lift component', inventory_type='spare_part',
+        )
+        FacilityAsset.objects.create(
+            organization=self.organization, property=self.property, code='CON-1',
+            name='Cleaning detergent', category='Cleaning supply', inventory_type='consumable',
+        )
+
+        assets = self.client.get('/api/v1/facility/assets/?inventory_type=asset', **self.headers)
+        spares = self.client.get('/api/v1/facility/assets/?inventory_type=spare_part', **self.headers)
+        consumables = self.client.get('/api/v1/facility/assets/?inventory_type=consumable', **self.headers)
+
+        self.assertEqual([row['code'] for row in assets.data], ['A1'])
+        self.assertEqual([row['code'] for row in spares.data], ['SP-1'])
+        self.assertEqual([row['code'] for row in consumables.data], ['CON-1'])
+
     def test_floor_plan_upload_is_property_scoped_and_retains_original(self):
         response = self.client.post('/api/v1/facility/floor-plans/upload/', {
             'building': str(self.building.id), 'floor': '6',
@@ -1322,4 +1340,3 @@ class ProcurementFinanceWorkflowApiTests(TestCase):
         )
         self.assertEqual(quote_resp.status_code, 201, quote_resp.data)
         self.assertEqual(Decimal(quote_resp.data['total']), Decimal('25520.00'))
-

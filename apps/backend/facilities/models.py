@@ -8,6 +8,11 @@ from core.models import OrganizationOwnedModel
 
 
 class FacilityAsset(OrganizationOwnedModel):
+    class InventoryType(models.TextChoices):
+        ASSET = 'asset', 'Asset / equipment'
+        SPARE_PART = 'spare_part', 'Spare part'
+        CONSUMABLE = 'consumable', 'Consumable'
+
     class Condition(models.TextChoices):
         EXCELLENT = 'excellent', 'Excellent'
         GOOD = 'good', 'Good'
@@ -18,6 +23,7 @@ class FacilityAsset(OrganizationOwnedModel):
     code = models.CharField(max_length=50)
     name = models.CharField(max_length=180)
     category = models.CharField(max_length=80)
+    inventory_type = models.CharField(max_length=20, choices=InventoryType.choices, default=InventoryType.ASSET)
     asset_class = models.CharField(max_length=80, blank=True, default='Mechanical & Electrical')
     property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='facility_assets')
     building = models.ForeignKey('properties.Building', on_delete=models.PROTECT, related_name='facility_assets', null=True, blank=True)

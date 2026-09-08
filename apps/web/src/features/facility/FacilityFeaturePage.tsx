@@ -233,6 +233,7 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
           assets={logic.assets}
           createError={logic.createError}
           creating={logic.creating}
+          assetKind={logic.tab === "spare-parts" ? "spare_part" : logic.tab === "consumables" ? "consumable" : "asset"}
         />
       </div>
     </ModuleShell>

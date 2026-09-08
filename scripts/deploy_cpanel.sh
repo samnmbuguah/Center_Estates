@@ -175,6 +175,7 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
   tar -czf "$FRONTEND_ARCHIVE" \
     app.js apps/web/.next/standalone apps/web/.next/static apps/web/public
   scp "$FRONTEND_ARCHIVE" "${REMOTE_HOST}:${FRONTEND_PATH}/deploy-web.tar.gz"
+  scp "scripts/cpanel-web.htaccess" "${REMOTE_HOST}:${FRONTEND_PATH}/.htaccess"
   ssh "$REMOTE_HOST" "bash -s" <<EOF
     set -e
     source '${NODE_VENV}'

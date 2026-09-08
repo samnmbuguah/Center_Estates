@@ -18,6 +18,7 @@ export function FacilityModals({
   assets,
   createError,
   creating,
+  assetKind,
 }: {
   showCreate: boolean;
   setShowCreate: (v: boolean) => void;
@@ -32,11 +33,12 @@ export function FacilityModals({
   assets: Row[];
   createError: string;
   creating: boolean;
+  assetKind: "asset" | "spare_part" | "consumable";
 }) {
   return (
     <>
       {createModal === "asset" && (
-        <AssetOnboardingModal properties={properties} onClose={() => setCreateModal(null)} onSubmit={handleCreate} error={createError} creating={creating} />
+        <AssetOnboardingModal assetKind={assetKind} properties={properties} onClose={() => setCreateModal(null)} onSubmit={handleCreate} error={createError} creating={creating} />
       )}
       {createModal === "contractor" && (
         <ProviderOnboardingModal properties={properties} onClose={() => setCreateModal(null)} onSubmit={handleCreate} error={createError} creating={creating} />

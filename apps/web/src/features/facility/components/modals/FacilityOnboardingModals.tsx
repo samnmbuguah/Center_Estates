@@ -94,10 +94,12 @@ function DocumentsInput({ helper }: { helper: string }) {
   </Box>;
 }
 
-export function AssetOnboardingModal({ properties, onClose, onSubmit, error, creating }: { properties: Row[]; onClose: () => void; onSubmit: SubmitHandler; error: string; creating: boolean }) {
+export function AssetOnboardingModal({ assetKind = "asset", properties, onClose, onSubmit, error, creating }: { assetKind?: "asset" | "spare_part" | "consumable"; properties: Row[]; onClose: () => void; onSubmit: SubmitHandler; error: string; creating: boolean }) {
   const { tab, changeTab, formRef, submit } = useWizardForm(onSubmit);
-  return <Modal extraWide title={<Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}><Wrench size={22} color="#dc2626" /><Box><Typography sx={{ fontWeight: 900 }}>Add New Asset</Typography><Typography variant="caption" color="text.secondary">Create the asset’s digital passport. Asset ID and QR reference are generated automatically.</Typography></Box></Box>} onClose={onClose}>
+  const kindLabel = assetKind === "spare_part" ? "Spare Part" : assetKind === "consumable" ? "Consumable" : "Asset";
+  return <Modal extraWide title={<Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}><Wrench size={22} color="#dc2626" /><Box><Typography sx={{ fontWeight: 900 }}>Add New {kindLabel}</Typography><Typography variant="caption" color="text.secondary">Create a distinct {kindLabel.toLowerCase()} stock record. Its ID and QR reference are generated automatically.</Typography></Box></Box>} onClose={onClose}>
     <form ref={formRef} onSubmit={submit} data-save-mode="submit">
+      <input type="hidden" name="inventory_type" value={assetKind} />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error} Your entered information has been retained.</Alert>}
       <Tabs value={tab} onChange={(_, value) => changeTab(value)} variant="scrollable" scrollButtons="auto" sx={{ mb: 2, borderBottom: 1, borderColor: "divider", "& .MuiTab-root": { minHeight: 44, textTransform: "none", fontWeight: 800 } }}>{assetTabs.map((label, index) => <Tab key={label} label={`${index + 1}. ${label}`} />)}</Tabs>
 
@@ -106,7 +108,7 @@ export function AssetOnboardingModal({ properties, onClose, onSubmit, error, cre
         <TextField disabled label="Asset ID" value="Generated on save" />
         <TextField name="meta__asset_tag" label="Asset tag number" />
         <TextField disabled label="QR / barcode" value="Generated from asset ID" />
-        <TextField required name="category" label="Asset category" placeholder="e.g. Vertical transportation" />
+        <TextField required name="category" label={`${kindLabel} category`} defaultValue={assetKind === "spare_part" ? "Spare Part" : assetKind === "consumable" ? "Consumable" : ""} placeholder="e.g. Vertical transportation" />
         <TextField required name="meta__asset_type" label="Asset type" placeholder="e.g. Passenger lift" />
         <TextField name="asset_class" label="Asset class" placeholder="Mechanical & Electrical" />
         <TextField name="manufacturer" label="Manufacturer" />

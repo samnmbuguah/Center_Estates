@@ -201,9 +201,12 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_DOMAIN = os.environ.get('SESSION_COOKIE_DOMAIN') or None
-CSRF_COOKIE_DOMAIN = os.environ.get('CSRF_COOKIE_DOMAIN') or None
 JWT_COOKIE_DOMAIN = os.environ.get('JWT_COOKIE_DOMAIN', '.centerestates.com') or None
+SESSION_COOKIE_DOMAIN = os.environ.get('SESSION_COOKIE_DOMAIN') or None
+# The web and API run on sibling hosts. Share the readable CSRF cookie across
+# them just like the HttpOnly JWT cookies; otherwise normal browser refreshes
+# can have a valid refresh token but no CSRF token visible to the web client.
+CSRF_COOKIE_DOMAIN = os.environ.get('CSRF_COOKIE_DOMAIN') or JWT_COOKIE_DOMAIN
 X_FRAME_OPTIONS = 'DENY'
 if not DEBUG:
     SECURE_SSL_REDIRECT = True

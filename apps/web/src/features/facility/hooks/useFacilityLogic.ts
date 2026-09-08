@@ -59,7 +59,8 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
     } else if (tab === "risks") {
       path = `/facility/risks/?search=${encodeURIComponent(search)}`;
     } else if (tab === "spare-parts" || tab === "consumables") {
-      path = `/facility/assets/?search=${encodeURIComponent(search)}`;
+      const inventoryType = tab === "spare-parts" ? "spare_part" : "consumable";
+      path = `/facility/assets/?inventory_type=${inventoryType}&search=${encodeURIComponent(search)}`;
     } else if (tab === "expenditure") {
       path = `/facility/expenses/?search=${encodeURIComponent(search)}`;
     } else if (tab === "procurement") {
@@ -68,6 +69,8 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
       path = `/facility/payment-requests/?search=${encodeURIComponent(search)}`;
     } else if (tab === "service-providers") {
       path = `/facility/contractors/?search=${encodeURIComponent(search)}`;
+    } else if (tab === "assets") {
+      path = `/facility/assets/?inventory_type=asset&search=${encodeURIComponent(search)}`;
     } else {
       path = `/facility/${tab}/?search=${encodeURIComponent(search)}`;
     }
@@ -176,6 +179,7 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
       payload = Object.fromEntries(Object.entries(raw).filter(([key, value]) => !key.startsWith("meta__") && String(value).trim() !== ""));
       payload.metadata = { ...metadata, onboarding_status: saveMode === "draft" ? "draft" : "complete" };
       if (createModal === "asset") {
+        payload.inventory_type = tab === "spare-parts" ? "spare_part" : tab === "consumables" ? "consumable" : "asset";
         payload.is_active = saveMode === "draft" ? false : raw.is_active !== "false";
         for (const key of ["purchase_value", "replacement_cost", "expected_useful_life_years"])
           if (payload[key] !== undefined) payload[key] = Number(payload[key]);

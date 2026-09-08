@@ -1,0 +1,31 @@
+RewriteEngine On
+
+# Authentication cookies are Secure and cannot work from an HTTP frontend.
+# Keep one canonical browser origin so bookmarks and cached www/http URLs are
+# repaired before the application loads.
+RewriteCond %{HTTPS} !=on [OR]
+RewriteCond %{HTTP_HOST} !^centerestates\.com$ [NC]
+RewriteRule ^ https://centerestates.com%{REQUEST_URI} [R=301,L,NE]
+
+# BEGIN cPanel-generated php ini directives, do not edit
+<IfModule php8_module>
+   php_value error_log "/home2/monitori/logs/php.error.log"
+   php_flag log_errors On
+</IfModule>
+<IfModule lsapi_module>
+   php_value error_log "/home2/monitori/logs/php.error.log"
+   php_flag log_errors On
+</IfModule>
+# END cPanel-generated php ini directives, do not edit
+
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home2/monitori/centerestates.com"
+PassengerBaseURI "/"
+PassengerNodejs "/home2/monitori/nodevenv/centerestates.com/24/bin/node"
+PassengerAppType node
+PassengerStartupFile app.js
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+# DO NOT REMOVE OR MODIFY. CLOUDLINUX ENV VARS CONFIGURATION BEGIN
+<IfModule Litespeed>
+</IfModule>
+# DO NOT REMOVE OR MODIFY. CLOUDLINUX ENV VARS CONFIGURATION END

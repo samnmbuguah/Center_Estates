@@ -1447,6 +1447,13 @@ class AssetViewSet(FacilityModelViewSet):
     serializer_class = FacilityAssetSerializer
     search_fields = ('code', 'name', 'category', 'serial_number', 'property__name')
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        inventory_type = self.request.query_params.get('inventory_type')
+        if inventory_type in dict(FacilityAsset.InventoryType.choices):
+            queryset = queryset.filter(inventory_type=inventory_type)
+        return queryset
+
     @transaction.atomic
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
@@ -1572,6 +1579,9 @@ class AssetViewSet(FacilityModelViewSet):
                         bld = Building.objects.filter(property=prop, pk=bld_name_or_id).first() if str(bld_name_or_id).replace('-', '').isalnum() else None
 
                 category = str(item.get('category') or 'General M&E').strip()
+                inventory_type = str(item.get('inventory_type') or 'asset').strip()
+                if inventory_type not in dict(FacilityAsset.InventoryType.choices):
+                    inventory_type = FacilityAsset.InventoryType.ASSET
                 asset_class = str(item.get('asset_class') or 'Mechanical & Electrical').strip()
                 criticality = str(item.get('criticality') or 'medium').lower().strip()
                 if criticality not in ('low', 'medium', 'high', 'critical'):
@@ -1592,6 +1602,7 @@ class AssetViewSet(FacilityModelViewSet):
                     code=code,
                     name=name,
                     category=category,
+                    inventory_type=inventory_type,
                     asset_class=asset_class,
                     criticality=criticality,
                     condition=condition,
