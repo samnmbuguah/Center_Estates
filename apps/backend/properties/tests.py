@@ -1168,7 +1168,22 @@ class PropertyApiTests(TestCase):
         self.assertEqual(self.property.units.count(), 3)  # Existing unit is retained.
         created = self.property.units.get(code='G-01')
         self.assertEqual(created.metadata['use'], 'Shop')
-        self.assertEqual(created.charge_rules.get(billing_item__code='SERVICE_CHARGE').rate, Decimal('12.50'))
+        service_rule = created.charge_rules.get(billing_item__code='SERVICE_CHARGE')
+        self.assertEqual(service_rule.calculation, BillingItem.Calculation.FIXED)
+        self.assertEqual(service_rule.amount, Decimal('12.50'))
+        self.assertEqual(created.common_area_fee_amount, Decimal('12.50'))
+
+        updated = self.client.patch(f'/api/v1/property/properties/{self.property.id}/', {
+            'units': [
+                {'unit_no': 'G-01', 'unit_type': 'Retail Updated', 'floor': 'Ground', 'use': 'Shop', 'area': '810', 'service_charge_rate': '3500'},
+            ],
+        }, format='json', **self.headers)
+        self.assertEqual(updated.status_code, 200, updated.data)
+        created.refresh_from_db(); service_rule.refresh_from_db()
+        self.assertEqual(created.unit_type, 'Retail Updated')
+        self.assertEqual(created.common_area_fee_amount, Decimal('3500'))
+        self.assertEqual(service_rule.amount, Decimal('3500'))
+        self.assertEqual(self.property.units.filter(code='G-01').count(), 1)
 
         detail = self.client.get(f'/api/v1/property/properties/{self.property.id}/', **self.headers)
         self.assertEqual(detail.status_code, 200, detail.data)
@@ -1907,12 +1922,16 @@ class PropertyApiTests(TestCase):
         self.assertIn('service_charge', response.data['tenancy_schedule'][0])
         self.assertIn('escalation_percent', response.data['tenancy_schedule'][0])
         self.assertIn('next_effective_rent', response.data['tenancy_schedule'][0])
+        self.assertIn('owner', response.data['tenancy_schedule'][0])
+        self.assertIn('management_mandate', response.data['tenancy_schedule'][0])
+        self.assertEqual(len(response.data['ownership_schedule']), 1)
+        self.assertIn('billing_readiness', response.data['ownership_schedule'][0])
         self.assertEqual(response.data['lease_expiry'][0]['lease'], self.lease.reference)
 
     def test_each_visible_report_tab_exports_its_own_dataset_in_supported_formats(self):
         headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
         report_headings = {
-            'tenancy-schedule': b'Escalation %', 'vacancy': b'Days vacant',
+            'tenancy-schedule': b'Escalation %', 'ownership-schedule': b'Billing Readiness', 'vacancy': b'Days vacant',
             'movements': b'Movement', 'income-analysis': b'Annualized income',
             'billing-schedule': b'Outstanding C/F', 'vat-schedule': b'Taxable value',
             'expenses-schedule': b'Budget code',

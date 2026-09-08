@@ -143,6 +143,7 @@ REPORT_TITLES = {
     'vat-schedule': 'VAT & Statutory Schedule',
     'occupancy': 'Portfolio Occupancy Register',
     'tenancy-schedule': 'Tenancy Schedule',
+    'ownership-schedule': 'Unit Ownership Schedule',
     'vacancy': 'Vacancy Register',
     'movements': 'Tenant Movements',
     'income-analysis': 'Income Analysis',
@@ -780,6 +781,9 @@ class PropertyViewSet(OrganizationModelViewSet):
                     except (TypeError, ValueError):
                         building = None
 
+                service_calculation = str(raw.get('service_charge_calculation') or 'fixed').strip().lower()
+                if service_calculation not in (BillingItem.Calculation.FIXED, BillingItem.Calculation.AREA_RATE):
+                    raise ValidationError({'units': f'Unit {code} service charge calculation must be fixed or area_rate.'})
                 metadata = {
                     'use': str(raw.get('use') or '').strip(),
                     'rateable_area': raw.get('rateable_area') or None,
@@ -791,15 +795,19 @@ class PropertyViewSet(OrganizationModelViewSet):
                     raise ValidationError({'units': f'Unit {code} has an invalid service charge rate.'})
                 if service_rate < 0:
                     raise ValidationError({'units': f'Unit {code} service charge rate cannot be negative.'})
-                metadata['billing_setup'] = {'service_charge_rate': str(service_rate)}
+                metadata['billing_setup'] = {
+                    'service_charge_rate': str(service_rate),
+                    'service_charge_calculation': service_calculation,
+                }
                 unit = instance.units.filter(code__iexact=code).first()
                 if unit:
                     unit.building = building
                     unit.floor = str(raw.get('floor') or '').strip()
                     unit.unit_type = str(raw.get('unit_type') or '').strip()
                     unit.area = raw.get('area') or None
+                    unit.common_area_fee_amount = service_rate if service_calculation == BillingItem.Calculation.FIXED else Decimal('0')
                     unit.metadata = {**(unit.metadata or {}), **metadata}
-                    unit.save(update_fields=('building', 'floor', 'unit_type', 'area', 'metadata', 'updated_at'))
+                    unit.save(update_fields=('building', 'floor', 'unit_type', 'area', 'common_area_fee_amount', 'metadata', 'updated_at'))
                     units_updated += 1
                 else:
                     unit = Unit.objects.create(
@@ -807,19 +815,22 @@ class PropertyViewSet(OrganizationModelViewSet):
                         code=code, floor=str(raw.get('floor') or '').strip(),
                         unit_type=str(raw.get('unit_type') or '').strip(), area=raw.get('area') or None,
                         status=Unit.Status.AVAILABLE, metadata=metadata,
+                        common_area_fee_amount=service_rate if service_calculation == BillingItem.Calculation.FIXED else Decimal('0'),
                     )
                     units_created += 1
                 if service_rate:
                     service_item, _ = BillingItem.objects.get_or_create(
                         organization=organization, code='SERVICE_CHARGE',
-                        defaults={'name': 'Service charge', 'calculation': BillingItem.Calculation.AREA_RATE, 'income_category': 'service_charge'},
+                        defaults={'name': 'Service charge', 'calculation': service_calculation, 'income_category': 'service_charge'},
                     )
                     UnitChargeRule.objects.update_or_create(
                         organization=organization, unit=unit, billing_item=service_item,
                         defaults={
                             'frequency': UnitChargeRule.Frequency.MONTHLY,
-                            'calculation': BillingItem.Calculation.AREA_RATE,
-                            'rate': service_rate, 'billing_day': 1, 'is_active': True,
+                            'calculation': service_calculation,
+                            'amount': service_rate if service_calculation == BillingItem.Calculation.FIXED else Decimal('0'),
+                            'rate': service_rate if service_calculation == BillingItem.Calculation.AREA_RATE else Decimal('0'),
+                            'billing_day': 1, 'is_active': True,
                         },
                     )
         return {'buildings_created': buildings_created, 'units_created': units_created, 'units_updated': units_updated}
@@ -987,6 +998,15 @@ class PropertyViewSet(OrganizationModelViewSet):
                         building = buildings[0]
                 except (TypeError, ValueError):
                     building = None
+            service_calculation = str(raw_unit.get('service_charge_calculation') or 'fixed').strip().lower()
+            if service_calculation not in (BillingItem.Calculation.FIXED, BillingItem.Calculation.AREA_RATE):
+                raise ValidationError({'units': f'Unit {code} service charge calculation must be fixed or area_rate.'})
+            try:
+                service_rate = Decimal(str(raw_unit.get('service_charge_rate') or 0))
+            except Exception:
+                raise ValidationError({'units': f'Unit {code} has an invalid service charge rate.'})
+            if service_rate < 0:
+                raise ValidationError({'units': f'Unit {code} service charge rate cannot be negative.'})
             unit = Unit.objects.create(
                 organization=organization,
                 property=property_record,
@@ -1002,25 +1022,22 @@ class PropertyViewSet(OrganizationModelViewSet):
                     'description': str(raw_unit.get('description') or '').strip(),
                     'billing_setup': {
                         'service_charge_rate': str(raw_unit.get('service_charge_rate') or '0'),
+                        'service_charge_calculation': service_calculation,
                     },
                 },
+                common_area_fee_amount=service_rate if service_calculation == BillingItem.Calculation.FIXED else Decimal('0'),
             )
             units.append(unit)
-            try:
-                service_rate = Decimal(str(raw_unit.get('service_charge_rate') or 0))
-            except Exception:
-                raise ValidationError({'units': f'Unit {code} has an invalid service charge rate.'})
-            if service_rate < 0:
-                raise ValidationError({'units': f'Unit {code} service charge rate cannot be negative.'})
             if service_rate:
                 service_item, _ = BillingItem.objects.get_or_create(
                     organization=organization, code='SERVICE_CHARGE',
-                    defaults={'name': 'Service charge', 'calculation': BillingItem.Calculation.AREA_RATE, 'income_category': 'service_charge'},
+                    defaults={'name': 'Service charge', 'calculation': service_calculation, 'income_category': 'service_charge'},
                 )
                 UnitChargeRule.objects.create(
                     organization=organization, unit=unit, billing_item=service_item,
-                    frequency=UnitChargeRule.Frequency.MONTHLY, calculation=BillingItem.Calculation.AREA_RATE,
-                    rate=service_rate, billing_day=1,
+                    frequency=UnitChargeRule.Frequency.MONTHLY, calculation=service_calculation,
+                    amount=service_rate if service_calculation == BillingItem.Calculation.FIXED else Decimal('0'),
+                    rate=service_rate if service_calculation == BillingItem.Calculation.AREA_RATE else Decimal('0'), billing_day=1,
                 )
 
         # Utility accounts remain part of the property profile, while metered
@@ -5884,8 +5901,8 @@ class PropertyAnalyticsViewSet(ViewSet):
         if start > end:
             raise ValidationError({'period': 'Start date cannot be after end date.'})
 
-        units = scope_model_queryset(Unit, request, organization).select_related('property', 'building')
-        leases = scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property')
+        units = scope_model_queryset(Unit, request, organization).select_related('property', 'building', 'owner').prefetch_related('charge_rules__billing_item')
+        leases = scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property', 'unit__owner')
         unit_type = request.query_params.get('unit_type', '').strip()
         unit_status = request.query_params.get('unit_status', '').strip()
         lease_status = request.query_params.get('lease_status', '').strip()
@@ -5908,9 +5925,17 @@ class PropertyAnalyticsViewSet(ViewSet):
             balance__gt=0, due_on__lt=today,
         ).exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID))
 
+        active_lease_rows = list(active_leases.order_by('unit__code'))
+        active_lease_by_unit = {lease.unit_id: lease for lease in active_lease_rows}
         schedule = [{
             'lease': lease.reference, 'tenant': lease.tenant.name, 'property': lease.unit.property.name,
             'floor': lease.unit.floor, 'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
+            'owner': lease.unit.owner.name if lease.unit.owner else 'Unassigned',
+            'owner_code': lease.unit.owner.code if lease.unit.owner else '',
+            'management_mandate': lease.unit.get_management_mandate_display(),
+            'rent_collection': 'Estate managed' if (lease.metadata or {}).get('rent_collection_mode') != 'direct_landlord' and lease.monthly_rent > 0 else 'Direct to landlord / no estate rent',
+            'utilities_billed_to': 'Tenant',
+            'service_charge_billed_to': lease.unit.get_service_charge_payer_display(),
             'use': lease.unit.metadata.get('use', lease.unit.unit_type),
             'area': lease.unit.area, 'monthly_rent': lease.effective_rent(today),
             'service_charge': self._service_charge_for_lease(lease),
@@ -5918,7 +5943,37 @@ class PropertyAnalyticsViewSet(ViewSet):
             'escalation_interval_months': lease.escalation_interval_months,
             'next_effective_rent': lease.effective_rent(min(lease.ends_on - timedelta(days=1), today + timedelta(days=365))),
             'lease_start': lease.starts_on, 'lease_end': lease.ends_on,
-        } for lease in active_leases.order_by('unit__code')]
+        } for lease in active_lease_rows]
+
+        ownership_schedule = []
+        for unit in units.order_by('code'):
+            lease = active_lease_by_unit.get(unit.id)
+            service_charge = unit.common_area_fee_amount or Decimal('0')
+            if service_charge <= 0:
+                for rule in unit.charge_rules.all():
+                    if str(rule.billing_item.code).upper() not in ('SERVICE_CHARGE', 'SC') or not rule.is_active:
+                        continue
+                    service_charge = rule.amount if rule.calculation == BillingItem.Calculation.FIXED else (
+                        (rule.rate * unit.area).quantize(Decimal('0.01')) if unit.area else Decimal('0')
+                    )
+                    break
+            ownership_schedule.append({
+                'property': unit.property.name,
+                'floor': unit.floor,
+                'unit': unit.code,
+                'unit_type': unit.unit_type,
+                'owner': unit.owner.name if unit.owner else 'Unassigned',
+                'owner_code': unit.owner.code if unit.owner else '',
+                'tenant_or_occupant': lease.tenant.name if lease else ('Owner occupied / no tenancy record' if unit.owner_id and unit.status == Unit.Status.OCCUPIED else 'Vacant'),
+                'occupancy': 'Occupied' if lease else unit.get_status_display(),
+                'management_mandate': unit.get_management_mandate_display(),
+                'rent_collection': 'Estate managed' if lease and (lease.metadata or {}).get('rent_collection_mode') != 'direct_landlord' and lease.monthly_rent > 0 else ('Direct to landlord' if lease else 'Not applicable'),
+                'monthly_rent_billed_by_estate': lease.effective_rent(today) if lease and (lease.metadata or {}).get('rent_collection_mode') != 'direct_landlord' and lease.monthly_rent > 0 else Decimal('0'),
+                'monthly_service_charge': service_charge,
+                'service_charge_payer': unit.get_service_charge_payer_display(),
+                'utilities_payer': unit.get_water_payer_display(),
+                'billing_readiness': 'Ready' if unit.owner_id and service_charge > 0 else ('Owner not assigned' if not unit.owner_id else 'Service charge not configured'),
+            })
 
         vacant_rows = []
         histories = scope_model_queryset(UnitStatusHistory, request, organization).filter(
@@ -5956,6 +6011,8 @@ class PropertyAnalyticsViewSet(ViewSet):
             'period': {'start': start, 'end': end},
             'kpis': {
                 'total_units': total_units, 'occupied_units': occupied, 'vacant_units': vacant,
+                'owned_units': units.exclude(owner=None).count(),
+                'unassigned_owner_units': units.filter(owner=None).count(),
                 'occupancy_rate': round(occupied / total_units * 100, 1) if total_units else 0,
                 'vacancy_rate': round(vacant / total_units * 100, 1) if total_units else 0,
                 'current_monthly_income': current_income, 'projected_monthly_income_90_days': projected_income,
@@ -5963,6 +6020,7 @@ class PropertyAnalyticsViewSet(ViewSet):
                 'overdue_amount': overdue.aggregate(total=Sum('balance'))['total'] or Decimal('0'),
             },
             'unit_status_distribution': distribution, 'tenancy_schedule': schedule,
+            'ownership_schedule': ownership_schedule,
             'vacant_units': vacant_rows, 'movements': movement_rows, 'lease_expiry': expiries,
             'filter_options': {
                 'unit_types': list(scope_model_queryset(Unit, request, organization).exclude(unit_type='').values_list('unit_type', flat=True).distinct()),
@@ -6252,14 +6310,36 @@ class PropertyAnalyticsViewSet(ViewSet):
             for unit in scope_model_queryset(Unit, request, organization).select_related('property'):
                 writer.writerow((unit.property.name, unit.code, unit.unit_type, unit.area or '', unit.status))
         elif report_kind == 'tenancy-schedule':
-            writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Use', 'Lease Start', 'Lease End', 'Rent', 'Service Charge', 'Escalation %', 'Escalation Interval (Months)', 'Next Effective Rent'))
-            rows = scope_model_queryset(Lease, request, organization).filter(starts_on__lte=end, ends_on__gte=start).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
+            writer.writerow(('Floor', 'Unit', 'Tenant', 'Owner / Landlord', 'Owner Code', 'Management Mandate', 'Rent Collection', 'Utilities Billed To', 'Service Charge Billed To', 'Property', 'Area', 'Use', 'Lease Start', 'Lease End', 'Rent', 'Service Charge', 'Escalation %', 'Escalation Interval (Months)', 'Next Effective Rent'))
+            rows = scope_model_queryset(Lease, request, organization).filter(starts_on__lte=end, ends_on__gte=start).select_related('tenant', 'unit__property', 'unit__owner').prefetch_related('billing_profiles__billing_item')
             for lease in rows:
                 service_charge = self._service_charge_for_lease(lease)
-                writer.writerow((lease.unit.floor, lease.unit.code, lease.tenant.name, lease.unit.property.name,
+                rent_is_managed = (lease.metadata or {}).get('rent_collection_mode') != 'direct_landlord' and lease.monthly_rent > 0
+                writer.writerow((lease.unit.floor, lease.unit.code, lease.tenant.name,
+                                 lease.unit.owner.name if lease.unit.owner else 'Unassigned', lease.unit.owner.code if lease.unit.owner else '',
+                                 lease.unit.get_management_mandate_display(), 'Estate managed' if rent_is_managed else 'Direct to landlord / no estate rent',
+                                 'Tenant', lease.unit.get_service_charge_payer_display(), lease.unit.property.name,
                                  lease.unit.area or '', lease.unit.metadata.get('use', lease.unit.unit_type), lease.starts_on,
                                  lease.ends_on, lease.effective_rent(end), service_charge, lease.escalation_percent,
                                  lease.escalation_interval_months, lease.effective_rent(min(lease.ends_on - timedelta(days=1), end + timedelta(days=365)))))
+        elif report_kind == 'ownership-schedule':
+            writer.writerow(('Floor', 'Unit', 'Type', 'Owner / Landlord', 'Owner Code', 'Tenant / Occupant', 'Occupancy', 'Management Mandate', 'Rent Collection', 'Estate Rent Billing', 'Monthly Service Charge', 'Service Charge Payer', 'Utilities Payer', 'Billing Readiness'))
+            units = scope_model_queryset(Unit, request, organization).select_related('owner').prefetch_related('charge_rules__billing_item', 'leases__tenant').order_by('code')
+            for unit in units:
+                lease = unit.leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING, Lease.Status.DRAFT), starts_on__lte=end, ends_on__gte=start).order_by('-starts_on').first()
+                service_charge = unit.common_area_fee_amount or Decimal('0')
+                if service_charge <= 0:
+                    rule = next((r for r in unit.charge_rules.all() if r.is_active and str(r.billing_item.code).upper() in ('SERVICE_CHARGE', 'SC')), None)
+                    if rule:
+                        service_charge = rule.amount if rule.calculation == BillingItem.Calculation.FIXED else ((rule.rate * unit.area).quantize(Decimal('0.01')) if unit.area else Decimal('0'))
+                rent_is_managed = bool(lease and (lease.metadata or {}).get('rent_collection_mode') != 'direct_landlord' and lease.monthly_rent > 0)
+                writer.writerow((unit.floor, unit.code, unit.unit_type, unit.owner.name if unit.owner else 'Unassigned', unit.owner.code if unit.owner else '',
+                                 lease.tenant.name if lease else ('Owner occupied / no tenancy record' if unit.owner_id and unit.status == Unit.Status.OCCUPIED else 'Vacant'),
+                                 'Occupied' if lease else unit.get_status_display(), unit.get_management_mandate_display(),
+                                 'Estate managed' if rent_is_managed else ('Direct to landlord' if lease else 'Not applicable'),
+                                 lease.effective_rent(end) if rent_is_managed else Decimal('0'), service_charge,
+                                 unit.get_service_charge_payer_display(), unit.get_water_payer_display(),
+                                 'Ready' if unit.owner_id and service_charge > 0 else ('Owner not assigned' if not unit.owner_id else 'Service charge not configured')))
         elif report_kind == 'vacancy':
             writer.writerow(('Property', 'Unit', 'Type', 'Use', 'Area', 'Available since', 'Days vacant', 'Expected rent', 'Vacancy reason', 'Marketing status'))
             units = scope_model_queryset(Unit, request, organization).filter(status=Unit.Status.AVAILABLE).select_related('property')

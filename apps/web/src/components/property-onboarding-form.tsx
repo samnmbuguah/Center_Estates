@@ -18,7 +18,7 @@ import { csvCell as cell, csvColumn as headerIndex, normalizeCsvHeader, normaliz
 import { UnitFloorPlanCanvas, type Point, type UnitLayout } from "@/features/property/components/floorplan/UnitFloorPlanCanvas";
 
 type Values = Record<string, string>;
-type UnitDraft = { unit_no: string; unit_type: string; floor: string; use: string; area: string; rateable_area: string; service_charge_rate: string; description: string; building_index: string; polygon?: Point[] };
+type UnitDraft = { unit_no: string; unit_type: string; floor: string; use: string; area: string; rateable_area: string; service_charge_rate: string; service_charge_calculation: "fixed" | "area_rate"; description: string; building_index: string; polygon?: Point[] };
 type UnitImportRow = UnitDraft & { sourceRow: number; errors: Partial<Record<keyof UnitDraft, string>> };
 type UtilityDraft = { type: string; account_no: string; location: string; bill_cycle: string; status: string; meter_code: string; supply_mode: string; tariff: string; unit: string; unit_code: string };
 type AssetDraft = { name: string; category: string; location: string; quantity: string; status: string };
@@ -27,7 +27,7 @@ type ProviderDraft = { name?: string; category: string; service: string; frequen
 type DocumentDraft = { name: string; type: string; reference: string; expires_on: string; file: File | null };
 type BuildingDraft = { id?: string; name: string; floors: string; floor_numbers: string; use: string; access_points: string; parking_spaces: string; amenities: string };
 
-const blankUnit: UnitDraft = { unit_no: "", unit_type: "", floor: "", use: "", area: "", rateable_area: "", service_charge_rate: "0", description: "", building_index: "" };
+const blankUnit: UnitDraft = { unit_no: "", unit_type: "", floor: "", use: "", area: "", rateable_area: "", service_charge_rate: "0", service_charge_calculation: "fixed", description: "", building_index: "" };
 const blankUtility: UtilityDraft = { type: "water", account_no: "", location: "", bill_cycle: "monthly", status: "active", meter_code: "", supply_mode: "postpaid", tariff: "0", unit: "m³", unit_code: "" };
 
 const blankAsset: AssetDraft = { name: "", category: "", location: "", quantity: "1", status: "active" };
@@ -42,13 +42,14 @@ function normalizeNumber(value: string) {
   return value.replace(/[\s,]/g, "").trim();
 }
 
-function validateUnitImport(rows: UnitImportRow[], existing: UnitDraft[]) {
-  const seen = new Set(existing.map((unit) => unit.unit_no.trim().toLowerCase()));
+function validateUnitImport(rows: UnitImportRow[], existing: UnitDraft[], allowExistingUpdates = false) {
+  const existingCodes = new Set(existing.map((unit) => unit.unit_no.trim().toLowerCase()));
+  const seen = new Set<string>();
   return rows.map((row) => {
     const errors: UnitImportRow["errors"] = {};
     const code = row.unit_no.trim().toLowerCase();
     if (!code) errors.unit_no = "Unit number is required.";
-    else if (seen.has(code)) errors.unit_no = "Duplicate unit number.";
+    else if (seen.has(code) || (!allowExistingUpdates && existingCodes.has(code))) errors.unit_no = "Duplicate unit number.";
     else seen.add(code);
     if (!row.unit_type.trim()) errors.unit_type = "Unit type is required.";
     if (!row.floor.trim()) errors.floor = "Floor is required.";
@@ -311,6 +312,7 @@ export function PropertyOnboardingForm() {
               area: String(u.area || "500"),
               rateable_area: String(u.rateable_area || u.area || "500"),
               service_charge_rate: String(u.service_charge_rate || u.metadata?.billing_setup?.service_charge_rate || "0"),
+              service_charge_calculation: u.metadata?.billing_setup?.service_charge_calculation || "fixed",
               description: u.description || "",
               building_index: "0",
             })));
@@ -388,7 +390,8 @@ export function PropertyOnboardingForm() {
       rateable_area: headerIndex(headers, ["rateable_area", "rateable_area_sq_ft", "rateable_area_sqft"]),
       building_index: headerIndex(headers, ["building_number", "building_index", "building"]),
       description: headerIndex(headers, ["description", "notes"]),
-      service_charge_rate: headerIndex(headers, ["service_charge_rate", "service_charge_per_sqft", "sc_rate"]),
+      service_charge_amount: headerIndex(headers, ["monthly_service_charge", "service_charge_amount", "service_charge_rate", "sc_amount"]),
+      service_charge_per_area: headerIndex(headers, ["service_charge_per_sqft", "service_charge_rate_per_sqft", "sc_rate_per_sqft"]),
     };
 
     if (columns.unit_no < 0) {
@@ -430,14 +433,17 @@ export function PropertyOnboardingForm() {
           rateable_area: columns.rateable_area >= 0 ? normalizeNumber(cell(row, columns.rateable_area)) : "",
           building_index: columns.building_index >= 0 ? cell(row, columns.building_index) : "",
           description: columns.description >= 0 ? cell(row, columns.description) : "",
-          service_charge_rate: columns.service_charge_rate >= 0 ? normalizeNumber(cell(row, columns.service_charge_rate)) : "0",
+          service_charge_rate: columns.service_charge_amount >= 0
+            ? normalizeNumber(cell(row, columns.service_charge_amount))
+            : columns.service_charge_per_area >= 0 ? normalizeNumber(cell(row, columns.service_charge_per_area)) : "0",
+          service_charge_calculation: (columns.service_charge_per_area >= 0 && columns.service_charge_amount < 0 ? "area_rate" : "fixed") as UnitDraft["service_charge_calculation"],
         };
       })
       .filter((u): u is UnitDraft => u !== null);
 
     if (!imported.length) { setError("The CSV file contains no data rows. Ensure at least one unit row is present."); jump("units"); return; }
     if (imported.length + units.length > 500) { setError(`Importing ${imported.length} units would exceed the 500-unit limit (currently ${units.length} units). Reduce the batch size.`); jump("units"); return; }
-    const preview = validateUnitImport(imported.map((unit, index) => ({ ...unit, sourceRow: index + 2, errors: {} })), units);
+    const preview = validateUnitImport(imported.map((unit, index) => ({ ...unit, sourceRow: index + 2, errors: {} })), units, Boolean(editId));
     setUnitImportRows(preview);
     setUnitImportFile(file.name);
     const errorCount = preview.filter((row) => Object.keys(row.errors).length).length;
@@ -447,7 +453,7 @@ export function PropertyOnboardingForm() {
 
   const editUnitImport = (index: number, field: keyof UnitDraft, value: string) => {
     setUnitImportRows((current) => {
-      const next = validateUnitImport(current.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value } : row), units);
+      const next = validateUnitImport(current.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value } : row), units, Boolean(editId));
       const errorCount = next.filter((row) => Object.keys(row.errors).length).length;
       setError(errorCount ? `${errorCount} row(s) need attention. Correct the highlighted cells in the preview before importing.` : "");
       return next;
@@ -455,7 +461,7 @@ export function PropertyOnboardingForm() {
   };
 
   const applyUnitImport = () => {
-    const validated = validateUnitImport(unitImportRows, units);
+    const validated = validateUnitImport(unitImportRows, units, Boolean(editId));
     setUnitImportRows(validated);
     const invalid = validated.filter((row) => Object.keys(row.errors).length);
     if (invalid.length) {
@@ -467,7 +473,8 @@ export function PropertyOnboardingForm() {
       });
       return;
     }
-    setUnits((current) => [...current, ...validated.map((row) => ({
+    setUnits((current) => {
+      const imported = validated.map((row) => ({
       unit_no: row.unit_no,
       unit_type: row.unit_type,
       floor: row.floor,
@@ -477,9 +484,15 @@ export function PropertyOnboardingForm() {
       building_index: row.building_index,
       description: row.description,
       service_charge_rate: normalizeNumber(row.service_charge_rate),
-    }))]);
+      service_charge_calculation: row.service_charge_calculation || ("fixed" as const),
+      }));
+      const importedByCode = new Map(imported.map(unit => [unit.unit_no.trim().toLowerCase(), unit]));
+      const updated = current.map(unit => importedByCode.get(unit.unit_no.trim().toLowerCase()) || unit);
+      const currentCodes = new Set(current.map(unit => unit.unit_no.trim().toLowerCase()));
+      return [...updated, ...imported.filter(unit => !currentCodes.has(unit.unit_no.trim().toLowerCase()))];
+    });
     setUnitImportRows([]); setUnitImportFile(""); setError("");
-    toast.success(`${validated.length} units were validated and added to this property draft.`);
+    toast.success(`${validated.length} units are ready. Click Save & Close to persist the imported unit schedule.`);
   };
 
   const importAssets = async (file?: File) => {
@@ -809,12 +822,12 @@ export function PropertyOnboardingForm() {
           <Typography variant="body2" color="text.secondary">Add units manually or import from CSV (max 500 rows). Outline unit boundaries on architectural floor plans.</Typography>
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
             <Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-unit-template.csv", [
-              ["unit_no","unit_type","floor","use","area","rateable_area","building_number","service_charge_rate","description"],
-              ["A-101","Studio","1","Residential","350","350","1","25","Studio apartment with balcony"],
-              ["A-102","1Br","1","Residential","550","550","1","30","1 Bedroom standard apartment"],
-              ["B-201","2Br Std","2","Residential","850","850","1","35","2 Bedroom standard unit"],
-              ["B-202","2Br Ensuite","2","Residential","1050","1050","1","40","2 Bedroom all-ensuite master unit"],
-              ["G-01","Shop","Ground","Commercial","850","820","1","45","Ground floor retail unit"]
+              ["unit_no","unit_type","floor","use","area","rateable_area","building_number","monthly_service_charge","description"],
+              ["A-101","Studio","1","Residential","350","350","1","2000","Studio apartment with balcony"],
+              ["A-102","1Br","1","Residential","550","550","1","2500","1 Bedroom standard apartment"],
+              ["B-201","2Br Std","2","Residential","850","850","1","3000","2 Bedroom standard unit"],
+              ["B-202","2Br Ensuite","2","Residential","1050","1050","1","3500","2 Bedroom all-ensuite master unit"],
+              ["G-01","Shop","Ground","Commercial","850","820","1","4500","Ground floor retail unit"]
             ])}>Download template</Button>
             <Button size="small" variant="contained" component="label" startIcon={<Upload size={15} />}>Upload CSV<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUnits(event.target.files?.[0]); event.target.value = ""; }} /></Button>
           </Box>
@@ -825,7 +838,7 @@ export function PropertyOnboardingForm() {
             <Chip color={unitImportRows.some((row) => Object.keys(row.errors).length) ? "error" : "success"} label={unitImportRows.some((row) => Object.keys(row.errors).length) ? `${unitImportRows.filter((row) => Object.keys(row.errors).length).length} rows need attention` : `${unitImportRows.length} rows ready`} />
           </Box>
           <Box sx={{ overflowX: "auto", maxHeight: 430 }}><Box component="table" sx={{ width: "100%", minWidth: 980, borderCollapse: "collapse", "th,td": { p: 1, borderBottom: "1px solid", borderColor: "divider", verticalAlign: "top" }, th: { position: "sticky", top: 0, bgcolor: "background.paper", zIndex: 1, textAlign: "left" } }}>
-            <thead><tr><th>CSV row</th>{["Unit no.", "Type", "Floor", "Use", "Area", "Rateable area", "Building #", "Service charge / sq ft", "Description"].map((label) => <th key={label}>{label}</th>)}</tr></thead>
+            <thead><tr><th>CSV row</th>{["Unit no.", "Type", "Floor", "Use", "Area", "Rateable area", "Building #", "Monthly service charge", "Description"].map((label) => <th key={label}>{label}</th>)}</tr></thead>
             <tbody>{unitImportRows.map((row, index) => <tr key={`${row.sourceRow}-${index}`} style={{ background: Object.keys(row.errors).length ? "rgba(211, 47, 47, 0.07)" : undefined }}>
               <td><Chip size="small" label={row.sourceRow} color={Object.keys(row.errors).length ? "error" : "default"} /></td>
               {(["unit_no", "unit_type", "floor", "use", "area", "rateable_area", "building_index", "service_charge_rate", "description"] as (keyof UnitDraft)[]).map((field) => <td key={field}><TextField data-unit-import-error={Boolean(row.errors[field])} size="small" value={row[field]} error={Boolean(row.errors[field])} helperText={row.errors[field] || " "} onChange={(event) => editUnitImport(index, field, event.target.value)} slotProps={{ htmlInput: { "aria-label": `${field.replaceAll("_", " ")} row ${row.sourceRow}` } }} sx={{ minWidth: field === "description" ? 180 : 110 }} /></td>)}
@@ -833,7 +846,7 @@ export function PropertyOnboardingForm() {
           </Box></Box>
           <Box sx={{ p: 1.5, display: "flex", justifyContent: "flex-end", gap: 1 }}><Button color="inherit" onClick={() => { setUnitImportRows([]); setUnitImportFile(""); setError(""); }}>Discard preview</Button><Button variant="contained" onClick={applyUnitImport}>Add validated units</Button></Box>
         </Paper>}
-        <Grid columns={4}><TextField required label={values.title_type === "sectional" ? "Sectional unit number" : "Unit number"} value={unitDraft.unit_no} onChange={e => setUnitDraft({ ...unitDraft, unit_no: e.target.value })} /><TextField required label={values.property_type === "residential" ? "Typology" : "Unit type"} placeholder={values.property_type === "residential" ? "e.g. 1 Bedroom, 2 Bedroom" : "e.g. Shop, Office"} value={unitDraft.unit_type} onChange={e => setUnitDraft({ ...unitDraft, unit_type: e.target.value })} /><TextField required label="Floor" value={unitDraft.floor} onChange={e => setUnitDraft({ ...unitDraft, floor: e.target.value })} /><TextField required label="Use" value={unitDraft.use} onChange={e => setUnitDraft({ ...unitDraft, use: e.target.value })} /><TextField required type="number" label={values.property_type === "residential" ? "Unit area (sq ft)" : "Space area (sq ft)"} value={unitDraft.area} onChange={e => setUnitDraft({ ...unitDraft, area: e.target.value })} /><TextField type="number" label="Rateable area" value={unitDraft.rateable_area} onChange={e => setUnitDraft({ ...unitDraft, rateable_area: e.target.value })} /><TextField type="number" label="Service charge / sq ft" value={unitDraft.service_charge_rate} onChange={e => setUnitDraft({ ...unitDraft, service_charge_rate: e.target.value })} helperText="Inherited by every tenancy" /><TextField type="number" label="Building #" value={unitDraft.building_index} onChange={e => setUnitDraft({ ...unitDraft, building_index: e.target.value })} /><TextField label="Description" value={unitDraft.description} onChange={e => setUnitDraft({ ...unitDraft, description: e.target.value })} /></Grid>
+        <Grid columns={4}><TextField required label={values.title_type === "sectional" ? "Sectional unit number" : "Unit number"} value={unitDraft.unit_no} onChange={e => setUnitDraft({ ...unitDraft, unit_no: e.target.value })} /><TextField required label={values.property_type === "residential" ? "Typology" : "Unit type"} placeholder={values.property_type === "residential" ? "e.g. 1 Bedroom, 2 Bedroom" : "e.g. Shop, Office"} value={unitDraft.unit_type} onChange={e => setUnitDraft({ ...unitDraft, unit_type: e.target.value })} /><TextField required label="Floor" value={unitDraft.floor} onChange={e => setUnitDraft({ ...unitDraft, floor: e.target.value })} /><TextField required label="Use" value={unitDraft.use} onChange={e => setUnitDraft({ ...unitDraft, use: e.target.value })} /><TextField required type="number" label={values.property_type === "residential" ? "Unit area (sq ft)" : "Space area (sq ft)"} value={unitDraft.area} onChange={e => setUnitDraft({ ...unitDraft, area: e.target.value })} /><TextField type="number" label="Rateable area" value={unitDraft.rateable_area} onChange={e => setUnitDraft({ ...unitDraft, rateable_area: e.target.value })} /><TextField type="number" label="Monthly service charge" value={unitDraft.service_charge_rate} onChange={e => setUnitDraft({ ...unitDraft, service_charge_rate: e.target.value, service_charge_calculation: "fixed" })} helperText="Billed to the configured owner or tenant" /><TextField type="number" label="Building #" value={unitDraft.building_index} onChange={e => setUnitDraft({ ...unitDraft, building_index: e.target.value })} /><TextField label="Description" value={unitDraft.description} onChange={e => setUnitDraft({ ...unitDraft, description: e.target.value })} /></Grid>
         <Button startIcon={<Plus size={16} />} variant="outlined" sx={{ mt: 1.5 }} onClick={addUnit}>Add unit</Button>
         <Divider sx={{ my: 2 }} />
         <RowList rows={units} columns={["Unit no.", "Floor", "Type", "Use", "Area", "Rateable area", "Layout Outline"]} render={u => [u.unit_no, u.floor, u.unit_type, u.use, u.area, u.rateable_area || "—", u.polygon && u.polygon.length > 0 ? <Chip size="small" color="success" label="✓ Outline Mapped" sx={{ fontSize: 10, fontWeight: 700 }} /> : <span style={{ color: "#94a3b8", fontSize: 11 }}>Not mapped</span>]} onRemove={i => setUnits(rows => rows.filter((_, index) => index !== i))} empty="No units added yet." />
@@ -842,7 +855,7 @@ export function PropertyOnboardingForm() {
           <Box sx={{ mt: 3, pt: 2, borderTop: "1px dashed var(--border)" }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>📐 Floor Layout &amp; Unit Outlines</Typography>
             <Typography variant="caption" sx={{ color: "text.secondary", display: "block", mb: 1.5 }}>
-              Use the interactive canvas below to sketch and outline unit boundaries. Click <strong>"Draw Unit Outline"</strong> and select a unit code.
+              Use the interactive canvas below to sketch and outline unit boundaries. Click <strong>&quot;Draw Unit Outline&quot;</strong> and select a unit code.
             </Typography>
             <UnitFloorPlanCanvas
               floorPlan={{

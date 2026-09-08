@@ -16,14 +16,15 @@ type ReportData = {
   kpis: Record<string, string | number>;
   unit_status_distribution: Array<{ status: string; count: number }>;
   tenancy_schedule: Array<Record<string, string | number | null>>;
+  ownership_schedule: Array<Record<string, string | number | null>>;
   vacant_units: Array<Record<string, string | number | null>>;
   movements: Array<Record<string, string | number | null>>;
   lease_expiry: Array<Record<string, string | number | null>>;
   filter_options: { unit_types: string[]; unit_statuses: string[]; lease_statuses: string[] };
 };
 
-const sections = ["Overview", "Tenancy schedule", "Vacancy", "Move ins / move outs", "Income analysis", "Lease expiry", "Custom reports"];
-const exportKinds = ["occupancy", "tenancy-schedule", "vacancy", "movements", "income-analysis", "lease-expiry"];
+const sections = ["Overview", "Tenancy schedule", "Vacancy", "Move ins / move outs", "Income analysis", "Lease expiry", "Ownership schedule", "Custom reports"];
+const exportKinds = ["occupancy", "tenancy-schedule", "vacancy", "movements", "income-analysis", "lease-expiry", "ownership-schedule"];
 
 export function PropertyTenancyReports() {
   const { session } = useAuth();
@@ -87,6 +88,7 @@ export function PropertyTenancyReports() {
     : section === 2 ? data?.vacant_units
       : section === 3 ? data?.movements
         : section === 5 ? data?.lease_expiry
+          : section === 6 ? data?.ownership_schedule
           : [];
   const columns = rows?.length ? Object.keys(rows[0]) : [];
   const schedule = data?.tenancy_schedule ?? [];
@@ -101,7 +103,7 @@ export function PropertyTenancyReports() {
         onFormatChange={setExportFormat}
         onExport={() => void exportReport()}
         exporting={exporting}
-        exportDisabled={section === 6}
+        exportDisabled={section === 7}
         scope={`${propertyName} · ${start} to ${end}`}
       />
       <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden", p: .5, bgcolor: "background.paper" }}>
@@ -158,12 +160,13 @@ export function PropertyTenancyReports() {
           <Box>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "end", gap: 2, mb: 1.25 }}>
               <Box><Typography variant="h6" sx={{ fontWeight: 900 }}>Critical tenancy packs</Typography><Typography variant="body2" color="text.secondary">Operational schedules for occupancy, movement and renewal decisions.</Typography></Box>
-              <Chip size="small" label="4 report packs" variant="outlined" />
+              <Chip size="small" label="5 report packs" variant="outlined" />
             </Box>
             <CriticalReportCards
               onExport={(key, format) => void exportReport(key, format)}
               items={[
                 { key: "tenancy-schedule", title: "Tenancy schedule", description: "Floor, unit, tenant, rent, service charge, escalation and lease status." },
+                { key: "ownership-schedule", title: "Ownership schedule", description: "Every unit, its owner, occupant, management mandate and billing responsibility." },
                 { key: "vacancy", title: "Vacancy register", description: "Vacant units with ageing, expected rent and marketing status." },
                 { key: "movements", title: "Move-ins / move-outs", description: "Tenant movements in the selected reporting period." },
                 { key: "lease-expiry", title: "Lease expiry", description: "Upcoming expiries for renewals and notice planning." },
@@ -196,12 +199,25 @@ export function PropertyTenancyReports() {
         </Box>
       )}
 
-      {section > 0 && section !== 4 && section !== 6 && (
+      {section === 6 && (
+        <Box sx={{ display: "grid", gap: 1.5 }}>
+          <Alert
+            severity="info"
+            action={<Button href="/property?tab=billing" color="inherit">Open landlord billing</Button>}
+          >
+            Owner-paid service charge is generated under Invoicing → Billing Pipeline → Landlord Billing → Service charge. Rows marked “Owner not assigned” or “Service charge not configured” must be corrected before billing.
+          </Alert>
+          {!rows?.length
+            ? <EmptyState title="No ownership records" description="No units exist in the selected property scope." />
+            : <ReportDataTable rows={rows} columns={columns} />}
+        </Box>
+      )}
+      {section > 0 && section !== 4 && section !== 6 && section !== 7 && (
         !rows?.length
           ? <EmptyState title={`No ${sections[section].toLowerCase()} records`} description="No records match the selected property, period and filters. Adjust filters or widen the period." />
           : <ReportDataTable rows={rows} columns={columns} />
       )}
-      {section === 6 && <PropertyReportLibrary domain="tenancy" />}
+      {section === 7 && <PropertyReportLibrary domain="tenancy" />}
     </Box>
   );
 }

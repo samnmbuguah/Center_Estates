@@ -64,7 +64,7 @@ type FinancialSummary = {
   };
 };
 
-type Tab = "overview" | "units" | "remittances" | "ledger" | "settlement";
+type Tab = "estate" | "unit" | "units" | "remittances" | "ledger" | "settlement";
 
 const cash = new Intl.NumberFormat("en-KE", {
   style: "currency",
@@ -82,7 +82,8 @@ export default function OwnerPortalPage() {
   const [units, setUnits] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [propertyChargeInvoices, setPropertyChargeInvoices] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [activeTab, setActiveTab] = useState<Tab>("estate");
+  const [estateBillingView, setEstateBillingView] = useState<"invoices" | "statement">("invoices");
   const [feeTypeFilter, setFeeTypeFilter] = useState<"all" | "management" | "letting">("all");
   const [downloadingInvId, setDownloadingInvId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -202,6 +203,13 @@ export default function OwnerPortalPage() {
   // Load owner details when activeOwner changes
   useEffect(() => {
     if (!activeOwner) return;
+
+    // Never leave the previously selected landlord's records visible while
+    // the newly selected profile is loading.
+    setFinancialSummary(null);
+    setUnits([]);
+    setPropertyChargeInvoices([]);
+    setRemittanceData(null);
 
     async function loadOwnerDetails() {
       try {
@@ -385,10 +393,11 @@ export default function OwnerPortalPage() {
           {/* Navigation Links */}
           <nav className="tenant-sidebar-nav" aria-label="Owner portal sections">
             {[
-              { id: "overview", label: "Portfolio Overview", icon: <Gauge size={17} /> },
-              { id: "units", label: "Managed Units", icon: <Building2 size={17} />, badge: unitsCount },
+              { id: "estate", label: "Estate Management", icon: <Layers size={17} />, badge: propertyChargeInvoices.length || undefined },
+              { id: "unit", label: "Unit Management", icon: <Gauge size={17} /> },
+              { id: "units", label: "Owned Units", icon: <Building2 size={17} />, badge: unitsCount },
               { id: "remittances", label: "Remittance Statements", icon: <FileText size={17} />, badge: "Monthly" },
-              { id: "ledger", label: "Commission & Invoices", icon: <Receipt size={17} /> },
+              { id: "ledger", label: "Management & Letting Fees", icon: <Receipt size={17} /> },
               { id: "settlement", label: "Bank & Payout Accounts", icon: <Landmark size={17} /> },
             ].map((item) => {
               const isActive = activeTab === item.id;
@@ -624,8 +633,34 @@ export default function OwnerPortalPage() {
             </div>
           </div>
 
-          {/* Tab 1: Overview & Portfolio Details */}
-          {activeTab === "overview" && (
+          {/* Estate relationship: charges owed by the owner to estate management. */}
+          {activeTab === "estate" && (
+            <div className="data-panel" style={{ background: "#ffffff", borderRadius: 14, border: "1px solid #e2e8f0", padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
+                <div>
+                  <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 850 }}>Estate Management</h3>
+                  <p style={{ margin: 0, fontSize: 13, color: "#475569" }}>Service-charge invoices, payments and the owner&apos;s estate account balance.</p>
+                </div>
+                <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 8, background: "#f1f5f9" }}>
+                  {(["invoices", "statement"] as const).map(view => <button key={view} type="button" onClick={() => setEstateBillingView(view)} style={{ border: 0, borderRadius: 6, padding: "6px 11px", cursor: "pointer", fontWeight: 800, background: estateBillingView === view ? "#2563eb" : "transparent", color: estateBillingView === view ? "#fff" : "#475569" }}>{view === "invoices" ? "Invoices" : "Statement of Account"}</button>)}
+                </div>
+              </div>
+              {propertyChargeInvoices.length === 0 ? (
+                <div style={{ padding: 34, textAlign: "center", color: "#475569", fontWeight: 650 }}>No estate or service-charge invoices have been issued to {activeOwner?.name}.</div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead><tr style={{ borderBottom: "1px solid #e2e8f0", textAlign: "left", color: "#475569" }}><th style={{ padding: 10 }}>Date</th><th style={{ padding: 10 }}>Reference</th><th style={{ padding: 10 }}>Charge</th><th style={{ padding: 10, textAlign: "right" }}>Debit</th><th style={{ padding: 10, textAlign: "right" }}>Balance</th><th style={{ padding: 10 }}>Status</th><th style={{ padding: 10 }}>Document</th></tr></thead>
+                    <tbody>{propertyChargeInvoices.map((inv: any) => <tr key={inv.id} style={{ borderBottom: "1px solid #f1f5f9" }}><td style={{ padding: 12 }}>{inv.issued_on || inv.due_on || "—"}</td><td style={{ padding: 12, fontWeight: 800 }}>{inv.number}</td><td style={{ padding: 12 }}>{String(inv.invoice_type || inv.charge_type || "Service charge").replaceAll("_", " ")}</td><td style={{ padding: 12, textAlign: "right", fontWeight: 800 }}>{cash.format(Number(inv.amount || 0))}</td><td style={{ padding: 12, textAlign: "right", fontWeight: 850, color: Number(inv.balance || 0) > 0 ? "#b91c1c" : "#047857" }}>{cash.format(Number(inv.balance || 0))}</td><td style={{ padding: 12 }}>{inv.status}</td><td style={{ padding: 12 }}><Button size="small" variant="outlined" onClick={() => void handleDownloadPropertyInvoicePdf(inv)}>PDF</Button></td></tr>)}</tbody>
+                  </table>
+                  {estateBillingView === "statement" && <p style={{ margin: "14px 0 0", color: "#475569", fontSize: 12 }}>Statement view lists every estate charge chronologically with its outstanding balance.</p>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Unit relationship: owned units, tenants and rent management. */}
+          {activeTab === "unit" && (
             <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1fr", gap: 20 }}>
               {/* Left Column: Managed Units */}
               <div
@@ -988,7 +1023,7 @@ export default function OwnerPortalPage() {
                 </div>
               ) : (
                 <div style={{ padding: "36px", textAlign: "center", color: "#475569", fontWeight: 600 }}>
-                  Select the billing month and click "Recalculate" to generate the remittance ledger.
+                  Select the billing month and click &quot;Recalculate&quot; to generate the remittance ledger.
                 </div>
               )}
             </div>
@@ -1015,21 +1050,6 @@ export default function OwnerPortalPage() {
                     Agency tax invoices plus service-charge and other property invoices billed to this owner
                   </p>
                 </div>
-
-                {propertyChargeInvoices.length > 0 && (
-                  <div style={{ marginBottom: 18, padding: 14, border: "1px solid #bfdbfe", borderRadius: 10, background: "#eff6ff" }}>
-                    <div style={{ fontWeight: 850, color: "#1e3a8a", marginBottom: 8 }}>Property & Service-Charge Invoices</div>
-                    {propertyChargeInvoices.map((inv: any) => (
-                      <div key={inv.id} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "8px 0", borderTop: "1px solid #dbeafe" }}>
-                        <span><strong>{inv.number}</strong> · {(inv.invoice_type || inv.charge_type || "Property charge").replaceAll("_", " ")}</span>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-                          <span><strong>{cash.format(Number(inv.amount || 0))}</strong> · {inv.status}</span>
-                          <Button size="small" variant="outlined" onClick={() => void handleDownloadPropertyInvoicePdf(inv)} sx={{ textTransform: "none" }}>PDF</Button>
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
 
                 <div style={{ display: "flex", gap: 6, background: "#f8fafc", padding: 4, borderRadius: 8, border: "1px solid #e2e8f0" }}>
                   <button
