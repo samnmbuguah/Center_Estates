@@ -296,18 +296,36 @@ export default function TenantPortalPage() {
   }
   async function downloadDocument(path: string, fallbackName: string) {
     setError("");
-    const response = await apiFetch(path, {}, organizationId);
-    if (!response.ok) {
-      setError("The document could not be generated. Please try again.");
-      return;
+    try {
+      const separator = path.includes("?") ? "&" : "?";
+      const scopedPath = activeTenantId ? `${path}${separator}tenant=${encodeURIComponent(activeTenantId)}` : path;
+      const response = await apiFetch(scopedPath, { headers: { Accept: "application/pdf" } }, organizationId);
+      if (!response.ok) {
+        setError(await apiErrorMessage(response, "The document could not be generated. Please try again."));
+        return;
+      }
+
+      const bytes = await response.arrayBuffer();
+      const signature = new TextDecoder("ascii").decode(bytes.slice(0, 5));
+      const contentType = response.headers.get("content-type")?.toLowerCase() || "";
+      if (!contentType.includes("application/pdf") || signature !== "%PDF-") {
+        setError("The server did not return a valid PDF. Nothing was downloaded; please retry or contact support.");
+        return;
+      }
+
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = fallbackName.replace(/[\\/:*?\"<>|]/g, "-");
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+    } catch {
+      setError("The document could not be downloaded. Check your connection and try again.");
     }
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = fallbackName;
-    anchor.click();
-    URL.revokeObjectURL(url);
   }
   const [stkNotice, setStkNotice] = useState<string | null>(null);
   const [stkPhone, setStkPhone] = useState("");

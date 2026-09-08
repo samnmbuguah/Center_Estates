@@ -833,11 +833,33 @@ class PropertyApiTests(TestCase):
         )
         self.assertEqual(invoice_document.status_code, 200)
         self.assertEqual(invoice_document['Content-Type'], 'application/pdf')
+        self.assertTrue(invoice_document.content.startswith(b'%PDF-'))
+        self.assertIn(b'%%EOF', invoice_document.content[-1024:])
         statement_document = self.client.get(
             '/api/v1/property/portal/statement.pdf/?start=2026-01-01&end=2026-12-31', **self.headers,
         )
         self.assertEqual(statement_document.status_code, 200)
         self.assertEqual(statement_document['Content-Type'], 'application/pdf')
+        self.assertTrue(statement_document.content.startswith(b'%PDF-'))
+        self.assertIn(b'%%EOF', statement_document.content[-1024:])
+
+        # An administrator previewing a tenant portal must be able to download
+        # that tenant's documents without being linked as the tenant user.
+        TenantPortalAccess.objects.filter(user=self.user).delete()
+        preview_query = f'?tenant={self.tenant.id}'
+        preview_invoice = self.client.get(
+            f'/api/v1/property/portal/invoices/{self.invoice.id}/pdf/{preview_query}', **self.headers,
+        )
+        self.assertEqual(preview_invoice.status_code, 200)
+        self.assertTrue(preview_invoice.content.startswith(b'%PDF-'))
+        preview_statement = self.client.get(
+            f'/api/v1/property/portal/statement.pdf/{preview_query}', **self.headers,
+        )
+        self.assertEqual(preview_statement.status_code, 200)
+        self.assertTrue(preview_statement.content.startswith(b'%PDF-'))
+        TenantPortalAccess.objects.create(
+            organization=self.organization, tenant=self.tenant, user=self.user, is_active=True,
+        )
 
         payload = json.dumps({
             'event_id': 'evt-001', 'reference': intent.reference,

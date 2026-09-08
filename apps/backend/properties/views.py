@@ -6563,7 +6563,10 @@ class TenantPortalViewSet(ViewSet):
 
     @action(detail=False, methods=('get',), url_path=r'invoices/(?P<invoice_id>[0-9a-fA-F-]{36})/pdf')
     def invoice_document(self, request, invoice_id=None):
-        access = self._access()
+        # Staff support preview must remain scoped to the tenant selected in the
+        # portal. Tenant users cannot use this override because _access enforces
+        # the property support permission before accepting a tenant id.
+        access = self._access(request.query_params.get('tenant'))
         invoice = Invoice.objects.for_organization(access.organization).select_related(
             'lease__tenant', 'lease__unit__property',
         ).filter(pk=invoice_id, lease__tenant=access.tenant).first()
@@ -6573,7 +6576,7 @@ class TenantPortalViewSet(ViewSet):
 
     @action(detail=False, methods=('get',), url_path=r'receipts/(?P<receipt_id>[0-9a-fA-F-]{36})/pdf')
     def receipt_document(self, request, receipt_id=None):
-        access = self._access()
+        access = self._access(request.query_params.get('tenant'))
         receipt = Receipt.objects.for_organization(access.organization).select_related(
             'tenant', 'invoice__lease__unit__property', 'received_by',
         ).filter(pk=receipt_id, tenant=access.tenant).first()
