@@ -1944,9 +1944,11 @@ class PropertyApiTests(TestCase):
         self.assertIn('service_charge', response.data['tenancy_schedule'][0])
         self.assertIn('escalation_percent', response.data['tenancy_schedule'][0])
         self.assertIn('next_effective_rent', response.data['tenancy_schedule'][0])
-        self.assertIn('owner', response.data['tenancy_schedule'][0])
-        self.assertIn('management_mandate', response.data['tenancy_schedule'][0])
+        self.assertNotIn('owner', response.data['tenancy_schedule'][0])
+        self.assertNotIn('management_mandate', response.data['tenancy_schedule'][0])
         self.assertEqual(len(response.data['ownership_schedule']), 1)
+        self.assertIn('owner', response.data['ownership_schedule'][0])
+        self.assertIn('management_mandate', response.data['ownership_schedule'][0])
         self.assertIn('billing_readiness', response.data['ownership_schedule'][0])
         self.assertEqual(response.data['lease_expiry'][0]['lease'], self.lease.reference)
 
@@ -1966,6 +1968,12 @@ class PropertyApiTests(TestCase):
                 )
                 self.assertEqual(csv_response.status_code, 200, report_key)
                 self.assertIn(heading, csv_response.content, report_key)
+                if report_key == 'tenancy-schedule':
+                    self.assertNotIn(b'Owner / Landlord', csv_response.content)
+                    self.assertNotIn(b'Management Mandate', csv_response.content)
+                elif report_key == 'ownership-schedule':
+                    self.assertIn(b'Owner / Landlord', csv_response.content)
+                    self.assertIn(b'Management Mandate', csv_response.content)
                 xlsx_response = self.client.get(
                     f'/api/v1/property/analytics/exports/{report_key}/?start=2026-01-01&end=2026-12-31&output=xlsx',
                     **headers,

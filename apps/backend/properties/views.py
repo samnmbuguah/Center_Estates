@@ -5941,12 +5941,6 @@ class PropertyAnalyticsViewSet(ViewSet):
         schedule = [{
             'lease': lease.reference, 'tenant': lease.tenant.name, 'property': lease.unit.property.name,
             'floor': lease.unit.floor, 'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
-            'owner': lease.unit.owner.name if lease.unit.owner else 'Unassigned',
-            'owner_code': lease.unit.owner.code if lease.unit.owner else '',
-            'management_mandate': lease.unit.get_management_mandate_display(),
-            'rent_collection': 'Estate managed' if (lease.metadata or {}).get('rent_collection_mode') != 'direct_landlord' and lease.monthly_rent > 0 else 'Direct to landlord / no estate rent',
-            'utilities_billed_to': 'Tenant',
-            'service_charge_billed_to': lease.unit.get_service_charge_payer_display(),
             'use': lease.unit.metadata.get('use', lease.unit.unit_type),
             'area': lease.unit.area, 'monthly_rent': lease.effective_rent(today),
             'service_charge': self._service_charge_for_lease(lease),
@@ -6321,15 +6315,11 @@ class PropertyAnalyticsViewSet(ViewSet):
             for unit in scope_model_queryset(Unit, request, organization).select_related('property'):
                 writer.writerow((unit.property.name, unit.code, unit.unit_type, unit.area or '', unit.status))
         elif report_kind == 'tenancy-schedule':
-            writer.writerow(('Floor', 'Unit', 'Tenant', 'Owner / Landlord', 'Owner Code', 'Management Mandate', 'Rent Collection', 'Utilities Billed To', 'Service Charge Billed To', 'Property', 'Area', 'Use', 'Lease Start', 'Lease End', 'Rent', 'Service Charge', 'Escalation %', 'Escalation Interval (Months)', 'Next Effective Rent'))
-            rows = scope_model_queryset(Lease, request, organization).filter(starts_on__lte=end, ends_on__gte=start).select_related('tenant', 'unit__property', 'unit__owner').prefetch_related('billing_profiles__billing_item')
+            writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Use', 'Lease Start', 'Lease End', 'Rent', 'Service Charge', 'Escalation %', 'Escalation Interval (Months)', 'Next Effective Rent'))
+            rows = scope_model_queryset(Lease, request, organization).filter(starts_on__lte=end, ends_on__gte=start).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
             for lease in rows:
                 service_charge = self._service_charge_for_lease(lease)
-                rent_is_managed = (lease.metadata or {}).get('rent_collection_mode') != 'direct_landlord' and lease.monthly_rent > 0
-                writer.writerow((lease.unit.floor, lease.unit.code, lease.tenant.name,
-                                 lease.unit.owner.name if lease.unit.owner else 'Unassigned', lease.unit.owner.code if lease.unit.owner else '',
-                                 lease.unit.get_management_mandate_display(), 'Estate managed' if rent_is_managed else 'Direct to landlord / no estate rent',
-                                 'Tenant', lease.unit.get_service_charge_payer_display(), lease.unit.property.name,
+                writer.writerow((lease.unit.floor, lease.unit.code, lease.tenant.name, lease.unit.property.name,
                                  lease.unit.area or '', lease.unit.metadata.get('use', lease.unit.unit_type), lease.starts_on,
                                  lease.ends_on, lease.effective_rent(end), service_charge, lease.escalation_percent,
                                  lease.escalation_interval_months, lease.effective_rent(min(lease.ends_on - timedelta(days=1), end + timedelta(days=365)))))
