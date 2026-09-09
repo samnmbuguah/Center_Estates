@@ -3777,6 +3777,33 @@ a.profile-dropdown-item { text-decoration: none; }
    A dedicated, token-driven layer keeps the customer experience consistent
    without leaking portal treatments into staff workspaces. */
 .tenant-portal-page { max-width: 1390px; }
+.caretaker-portal-page { margin-inline: auto; }
+.caretaker-portal-banner {
+  align-items: center; background: linear-gradient(112deg, #123b78 0%, #1d4ed8 62%, #2563eb 100%);
+  border: 1px solid rgba(255,255,255,.2); border-radius: 16px; box-shadow: 0 12px 30px rgba(29,78,216,.2);
+  color: #fff; display: flex; gap: 24px; justify-content: space-between; margin: 18px 18px 0; overflow: hidden;
+  padding: 20px 24px; position: relative;
+}
+.caretaker-portal-banner::after { background: rgba(255,255,255,.08); border-radius: 999px; content: ""; height: 180px; position: absolute; right: -45px; top: -95px; width: 180px; }
+.caretaker-portal-identity { align-items: center; display: flex; gap: 16px; min-width: 0; position: relative; z-index: 1; }
+.caretaker-portal-banner .eyebrow { color: #bfdbfe; margin: 0 0 3px; }
+.caretaker-portal-banner h1 { color: #fff; font-size: clamp(24px,3vw,34px); margin: 0 0 5px; }
+.caretaker-portal-banner p { margin: 0; opacity: .94; }
+.caretaker-avatar { align-items: center; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35); border-radius: 14px; display: flex; flex: 0 0 52px; font-size: 18px; font-weight: 850; height: 52px; justify-content: center; }
+.caretaker-context { align-items: center; display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+.caretaker-live-pill { background: #16a34a; border-radius: 999px; font-size: 11px; font-weight: 800; padding: 4px 9px; }
+.caretaker-quick-guide { background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22); border-radius: 12px; display: flex; flex-direction: column; flex: 0 0 auto; gap: 3px; padding: 12px 15px; position: relative; z-index: 1; }
+.caretaker-quick-guide span { font-size: 12px; opacity: .9; }
+.caretaker-portal-page .module-workspace { min-height: auto !important; }
+.caretaker-portal-page .module-workspace-main { padding-top: 12px !important; }
+.caretaker-portal-page .module-nav-bar { background: var(--surface-raised); border-radius: 14px; box-shadow: 0 5px 18px color-mix(in srgb,#0f172a 5%,transparent); overflow: hidden; }
+.caretaker-portal-page .companion-workspace { background: var(--surface-raised); border: 1px solid var(--border-color); border-radius: 16px; margin-top: 14px; }
+@media (max-width: 720px) {
+  .caretaker-portal-banner { align-items: stretch; flex-direction: column; margin: 10px 10px 0; padding: 18px; }
+  .caretaker-portal-identity { align-items: flex-start; }
+  .caretaker-quick-guide { width: 100%; }
+  .caretaker-portal-page .companion-workspace { padding: 12px !important; }
+}
 .tenant-preview-banner {
   align-items: center; background: linear-gradient(112deg, #123b78 0%, #1d4ed8 62%, #2563eb 100%);
   border: 1px solid rgba(255,255,255,.18); border-radius: 14px; box-shadow: 0 10px 26px rgba(29,78,216,.18);

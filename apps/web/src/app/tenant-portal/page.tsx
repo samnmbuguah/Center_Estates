@@ -299,7 +299,7 @@ export default function TenantPortalPage() {
     try {
       const separator = path.includes("?") ? "&" : "?";
       const scopedPath = activeTenantId ? `${path}${separator}tenant=${encodeURIComponent(activeTenantId)}` : path;
-      const response = await apiFetch(scopedPath, { headers: { Accept: "application/pdf" } }, organizationId);
+      const response = await apiFetch(scopedPath, {}, organizationId);
       if (!response.ok) {
         setError(await apiErrorMessage(response, "The document could not be generated. Please try again."));
         return;

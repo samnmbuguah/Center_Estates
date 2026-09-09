@@ -135,7 +135,10 @@ export async function apiErrorMessage(response: Response, fallback = "The reques
 
 /** Download an authenticated PDF from the configured API origin. */
 export async function downloadApiPdf(path: string, filename: string, organizationId?: string | null) {
-  const response = await apiFetch(path, { headers: { Accept: "application/pdf" } }, organizationId ?? undefined);
+  // DRF negotiates the action before it returns the binary response. Leaving
+  // Accept at its normal value avoids a 406 from JSON-rendered viewsets while
+  // the PDF signature/content-type checks below still reject invalid files.
+  const response = await apiFetch(path, {}, organizationId ?? undefined);
   if (!response.ok) throw new Error(await apiErrorMessage(response, "The PDF could not be generated."));
   const bytes = new Uint8Array(await response.arrayBuffer());
   const signature = new TextDecoder().decode(bytes.slice(0, 5));

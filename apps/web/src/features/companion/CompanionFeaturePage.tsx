@@ -179,6 +179,24 @@ export function CompanionFeaturePage({ initialTab = "overview", caretakerMode = 
 
   return (
     <ErrorBoundary>
+      <div className={caretakerMode ? "page-wrap tenant-portal-page caretaker-portal-page" : undefined}>
+      {caretakerMode && (
+        <section className="caretaker-portal-banner" aria-label="Caretaker field portal">
+          <div className="caretaker-portal-identity">
+            <span className="caretaker-avatar" aria-hidden="true">{userName.slice(0, 2).toUpperCase()}</span>
+            <div>
+              <p className="eyebrow">Caretaker self-service</p>
+              <h1>Good day, {userName.split(" ")[0]}.</h1>
+              <p>Record utilities, complete assigned work and follow property operations from one field workspace.</p>
+              <div className="caretaker-context"><span>🏢</span><strong>{activeProperty?.name || "Select a property"}</strong><span className="caretaker-live-pill">Field operations</span></div>
+            </div>
+          </div>
+          <div className="caretaker-quick-guide">
+            <strong>Today&apos;s workspace</strong>
+            <span>Readings · Tasks · Tickets · Calendar</span>
+          </div>
+        </section>
+      )}
       <ModuleShell
       moduleKey="companion"
       moduleName={caretakerMode ? "Caretaker portal" : "Companion"}
@@ -587,6 +605,7 @@ export function CompanionFeaturePage({ initialTab = "overview", caretakerMode = 
         )}
       </div>
     </ModuleShell>
+    </div>
     </ErrorBoundary>
   );
 }
