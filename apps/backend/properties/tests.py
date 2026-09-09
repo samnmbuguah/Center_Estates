@@ -150,6 +150,7 @@ class PropertyApiTests(TestCase):
                 'invoice_type': 'service_charge', 'charge_type': 'service_charge',
                 'subtotal': '5000.00', 'tax_rate': '0.00',
                 'issued_on': '2026-09-01', 'due_on': '2026-09-30',
+                'metadata': {'billing_period': '2026-09'},
             },
             format='json', **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)},
         )
@@ -160,6 +161,34 @@ class PropertyApiTests(TestCase):
         self.assertEqual(invoice.recipient_type, Invoice.RecipientType.OWNER)
         self.assertEqual(invoice.collection_account, account)
         self.assertEqual(invoice.mpesa_reference, 'SC-101-09-2026')
+
+        duplicate = self.client.post(
+            '/api/v1/property/invoices/',
+            {
+                'recipient_type': 'owner', 'owner': str(owner.id), 'unit': str(self.unit.id),
+                'invoice_type': 'service_charge', 'charge_type': 'service_charge',
+                'subtotal': '5000.00', 'tax_rate': '0.00',
+                'issued_on': '2026-09-01', 'due_on': '2026-09-30',
+                'metadata': {'billing_period': '2026-09'},
+            },
+            format='json', **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)},
+        )
+        self.assertEqual(duplicate.status_code, 200, duplicate.data)
+        self.assertEqual(duplicate.data['id'], str(invoice.id))
+        self.assertEqual(Invoice.objects.filter(unit=self.unit, owner=owner, invoice_type='service_charge').count(), 1)
+
+        for action, expected_status in (
+            ('submit-review', Invoice.Status.REVIEW),
+            ('approve', Invoice.Status.APPROVED),
+            ('issue', Invoice.Status.ISSUED),
+        ):
+            transition = self.client.post(
+                f'/api/v1/property/invoices/{invoice.id}/{action}/', {},
+                format='json',
+                **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)},
+            )
+            self.assertEqual(transition.status_code, 200, transition.data)
+            self.assertEqual(transition.data['status'], expected_status)
 
     def test_list_is_scoped_to_active_organization(self):
         response = self.client.get('/api/v1/property/properties/', **self.headers)

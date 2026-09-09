@@ -528,14 +528,24 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
             }
             let created = await invoiceRes.json();
             if (canApprove) {
-              for (const transition of ["submit-review", "approve", "issue"]) {
+              const transitions = created.status === "draft"
+                ? ["submit-review", "approve", "issue"]
+                : created.status === "review"
+                  ? ["approve", "issue"]
+                  : created.status === "approved"
+                    ? ["issue"]
+                    : [];
+              let completed = created.status === "issued" || created.status === "paid";
+              for (const transition of transitions) {
                 const transitionRes = await apiFetch(`/property/invoices/${created.id}/${transition}/`, { method: "POST", body: "{}" }, organizationId);
                 if (!transitionRes.ok) {
                   lastErrorMsg = await apiErrorMessage(transitionRes, `Invoice ${created.number} was created but could not be fully issued.`);
                   break;
                 }
                 created = await transitionRes.json();
+                completed = created.status === "issued" || created.status === "paid";
               }
+              if (!completed) continue;
             }
             successCount++;
             continue;

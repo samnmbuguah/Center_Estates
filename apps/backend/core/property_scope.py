@@ -236,6 +236,14 @@ def scope_queryset_to_property(queryset, request, organization):
         return queryset.filter(
             Q(property_id=property_record.pk) | Q(leases__unit__property_id=property_record.pk),
         ).distinct()
+    if queryset.model._meta.label == 'properties.Invoice':
+        # Tenant invoices are associated through a lease, while owner-facing
+        # invoices (for example sectional service charge) are associated
+        # directly with a unit. Both are records of the selected property.
+        return queryset.filter(
+            Q(lease__unit__property_id=property_record.pk)
+            | Q(unit__property_id=property_record.pk),
+        ).distinct()
     if queryset.model._meta.label == 'properties.Receipt':
         # Receipts can be recorded before allocation to an invoice.  Those
         # receipts are still owned by the tenant's selected property and must

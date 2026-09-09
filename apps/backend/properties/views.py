@@ -3281,6 +3281,40 @@ class InvoiceViewSet(OrganizationModelViewSet):
             queryset = queryset.filter(charge_type=charge_type)
         return queryset
 
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        """Make owner service-charge generation safe to retry.
+
+        The billing UI advances a newly-created invoice through workflow
+        transitions. A network or transition failure must not create another
+        invoice for the same unit and billing month when the user retries.
+        """
+        metadata = request.data.get('metadata') or {}
+        billing_period = metadata.get('billing_period') if isinstance(metadata, dict) else None
+        if (
+            request.data.get('recipient_type') == Invoice.RecipientType.OWNER
+            and request.data.get('invoice_type') == 'service_charge'
+            and request.data.get('unit')
+            and request.data.get('owner')
+            and billing_period
+        ):
+            organization = get_active_organization(request)
+            unit = scope_model_queryset(Unit, request, organization).select_for_update().filter(
+                pk=request.data.get('unit'), owner_id=request.data.get('owner'),
+            ).first()
+            if not unit:
+                raise ValidationError({'unit': 'Select a unit owned by this recipient in the active property.'})
+            existing = self.get_queryset().filter(
+                recipient_type=Invoice.RecipientType.OWNER,
+                invoice_type='service_charge',
+                unit=unit,
+                owner_id=request.data.get('owner'),
+                metadata__billing_period=billing_period,
+            ).exclude(status=Invoice.Status.VOID).order_by('created_at').first()
+            if existing:
+                return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
+        return super().create(request, *args, **kwargs)
+
     @action(detail=True, methods=('get',), url_path='pdf')
     def pdf(self, request, pk=None):
         return invoice_pdf(self.get_object(), request.user.get_full_name() or request.user.get_username())
