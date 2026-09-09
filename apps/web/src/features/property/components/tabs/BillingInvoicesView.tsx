@@ -10,7 +10,7 @@ import type { PropertyTab, Row, InvoiceRow, AgingAnalytics, BillingSection, Cred
 import type { ID } from "../../types/property.types";
 import { Panel, StatusPill, LoadingState, EmptyState } from "@/components/module-ui";
 import { kM, fmtDate } from "../../utils/property.utils";
-import { apiFetch, csrfFromCookie, apiErrorMessage } from "@/lib/api";
+import { apiFetch, csrfFromCookie, apiErrorMessage, downloadApiPdf } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { useAuth } from "@/components/auth-provider";
 
@@ -96,8 +96,12 @@ function LandlordInvoicePanel({ search }: { search: string }) {
     } catch { toast.error("Unable to reach the server."); }
   };
 
-  const handleDownloadPdf = (inv: LandlordInvoice) => {
-    window.open(`/api/v1/property/landlord-invoices/${inv.id}/pdf/`, "_blank");
+  const handleDownloadPdf = async (inv: LandlordInvoice) => {
+    try {
+      await downloadApiPdf(`/property/landlord-invoices/${inv.id}/pdf/`, `Tax-Invoice-${inv.number}.pdf`, organizationId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The tax invoice PDF could not be downloaded.");
+    }
   };
 
   const q = search.trim().toLowerCase();

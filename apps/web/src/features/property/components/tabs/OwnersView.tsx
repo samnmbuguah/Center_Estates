@@ -6,7 +6,7 @@ import {
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, money,
 } from "@/components/module-ui";
 import { OwnerRow, PropertyTab, Row, ID } from "../../types/property.types";
-import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
+import { apiErrorMessage, apiFetch, csrfFromCookie, downloadApiPdf } from "@/lib/api";
 import {
   Users, Building2, Landmark, Plus, DollarSign,
   CheckCircle2, CreditCard, RefreshCw, KeyRound, Download, Upload, FileText,
@@ -623,7 +623,7 @@ export function OwnersView({
                         </div>
                         <button
                           type="button"
-                          onClick={() => window.open(`/api/v1/property/landlord-invoices/${inv.id}/pdf/`, "_blank")}
+                          onClick={() => void downloadApiPdf(`/property/landlord-invoices/${inv.id}/pdf/`, `Tax-Invoice-${inv.number}.pdf`)}
                           style={{
                             padding: "4px 8px",
                             borderRadius: 6,

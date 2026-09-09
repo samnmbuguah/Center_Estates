@@ -190,6 +190,32 @@ class PropertyApiTests(TestCase):
             self.assertEqual(transition.status_code, 200, transition.data)
             self.assertEqual(transition.data['status'], expected_status)
 
+        pdf = self.client.get(
+            f'/api/v1/property/invoices/{invoice.id}/pdf/',
+            **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)},
+        )
+        self.assertEqual(pdf.status_code, 200)
+        self.assertEqual(pdf['Content-Type'], 'application/pdf')
+        self.assertEqual(pdf.content[:5], b'%PDF-')
+
+        financial = self.client.get(
+            '/api/v1/property/analytics/financial-reports/?start=2026-09-01&end=2026-09-30',
+            **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)},
+        )
+        self.assertEqual(financial.status_code, 200, financial.data)
+        owner_row = next(row for row in financial.data['billing_collection'] if row['invoice'] == invoice.number)
+        self.assertEqual(owner_row['tenant'], owner.name)
+        self.assertEqual(owner_row['party_type'], 'owner')
+        self.assertEqual(financial.data['income_summary'], [{'category': 'service_charge', 'total': Decimal('5000.00')}])
+
+        aging = self.client.get(
+            '/api/v1/property/analytics/aging/',
+            **{**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)},
+        )
+        self.assertEqual(aging.status_code, 200, aging.data)
+        owner_aging = next(row for row in aging.data['tenants'] if row['tenant'] == owner.name)
+        self.assertEqual(owner_aging['party_type'], 'owner')
+
     def test_list_is_scoped_to_active_organization(self):
         response = self.client.get('/api/v1/property/properties/', **self.headers)
         self.assertEqual(response.status_code, 200)

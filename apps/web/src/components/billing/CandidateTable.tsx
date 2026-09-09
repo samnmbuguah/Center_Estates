@@ -4,6 +4,8 @@ import { Box, Button, Checkbox, Chip, FormControlLabel, LinearProgress, MenuItem
 import { Droplets, Eye, FileText, Gauge, Search, User } from "lucide-react";
 import { EmptyState, money, StatusPill } from "@/components/module-ui";
 import { Candidate, statusToneMap, InvoiceChargeType, invoiceChargeType, isMissingWaterReading } from "./types";
+import { useAuth } from "@/components/auth-provider";
+import { downloadApiPdf } from "@/lib/api";
 
 export function CandidateTable({
   candidates,
@@ -52,6 +54,8 @@ export function CandidateTable({
   onSingleInvoice: () => void;
   onNavigate: (tab: string) => void;
 }) {
+  const { session } = useAuth();
+  const organizationId = session?.activeOrganizationId;
   return (
     <Paper className="billing-candidate-card" variant="outlined">
       {/* Header Toolbar */}
@@ -337,7 +341,10 @@ export function CandidateTable({
                               e.stopPropagation();
                               const invId = (c as any).metadata?.invoice_id;
                               if (invId) {
-                                window.open(`/api/v1/property/landlord-invoices/${invId}/pdf/`, "_blank");
+                                const invoiceNumber = String((c as any).metadata?.invoice_number || "Invoice");
+                                const resource = invoiceNumber.startsWith("LB-") ? "landlord-invoices" : "invoices";
+                                void downloadApiPdf(`/property/${resource}/${invId}/pdf/`, `Tax-Invoice-${invoiceNumber}.pdf`, organizationId)
+                                  .catch((error) => window.alert(error instanceof Error ? error.message : "The tax invoice PDF could not be downloaded."));
                               } else {
                                 onPreview(c);
                               }

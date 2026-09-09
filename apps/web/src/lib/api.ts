@@ -133,6 +133,25 @@ export async function apiErrorMessage(response: Response, fallback = "The reques
   return fallback;
 }
 
+/** Download an authenticated PDF from the configured API origin. */
+export async function downloadApiPdf(path: string, filename: string, organizationId?: string | null) {
+  const response = await apiFetch(path, { headers: { Accept: "application/pdf" } }, organizationId ?? undefined);
+  if (!response.ok) throw new Error(await apiErrorMessage(response, "The PDF could not be generated."));
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const signature = new TextDecoder().decode(bytes.slice(0, 5));
+  if (!String(response.headers.get("content-type") || "").includes("application/pdf") || signature !== "%PDF-") {
+    throw new Error("The server did not return a valid PDF document.");
+  }
+  const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1_000);
+}
+
 async function refreshAccessToken() {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {

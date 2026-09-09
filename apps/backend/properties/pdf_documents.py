@@ -234,7 +234,14 @@ def _info_table(rows, styles, widths=None):
 
 
 def invoice_pdf(invoice: Invoice, generated_by="System"):
-    s = _styles(); lease = invoice.lease; tenant = lease.tenant; unit = lease.unit; prop = unit.property
+    s = _styles(); lease = invoice.lease
+    unit = invoice.unit or (lease.unit if lease else None)
+    if unit is None:
+        raise ValueError("An invoice PDF requires a property unit.")
+    prop = unit.property
+    tenant = lease.tenant if lease else None
+    owner = invoice.owner if invoice.recipient_type == Invoice.RecipientType.OWNER else None
+    party = owner or tenant
     metadata = invoice.metadata or {}
     persisted_lines = list(invoice.lines.select_related("billing_item").all())
     lines = [
@@ -257,13 +264,23 @@ def invoice_pdf(invoice: Invoice, generated_by="System"):
         lines = [{"description": f"{label} — {prop.name} / {unit.code}", "amount": net, "vat_rate": invoice.tax_rate}]
     story = [Paragraph(f"Invoice no. <b>{invoice.number}</b>", s["Small"]), Spacer(1, 4 * mm)]
     landlord = (prop.metadata or {}).get("landlord", {})
-    story.append(_info_table([
-        ("Tenant no.", tenant.code, "Invoice date", invoice.issued_on.strftime("%d %b %Y")),
-        ("Tenant", tenant.name, "Due date", invoice.due_on.strftime("%d %b %Y")),
-        ("Customer PIN", tenant.tax_id, "Lease no.", lease.reference),
-        ("Property", prop.name, "Lease period", f"{lease.starts_on:%d %b %Y} — {lease.ends_on:%d %b %Y}"),
-        ("Unit / floor", f"{unit.code} / {unit.floor or '—'}", "Landlord PIN", landlord.get("pin") or "—"),
-    ], s))
+    if owner:
+        party_rows = [
+            ("Owner account", owner.code, "Invoice date", invoice.issued_on.strftime("%d %b %Y")),
+            ("Unit owner / landlord", owner.name, "Due date", invoice.due_on.strftime("%d %b %Y")),
+            ("Customer PIN", owner.pin_number, "Billing period", metadata.get("billing_period", "—")),
+            ("Property", prop.name, "Charge billed to", "Unit owner / landlord"),
+            ("Unit / floor", f"{unit.code} / {unit.floor or '—'}", "Invoice status", invoice.status.upper()),
+        ]
+    else:
+        party_rows = [
+            ("Tenant no.", tenant.code, "Invoice date", invoice.issued_on.strftime("%d %b %Y")),
+            ("Tenant", tenant.name, "Due date", invoice.due_on.strftime("%d %b %Y")),
+            ("Customer PIN", tenant.tax_id, "Lease no.", lease.reference),
+            ("Property", prop.name, "Lease period", f"{lease.starts_on:%d %b %Y} — {lease.ends_on:%d %b %Y}"),
+            ("Unit / floor", f"{unit.code} / {unit.floor or '—'}", "Landlord PIN", landlord.get("pin") or "—"),
+        ]
+    story.append(_info_table(party_rows, s))
     story.extend([Spacer(1, 5 * mm), Paragraph("Invoice items", s["Section"])])
     data = [["DESCRIPTION", "VAT", "AMOUNT EX VAT", "VAT AMOUNT", "AMOUNT INCL VAT"]]
     for line in lines:
@@ -293,9 +310,10 @@ def invoice_pdf(invoice: Invoice, generated_by="System"):
         totals_rows.append(["Less advance credit applied", f"-{_money(wallet_applied)}"])
         totals_rows.append(["Net invoice balance", _money(invoice.balance)])
 
-    prev_balance = Invoice.objects.filter(organization=invoice.organization, lease__tenant=tenant).exclude(pk=invoice.pk).aggregate(v=Sum("balance"))["v"] or Decimal("0.00")
-    totals_rows.append(["Previous tenant balance", _money(prev_balance)])
-    total_due = Invoice.objects.filter(organization=invoice.organization, lease__tenant=tenant).aggregate(v=Sum("balance"))["v"] or Decimal("0.00")
+    party_invoices = Invoice.objects.filter(organization=invoice.organization, owner=owner) if owner else Invoice.objects.filter(organization=invoice.organization, lease__tenant=tenant)
+    prev_balance = party_invoices.exclude(pk=invoice.pk).aggregate(v=Sum("balance"))["v"] or Decimal("0.00")
+    totals_rows.append(["Previous owner balance" if owner else "Previous tenant balance", _money(prev_balance)])
+    total_due = party_invoices.aggregate(v=Sum("balance"))["v"] or Decimal("0.00")
     totals_rows.append(["TOTAL AMOUNT DUE", _money(total_due)])
 
     totals = Table(totals_rows, colWidths=[55 * mm, 43 * mm], hAlign="RIGHT")

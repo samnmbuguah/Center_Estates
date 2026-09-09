@@ -6165,7 +6165,7 @@ class PropertyAnalyticsViewSet(ViewSet):
         organization = self._organization()
         invoices = scope_model_queryset(Invoice, request, organization).exclude(
             status__in=(Invoice.Status.PAID, Invoice.Status.VOID),
-        ).filter(balance__gt=0).select_related('lease__tenant', 'lease__unit__property')
+        ).filter(balance__gt=0).select_related('lease__tenant', 'lease__unit__property', 'owner', 'unit__property')
         bucket_names = ('current', '31_60', '61_90', '91_120', 'over_120')
         summary = {name: Decimal('0') for name in bucket_names}
         tenants = {}
@@ -6173,10 +6173,13 @@ class PropertyAnalyticsViewSet(ViewSet):
             days = max((today - invoice.due_on).days, 0)
             bucket = 'current' if days <= 30 else '31_60' if days <= 60 else '61_90' if days <= 90 else '91_120' if days <= 120 else 'over_120'
             summary[bucket] += invoice.balance
-            tenant = invoice.lease.tenant
-            row = tenants.setdefault(str(tenant.id), {
-                'tenant': tenant.name, 'property': invoice.lease.unit.property.name,
-                'unit': invoice.lease.unit.code, 'outstanding': Decimal('0'),
+            tenant = invoice.lease.tenant if invoice.lease_id else None
+            party = tenant or invoice.owner
+            unit = invoice.unit or invoice.lease.unit
+            party_key = f"{'tenant' if tenant else 'owner'}:{party.id}"
+            row = tenants.setdefault(party_key, {
+                'tenant': party.name, 'party_type': 'tenant' if tenant else 'owner',
+                'property': unit.property.name, 'unit': unit.code, 'outstanding': Decimal('0'),
                 'oldest_days': 0, 'invoice_count': 0,
             })
             row['outstanding'] += invoice.balance
@@ -6222,7 +6225,7 @@ class PropertyAnalyticsViewSet(ViewSet):
 
         invoices = scope_model_queryset(Invoice, request, organization).filter(
             issued_on__range=(start, end),
-        ).exclude(status=Invoice.Status.VOID).select_related('lease__tenant', 'lease__unit__property').prefetch_related('lines')
+        ).exclude(status=Invoice.Status.VOID).select_related('lease__tenant', 'lease__unit__property', 'owner', 'unit__property').prefetch_related('lines')
         receipts = scope_model_queryset(Receipt, request, organization).filter(
             received_on__range=(start, end),
         ).select_related('tenant', 'invoice__lease__unit__property')
@@ -6237,7 +6240,7 @@ class PropertyAnalyticsViewSet(ViewSet):
         expense_total = expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0')
         open_invoices = scope_model_queryset(Invoice, request, organization).filter(
             balance__gt=0, due_on__lte=end,
-        ).exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID)).select_related('lease__tenant', 'lease__unit__property')
+        ).exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID)).select_related('lease__tenant', 'lease__unit__property', 'owner', 'unit__property')
         arrears = open_invoices.aggregate(total=Sum('balance'))['total'] or Decimal('0')
 
         aging = {key: Decimal('0') for key in ('current', '31_60', '61_90', '90_plus')}
@@ -6247,9 +6250,12 @@ class PropertyAnalyticsViewSet(ViewSet):
             bucket = 'current' if days <= 30 else '31_60' if days <= 60 else '61_90' if days <= 90 else '90_plus'
             aging[bucket] += invoice.balance
             last_payment = invoice.receipts.order_by('-received_on').values_list('received_on', flat=True).first()
+            tenant = invoice.lease.tenant if invoice.lease_id else None
+            party = tenant or invoice.owner
+            unit = invoice.unit or invoice.lease.unit
             arrears_rows.append({
-                'invoice': invoice.number, 'tenant': invoice.lease.tenant.name,
-                'property': invoice.lease.unit.property.name, 'unit': invoice.lease.unit.code,
+                'invoice': invoice.number, 'tenant': party.name, 'party_type': 'tenant' if tenant else 'owner',
+                'property': unit.property.name, 'unit': unit.code,
                 'billed': invoice.amount, 'paid': invoice.amount - invoice.balance, 'balance': invoice.balance,
                 'due_on': invoice.due_on, 'days_overdue': days, 'ageing_bucket': bucket,
                 'last_payment': last_payment, 'status': invoice.status,
@@ -6260,12 +6266,18 @@ class PropertyAnalyticsViewSet(ViewSet):
         for invoice in invoices:
             collected_for_invoice = invoice.receipts.filter(received_on__range=(start, end)).aggregate(total=Sum('amount'))['total'] or Decimal('0')
             lines = list(invoice.lines.all()); output_vat += invoice.tax_amount
+            if not lines:
+                category = invoice.charge_type or invoice.invoice_type or 'other'
+                income_categories[category] = income_categories.get(category, Decimal('0')) + invoice.subtotal
             for line in lines:
                 code = line.billing_item.income_category if line.billing_item_id and line.billing_item.income_category else line.description
                 income_categories[code] = income_categories.get(code, Decimal('0')) + line.subtotal
+            tenant = invoice.lease.tenant if invoice.lease_id else None
+            party = tenant or invoice.owner
+            unit = invoice.unit or invoice.lease.unit
             billing_rows.append({
-                'invoice': invoice.number, 'tenant': invoice.lease.tenant.name,
-                'property': invoice.lease.unit.property.name, 'unit': invoice.lease.unit.code,
+                'invoice': invoice.number, 'tenant': party.name, 'party_type': 'tenant' if tenant else 'owner',
+                'property': unit.property.name, 'unit': unit.code,
                 'billing_period': invoice.metadata.get('billing_period', ''), 'issued_on': invoice.issued_on,
                 'due_on': invoice.due_on, 'subtotal': invoice.subtotal, 'vat': invoice.tax_amount,
                 'total_billed': invoice.amount, 'collected': collected_for_invoice,
@@ -6275,7 +6287,8 @@ class PropertyAnalyticsViewSet(ViewSet):
         expense_categories = list(expenses.values('category').annotate(total=Sum('amount')).order_by('-total'))
         input_vat = expenses.aggregate(total=Sum('tax_amount'))['total'] or Decimal('0')
         vat_rows = [{'type': 'output', 'date': row.issued_on, 'reference': row.number,
-                     'party': row.lease.tenant.name, 'property': row.lease.unit.property.name,
+                     'party': (row.lease.tenant if row.lease_id else row.owner).name,
+                     'property': (row.unit or row.lease.unit).property.name,
                      'taxable_value': row.subtotal, 'tax_amount': row.tax_amount}
                     for row in invoices.filter(tax_amount__gt=0)]
         vat_rows += [{'type': 'input', 'date': row.incurred_on, 'reference': row.invoice_number,
@@ -6300,10 +6313,11 @@ class PropertyAnalyticsViewSet(ViewSet):
 
         service_charge_rows = []
         for scheme in scope_model_queryset(ServiceCharge, request, organization).filter(starts_on__lte=end).select_related('property'):
-            sc_lines = InvoiceLine.objects.for_organization(organization).filter(
-                invoice__in=invoices,
-            ).filter(Q(billing_item__income_category__icontains='service') | Q(description__icontains='service charge'))
-            sc_billed = sc_lines.aggregate(total=Sum('total'))['total'] or Decimal('0')
+            sc_billed = invoices.filter(
+                Q(invoice_type='service_charge') | Q(charge_type='service_charge'),
+            ).filter(
+                Q(lease__unit__property=scheme.property) | Q(unit__property=scheme.property),
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
             sc_expenses = expenses.filter(Q(category__icontains='service') | Q(cost_centre__icontains='service')).aggregate(total=Sum('amount'))['total'] or Decimal('0')
             service_charge_rows.append({'property': scheme.property.name, 'scheme': scheme.name,
                                         'budget': scheme.annual_budget, 'billed': sc_billed,
@@ -6313,7 +6327,7 @@ class PropertyAnalyticsViewSet(ViewSet):
         properties = scope_model_queryset(Property, request, organization)
         performance = []
         for prop in properties:
-            prop_billed = invoices.filter(lease__unit__property=prop).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            prop_billed = invoices.filter(Q(lease__unit__property=prop) | Q(unit__property=prop)).aggregate(total=Sum('amount'))['total'] or Decimal('0')
             prop_collected = receipts.filter(Q(invoice__lease__unit__property=prop) | Q(invoice__isnull=True, tenant__property=prop)).aggregate(total=Sum('amount'))['total'] or Decimal('0')
             performance.append({'property': prop.name, 'billed': prop_billed, 'collected': prop_collected,
                                 'outstanding': max(prop_billed - prop_collected, Decimal('0')),

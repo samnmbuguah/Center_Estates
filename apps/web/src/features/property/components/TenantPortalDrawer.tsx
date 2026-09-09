@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { DetailDrawer, StatusPill, LoadingState, EmptyState, Panel } from "@/components/module-ui";
 import { TenantRow, ID, Row, InvoiceRow, ReceiptRow } from "../types/property.types";
-import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { apiFetch, csrfFromCookie, downloadApiPdf } from "@/lib/api";
 import { fmtDate, kM } from "../utils/property.utils";
 
 /* ─── Types ─── */
@@ -561,7 +561,7 @@ export function TenantPortalDrawer({ tenant, organizationId, onClose }: {
                               <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
                                 <button
                                   type="button"
-                                  onClick={() => window.open(`/api/v1/property/invoices/${inv.id}/pdf/`, "_blank")}
+                                  onClick={() => void downloadApiPdf(`/property/invoices/${inv.id}/pdf/`, `Invoice-${String(inv.number || inv.id)}.pdf`, organizationId)}
                                   title="View / Download Invoice PDF"
                                   style={{
                                     padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)",
@@ -620,7 +620,7 @@ export function TenantPortalDrawer({ tenant, organizationId, onClose }: {
                           <td style={{ textAlign: "right" }}>
                             <button
                               type="button"
-                              onClick={() => window.open(`/api/v1/property/receipts/${r.id}/pdf/`, "_blank")}
+                              onClick={() => void downloadApiPdf(`/property/receipts/${r.id}/pdf/`, `Receipt-${String(r.number || r.id)}.pdf`, organizationId)}
                               title="View / Download Receipt PDF"
                               style={{
                                 padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)",

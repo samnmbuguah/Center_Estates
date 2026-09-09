@@ -258,6 +258,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
             invoiceChargeType(invoice.invoice_type || invoice.charge_type || "") === "service_charge" &&
             (invoice.metadata?.billing_period === startMonthStr || (invoice.issued_on >= period_start && invoice.issued_on <= period_end))
           );
+          const existingIsFinal = Boolean(existing && ["issued", "paid"].includes(String(existing.status).toLowerCase()));
           candidatesList.push({
             id: `owner-service-charge-${unit.id}`,
             tenant_name: owner?.name || unit.owner_name || "Unassigned owner",
@@ -265,9 +266,9 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
             unit_code: unit.code,
             lease_reference: `OWNER-SC-${startMonthStr}`,
             due_date: period_end,
-            billing_items: [{ code: "service_charge", description: `Owner service charge for Unit ${unit.code} (${months} ${months === 1 ? "month" : "months"})`, amount: String(total), total: String(total), billed: Boolean(existing), invoice_number: existing?.number }],
+            billing_items: [{ code: "service_charge", description: `Owner service charge for Unit ${unit.code} (${months} ${months === 1 ? "month" : "months"})`, amount: String(total), total: String(total), billed: existingIsFinal, invoice_number: existing?.number }],
             total: String(total),
-            status: existing ? "generated" : subtotal > 0 ? "ready" : "excluded",
+            status: existingIsFinal ? "generated" : subtotal > 0 ? "ready" : "excluded",
             issue_summary: subtotal > 0 ? [] : [{ code: "NO_SERVICE_CHARGE", message: `Set the owner service-charge amount for Unit ${unit.code} during onboarding.`, severity: "warning" }],
             metadata: { property_id: property.id, owner_id: ownerId, unit_id: unit.id, unit_codes: [unit.code], units_display: unit.code, subtotal, vat_rate: vatRate, invoice_id: existing?.id, invoice_number: existing?.number },
           } as any);

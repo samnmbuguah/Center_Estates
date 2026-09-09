@@ -6,6 +6,7 @@ import { DetailDrawer, money } from "@/components/module-ui";
 import { useAuth } from "@/components/auth-provider";
 import { Candidate, issueResolution, isMissingWaterReading } from "./types";
 import { printInvoiceDraft } from "./invoice-draft-print";
+import { downloadApiPdf } from "@/lib/api";
 
 export function CandidatePreviewDrawer({
   candidate,
@@ -351,7 +352,11 @@ export function CandidatePreviewDrawer({
                 type="button"
                 className="btn outline sm"
                 onClick={() => {
-                  window.open(`/api/v1/property/landlord-invoices/${(candidate as any).metadata.invoice_id}/pdf/`, "_blank");
+                  const metadata = (candidate as any).metadata || {};
+                  const invoiceNumber = String(metadata.invoice_number || "Invoice");
+                  const resource = invoiceNumber.startsWith("LB-") ? "landlord-invoices" : "invoices";
+                  void downloadApiPdf(`/property/${resource}/${metadata.invoice_id}/pdf/`, `Tax-Invoice-${invoiceNumber}.pdf`, session?.activeOrganizationId)
+                    .catch((error) => window.alert(error instanceof Error ? error.message : "The tax invoice PDF could not be downloaded."));
                 }}
                 style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, color: "#1d4ed8", borderColor: "#2563eb" }}
               >
