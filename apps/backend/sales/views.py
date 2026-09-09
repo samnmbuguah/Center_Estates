@@ -1,4 +1,5 @@
 import csv
+import uuid
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 from decimal import Decimal
 
@@ -12,12 +13,13 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ViewSet
 
 from core.models import Module
-from core.permissions import HasModuleActionPermission
-from core.tenancy import get_active_organization
+from core.permissions import HasModuleActionPermission, HasModuleSubscription
+from core.tenancy import get_active_membership, get_active_organization
 from core.property_scope import scope_model_queryset, scope_queryset_to_property
+from rest_framework.exceptions import PermissionDenied
 
-from .models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
-from .serializers import AgentCommissionSerializer, BuyerSerializer, InstallmentSerializer, PropertySaleSerializer, SaleDocumentSerializer, SaleListingSerializer, SalePaymentSerializer, SalesAuditEventSerializer, SiteVisitSerializer
+from .models import AgentCommission, Buyer, BuyerPortalAccess, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
+from .serializers import AgentCommissionSerializer, BuyerSerializer, BuyerPortalAccessSerializer, InstallmentSerializer, PropertySaleSerializer, SaleDocumentSerializer, SaleListingSerializer, SalePaymentSerializer, SalesAuditEventSerializer, SiteVisitSerializer
 
 
 class SalesModelViewSet(ModelViewSet):
@@ -444,6 +446,18 @@ class SalesAnalyticsViewSet(ViewSet):
     def _organization(self):
         return get_active_organization(self.request)
 
+    def _queries(self):
+        organization = self._organization()
+        return {
+            'listings': scope_model_queryset(SaleListing, self.request, organization),
+            'sales': scope_model_queryset(PropertySale, self.request, organization),
+            'payments': scope_model_queryset(SalePayment, self.request, organization),
+            'installments': scope_model_queryset(Installment, self.request, organization),
+            'commissions': scope_model_queryset(AgentCommission, self.request, organization),
+            'buyers': scope_model_queryset(Buyer, self.request, organization),
+            'visits': scope_model_queryset(SiteVisit, self.request, organization),
+        }
+
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         organization = self._organization()
@@ -459,54 +473,354 @@ class SalesAnalyticsViewSet(ViewSet):
         ).exclude(status=Installment.Status.PAID).aggregate(
             amount=Sum('amount'), paid=Sum('paid_amount'), count=Count('id'),
         )
+        from .reporting import CATALOGUE
         return Response({
             'agentPerformance': list(performance),
             'installmentExposure': {
                 'count': overdue['count'] or 0,
                 'outstanding': (overdue['amount'] or Decimal('0')) - (overdue['paid'] or Decimal('0')),
             },
-            'reports': [
-                {'key': 'inventory', 'name': 'Inventory availability'},
-                {'key': 'sales', 'name': 'Sales pipeline'},
-                {'key': 'payments', 'name': 'Payment reconciliation'},
-                {'key': 'commissions', 'name': 'Agent commissions'},
-                {'key': 'visits', 'name': 'Site visits and attribution'},
-            ],
+            'reports': CATALOGUE,
         })
 
-    @extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("report_kind", OpenApiTypes.STR, OpenApiParameter.PATH)])
+    @extend_schema(request=None, responses={200: {"type": "object"}})
+    @action(detail=False, methods=('get',), url_path=r'reports/(?P<report_kind>[^/.]+)')
+    def summary(self, request, report_kind=None):
+        """In-app report preview: KPIs, columns and rows for a report."""
+        from .reporting import build_report, resolve_report_key
+        report_kind = resolve_report_key(report_kind)
+        headers, rows, start, end = build_report(request, self._queries(), report_kind)
+        organization = self._organization()
+        return Response({
+            'key': report_kind,
+            'period': {'start': start.isoformat(), 'end': end.isoformat()},
+            'columns': list(headers),
+            'rows': rows,
+            'count': len(rows),
+            'meta': {
+                'title': '',
+                'organization': organization.name,
+                'generated_by': request.user.get_full_name() or request.user.get_username(),
+                'generated_at': timezone.localtime().isoformat(),
+            },
+        })
+
+    @extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[
+        OpenApiParameter("report_kind", OpenApiTypes.STR, OpenApiParameter.PATH),
+        OpenApiParameter("output", OpenApiTypes.STR, OpenApiParameter.QUERY),
+    ])
     @action(detail=False, methods=('get',), url_path=r'exports/(?P<report_kind>[^/.]+)')
     def export(self, request, report_kind=None):
         organization = self._organization()
+        output_format = request.query_params.get('output', 'csv').lower()
+        if output_format not in ('csv', 'xlsx'):
+            raise ValidationError({'output': 'Output format must be csv or xlsx.'})
+        from .reporting import build_report, resolve_report_key, cell_value
+        report_kind = resolve_report_key(report_kind)
+        headers, rows, start, end = build_report(request, self._queries(), report_kind)
+        from .reporting import CATALOGUE, REPORTS
+        friendly = next((r['name'] for r in CATALOGUE if r['key'] == report_kind), REPORTS.get(report_kind, {}).get('title', report_kind.replace('-', ' ').title()))
+
+        from io import StringIO
+        buffer = StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(headers)
+        for row in rows:
+            writer.writerow([cell_value(row, h) for h in headers])
+
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="sales-{report_kind}.csv"'
-        writer = csv.writer(response)
-        if report_kind == 'inventory':
-            writer.writerow(('Project', 'Unit', 'Type', 'Floor', 'Price', 'Progress', 'Status'))
-            for row in scope_model_queryset(SaleListing, request, organization).select_related('project', 'unit'):
-                writer.writerow((row.project.name, row.unit.code, row.unit.unit_type, row.unit.floor,
-                                 row.list_price, row.construction_progress, row.status))
-        elif report_kind == 'sales':
-            writer.writerow(('Sale', 'Buyer', 'Project', 'Unit', 'Agent', 'Price', 'Status'))
-            for row in scope_model_queryset(PropertySale, request, organization).select_related('buyer', 'listing__project', 'listing__unit', 'agent'):
-                writer.writerow((row.reference, row.buyer.full_name, row.listing.project.name,
-                                 row.listing.unit.code, row.agent.username if row.agent else '', row.agreed_price, row.status))
-        elif report_kind == 'payments':
-            writer.writerow(('Payment', 'Sale', 'Buyer', 'Date', 'Amount', 'Method', 'External reference', 'Status'))
-            for row in scope_model_queryset(SalePayment, request, organization).select_related('sale__buyer'):
-                writer.writerow((row.reference, row.sale.reference, row.sale.buyer.full_name, row.paid_on,
-                                 row.amount, row.method, row.external_reference, row.status))
-        elif report_kind == 'commissions':
-            writer.writerow(('Commission', 'Agent', 'Sale', 'Rate', 'Amount', 'Payment gate', 'Construction gate', 'Status'))
-            for row in scope_model_queryset(AgentCommission, request, organization).select_related('agent', 'sale'):
-                writer.writerow((row.reference, row.agent.username, row.sale.reference, row.rate_percent,
-                                 row.amount, row.required_paid_percent, row.required_construction_percent, row.status))
-        elif report_kind == 'visits':
-            writer.writerow(('Visit', 'Visitor', 'Phone', 'Project', 'Interest', 'Agent', 'Visited', 'Follow up'))
-            for row in scope_model_queryset(SiteVisit, request, organization).select_related('project', 'introducing_agent'):
-                writer.writerow((row.reference, row.visitor_name, row.phone, row.project.name,
-                                 row.interested_unit_type, row.introducing_agent.username if row.introducing_agent else '',
-                                 row.visited_at, row.follow_up_on or ''))
+        response['Content-Disposition'] = f'attachment; filename="sales-{report_kind}-{start:%Y%m%d}-{end:%Y%m%d}.{output_format}"'
+
+        if output_format == 'xlsx':
+            try:
+                from openpyxl import Workbook
+            except ImportError:
+                raise ValidationError({'output': 'Excel export is not available.'})
+            from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+            workbook = Workbook()
+            sheet = workbook.active
+            sheet.title = friendly[:31]
+            sheet['A1'] = friendly
+            sheet['A1'].font = Font(name='Calibri', size=14, bold=True, color='17243B')
+            sheet['A2'] = f'{organization.name} · {start:%d %b %Y} — {end:%d %b %Y}'
+            sheet['A2'].font = Font(name='Calibri', size=10, color='64748B')
+            sheet['A3'] = f"Prepared by {request.user.get_full_name() or request.user.get_username()} · Generated {timezone.localtime():%d %b %Y %H:%M}"
+            sheet['A3'].font = Font(name='Calibri', size=9, color='64748B')
+            header_fill = PatternFill('solid', fgColor='17243B')
+            header_font = Font(color='FFFFFF', bold=True, name='Calibri', size=11)
+            body_font = Font(name='Calibri', size=10)
+            zebra = PatternFill('solid', fgColor='F4F7FA')
+            thin = Border(*(Side(style='thin', color='DBE3EC'),) * 4)
+            start_row = 5
+            money_keywords = ('amount', 'price', 'value', 'balance', 'fee', 'paid', 'gate', 'cost', 'total', 'income')
+            money_headers = {i for i, h in enumerate(headers) if any(k in str(h).lower() for k in money_keywords) and '%' not in str(h)}
+            percent_headers = {i for i, h in enumerate(headers) if '%' in str(h)}
+            width_hints = max(min(max(len(str(h)) + 6, 12), 34) for h in headers)
+            row_index = start_row
+            for col_index, value in enumerate(headers, start=1):
+                cell = sheet.cell(row=row_index, column=col_index, value=value)
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.border = thin
+                cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            sheet.column_dimensions['A'].width = width_hints
+            for data_index, row in enumerate(rows, start=start_row + 1):
+                sheet.row_dimensions[data_index].height = 16
+                for col_index, header in enumerate(headers, start=1):
+                    zero_idx = col_index - 1
+                    value = cell_value(row, header)
+                    try:
+                        if zero_idx in money_headers and value not in (None, '', '—'):
+                            cell = sheet.cell(row=data_index, column=col_index, value=Decimal(str(value).replace(',', '')))
+                            cell.number_format = '#,##0.00'
+                            cell.alignment = Alignment(horizontal='right', vertical='center')
+                        elif zero_idx in percent_headers and value not in (None, '', '—'):
+                            cell = sheet.cell(row=data_index, column=col_index, value=float(str(value).replace('%', '')))
+                            cell.number_format = '0.0"% "'
+                            cell.alignment = Alignment(horizontal='right', vertical='center')
+                        else:
+                            cell = sheet.cell(row=data_index, column=col_index, value=value)
+                            cell.alignment = Alignment(vertical='center')
+                    except (TypeError, ValueError):
+                        cell = sheet.cell(row=data_index, column=col_index, value=value)
+                        cell.alignment = Alignment(vertical='center')
+                    cell.font = body_font
+                    cell.border = thin
+                    if (data_index - start_row) % 2 == 0:
+                        cell.fill = zebra
+            from io import BytesIO
+            byte_io = BytesIO()
+            workbook.save(byte_io)
+            byte_io.seek(0)
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = f'attachment; filename="sales-{report_kind}-{start:%Y%m%d}-{end:%Y%m%d}.xlsx"'
+            response.write(byte_io.getvalue())
         else:
-            raise ValidationError({'report': 'Unknown sales report.'})
+            response.write(buffer.getvalue().encode('utf-8'))
+
+        # Audit the export
+        self._audit_export(organization, request, report_kind, friendly, output_format, start, end, len(rows))
         return response
+
+    def _audit_export(self, organization, request, report_key, friendly, output_format, start, end, row_count):
+        try:
+            from properties.models import ReportDefinition, ReportExecution
+            from django.utils import timezone as tz
+            definition = ReportDefinition.objects.for_organization(organization).filter(
+                key=report_key, is_active=True,
+            ).first()
+            if not definition:
+                definition = ReportDefinition.objects.create(
+                    organization=organization, key=report_key, name=friendly,
+                    domain=ReportDefinition.Domain.FINANCIAL, description=friendly,
+                    is_standard=True, created_by=request.user,
+                )
+            ReportExecution.objects.create(
+                organization=organization, definition=definition, report_key=report_key,
+                period_start=start, period_end=end, filters={'scope': 'organization'},
+                output_format=output_format, status=ReportExecution.Status.COMPLETED,
+                generated_by=request.user, generated_at=tz.now(), row_count=row_count,
+            )
+        except Exception:
+            # Reporting must never fail because audit logging did.
+            pass
+
+
+
+class BuyerPortalAccessViewSet(SalesModelViewSet):
+    write_permission = 'sales.selling'
+    queryset = BuyerPortalAccess.objects.select_related('user', 'buyer')
+    serializer_class = BuyerPortalAccessSerializer
+    search_fields = ('user__username', 'buyer__full_name', 'buyer__reference')
+
+
+class BuyerPortalViewSet(ViewSet):
+    """Self-service portal for buyers linked to this account via BuyerPortalAccess."""
+
+    permission_classes = (HasModuleSubscription,)
+    required_module = Module.SALES
+
+    def _access(self, buyer_id=None):
+        organization = get_active_organization(self.request)
+        if buyer_id:
+            membership = get_active_membership(self.request, organization)
+            can_support = (
+                self.request.user.is_staff or self.request.user.is_superuser
+                or bool(membership and (
+                    membership.is_organization_admin
+                    or membership.has_permission('sales.selling')
+                    or membership.has_permission('sales.view')
+                ))
+            )
+            if not can_support:
+                raise PermissionDenied('Buyer portal support view requires sales selling permission.')
+            buyer = Buyer.objects.for_organization(organization).filter(pk=buyer_id).first()
+            if not buyer:
+                raise PermissionDenied('Specified buyer was not found in active organization.')
+            return buyer
+        access = BuyerPortalAccess.objects.for_organization(organization).filter(
+            user=self.request.user, is_active=True,
+        ).select_related('buyer').first()
+        if not access:
+            raise PermissionDenied('No active buyer portal profile is linked to this account.')
+        return access.buyer
+
+    def _build_portal_data(self, buyer, request):
+        organization = buyer.organization
+        sales = PropertySale.objects.for_organization(organization).filter(buyer=buyer).select_related(
+            'listing__unit', 'listing__project', 'agent',
+        ).prefetch_related('payments', 'installments').order_by('-created_at')
+        current_sale = next((s for s in sales if s.status not in (PropertySale.Status.CANCELLED,)), sales.first())
+        installments = []
+        payments = []
+        sale_documents = []
+        if current_sale:
+            installments = Installment.objects.for_organization(organization).filter(sale=current_sale).order_by('sequence')
+            payments = SalePayment.objects.for_organization(organization).filter(sale=current_sale).order_by('-paid_on')
+            sale_documents = SaleDocument.objects.for_organization(organization).filter(sale=current_sale).order_by('document_type', 'title')
+
+        gateway_listings = SaleListing.objects.for_organization(organization).filter(
+            project_id__in=[s.listing.project_id for s in sales if s.listing_id],
+            status=SaleListing.Status.AVAILABLE,
+        ).select_related('project', 'unit').order_by('project__name', 'unit__code')[:20]
+        return {
+            'buyer': BuyerSerializer(buyer).data,
+            'sales': PropertySaleSerializer(sales, many=True).data,
+            'currentSale': PropertySaleSerializer(current_sale).data if current_sale else None,
+            'installments': InstallmentSerializer(installments, many=True).data,
+            'payments': SalePaymentSerializer(payments, many=True).data,
+            'documents': SaleDocumentSerializer(sale_documents, many=True).data,
+            'availableUnits': SaleListingSerializer(gateway_listings, many=True).data,
+            'kpis': {
+                'totalSales': sales.exclude(status=PropertySale.Status.CANCELLED).count(),
+                'outstanding': sum((s.agreed_price for s in sales if s.status not in (PropertySale.Status.COMPLETED, PropertySale.Status.CANCELLED)), Decimal('0')),
+                'verifiedPayments': sum(
+                    (p.amount for p in SalePayment.objects.for_organization(organization).filter(sale__buyer=buyer, status=SalePayment.Status.VERIFIED)), Decimal('0'),
+                ),
+            },
+        }
+
+    @extend_schema(request=None, responses={200: {"type": "object"}})
+    def list(self, request):
+        buyer_id = request.query_params.get('buyer')
+        buyer = self._access(buyer_id=buyer_id)
+        return Response(self._build_portal_data(buyer, request))
+
+    @extend_schema(request=None, responses={200: {"type": "object"}})
+    def retrieve(self, request, pk=None):
+        buyer = self._access(buyer_id=pk)
+        return Response(self._build_portal_data(buyer, request))
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='payments/record')
+    def record_payment(self, request):
+        buyer = self._access()
+        sale_id = str(request.data.get('sale') or '').strip()
+        installment_id = str(request.data.get('installment') or '').strip()
+        amount_val = request.data.get('amount')
+        method = str(request.data.get('method') or '').strip()
+        external_reference = str(request.data.get('external_reference') or '').strip()
+        if not sale_id:
+            raise ValidationError({'sale': 'Select a sale.'})
+        if not external_reference:
+            raise ValidationError({'external_reference': 'Provide the bank/payment reference.'})
+        if not method:
+            raise ValidationError({'method': 'Select a payment method.'})
+        sale = PropertySale.objects.for_organization(buyer.organization).filter(pk=sale_id, buyer=buyer).first()
+        if not sale:
+            raise ValidationError({'sale': 'This sale does not belong to your buyer account.'})
+        try:
+            amount = Decimal(str(amount_val))
+        except (TypeError, ValueError):
+            raise ValidationError({'amount': 'Amount is invalid.'})
+        if amount <= 0:
+            raise ValidationError({'amount': 'Amount must be greater than zero.'})
+        installment = None
+        if installment_id:
+            installment = Installment.objects.for_organization(buyer.organization).filter(
+                pk=installment_id, sale=sale,
+            ).first()
+            if not installment:
+                raise ValidationError({'installment': 'The selected installment does not belong to this sale.'})
+        reference = f'SP-{timezone.localdate():%Y%m%d}-{uuid.uuid4().hex[:8].upper()}'
+        payment = SalePayment.objects.create(
+            organization=buyer.organization, reference=reference, sale=sale,
+            installment=installment, paid_on=timezone.localdate(),
+            amount=amount, method=method, external_reference=external_reference,
+            status=SalePayment.Status.PENDING, rejection_reason='',
+        )
+        SalesAuditEvent.objects.create(
+            organization=buyer.organization, sale=sale, payment=payment,
+            event_type='payment_submitted', to_status=payment.status, actor=request.user,
+        )
+        return Response(SalePaymentSerializer(payment).data, status=201)
+
+
+class AgentPortalViewSet(ViewSet):
+    """Self-service portal for sales agents scoped to their own records."""
+
+    permission_classes = (HasModuleSubscription,)
+    required_module = Module.SALES
+
+    def _agent(self):
+        if self.request.user.is_superuser:
+            return self.request.user
+        organization = get_active_organization(self.request)
+        membership = get_active_membership(self.request, organization)
+        if not membership:
+            raise PermissionDenied('No active organization membership is available.')
+        from organizations.models import MembershipRole
+        is_agent = (
+            Buyer.objects.for_organization(organization).filter(assigned_agent=self.request.user).exists()
+            or PropertySale.objects.for_organization(organization).filter(agent=self.request.user).exists()
+            or SiteVisit.objects.for_organization(organization).filter(introducing_agent=self.request.user).exists()
+            or AgentCommission.objects.for_organization(organization).filter(agent=self.request.user).exists()
+            or membership.is_organization_admin
+            or self.request.user.is_staff
+        )
+        if not is_agent:
+            raise PermissionDenied('This account is not linked to a sales agent profile.')
+        return self.request.user
+
+    @extend_schema(request=None, responses={200: {"type": "object"}})
+    def list(self, request):
+        agent = self._agent()
+        organization = get_active_organization(request)
+        is_superuser = request.user.is_superuser
+        # Superusers/admin see a portfolio-wide agent summary; regular agents see only their own.
+        scope_buyers = Buyer.objects.for_organization(organization) if is_superuser else Buyer.objects.for_organization(organization).filter(assigned_agent=agent)
+        scope_sales = PropertySale.objects.for_organization(organization) if is_superuser else PropertySale.objects.for_organization(organization).filter(agent=agent)
+        scope_visits = SiteVisit.objects.for_organization(organization)
+        scope_commissions = AgentCommission.objects.for_organization(organization)
+
+        leads = scope_buyers.filter(status__in=(Buyer.Status.LEAD, Buyer.Status.QUALIFIED)).order_by('-created_at')[:20]
+        pipeline = scope_sales.exclude(status__in=(PropertySale.Status.COMPLETED, PropertySale.Status.CANCELLED)).order_by('-created_at')[:20]
+        visits = scope_visits.filter(introducing_agent=agent).select_related('project', 'converted_buyer').order_by('-visited_at')[:20]
+        commissions = scope_commissions.filter(agent=agent).select_related('sale__buyer').order_by('-created_at')[:20]
+
+        earned = scope_commissions.filter(agent=agent).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        paid = scope_commissions.filter(agent=agent, status=AgentCommission.Status.PAID).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        pending = earned - paid
+        return Response({
+            'agent': {
+                'id': str(agent.id),
+                'username': agent.username,
+                'name': agent.get_full_name() or agent.username,
+                'email': agent.email,
+            },
+            'kpis': {
+                'openLeads': leads.count(),
+                'pipelineDeals': pipeline.count(),
+                'siteVisits': visits.count(),
+                'earnedCommission': earned,
+                'paidCommission': paid,
+                'pendingCommission': pending,
+            },
+            'leads': BuyerSerializer(leads, many=True).data,
+            'pipeline': PropertySaleSerializer(pipeline, many=True).data,
+            'visits': SiteVisitSerializer(visits, many=True).data,
+            'commissions': AgentCommissionSerializer(commissions, many=True).data,
+            'availableUnits': SaleListingSerializer(
+                SaleListing.objects.for_organization(organization).filter(status=SaleListing.Status.AVAILABLE).select_related('project', 'unit').order_by('project__name', 'unit__code')[:20], many=True,
+            ).data,
+        })

@@ -18,6 +18,11 @@ from django.utils import timezone
 from organizations.models import Organization
 from properties.models import (
     Building, ExitClearance, Invoice, Lease, Property, TenantHandover, Unit, Tenant,
+    Project,
+)
+from sales.models import (
+    AgentCommission, Buyer, BuyerPortalAccess, Installment, PropertySale,
+    SaleDocument, SaleListing, SalePayment, SiteVisit,
 )
 from facilities.models import (
     ComplianceObligation, Contractor, ContractorContract, FacilityAsset, FacilityExpense,
@@ -376,6 +381,120 @@ class Command(BaseCommand):
             count += int(created)
         return count
 
+    def seed_sales(self, org, user):
+        from django.contrib.auth import get_user_model
+        U = get_user_model()
+        count = 0
+        if not org.property_set.exists():
+            return count
+        prop = org.property_set.order_by('code').first()
+        project, _ = Project.objects.get_or_create(
+            organization=org, code='PRJ-SE-01',
+            defaults={'property': prop, 'name': f'{prop.name} — Sales Program', 'status': 'active'},
+        )
+        units = list(Unit.objects.filter(organization=org, property=prop).order_by('code'))
+        if not units:
+            return count
+
+        # A dedicated demo buyer account linked to the demo buyer profile.
+        buyer_user, _ = U.objects.get_or_create(username='sales-demo', defaults={'email': 'sales-demo@example.com'})
+        from organizations.models import Membership
+        if not Membership.objects.filter(user=buyer_user, organization=org, is_organization_admin=True).exists():
+            Membership.objects.create(user=buyer_user, organization=org, is_organization_admin=True, is_default=True)
+
+        # Listings — up to 4 available units with pricing & construction progress.
+        listings = []
+        for i, unit in enumerate(units[:4]):
+            if SaleListing.objects.filter(organization=org, unit=unit).exists():
+                existing = SaleListing.objects.filter(organization=org, unit=unit).first()
+                if existing not in listings:
+                    listings.append(existing)
+                continue
+            listing = SaleListing.objects.create(
+                organization=org, unit=unit, project=project,
+                list_price=Decimal(18000000 + i * 2500000),
+                minimum_deposit_percent=Decimal('10'),
+                construction_progress=Decimal(random.randint(20, 80)),
+                status=SaleListing.Status.AVAILABLE,
+            )
+            listings.append(listing)
+            count += 1
+
+        # Buyer + a contracted sale with installments, payments, commission & portal access.
+        buyer, buyer_created = Buyer.objects.get_or_create(
+            organization=org, reference='B-SE-001',
+            defaults={
+                'full_name': 'Jane Wanjiku', 'email': 'jane.wanjiku@example.com',
+                'phone': '0712 345 678', 'id_number': 'ID-33456789', 'tax_number': '',
+                'financing_type': 'bank', 'financier': 'NCBA Bank',
+                'status': Buyer.Status.ACTIVE, 'assigned_agent': user,
+                'confirmed_at': timezone.now(),
+            },
+        )
+        if buyer_created:
+            count += 1
+        BuyerPortalAccess.objects.get_or_create(
+            organization=org, user=buyer_user, buyer=buyer, defaults={'is_active': True},
+        )
+
+        sale_unit = units[0] if units else None
+        first_listing = listings[0] if listings else None
+        sale, sale_created = PropertySale.objects.get_or_create(
+            organization=org, reference='SALE-SE-001', buyer=buyer,
+            defaults={
+                'listing': first_listing,
+                'agent': user, 'agreed_price': Decimal('19500000'),
+                'reservation_fee': Decimal('1950000'), 'status': PropertySale.Status.CONTRACTED,
+                'reserved_at': timezone.now() - timedelta(days=120),
+                'contracted_on': TODAY - timedelta(days=90),
+            },
+        )
+        if sale_created:
+            count += 1
+            for seq, desc, amount in (
+                (1, 'Reservation deposit', Decimal('1950000')),
+                (2, 'First tranche', Decimal('5850000')),
+                (3, 'Second tranche', Decimal('5850000')),
+                (4, 'Balance on completion', Decimal('5850000')),
+            ):
+                Installment.objects.get_or_create(
+                    organization=org, sale=sale, sequence=seq,
+                    defaults={
+                        'description': desc, 'due_on': TODAY + timedelta(days=60 * (seq - 2)),
+                        'amount': amount, 'status': Installment.Status.UPCOMING, 'milestone': desc,
+                    },
+                )
+                count += 1
+            SalePayment.objects.get_or_create(
+                organization=org, reference='SP-SE-001', sale=sale,
+                defaults={
+                    'installment': Installment.objects.filter(organization=org, sale=sale, sequence=1).first(),
+                    'paid_on': TODAY - timedelta(days=85), 'amount': Decimal('1950000'),
+                    'method': 'bank', 'external_reference': 'RTGS-SE-7788',
+                    'status': SalePayment.Status.VERIFIED, 'verified_by': user, 'verified_at': timezone.now(),
+                },
+            )
+            count += 1
+            AgentCommission.objects.get_or_create(
+                organization=org, reference='CM-SE-001', sale=sale, agent=user,
+                defaults={
+                    'rate_percent': Decimal('2.5'), 'amount': Decimal('487500'),
+                    'required_paid_percent': Decimal('20'), 'required_construction_percent': Decimal('0'),
+                    'status': AgentCommission.Status.PENDING,
+                },
+            )
+            count += 1
+            SaleDocument.objects.get_or_create(
+                organization=org, sale=sale, document_type='sale_agreement',
+                defaults={
+                    'title': 'Sale Agreement — Unit ' + (sale_unit.code if sale_unit else ''),
+                    'checksum': 'sha256:sales-demo-agreement-v1', 'is_final': True,
+                    'signed_on': TODAY - timedelta(days=90), 'file_url': '',
+                },
+            )
+            count += 1
+        return count
+
     def seed_handovers(self, org, user):
         count = 0
         leases = Lease.objects.filter(organization=org, status__in=('active', 'expiring')).select_related('unit', 'tenant')[:3]
@@ -465,7 +584,7 @@ class Command(BaseCommand):
 
         for org in orgs:
             self.stdout.write(f'=== Seeding {org.slug} ===')
-            for module in (Module.FACILITY, Module.PROPERTY, Module.COMPANION):
+            for module in (Module.FACILITY, Module.PROPERTY, Module.COMPANION, Module.SALES):
                 self.ensure_subscription(org, module)
 
             admin = U.objects.filter(
@@ -484,6 +603,7 @@ class Command(BaseCommand):
                 'fm_finance': self.seed_fm_finance(org, properties, admin),
                 'requisitions': self.seed_requisitions(org, properties, admin),
                 'supplier_invoices': self.seed_supplier_invoices(org, properties, admin),
+                'sales': self.seed_sales(org, admin),
                 'handovers': self.seed_handovers(org, admin),
                 'exit_clearances': self.seed_exit_clearances(org, admin),
                 'ppm': self.seed_ppm(org, admin),

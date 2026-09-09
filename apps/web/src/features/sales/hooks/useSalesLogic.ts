@@ -14,6 +14,15 @@ import {
 } from "../types/sales.types";
 import { readError } from "../utils/sales.utils";
 
+export type ReportPreview = {
+  key: string;
+  period: { start: string; end: string };
+  columns: string[];
+  rows: Row[];
+  count: number;
+  meta: { title: string; organization: string; generated_by: string; generated_at: string };
+};
+
 export function useSalesLogic(initialTab = "overview") {
   const { session, can } = useAuth();
   const { activeProperty } = usePropertyContext();
@@ -55,6 +64,9 @@ export function useSalesLogic(initialTab = "overview") {
     units: [],
   });
   const [recentExports, setRecentExports] = useState<Row[]>([]);
+  const [reportPreview, setReportPreview] = useState<ReportPreview | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportKey, setReportKey] = useState("");
 
   const loadVersion = useRef(0);
 
@@ -310,6 +322,55 @@ export function useSalesLogic(initialTab = "overview") {
     setRecentExports((prev) => [{ key, name, exportedAt: new Date().toISOString() }, ...prev].slice(0, 8));
   }
 
+  async function loadReportPreview(key: string, start = "", end = "") {
+    if (!org) return;
+    setReportKey(key);
+    setReportLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      if (start) params.set("start", start);
+      if (end) params.set("end", end);
+      const qs = params.toString();
+      const res = await apiFetch(`/sales/analytics/reports/${key}/${qs ? `?${qs}` : ""}`, {}, org);
+      if (!res.ok) {
+        throw new Error(await readError(res));
+      }
+      const data = (await res.json()) as ReportPreview;
+      setReportPreview(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The report could not be loaded.");
+      setReportPreview(null);
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
+  async function downloadReport(key: string, name: string, format: "csv" | "xlsx", start = "", end = "") {
+    if (!org) return;
+    setError("");
+    try {
+      const params = new URLSearchParams({ output: format });
+      if (start) params.set("start", start);
+      if (end) params.set("end", end);
+      const qs = params.toString();
+      const res = await apiFetch(`/sales/analytics/exports/${key}/${qs ? `?${qs}` : ""}`, {}, org);
+      if (!res.ok) {
+        throw new Error(await readError(res));
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sales-${key}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setRecentExports((prev) => [{ key, name, exportedAt: new Date().toISOString(), format }, ...prev].slice(0, 8));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The report export failed.");
+    }
+  }
+
   const openBuyerRegistration = () => { setFormError(""); setShowRegisterBuyer(true); };
   const openNewSaleModal = () => { setFormError(""); setShowNewSale(true); };
   const openRecordVisitModal = () => { setFormError(""); setShowRecordVisit(true); };
@@ -339,6 +400,11 @@ export function useSalesLogic(initialTab = "overview") {
     canVisit,
     loadData,
     recentExports,
+    reportPreview,
+    reportLoading,
+    reportKey,
+    loadReportPreview,
+    downloadReport,
     options,
     // Modals
     showRegisterBuyer,

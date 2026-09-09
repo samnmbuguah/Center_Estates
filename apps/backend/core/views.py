@@ -89,6 +89,8 @@ TEST_CHECKLIST = (
     # 8. Tenant & Client Portals
     ('portals.tenant', 'Client Portals', 'Tenant portal self-service for statements, payments and requests', '/tenant-portal'),
     ('portals.landlord', 'Client Portals', 'Landlord executive portal for monthly remittance & portfolio health', '/property?tab=owner-portal'),
+    ('portals.buyer', 'Client Portals', 'Buyer self-service portal for agreements, installments and payments', '/buyer-portal'),
+    ('portals.agent', 'Client Portals', 'Sales agent portal for leads, deals, visits and commissions', '/agent-portal'),
 
     # 9. Reports & Compliance
     ('reports.tenancy', 'Reports & Compliance', 'Generate occupancy, vacancy and tenancy register reports', '/property?tab=tenancy-reports'),

@@ -54,6 +54,8 @@ const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; ico
   { name: "Caretaker meter portal", href: "/caretaker-portal", module: "facility", icon: "💧", detail: "Capture property meter readings for approval", permission: "facility.work" },
   { name: "Register buyer", href: "/sales?tab=buyers", module: "sales", icon: "💰", detail: "Create a buyer profile", permission: "sales.sell" },
   { name: "Tenant portal", href: "/tenant-portal", module: "property", icon: "🔑", detail: "Self-service tenant billing, payments and service requests" },
+  { name: "Buyer portal", href: "/buyer-portal", module: "sales", icon: "🛒", detail: "Self-service sale agreement, installments and payments" },
+  { name: "Agent portal", href: "/agent-portal", module: "sales", icon: "🧑‍💼", detail: "Sales agent pipeline, visits and commissions" },
   { name: "New valuation instruction", href: "/valuation?tab=instructions", module: "valuation", icon: "📜", detail: "Create a valuation instruction", permission: "valuation.instructions" },
 ];
 
@@ -248,7 +250,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   const activeModule = modules.find((module) => (
     pathname === `/${module.slug}` || pathname.startsWith(`/${module.slug}/`)
   ));
-  const moduleWorkspaceActive = Boolean(activeModule) || pathname.startsWith("/tenant-portal") || pathname.startsWith("/facility-portal") || pathname.startsWith("/caretaker-portal") || pathname.startsWith("/owner-portal");
+  const moduleWorkspaceActive = Boolean(activeModule) || pathname.startsWith("/tenant-portal") || pathname.startsWith("/facility-portal") || pathname.startsWith("/caretaker-portal") || pathname.startsWith("/owner-portal") || pathname.startsWith("/buyer-portal") || pathname.startsWith("/agent-portal");
   if (moduleWorkspaceActive && (!propertyContextReady || (properties.length > 0 && !activeProperty))) {
     return <BrandedLoader message="Bringing this property into focus" />;
   }

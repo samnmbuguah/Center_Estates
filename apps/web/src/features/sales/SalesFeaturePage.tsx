@@ -139,7 +139,11 @@ export function SalesFeaturePage({ initialTab = "overview" }: { initialTab?: str
           <ReportsView
             rows={logic.rows}
             recentExports={logic.recentExports}
-            exportReport={logic.exportReport}
+            reportPreview={logic.reportPreview}
+            reportLoading={logic.reportLoading}
+            reportKey={logic.reportKey}
+            loadReportPreview={logic.loadReportPreview}
+            downloadReport={logic.downloadReport}
           />
         ) : logic.tab === "documents" ? (
           <DocumentsView

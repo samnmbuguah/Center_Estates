@@ -86,7 +86,7 @@ class SalesApiTests(TestCase):
         self.assertEqual(response.data['agentPerformance'][0]['agent__username'], self.user.username)
         self.assertEqual(response.data['agentPerformance'][0]['deals'], 1)
         self.assertEqual(Decimal(response.data['installmentExposure']['outstanding']), Decimal('1000000'))
-        self.assertEqual(len(response.data['reports']), 5)
+        self.assertEqual(len(response.data['reports']), 9)
 
     def test_payment_export_is_downloadable_and_tenant_scoped(self):
         response = self.client.get('/api/v1/sales/analytics/exports/payments/', **self.headers)
@@ -225,3 +225,127 @@ class SalesApiTests(TestCase):
         self.assertEqual(self.sale.status, PropertySale.Status.CANCELLED)
         self.assertEqual(self.listing.status, SaleListing.Status.AVAILABLE)
         self.assertTrue(SalesAuditEvent.objects.filter(sale=self.sale, event_type='reservation_expired').exists())
+
+
+class SalesReportingTests(SalesApiTests):
+    def test_report_catalogue_exposes_grouped_reports(self):
+        response = self.client.get('/api/v1/sales/analytics/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        keys = [r['key'] for r in response.data['reports']]
+        self.assertIn('inventory', keys)
+        self.assertIn('sales-pipeline', keys)
+        self.assertIn('financial-summary', keys)
+        self.assertIn('installment-schedule', keys)
+        self.assertIn('commission-ledger', keys)
+        self.assertIn('agent-performance', keys)
+        for report in response.data['reports']:
+            self.assertIn('name', report)
+            self.assertIn('category', report)
+            self.assertIn('description', report)
+
+    def test_summary_preview_returns_columns_and_rows(self):
+        response = self.client.get('/api/v1/sales/analytics/reports/sales-pipeline/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data
+        self.assertIn('columns', data)
+        self.assertIn('rows', data)
+        self.assertEqual(data['count'], 1)
+        self.assertIn('period', data)
+        self.assertIn('generated_at', data['meta'])
+        # The seeded sale should surface with its buyer and agreed price.
+        self.assertEqual(data['rows'][0]['Sale Ref'], 'S1')
+
+    def test_summary_respects_date_range_filter(self):
+        old = self.client.get(
+            '/api/v1/sales/analytics/reports/sales-pipeline/?start=2000-01-01&end=2000-12-31', **self.headers,
+        )
+        self.assertEqual(old.status_code, 200, old.data)
+        self.assertEqual(old.data['count'], 0)
+
+    def test_csv_export_returns_auditable_dataset(self):
+        response = self.client.get('/api/v1/sales/analytics/exports/inventory/', **self.headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'text/csv')
+        self.assertIn('attachment; filename', response['Content-Disposition'])
+        text = response.content.decode('utf-8')
+        self.assertIn('Project', text)
+        self.assertIn('Development Project', text)
+
+    def test_excel_export_returns_workbook_and_audits_execution(self):
+        from properties.models import ReportExecution
+        response = self.client.get('/api/v1/sales/analytics/exports/inventory/?output=xlsx', **self.headers)
+        self.assertEqual(response.status_code, 200, getattr(response, 'data', None))
+        self.assertIn('spreadsheetml', response['Content-Type'])
+        self.assertTrue(ReportExecution.objects.filter(
+            organization=self.organization, report_key='inventory',
+        ).exists())
+
+    def test_unknown_report_is_rejected(self):
+        response = self.client.get('/api/v1/sales/analytics/reports/nope/', **self.headers)
+        self.assertEqual(response.status_code, 400)
+
+    def test_installment_schedule_flags_overdue_exposure(self):
+        overdue = Installment.objects.create(
+            organization=self.organization, sale=self.sale, sequence=2,
+            description='Second tranche', due_on=timezone.localdate() - timezone.timedelta(days=10),
+            amount=Decimal('500000'), status=Installment.Status.OVERDUE,
+        )
+        response = self.client.get('/api/v1/sales/analytics/reports/installment-schedule/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        rows = [r for r in response.data['rows'] if r['Description'] == 'Second tranche']
+        self.assertEqual(len(rows), 1)
+        self.assertGreater(int(rows[0]['Days Overdue']), 0)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class SalesPortalTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='buyer-owner', password='test')
+        self.organization = Organization.objects.create(name='Portal Client', slug='portal-client')
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
+        Subscription.objects.create(organization=self.organization, module=Module.SALES, status=Subscription.Status.ACTIVE)
+        prop = Property.objects.create(organization=self.organization, code='P1', name='Development')
+        unit = Unit.objects.create(organization=self.organization, property=prop, code='A-01')
+        project = Project.objects.create(organization=self.organization, property=prop, code='PR1', name='Development Project')
+        self.listing = SaleListing.objects.create(organization=self.organization, unit=unit, project=project, list_price=Decimal('10000000'))
+        self.buyer = Buyer.objects.create(organization=self.organization, reference='B1', full_name='Buyer One', email='buyer@example.com', phone='0700', id_number='ID1', status=Buyer.Status.ACTIVE)
+        self.sale = PropertySale.objects.create(organization=self.organization, reference='S1', buyer=self.buyer, listing=self.listing, agent=self.user, agreed_price=Decimal('9500000'), status=PropertySale.Status.CONTRACTED)
+        Installment.objects.create(organization=self.organization, sale=self.sale, sequence=1, description='Deposit', due_on=timezone.localdate(), amount=Decimal('1000000'), status=Installment.Status.DUE)
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def test_buyer_without_access_is_denied(self):
+        response = self.client.get('/api/v1/sales/buyer-portal/', **self.headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_linked_buyer_can_view_portal(self):
+        from .models import BuyerPortalAccess
+        BuyerPortalAccess.objects.create(organization=self.organization, user=self.user, buyer=self.buyer)
+        response = self.client.get('/api/v1/sales/buyer-portal/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['buyer']['reference'], 'B1')
+        self.assertEqual(response.data['currentSale']['reference'], 'S1')
+        self.assertEqual(len(response.data['installments']), 1)
+
+    def test_buyer_can_record_pending_payment(self):
+        from .models import BuyerPortalAccess
+        BuyerPortalAccess.objects.create(organization=self.organization, user=self.user, buyer=self.buyer)
+        response = self.client.post(
+            '/api/v1/sales/buyer-portal/payments/record/',
+            {
+                'sale': str(self.sale.id), 'amount': '500000',
+                'method': 'bank', 'external_reference': 'RTGS-0001',
+            },
+            format='json', **self.headers,
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(response.data['status'], SalePayment.Status.PENDING)
+        self.assertTrue(SalesAuditEvent.objects.filter(sale=self.sale, event_type='payment_submitted').exists())
+        self.assertTrue(SalePayment.objects.filter(organization=self.organization, external_reference='RTGS-0001').exists())
+
+    def test_agent_portal_scopes_to_assigned_records(self):
+        response = self.client.get('/api/v1/sales/agent-portal/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['kpis']['pipelineDeals'], 1)
+        self.assertEqual(response.data['agent']['username'], 'buyer-owner')

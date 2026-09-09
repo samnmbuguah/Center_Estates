@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
+from .models import AgentCommission, Buyer, BuyerPortalAccess, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
 
 
 class SaleListingSerializer(serializers.ModelSerializer):
@@ -22,6 +22,15 @@ class BuyerSerializer(serializers.ModelSerializer):
         model = Buyer
         exclude = ('organization',)
         read_only_fields = ('status', 'confirmed_at')
+
+
+class BuyerPortalAccessSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.username', read_only=True, default='')
+    buyer_name = serializers.CharField(source='buyer.full_name', read_only=True, default='')
+    class Meta:
+        model = BuyerPortalAccess
+        exclude = ('organization',)
+        read_only_fields = ('is_active',)
 
 
 class PropertySaleSerializer(serializers.ModelSerializer):

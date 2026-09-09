@@ -164,6 +164,26 @@ class SalePayment(OrganizationOwnedModel):
             raise ValidationError({'amount': 'Payment amount must be greater than zero.'})
 
 
+class BuyerPortalAccess(OrganizationOwnedModel):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='sales_buyer_portal_accesses')
+    buyer = models.ForeignKey(Buyer, on_delete=models.CASCADE, related_name='portal_accesses')
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('buyer__full_name', 'user__username')
+        constraints = [
+            models.UniqueConstraint(fields=('organization', 'user'), name='unique_organization_buyer_portal_user'),
+        ]
+
+    def clean(self):
+        if self.buyer_id and self.buyer.organization_id != self.organization_id:
+            raise ValidationError('Portal buyer must belong to the same organization.')
+        if self.user_id and self.organization_id:
+            from organizations.models import Membership
+            if not Membership.objects.active().filter(user_id=self.user_id, organization_id=self.organization_id).exists():
+                raise ValidationError('Portal user must be an active organization member.')
+
+
 class SiteVisit(OrganizationOwnedModel):
     reference = models.CharField(max_length=60)
     visitor_name = models.CharField(max_length=180)
