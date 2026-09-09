@@ -189,12 +189,12 @@ export function PropertyTenancyReports() {
           </Paper>
           <ReportDataTable
             rows={schedule.map(row => ({
-              property: row.property, unit: row.unit, tenant: row.tenant, use: row.use,
+              property: row.property, unit: row.unit, tenant: row.tenant,
               monthly_rent: row.monthly_rent, service_charge: row.service_charge,
               annualized_income: Number(row.monthly_rent ?? 0) + Number(row.service_charge ?? 0),
               escalation_percent: row.escalation_percent, next_effective_rent: row.next_effective_rent, status: row.status,
             }))}
-            columns={["property", "unit", "tenant", "use", "monthly_rent", "service_charge", "annualized_income", "escalation_percent", "next_effective_rent", "status"]}
+            columns={["property", "unit", "tenant", "monthly_rent", "service_charge", "annualized_income", "escalation_percent", "next_effective_rent", "status"]}
           />
         </Box>
       )}

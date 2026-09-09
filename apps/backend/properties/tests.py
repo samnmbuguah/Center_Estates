@@ -2001,9 +2001,14 @@ class PropertyApiTests(TestCase):
                 if report_key == 'tenancy-schedule':
                     self.assertNotIn(b'Owner / Landlord', csv_response.content)
                     self.assertNotIn(b'Management Mandate', csv_response.content)
+                    self.assertNotIn(b',Use,', csv_response.content)
                 elif report_key == 'ownership-schedule':
                     self.assertIn(b'Owner / Landlord', csv_response.content)
                     self.assertIn(b'Management Mandate', csv_response.content)
+                    self.assertNotIn(b'Occupancy', csv_response.content)
+                    self.assertNotIn(b'Rent Collection', csv_response.content)
+                    self.assertNotIn(b'Service Charge Payer', csv_response.content)
+                    self.assertNotIn(b'Utilities Payer', csv_response.content)
                 xlsx_response = self.client.get(
                     f'/api/v1/property/analytics/exports/{report_key}/?start=2026-01-01&end=2026-12-31&output=xlsx',
                     **headers,
