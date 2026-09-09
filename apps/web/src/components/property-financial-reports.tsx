@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Box, Button, Chip, Paper, Tab, Tabs, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, MenuItem, Paper, Tab, Tabs, TextField, Typography } from "@mui/material";
 import { AlertTriangle, BadgeDollarSign, BanknoteArrowDown, CircleGauge, ReceiptText, WalletCards } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
@@ -17,6 +17,10 @@ type FinancialData = {
   income_summary: Row[]; expense_summary: Row[]; billing_collection: Row[]; arrears: Row[];
   vat: { output_vat: string; input_vat: string; net_vat: string; transactions: Row[] };
   expenses: Row[]; budgets: Row[]; service_charge: Row[];
+  filter_options?: {
+    owners: { id: string; name: string; code: string; unit_count: number }[];
+    selected_owner: { id: string; name: string; code: string } | null;
+  };
 };
 
 const sections = ["Overview", "Billing & collection", "Arrears", "Income & expense", "VAT & statutory", "Expenses", "Service charge", "Budgets", "Reports library"];
@@ -35,8 +39,13 @@ export function PropertyFinancialReports() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [ownerId, setOwnerId] = useState("");
 
-  const query = useMemo(() => new URLSearchParams({ start, end }).toString(), [end, start]);
+  const query = useMemo(() => {
+    const params = new URLSearchParams({ start, end });
+    if (ownerId) params.set("owner", ownerId);
+    return params.toString();
+  }, [end, ownerId, start]);
   const load = useCallback(async () => {
     if (!organizationId) return;
     setLoading(true); setError("");
@@ -79,6 +88,7 @@ export function PropertyFinancialReports() {
               : [];
   const columns = rows?.length ? Object.keys(rows[0]) : [];
   const propertyName = String(data?.collection_performance?.[0]?.property ?? "Selected property");
+  const selectedOwner = data?.filter_options?.selected_owner;
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
@@ -90,7 +100,7 @@ export function PropertyFinancialReports() {
         onExport={() => void exportReport()}
         exporting={exporting}
         exportDisabled={section === 8}
-        scope={`${propertyName} · ${start} to ${end}`}
+        scope={`${propertyName} · ${selectedOwner ? `${selectedOwner.name} (${selectedOwner.code})` : "All landlords"} · ${start} to ${end}`}
       />
       <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden", p: .5, bgcolor: "background.paper" }}>
         <Tabs aria-label="Financial report views" value={section} onChange={(_, value) => setSection(value)} variant="scrollable" scrollButtons="auto" sx={{ minHeight: 42, "& .MuiTab-root": { minHeight: 42, borderRadius: 2, px: 2 }, "& .Mui-selected": { bgcolor: "action.selected" } }}>
@@ -99,7 +109,27 @@ export function PropertyFinancialReports() {
       </Paper>
       {error && <Alert severity="error" action={<Button color="inherit" onClick={() => void load()}>Retry</Button>}>{error}</Alert>}
       {notice && <Alert severity="success" onClose={() => setNotice("")}>{notice}</Alert>}
-      <PeriodFilterBar start={start} end={end} onStart={setStart} onEnd={setEnd} onApply={() => void load()} />
+      <PeriodFilterBar
+        start={start} end={end} onStart={setStart} onEnd={setEnd} onApply={() => void load()}
+        extra={
+          <TextField
+            select size="small" label="Landlord / unit owner" value={ownerId}
+            onChange={event => setOwnerId(event.target.value)}
+            sx={{ minWidth: { xs: "100%", sm: 250 } }}
+            helperText={ownerId ? "Only this owner's units" : "Property-wide reporting"}
+          >
+            <MenuItem value="">All landlords</MenuItem>
+            {(data?.filter_options?.owners ?? []).map(owner => (
+              <MenuItem key={owner.id} value={owner.id}>{owner.name} ({owner.code}) · {owner.unit_count} unit{owner.unit_count === 1 ? "" : "s"}</MenuItem>
+            ))}
+          </TextField>
+        }
+      />
+      {selectedOwner && (
+        <Alert severity="info">
+          Showing invoices, collections and arrears only for units owned by <strong>{selectedOwner.name}</strong>. Shared property expenses and budgets are excluded because they have not been allocated to individual owners.
+        </Alert>
+      )}
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2,minmax(0,1fr))", md: "repeat(3,minmax(0,1fr))", xl: "repeat(6,minmax(0,1fr))" }, gap: 1.25 }}>
         <ReportKpiCard icon={ReceiptText} label="Total billed" value={money.format(Number(k.total_billed ?? 0))} helper="Charges raised in period" />
         <ReportKpiCard icon={BadgeDollarSign} label="Total collected" value={money.format(Number(k.total_collected ?? 0))} helper="Receipts allocated" tone="success" />

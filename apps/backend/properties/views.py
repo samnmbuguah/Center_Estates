@@ -6223,24 +6223,48 @@ class PropertyAnalyticsViewSet(ViewSet):
         if start > end:
             raise ValidationError({'period': 'Start date cannot be after end date.'})
 
+        scoped_units = scope_model_queryset(Unit, request, organization)
+        available_owners = Owner.objects.for_organization(organization).filter(
+            units__in=scoped_units,
+        ).distinct().order_by('name')
+        owner = None
+        owner_id = str(request.query_params.get('owner') or '').strip()
+        if owner_id:
+            owner = available_owners.filter(pk=owner_id).first()
+            if owner is None:
+                raise ValidationError({'owner': 'Select a landlord assigned to a unit in the active property.'})
+
+        owner_invoice_scope = (
+            Q(owner=owner) | Q(unit__owner=owner) | Q(lease__unit__owner=owner)
+        ) if owner else Q()
+
         invoices = scope_model_queryset(Invoice, request, organization).filter(
             issued_on__range=(start, end),
-        ).exclude(status=Invoice.Status.VOID).select_related('lease__tenant', 'lease__unit__property', 'owner', 'unit__property').prefetch_related('lines')
+        ).filter(owner_invoice_scope).exclude(status=Invoice.Status.VOID).select_related('lease__tenant', 'lease__unit__property', 'owner', 'unit__property').prefetch_related('lines')
         receipts = scope_model_queryset(Receipt, request, organization).filter(
             received_on__range=(start, end),
         ).select_related('tenant', 'invoice__lease__unit__property')
+        if owner:
+            receipts = receipts.filter(
+                Q(owner=owner) | Q(invoice__owner=owner) | Q(invoice__unit__owner=owner) | Q(invoice__lease__unit__owner=owner)
+            ).distinct()
         expenses = scope_model_queryset(Expense, request, organization).filter(
             incurred_on__range=(start, end), status__in=(Expense.Status.APPROVED, Expense.Status.PAID),
         ).select_related('property')
         budgets = scope_model_queryset(Budget, request, organization).filter(
             year__range=(start.year, end.year), status=Budget.Status.APPROVED,
         ).select_related('property')
+        # Property expenses and budgets have no owner allocation dimension. Do
+        # not attribute the full property amount to an individual landlord.
+        if owner:
+            expenses = expenses.none()
+            budgets = budgets.none()
         billed = invoices.aggregate(total=Sum('amount'))['total'] or Decimal('0')
         collected = receipts.aggregate(total=Sum('amount'))['total'] or Decimal('0')
         expense_total = expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0')
         open_invoices = scope_model_queryset(Invoice, request, organization).filter(
             balance__gt=0, due_on__lte=end,
-        ).exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID)).select_related('lease__tenant', 'lease__unit__property', 'owner', 'unit__property')
+        ).filter(owner_invoice_scope).exclude(status__in=(Invoice.Status.PAID, Invoice.Status.VOID)).select_related('lease__tenant', 'lease__unit__property', 'owner', 'unit__property')
         arrears = open_invoices.aggregate(total=Sum('balance'))['total'] or Decimal('0')
 
         aging = {key: Decimal('0') for key in ('current', '31_60', '61_90', '90_plus')}
@@ -6312,17 +6336,28 @@ class PropertyAnalyticsViewSet(ViewSet):
                                 'forecast': budget.forecast_amount})
 
         service_charge_rows = []
-        for scheme in scope_model_queryset(ServiceCharge, request, organization).filter(starts_on__lte=end).select_related('property'):
+        scoped_properties = scope_model_queryset(Property, request, organization)
+        if owner:
+            scoped_properties = scoped_properties.filter(units__owner=owner).distinct()
+        for prop in scoped_properties:
+            schemes = list(ServiceCharge.objects.for_organization(organization).filter(property=prop, starts_on__lte=end))
             sc_billed = invoices.filter(
                 Q(invoice_type='service_charge') | Q(charge_type='service_charge'),
             ).filter(
-                Q(lease__unit__property=scheme.property) | Q(unit__property=scheme.property),
+                Q(lease__unit__property=prop) | Q(unit__property=prop),
             ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
-            sc_expenses = expenses.filter(Q(category__icontains='service') | Q(cost_centre__icontains='service')).aggregate(total=Sum('amount'))['total'] or Decimal('0')
-            service_charge_rows.append({'property': scheme.property.name, 'scheme': scheme.name,
-                                        'budget': scheme.annual_budget, 'billed': sc_billed,
-                                        'actual_expenditure': sc_expenses, 'variance': scheme.annual_budget - sc_expenses,
-                                        'utilization_rate': (sc_expenses / scheme.annual_budget * 100).quantize(Decimal('0.1')) if scheme.annual_budget else Decimal('0')})
+            sc_expenses = expenses.filter(property=prop).filter(Q(category__icontains='service') | Q(cost_centre__icontains='service')).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            sc_budget = sum((scheme.annual_budget for scheme in schemes), Decimal('0'))
+            if schemes or sc_billed:
+                service_charge_rows.append({
+                    'property': prop.name,
+                    'landlord': owner.name if owner else 'All landlords',
+                    'scheme': ', '.join(scheme.name for scheme in schemes) or 'Owner service-charge invoices',
+                    'budget': sc_budget, 'billed': sc_billed,
+                    'actual_expenditure': sc_expenses if not owner else None,
+                    'variance': sc_budget - sc_expenses if not owner else None,
+                    'utilization_rate': (sc_expenses / sc_budget * 100).quantize(Decimal('0.1')) if sc_budget and not owner else None,
+                })
 
         properties = scope_model_queryset(Property, request, organization)
         performance = []
@@ -6344,6 +6379,10 @@ class PropertyAnalyticsViewSet(ViewSet):
             'expense_summary': expense_categories, 'billing_collection': billing_rows, 'arrears': arrears_rows,
             'vat': {'output_vat': output_vat, 'input_vat': input_vat, 'net_vat': output_vat - input_vat, 'transactions': vat_rows},
             'expenses': expense_rows, 'budgets': budget_rows, 'service_charge': service_charge_rows,
+            'filter_options': {
+                'owners': [{'id': str(item.id), 'name': item.name, 'code': item.code, 'unit_count': item.units.filter(id__in=scoped_units).count()} for item in available_owners],
+                'selected_owner': {'id': str(owner.id), 'name': owner.name, 'code': owner.code} if owner else None,
+            },
         })
 
     @extend_schema(request=None, responses={200: {"type": "object"}})
@@ -6519,12 +6558,29 @@ class PropertyAnalyticsViewSet(ViewSet):
                 writer.writerow((budget.property.name, budget.year, budget.category, budget.amount,
                                  budget.actual_amount, budget.variance, budget.status))
         elif report_kind == 'service-charge':
-            writer.writerow(('Scheme', 'Property', 'Unit', 'Ratio', 'Annual amount', 'Monthly amount'))
-            rows = scope_model_queryset(ServiceChargeAllocation, request, organization).select_related('service_charge__property', 'unit')
-            for allocation in rows:
-                writer.writerow((allocation.service_charge.name, allocation.service_charge.property.name,
-                                 allocation.unit.code, allocation.ratio, allocation.annual_amount,
-                                 allocation.monthly_amount))
+            writer.writerow(('Invoice', 'Landlord / payer', 'Property', 'Unit', 'Issued on', 'Due on', 'Subtotal', 'VAT', 'Total billed', 'Collected', 'Outstanding', 'Status'))
+            rows = scope_model_queryset(Invoice, request, organization).filter(
+                issued_on__range=(start, end),
+            ).filter(
+                Q(invoice_type='service_charge') | Q(charge_type='service_charge'),
+            ).exclude(status=Invoice.Status.VOID).select_related(
+                'owner', 'unit__property', 'lease__tenant', 'lease__unit__property',
+            )
+            owner_id = str(request.query_params.get('owner') or '').strip()
+            if owner_id:
+                scoped_owner = Owner.objects.for_organization(organization).filter(
+                    pk=owner_id, units__in=scope_model_queryset(Unit, request, organization),
+                ).distinct().first()
+                if scoped_owner is None:
+                    raise ValidationError({'owner': 'Select a landlord assigned to a unit in the active property.'})
+                rows = rows.filter(Q(owner=scoped_owner) | Q(unit__owner=scoped_owner) | Q(lease__unit__owner=scoped_owner))
+            for invoice in rows:
+                unit = invoice.unit or invoice.lease.unit
+                payer = invoice.owner or (invoice.lease.tenant if invoice.lease_id else None)
+                collected = invoice.amount - invoice.balance
+                writer.writerow((invoice.number, payer.name if payer else '—', unit.property.name, unit.code,
+                                 invoice.issued_on, invoice.due_on, invoice.subtotal, invoice.tax_amount,
+                                 invoice.amount, collected, invoice.balance, invoice.status))
         elif report_kind == 'daily-collections':
             writer.writerow(('Date', 'Receipt', 'Tenant', 'Property', 'Invoice', 'Method', 'External reference', 'Amount'))
             rows = scope_model_queryset(Receipt, request, organization).select_related('tenant__property', 'invoice__lease__unit__property')

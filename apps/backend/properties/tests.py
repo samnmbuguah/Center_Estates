@@ -2115,6 +2115,43 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.data['billing_collection'][0]['invoice'], self.invoice.number)
         self.assertEqual(len(response.data['expenses']), 1)
 
+    def test_financial_reports_include_and_scope_owner_service_charge_invoices(self):
+        owner = Owner.objects.create(
+            organization=self.organization, code='OWN-REPORT-1', name='Sectional Owner',
+        )
+        self.unit.owner = owner
+        self.unit.service_charge_payer = Unit.PayerChoice.OWNER
+        self.unit.save(update_fields=('owner', 'service_charge_payer', 'updated_at'))
+        owner_invoice = Invoice.objects.create(
+            organization=self.organization, number='INV-OWNER-SC-1', owner=owner, unit=self.unit,
+            recipient_type=Invoice.RecipientType.OWNER, invoice_type='service_charge', charge_type='service_charge',
+            issued_on='2026-07-10', due_on='2026-07-10', subtotal=Decimal('3500'),
+            amount=Decimal('3500'), balance=Decimal('3500'), status=Invoice.Status.ISSUED,
+        )
+        headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+
+        portfolio = self.client.get(
+            '/api/v1/property/analytics/financial-reports/?start=2026-07-01&end=2026-07-31', **headers,
+        )
+        self.assertEqual(portfolio.status_code, 200, portfolio.data)
+        self.assertEqual(Decimal(portfolio.data['service_charge'][0]['billed']), owner_invoice.amount)
+        self.assertEqual(portfolio.data['service_charge'][0]['scheme'], 'Owner service-charge invoices')
+
+        scoped = self.client.get(
+            f'/api/v1/property/analytics/financial-reports/?start=2026-07-01&end=2026-07-31&owner={owner.id}', **headers,
+        )
+        self.assertEqual(scoped.status_code, 200, scoped.data)
+        self.assertEqual(scoped.data['filter_options']['selected_owner']['id'], str(owner.id))
+        self.assertEqual({row['invoice'] for row in scoped.data['billing_collection']}, {'INV-1', 'INV-OWNER-SC-1'})
+        self.assertEqual(scoped.data['expenses'], [])
+        exported = self.client.get(
+            f'/api/v1/property/analytics/exports/service-charge/?start=2026-07-01&end=2026-07-31&owner={owner.id}&output=csv', **headers,
+        )
+        self.assertEqual(exported.status_code, 200, getattr(exported, 'data', None))
+        exported_text = exported.content.decode('utf-8-sig')
+        self.assertIn('INV-OWNER-SC-1', exported_text)
+        self.assertIn('Sectional Owner', exported_text)
+
     def test_exports_are_stored_audited_and_schedules_generate_downloadable_artifacts(self):
         headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
         with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
