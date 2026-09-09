@@ -187,6 +187,10 @@ export default function TenantPortalPage() {
       }
       const json = await response.json();
       setData(json);
+      // Keep staff-support document requests scoped to the same tenant as the
+      // portal data. The route query alone previously loaded the preview but
+      // was lost when a PDF request was made, causing a misleading 403.
+      if (targetTenantId) setActiveTenantId(targetTenantId);
     } catch (err) {
       console.error("Tenant portal load error:", err);
       setError("Unable to load tenant portal data. Please retry.");
@@ -298,7 +302,11 @@ export default function TenantPortalPage() {
     setError("");
     try {
       const separator = path.includes("?") ? "&" : "?";
-      const scopedPath = activeTenantId ? `${path}${separator}tenant=${encodeURIComponent(activeTenantId)}` : path;
+      const routeTenantId = typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("tenant")
+        : null;
+      const previewTenantId = activeTenantId || routeTenantId;
+      const scopedPath = previewTenantId ? `${path}${separator}tenant=${encodeURIComponent(previewTenantId)}` : path;
       const response = await apiFetch(scopedPath, {}, organizationId);
       if (!response.ok) {
         setError(await apiErrorMessage(response, "The document could not be generated. Please try again."));
@@ -782,7 +790,7 @@ export default function TenantPortalPage() {
       )}
       {tab === "payments" && (
         <Panel title="Payments & receipts" action={
-          <button type="button" onClick={() => void downloadDocument("/property/portal/statement.pdf/", `Tenant-statement-${data.tenant.code}.pdf`)}>
+          <button className="tenant-action-button" type="button" onClick={() => void downloadDocument("/property/portal/statement.pdf/", `Tenant-statement-${data.tenant.code}.pdf`)}>
             Download statement PDF
           </button>
         }>
@@ -1229,7 +1237,7 @@ function Kpi({
       <span className="kpi-label">{label}</span>
       <span className="kpi-value">{value}</span>
       <span className="kpi-note">{note}</span>
-      <button onClick={go}>View details -&gt;</button>
+      <button className="tenant-text-action" onClick={go}>View details <span aria-hidden="true">→</span></button>
     </div>
   );
 }
@@ -1237,7 +1245,7 @@ function Title({ text, go }: { text: string; go: () => void }) {
   return (
     <div className="panel-title">
       <h2>{text}</h2>
-      <button onClick={go}>View all -&gt;</button>
+      <button className="tenant-text-action" onClick={go}>View all <span aria-hidden="true">→</span></button>
     </div>
   );
 }
