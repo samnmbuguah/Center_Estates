@@ -1187,6 +1187,27 @@ class ProcurementFinanceWorkflowApiTests(TestCase):
             'delivery_date': '2026-09-05', 'payment_terms': '30 days after verified completion',
         }, format='json', **self.headers)
         self.assertEqual(lpo.status_code, 201, lpo.data)
+        original_lpo_number = lpo.data['number']
+        cancelled_lpo = self.client.post(
+            f"/api/v1/facility/lpos/{lpo.data['id']}/cancel/",
+            {'reason': 'Supplier requested corrected delivery terms'}, format='json', **self.headers,
+        )
+        self.assertEqual(cancelled_lpo.status_code, 200, cancelled_lpo.data)
+        self.assertEqual(cancelled_lpo.data['status'], LocalPurchaseOrder.Status.CANCELLED)
+        self.assertEqual(ProcurementRecord.objects.get(pk=procurement_id).status, ProcurementRecord.Status.AWARDED)
+        reissued_lpo = self.client.post(f'/api/v1/facility/procurements/{procurement_id}/issue-lpo/', {
+            'delivery_date': '2026-09-06', 'payment_terms': '30 days after verified completion',
+        }, format='json', **self.headers)
+        self.assertEqual(reissued_lpo.status_code, 201, reissued_lpo.data)
+        self.assertEqual(reissued_lpo.data['id'], lpo.data['id'])
+        self.assertNotEqual(reissued_lpo.data['number'], original_lpo_number)
+        lpo = reissued_lpo
+        accepted_lpo = self.client.post(
+            f"/api/v1/facility/lpos/{lpo.data['id']}/accept/", {}, format='json', **self.headers,
+        )
+        self.assertEqual(accepted_lpo.status_code, 200, accepted_lpo.data)
+        self.assertEqual(accepted_lpo.data['status'], LocalPurchaseOrder.Status.ACCEPTED)
+        self.assertIsNotNone(accepted_lpo.data['accepted_at'])
         card = self.client.post(f"/api/v1/facility/lpos/{lpo.data['id']}/generate-job-card/", {}, format='json', **self.headers)
         self.assertEqual(card.status_code, 201, card.data)
         card_url = f"/api/v1/facility/job-cards/{card.data['id']}/"

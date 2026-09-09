@@ -96,12 +96,13 @@ class FacilityModelViewSet(ModelViewSet):
         serializer.save()
 
 
-def _facility_document_pdf(*, title, reference, organization, property_name, details, table_headers=(), table_rows=(), qr_text=''):
+def _facility_document_pdf(*, title, reference, organization, property_name, details, table_headers=(), table_rows=(), qr_text='', accent='#991b1b'):
     buffer = BytesIO()
     document = SimpleDocTemplate(buffer, pagesize=landscape(A4), leftMargin=14 * mm, rightMargin=14 * mm,
                                  topMargin=12 * mm, bottomMargin=12 * mm)
     styles = getSampleStyleSheet()
-    story = [Paragraph(str(organization.name), ParagraphStyle('Org', parent=styles['Heading2'], textColor=colors.HexColor('#991b1b'))),
+    accent_color = colors.HexColor(accent)
+    story = [Paragraph(str(organization.name), ParagraphStyle('Org', parent=styles['Heading2'], textColor=accent_color)),
              Paragraph(title, ParagraphStyle('DocTitle', parent=styles['Title'], textColor=colors.HexColor('#0f172a'))),
              Paragraph(f'<b>{reference}</b> · {property_name}', styles['Normal']), Spacer(1, 4 * mm)]
     if qr_text:
@@ -115,7 +116,7 @@ def _facility_document_pdf(*, title, reference, organization, property_name, det
     story.extend([detail_table, Spacer(1, 4 * mm)])
     if table_headers:
         table = Table([list(table_headers)] + [list(row) for row in table_rows], repeatRows=1)
-        table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#991b1b')), ('TEXTCOLOR',(0,0),(-1,0),colors.white),
+        table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),accent_color), ('TEXTCOLOR',(0,0),(-1,0),colors.white),
                                    ('FONTNAME',(0,0),(-1,0),'Helvetica-Bold'), ('GRID',(0,0),(-1,-1),.35,colors.HexColor('#cbd5e1')),
                                    ('VALIGN',(0,0),(-1,-1),'MIDDLE'), ('FONTSIZE',(0,0),(-1,-1),8),
                                    ('ROWBACKGROUNDS',(0,1),(-1,-1),[colors.white,colors.HexColor('#f8fafc')])]))
@@ -548,16 +549,30 @@ class ProcurementRecordViewSet(FacilityModelViewSet):
         if not quotation:
             raise ValidationError({'quotation': 'The awarded quotation is missing.'})
         now = timezone.now()
-        lpo = LocalPurchaseOrder.objects.create(
-            organization=procurement.organization, number=f'LPO-{now:%Y}-{uuid.uuid4().hex[:6].upper()}',
-            procurement=procurement, quotation=quotation, supplier=quotation.bidder,
-            property=procurement.property, issue_date=now.date(),
-            delivery_date=request.data.get('delivery_date') or None,
-            scope=procurement.requisition.required_repair, subtotal=quotation.subtotal,
-            vat_amount=quotation.vat_amount, total=quotation.total,
-            payment_terms=str(request.data.get('payment_terms', '')).strip(),
-            status=LocalPurchaseOrder.Status.ISSUED, issued_by=request.user, issued_at=now,
-        )
+        defaults = {
+            'quotation': quotation, 'supplier': quotation.bidder, 'property': procurement.property,
+            'issue_date': now.date(), 'delivery_date': request.data.get('delivery_date') or None,
+            'scope': procurement.requisition.required_repair, 'subtotal': quotation.subtotal,
+            'vat_amount': quotation.vat_amount, 'total': quotation.total,
+            'payment_terms': str(request.data.get('payment_terms', '')).strip(),
+            'status': LocalPurchaseOrder.Status.ISSUED, 'issued_by': request.user, 'issued_at': now,
+            'accepted_by': None, 'accepted_at': None, 'cancelled_by': None, 'cancelled_at': None,
+            'cancellation_reason': '',
+        }
+        existing_lpo = LocalPurchaseOrder.objects.select_for_update().filter(procurement=procurement).first()
+        if existing_lpo:
+            if existing_lpo.status != LocalPurchaseOrder.Status.CANCELLED:
+                raise ValidationError({'status': 'This procurement already has an active LPO.'})
+            for field, value in defaults.items():
+                setattr(existing_lpo, field, value)
+            existing_lpo.number = f'LPO-{now:%Y}-{uuid.uuid4().hex[:6].upper()}'
+            existing_lpo.save()
+            lpo = existing_lpo
+        else:
+            lpo = LocalPurchaseOrder.objects.create(
+                organization=procurement.organization, number=f'LPO-{now:%Y}-{uuid.uuid4().hex[:6].upper()}',
+                procurement=procurement, **defaults,
+            )
         procurement.status = ProcurementRecord.Status.LPO_ISSUED
         procurement.save(update_fields=('status', 'updated_at'))
         return Response(LocalPurchaseOrderSerializer(lpo).data, status=status.HTTP_201_CREATED)
@@ -565,7 +580,7 @@ class ProcurementRecordViewSet(FacilityModelViewSet):
 
 class LocalPurchaseOrderViewSet(FacilityModelViewSet):
     write_permission = 'facility.approve'
-    permission_map = {'generate_job_card': 'facility.work'}
+    permission_map = {'generate_job_card': 'facility.work', 'accept': 'facility.approve', 'cancel': 'facility.approve'}
     queryset = LocalPurchaseOrder.objects.select_related('procurement__requisition', 'quotation', 'supplier', 'property')
     serializer_class = LocalPurchaseOrderSerializer
     search_fields = ('number', 'procurement__code', 'procurement__requisition__code', 'supplier__name')
@@ -575,14 +590,49 @@ class LocalPurchaseOrderViewSet(FacilityModelViewSet):
         lpo = self.get_object(); quotation = lpo.quotation
         content = _facility_document_pdf(
             title='LOCAL PURCHASE ORDER (LPO)', reference=lpo.number, organization=lpo.organization,
-            property_name=lpo.property.name, qr_text=request.build_absolute_uri(),
-            details=(('Supplier', lpo.supplier.name), ('Requisition', lpo.procurement.requisition.code),
+            property_name=lpo.property.name, qr_text=request.build_absolute_uri(), accent='#1d4ed8',
+            details=(('SUPPLIER', lpo.supplier.name), ('Supplier contact', ' · '.join(filter(None, (lpo.supplier.contact_name, lpo.supplier.phone, lpo.supplier.email)))),
+                     ('Supplier PIN / registration', ' · '.join(filter(None, (lpo.supplier.pin_number, lpo.supplier.registration_number)))),
+                     ('Requisition', lpo.procurement.requisition.code),
                      ('Procurement', lpo.procurement.code), ('Issue date', lpo.issue_date), ('Delivery date', lpo.delivery_date),
-                     ('Scope', lpo.scope), ('Payment terms', lpo.payment_terms), ('Status', lpo.get_status_display())),
-            table_headers=('Quotation', 'Subtotal (KES)', 'VAT (KES)', 'Total (KES)'),
-            table_rows=((quotation.quotation_number, f'{lpo.subtotal:,.2f}', f'{lpo.vat_amount:,.2f}', f'{lpo.total:,.2f}'),),
+                     ('Delivery location', lpo.property.name), ('Scope of supply / service', lpo.scope),
+                     ('Payment terms', lpo.payment_terms or 'As agreed after verified delivery'), ('Status', lpo.get_status_display()),
+                     ('Authorised by', lpo.issued_by.get_full_name() or lpo.issued_by.username if lpo.issued_by_id else '—'),
+                     ('Supplier acceptance', f'Recorded {lpo.accepted_at:%d %b %Y, %H:%M} by {lpo.accepted_by.get_full_name() or lpo.accepted_by.username}' if lpo.accepted_at and lpo.accepted_by_id else 'Pending')),
+            table_headers=('AWARDED QUOTATION', 'LEAD TIME', 'SUBTOTAL (KES)', 'VAT (KES)', 'ORDER TOTAL (KES)'),
+            table_rows=((quotation.quotation_number, f'{quotation.lead_time_days} days', f'{lpo.subtotal:,.2f}', f'{lpo.vat_amount:,.2f}', f'{lpo.total:,.2f}'),),
         )
         return _pdf_response(content, f'{lpo.number}.pdf')
+
+    @action(detail=True, methods=('post',))
+    def accept(self, request, pk=None):
+        lpo = self.get_object()
+        if lpo.status != LocalPurchaseOrder.Status.ISSUED:
+            raise ValidationError({'status': 'Only an issued LPO can be accepted.'})
+        lpo.status = LocalPurchaseOrder.Status.ACCEPTED
+        lpo.accepted_by = request.user
+        lpo.accepted_at = timezone.now()
+        lpo.save(update_fields=('status', 'accepted_by', 'accepted_at', 'updated_at'))
+        return Response(self.get_serializer(lpo).data)
+
+    @action(detail=True, methods=('post',))
+    def cancel(self, request, pk=None):
+        lpo = self.get_object()
+        reason = str(request.data.get('reason', '')).strip()
+        if lpo.status not in (LocalPurchaseOrder.Status.ISSUED, LocalPurchaseOrder.Status.ACCEPTED):
+            raise ValidationError({'status': 'Only an issued or accepted LPO can be cancelled.'})
+        if hasattr(lpo, 'job_card'):
+            raise ValidationError({'status': 'An LPO with an active Job Card cannot be cancelled.'})
+        if not reason:
+            raise ValidationError({'reason': 'Record why the LPO is being cancelled.'})
+        lpo.status = LocalPurchaseOrder.Status.CANCELLED
+        lpo.cancelled_by = request.user
+        lpo.cancelled_at = timezone.now()
+        lpo.cancellation_reason = reason
+        lpo.save(update_fields=('status', 'cancelled_by', 'cancelled_at', 'cancellation_reason', 'updated_at'))
+        lpo.procurement.status = ProcurementRecord.Status.AWARDED
+        lpo.procurement.save(update_fields=('status', 'updated_at'))
+        return Response(self.get_serializer(lpo).data)
 
     @transaction.atomic
     @action(detail=True, methods=('post',), url_path='generate-job-card')
@@ -637,11 +687,22 @@ class FacilityJobCardViewSet(FacilityModelViewSet):
         card = self.get_object(); requisition = card.lpo.procurement.requisition
         content = _facility_document_pdf(
             title='JOB CARD', reference=card.number, organization=card.organization, property_name=card.property.name,
-            qr_text=request.build_absolute_uri(),
-            details=(('LPO', card.lpo.number), ('Requisition', requisition.code), ('Ticket', requisition.service_request.reference if requisition.service_request_id else ''),
-                     ('Contractor', card.lpo.supplier.name), ('Work description', requisition.required_repair), ('Status', card.get_status_display()),
-                     ('Contractor signatory', card.contractor_signatory), ('Caretaker signatory', card.caretaker_signatory),
-                     ('Verified by', card.verified_by.get_full_name() if card.verified_by_id else '')),
+            qr_text=request.build_absolute_uri(), accent='#0f766e',
+            details=(('WORK AUTHORISATION', card.lpo.number), ('Requisition', requisition.code), ('Source ticket', requisition.service_request.reference if requisition.service_request_id else '—'),
+                     ('Assigned contractor', card.lpo.supplier.name), ('Work location', requisition.location or card.property.name),
+                     ('Work instructions', requisition.required_repair), ('Current stage', card.get_status_display()),
+                     ('Started', card.started_at.strftime('%d %b %Y, %H:%M') if card.started_at else 'Not started'),
+                     ('Completed', card.completed_at.strftime('%d %b %Y, %H:%M') if card.completed_at else 'Pending'),
+                     ('Completion notes', card.completion_notes or '—'), ('Evidence attached', f'{len(card.evidence_urls or [])} item(s)'),
+                     ('Contractor sign-off', f'{card.contractor_signatory or "Pending"} · {card.contractor_signed_at:%d %b %Y, %H:%M}' if card.contractor_signed_at else 'Pending'),
+                     ('Caretaker sign-off', f'{card.caretaker_signatory or "Pending"} · {card.caretaker_signed_at:%d %b %Y, %H:%M}' if card.caretaker_signed_at else 'Pending'),
+                     ('Manager verification', f'{card.verified_by.get_full_name() or card.verified_by.username} · {card.verified_at:%d %b %Y, %H:%M}' if card.verified_at and card.verified_by_id else 'Pending'),
+                     ('Verification notes', card.verification_notes or '—')),
+            table_headers=('EXECUTION CHECKPOINT', 'STATUS', 'RESPONSIBLE PARTY'),
+            table_rows=(('1. Work started', 'Complete' if card.started_at else 'Pending', 'Contractor'),
+                        ('2. Contractor completion', 'Signed' if card.contractor_signed_at else 'Pending', card.contractor_signatory or 'Contractor'),
+                        ('3. Site acceptance', 'Signed' if card.caretaker_signed_at else 'Pending', card.caretaker_signatory or 'Caretaker'),
+                        ('4. Final verification', 'Verified' if card.verified_at else 'Pending', card.verified_by.get_full_name() if card.verified_by_id else 'Manager')),
         )
         return _pdf_response(content, f'{card.number}.pdf')
 

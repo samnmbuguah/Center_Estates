@@ -251,7 +251,8 @@ class LocalPurchaseOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = LocalPurchaseOrder
         exclude = ('organization',)
-        read_only_fields = ('number', 'procurement', 'quotation', 'supplier', 'property', 'subtotal', 'vat_amount', 'total', 'scope', 'status', 'issued_by', 'issued_at')
+        read_only_fields = ('number', 'procurement', 'quotation', 'supplier', 'property', 'subtotal', 'vat_amount', 'total', 'scope', 'status', 'issued_by', 'issued_at',
+                            'accepted_by', 'accepted_at', 'cancelled_by', 'cancelled_at', 'cancellation_reason')
 
 
 class FacilityJobCardSerializer(serializers.ModelSerializer):

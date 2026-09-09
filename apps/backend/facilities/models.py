@@ -999,6 +999,11 @@ class LocalPurchaseOrder(OrganizationOwnedModel):
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
     issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='issued_facility_lpos')
     issued_at = models.DateTimeField(null=True, blank=True)
+    accepted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='accepted_facility_lpos')
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    cancelled_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='cancelled_facility_lpos')
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancellation_reason = models.TextField(blank=True)
 
     class Meta:
         ordering = ('-created_at',)
