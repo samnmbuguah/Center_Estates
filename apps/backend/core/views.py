@@ -259,8 +259,13 @@ class TestingChecklistView(APIView):
 
     def _get_organization(self, request):
         organization = get_active_organization(request)
+        if not organization:
+            return None
+        if request.user.is_superuser:
+            return organization
         membership = get_active_membership(request, organization)
-        if not organization or not (request.user.is_superuser or membership):
+        # The release-readiness checklist is an administrator governance tool.
+        if not membership or not membership.is_organization_admin:
             return None
         return organization
 

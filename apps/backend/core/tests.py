@@ -95,13 +95,13 @@ class TestingChecklistTests(TestCase):
     def test_admin_can_track_a_workflow_and_progress_is_organization_scoped(self):
         initial = self.client.get('/api/v1/testing/checklist/', **self.headers)
         self.assertEqual(initial.status_code, 200, initial.data)
-        item = next(item for item in initial.data['results'] if item['key'] == 'property.billing')
+        item = next(item for item in initial.data['results'] if item['key'] == 'invoicing.billing_candidates')
         self.assertEqual(item['status'], 'not_started')
-        updated = self.client.patch('/api/v1/testing/checklist/property.billing/', {
+        updated = self.client.patch('/api/v1/testing/checklist/invoicing.billing_candidates/', {
             'status': 'passed', 'notes': 'Invoice pipeline checked with a representative lease.',
         }, format='json', **self.headers)
         self.assertEqual(updated.status_code, 200, updated.data)
-        progress = FeatureTestProgress.objects.get(organization=self.organization, feature_key='property.billing')
+        progress = FeatureTestProgress.objects.get(organization=self.organization, feature_key='invoicing.billing_candidates')
         self.assertEqual(progress.status, FeatureTestProgress.Status.PASSED)
         self.assertEqual(progress.tested_by, self.user)
 
