@@ -150,6 +150,11 @@ export const facilityNav: ModuleNavGroup[] = [
 export const salesNav: ModuleNavGroup[] = [
   { label: "OVERVIEW", icon: "▦", items: [{ id: "overview", label: "Sales Dashboard", icon: "▦" }] },
   {
+    label: "FIELD",
+    icon: "📱",
+    items: [{ id: "clerk", label: "Sales Clerk (Mobile)", icon: "📱" }],
+  },
+  {
     label: "PIPELINE",
     icon: "◈",
     items: [

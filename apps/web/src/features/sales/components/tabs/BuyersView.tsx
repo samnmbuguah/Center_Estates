@@ -191,10 +191,10 @@ export function BuyerProfileView({
             <DataTable headers={["Timestamp", "User", "Action", "Detail"]}>
               {activity.map((a) => (
                 <tr key={String(a.id)}>
-                  <td style={{ fontSize: 11, color: "#6b7890" }}>{fmtDateTime(a.created_at)}</td>
+                  <td style={{ fontSize: 11, color: "var(--muted)" }}>{fmtDateTime(a.created_at)}</td>
                   <td><strong style={{ fontSize: 12 }}>{String(a.actor_name ?? "—")}</strong></td>
                   <td><Badge tone={toneForAudit(String(a.event_type))}>{String(a.event_type ?? "—").replaceAll("_", " ")}</Badge></td>
-                  <td style={{ fontSize: 11, color: "#6b7890", maxWidth: 320 }}>{String(a.notes || "—")}</td>
+                  <td style={{ fontSize: 11, color: "var(--muted)", maxWidth: 320 }}>{String(a.notes || "—")}</td>
                 </tr>
               ))}
             </DataTable>
@@ -302,7 +302,7 @@ export function BuyersView({
                   <td className="mono" style={{ fontSize: 12 }}>{String(r.id_number ?? "—")}</td>
                   <td className="mono" style={{ fontSize: 12 }}>{String(r.tax_number || "—")}</td>
                   <td style={{ fontSize: 12 }}>{String(r.phone ?? "—")}</td>
-                  <td style={{ fontSize: 12, color: "#6b7890" }}>{String(r.email ?? "—")}</td>
+                  <td style={{ fontSize: 12, color: "var(--muted)" }}>{String(r.email ?? "—")}</td>
                   <td><Badge tone={r.financing_type === "bank" ? "blue" : "green"}>{r.financing_type === "bank" ? "Bank" : "Self"}</Badge></td>
                   <td><StatusPill value={String(r.status ?? "")} tone={toneForBuyer(String(r.status ?? ""))} /></td>
                   <td>

@@ -1,5 +1,6 @@
 export type SalesTab =
   | "overview"
+  | "clerk"
   | "inventory"
   | "buyers"
   | "leads"
@@ -34,6 +35,7 @@ export type Tone = "green" | "red" | "yellow" | "blue" | "cyan" | "purple" | "gr
 
 export const salesTabLabels: Record<SalesTab, string> = {
   overview: "Dashboard",
+  clerk: "Sales Clerk",
   inventory: "Projects & Units",
   buyers: "Buyers Registry",
   leads: "Leads & Prospects",

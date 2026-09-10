@@ -201,7 +201,7 @@ export function InventoryView({
                     <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.list_price)}</td>
                     <td><ProgressBar pct={Number(r.construction_progress ?? 0)} /></td>
                     <td><StatusPill value={String(r.status ?? "")} tone={toneForInventory(String(r.status ?? ""))} /></td>
-                    <td style={{ fontSize: 12, color: "#8a96a7" }}>—</td>
+                    <td style={{ fontSize: 12, color: "var(--muted)" }}>—</td>
                     <td><button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setSelected(r); }}>Details</button></td>
                   </tr>
                 ))}

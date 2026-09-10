@@ -90,6 +90,7 @@ export function useSalesLogic(initialTab = "overview") {
     if (isAnalytics) path = "/sales/analytics/";
     else if (isHandover) path = "/sales/sales/?status=completed";
     else if (isBankRecon) path = `/sales/payments/?search=${encodeURIComponent(search)}${status ? `&status=${encodeURIComponent(status)}` : ""}`;
+    else if (tab === "clerk") path = `/sales/site-visits/?search=${encodeURIComponent(search)}`;
     else if (tab === "leads") path = `/sales/buyers/?search=${encodeURIComponent(search)}${status ? `&status=${encodeURIComponent(status)}` : ""}`;
     else if (tab !== "overview") path = `/sales/${tab}/?search=${encodeURIComponent(search)}${status ? `&status=${encodeURIComponent(status)}` : ""}`;
 

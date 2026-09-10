@@ -80,9 +80,9 @@ export function HandoverView({
                     <td><RefText value={r.unit_code} /></td>
                     <td><strong style={{ fontSize: 12 }}>{String(r.project_name ?? "—")}</strong></td>
                     <td style={{ fontSize: 12 }}>{String(r.buyer_name ?? "—")}</td>
-                    <td style={{ fontSize: 11, color: "#6b7890" }}>{fmtDate(r.contracted_on ?? r.created_at)}</td>
+                    <td style={{ fontSize: 11, color: "var(--muted)" }}>{fmtDate(r.contracted_on ?? r.created_at)}</td>
                     <td><StatusPill value={st === "handed_over" ? "Passed" : st === "ready" ? "Scheduled" : "Pending"} /></td>
-                    <td style={{ fontSize: 11, color: "#6b7890" }}>{st === "handed_over" ? fmtDate(new Date().toISOString()) : "—"}</td>
+                    <td style={{ fontSize: 11, color: "var(--muted)" }}>{st === "handed_over" ? fmtDate(new Date().toISOString()) : "—"}</td>
                     <td><StatusPill value={st === "handed_over" ? "completed" : st === "ready" ? "ready" : "pending"} /></td>
                     <td>
                       {st === "pending" && <button className="btn ghost sm" onClick={() => markReady(String(r.id))}>Mark Ready for Handover</button>}

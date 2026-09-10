@@ -76,7 +76,7 @@ export function RegisterBuyerModal({
                   fontSize: 12,
                   fontWeight: 700,
                   background: i + 1 <= step ? "#ea580c" : "#edf0f5",
-                  color: i + 1 <= step ? "#fff" : "#8a96a7",
+                  color: i + 1 <= step ? "#fff" : "var(--muted)",
                   transition: "all 0.15s ease",
                 }}
               >

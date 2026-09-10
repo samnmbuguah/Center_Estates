@@ -82,7 +82,7 @@ export function PaymentsView({
                   <td style={{ fontSize: 12 }}>{String(r.method ?? "—")}</td>
                   <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.amount)}</td>
                   <td style={{ fontSize: 12 }}>{fmtDate(r.paid_on)}</td>
-                  <td className="mono" style={{ fontSize: 11, color: "#6b7890" }}>{String(r.external_reference ?? "—")}</td>
+                  <td className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{String(r.external_reference ?? "—")}</td>
                   <td><StatusPill value={String(r.status ?? "")} tone={toneForPayment(String(r.status ?? ""))} /></td>
                   <td>
                     {["pending", "verified"].includes(String(r.status)) && (

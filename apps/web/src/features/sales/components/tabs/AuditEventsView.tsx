@@ -37,11 +37,11 @@ export function AuditEventsView({
                 const detail = typeof r.notes === "string" && r.notes ? String(r.notes) : JSON.stringify(r.details ?? "");
                 return (
                   <tr key={String(r.id)}>
-                    <td style={{ fontSize: 11, color: "#6b7890" }}>{fmtDateTime(r.created_at)}</td>
+                    <td style={{ fontSize: 11, color: "var(--muted)" }}>{fmtDateTime(r.created_at)}</td>
                     <td><strong style={{ fontSize: 12 }}>{String(r.actor_name ?? "—")}</strong></td>
                     <td><Badge tone={toneForAudit(String(r.event_type))}>{String(r.event_type ?? "—").replaceAll("_", " ")}</Badge></td>
                     <td className="mono" style={{ fontSize: 12 }}>{entity}</td>
-                    <td style={{ fontSize: 11, color: "#6b7890", maxWidth: 320 }}>{detail}</td>
+                    <td style={{ fontSize: 11, color: "var(--muted)", maxWidth: 320 }}>{detail}</td>
                   </tr>
                 );
               })}

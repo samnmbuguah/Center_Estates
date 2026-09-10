@@ -58,14 +58,14 @@ export function SiteVisitsView({
                   <tr key={String(r.id)}>
                     <td><RefText value={r.reference} /></td>
                     <td><strong style={{ fontSize: 12 }}>{String(r.visitor_name ?? "—")}</strong></td>
-                    <td style={{ fontSize: 12, color: "#6b7890" }}>{String(r.phone || r.email || "—")}</td>
+                    <td style={{ fontSize: 12, color: "var(--muted)" }}>{String(r.phone || r.email || "—")}</td>
                     <td style={{ fontSize: 12 }}>{String(r.project_name ?? "—")}</td>
                     <td style={{ fontSize: 12 }}>{String(r.interested_unit_type || "—")}</td>
                     <td style={{ fontSize: 12 }}>{String(r.agent_name || "—")}</td>
                     <td style={{ fontSize: 12 }}>{fmtDateTime(r.visited_at)}</td>
                     <td style={{ fontSize: 12 }}>{fmtDate(r.follow_up_on)}</td>
                     <td><StatusPill value={vs.label} tone={vs.tone} /></td>
-                    <td style={{ fontSize: 11, color: "#6b7890", maxWidth: 220 }}>{String(r.notes || "—")}</td>
+                    <td style={{ fontSize: 11, color: "var(--muted)", maxWidth: 220 }}>{String(r.notes || "—")}</td>
                   </tr>
                 );
               })}

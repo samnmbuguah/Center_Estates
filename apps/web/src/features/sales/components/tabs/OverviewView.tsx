@@ -139,14 +139,14 @@ export function OverviewView({
                 <tr key={String(s.id ?? i)} onClick={() => setTab("sales")}>
                   <td><RefText value={s.reference} /></td>
                   <td><strong style={{ fontSize: 12 }}>{String(s.buyer_name ?? "—")}</strong></td>
-                  <td style={{ fontSize: 12, color: "#6b7890" }}>
+                  <td style={{ fontSize: 12, color: "var(--muted)" }}>
                     {String(s.project_name ?? "—")}
                     {s.unit_code ? <div className="mono" style={{ fontSize: 10 }}>{String(s.unit_code)}</div> : null}
                   </td>
                   <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(s.agreed_price)}</td>
                   <td className="mono" style={{ fontSize: 12, color: "#16a34a" }}>{fmtMoney(s.paid_amount)}</td>
                   <td><StatusPill value={String(s.status ?? "")} /></td>
-                  <td style={{ fontSize: 11, color: "#6b7890" }}>{fmtDate(s.contracted_on ?? s.created_at)}</td>
+                  <td style={{ fontSize: 11, color: "var(--muted)" }}>{fmtDate(s.contracted_on ?? s.created_at)}</td>
                 </tr>
               ))}
             </DataTable>
@@ -289,7 +289,7 @@ export function OverviewView({
                 <small>Units</small>
               </div>
               <div className="donut-legend" style={{ flex: 1 }}>
-                {segs.length === 0 && <span style={{ color: "#8a96a7", fontSize: 12 }}>No inventory staged yet.</span>}
+                {segs.length === 0 && <span style={{ color: "var(--muted)", fontSize: 12 }}>No inventory staged yet.</span>}
                 {segs.map((s) => (
                   <span key={String(s.status)}>
                     <i style={{ background: stageColors[String(s.status ?? "")] ?? "#94a3b8" }} />

@@ -25,6 +25,7 @@ import { PaymentsView } from "./components/tabs/PaymentsView";
 import { PerformanceView } from "./components/tabs/PerformanceView";
 import { ReportsView } from "./components/tabs/ReportsView";
 import { SalesView } from "./components/tabs/SalesView";
+import { SalesClerkView } from "./components/tabs/SalesClerkView";
 import { SiteVisitsView } from "./components/tabs/SiteVisitsView";
 import { useSalesLogic } from "./hooks/useSalesLogic";
 import { salesTabLabels } from "./types/sales.types";
@@ -56,11 +57,19 @@ export function SalesFeaturePage({ initialTab = "overview" }: { initialTab?: str
             openNewSale={logic.openNewSaleModal}
             openRecordVisit={logic.openRecordVisitModal}
           />
+        ) : logic.tab === "clerk" ? (
+          <SalesClerkView
+            rows={logic.rows}
+            canVisit={logic.canVisit}
+            canSell={logic.canSell}
+            openRecordVisit={logic.openRecordVisitModal}
+            openRegisterBuyer={logic.openBuyerRegistration}
+            openNewSale={logic.openNewSaleModal}
+          />
         ) : logic.tab === "inventory" ? (
           <InventoryView
             rows={logic.rows}
-            search={logic.search}
-            setSearch={logic.setSearch}
+            search={logic.search}            setSearch={logic.setSearch}
             status={logic.status}
             setStatus={logic.setStatus}
             canSell={logic.canSell}

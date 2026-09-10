@@ -124,7 +124,7 @@ export function BankReconciliationView({
                     <td style={{ fontSize: 12 }}>{fmtDate(r.paid_on)}</td>
                     <td style={{ fontSize: 12 }}>
                       {String(r.buyer_name ?? "—")}
-                      <div style={{ fontSize: 10, color: "#6b7890" }}>{String(r.method ?? "")} · {String(r.external_reference ?? "")}</div>
+                      <div style={{ fontSize: 10, color: "var(--muted)" }}>{String(r.method ?? "")} · {String(r.external_reference ?? "")}</div>
                     </td>
                     <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.amount)}</td>
                     <td>

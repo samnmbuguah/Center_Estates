@@ -36,7 +36,7 @@ export function DocumentsView({
                   <td className="mono" style={{ fontSize: 12 }}>{String(r.sale_reference ?? "—")}</td>
                   <td><Badge tone="purple">{String(r.document_type ?? "—")}</Badge></td>
                   <td style={{ fontSize: 12 }}>{fmtDate(r.signed_on)}</td>
-                  <td className="mono" style={{ fontSize: 10, color: "#6b7890" }}>{String(r.checksum ?? "—").slice(0, 12)}…</td>
+                  <td className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>{String(r.checksum ?? "—").slice(0, 12)}…</td>
                   <td><StatusPill value={r.is_final ? "Final" : "Draft"} tone={r.is_final ? "green" : "yellow"} /></td>
                   <td>
                     {r.file_url ? <a className="btn ghost sm" href={String(r.file_url)} target="_blank" rel="noreferrer">Download</a> : <span className="muted" style={{ fontSize: 12 }}>No file</span>}

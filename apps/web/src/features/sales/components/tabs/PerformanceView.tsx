@@ -45,7 +45,7 @@ export function PerformanceView({ dashboard }: { dashboard: Dashboard }) {
                   <td style={{ fontSize: 12 }}>{number.format(c)}</td>
                   <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.value)}</td>
                   <td><ProgressBar pct={conv} color="#0284c7" /></td>
-                  <td style={{ fontSize: 12, color: "#8a96a7" }}>—</td>
+                  <td style={{ fontSize: 12, color: "var(--muted)" }}>—</td>
                   <td style={{ fontSize: 12, color: Number(r.cancelled ?? 0) > 0 ? "#b91c1c" : "#16a34a" }}>{number.format(Number(r.cancelled ?? 0))}</td>
                   <td><StatusPill value={d ? "active" : "inactive"} tone={d ? "green" : "gray"} /></td>
                 </tr>

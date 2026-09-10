@@ -149,16 +149,16 @@ export function SalesView({
                   <tr key={String(r.id)} onClick={() => setAgreementRow(r)}>
                     <td><RefText value={r.reference} /></td>
                     <td><strong style={{ fontSize: 12 }}>{String(r.buyer_name ?? "—")}</strong></td>
-                    <td style={{ fontSize: 12, color: "#6b7890" }}>
+                    <td style={{ fontSize: 12, color: "var(--muted)" }}>
                       {String(r.project_name ?? "—")}
                       {r.unit_code ? <div className="mono" style={{ fontSize: 10 }}>{String(r.unit_code)}</div> : null}
                     </td>
                     <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(price)}</td>
                     <td className="mono" style={{ fontSize: 12, color: "#16a34a" }}>{fmtMoney(paid)}</td>
                     <td className="mono" style={{ fontSize: 12, color: paid >= price ? "#16a34a" : "#b91c1c" }}>{fmtMoney(price - paid)}</td>
-                    <td style={{ fontSize: 11, color: "#6b7890" }}>{price ? `${Math.round((paid / price) * 100)}% paid` : "—"}</td>
+                    <td style={{ fontSize: 11, color: "var(--muted)" }}>{price ? `${Math.round((paid / price) * 100)}% paid` : "—"}</td>
                     <td><StatusPill value={String(r.status ?? "")} tone={toneForSale(String(r.status ?? ""))} /></td>
-                    <td style={{ fontSize: 11, color: "#6b7890" }}>{fmtDate(r.contracted_on ?? r.reserved_at ?? r.created_at)}</td>
+                    <td style={{ fontSize: 11, color: "var(--muted)" }}>{fmtDate(r.contracted_on ?? r.reserved_at ?? r.created_at)}</td>
                     <td>
                       <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); setAgreementRow(r); }}>Agreement</button>
                       <button className="btn ghost sm" style={{ marginLeft: 4 }} onClick={(e) => { e.stopPropagation(); transitionSale(r); }}>Transition</button>

@@ -137,7 +137,7 @@ export function CommissionsView({
                     <td style={{ fontSize: 12 }}>{String(r.buyer_name ?? "—")}</td>
                     <td className="mono" style={{ fontSize: 12 }}>{String(r.rate_percent ?? "—")}%</td>
                     <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.amount)}</td>
-                    <td style={{ fontSize: 10, color: "#6b7890", whiteSpace: "nowrap" }}>
+                    <td style={{ fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap" }}>
                       <span title={`Payments ${r.achieved_paid_percent ?? 0}% / ${r.required_paid_percent ?? 0}%`}>{paidMet ? "✅" : "⏳"} pay {String(r.achieved_paid_percent ?? 0)}/{String(r.required_paid_percent ?? 0)}%</span>
                       <br />
                       <span title={`Construction ${r.achieved_construction_percent ?? 0}% / ${r.required_construction_percent ?? 0}%`}>{constructionMet ? "✅" : "⏳"} constr {String(r.achieved_construction_percent ?? 0)}/{String(r.required_construction_percent ?? 0)}%</span>
