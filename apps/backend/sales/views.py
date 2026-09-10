@@ -386,6 +386,8 @@ class PaymentViewSet(SalesModelViewSet):
             verified_by=None, verified_at=None, rejection_reason='',
         )
         SalesAuditEvent.objects.create(organization=organization, sale=payment.sale, payment=payment, event_type='payment_submitted', to_status=payment.status, actor=self.request.user)
+        from .notifications import notify_payment_submitted
+        notify_payment_submitted(organization, payment)
 
     def perform_update(self, serializer):
         if serializer.instance.status != SalePayment.Status.PENDING:
@@ -402,12 +404,16 @@ class PaymentViewSet(SalesModelViewSet):
         verified_total = sale.payments.filter(status=SalePayment.Status.VERIFIED).aggregate(total=Sum('amount'))['total'] or Decimal(0)
         paid_percent = verified_total / sale.agreed_price * 100 if sale.agreed_price else Decimal(0)
         construction_percent = sale.listing.construction_progress
+        from .notifications import notify_commission_eligible
         for commission in sale.commissions.exclude(status__in=(AgentCommission.Status.PAID, AgentCommission.Status.APPROVED)):
+            previous = commission.status
             commission.status = AgentCommission.Status.ELIGIBLE if (
                 paid_percent >= commission.required_paid_percent
                 and construction_percent >= commission.required_construction_percent
             ) else AgentCommission.Status.PENDING
             commission.save(update_fields=('status', 'updated_at'))
+            if commission.status == AgentCommission.Status.ELIGIBLE and previous != AgentCommission.Status.ELIGIBLE:
+                notify_commission_eligible(sale.organization, commission)
 
     @action(detail=True, methods=('post',))
     @transaction.atomic
@@ -904,6 +910,8 @@ class BuyerPortalViewSet(ViewSet):
             organization=buyer.organization, sale=sale, payment=payment,
             event_type='payment_submitted', to_status=payment.status, actor=request.user,
         )
+        from .notifications import notify_payment_submitted
+        notify_payment_submitted(buyer.organization, payment)
         return Response(SalePaymentSerializer(payment).data, status=201)
 
 

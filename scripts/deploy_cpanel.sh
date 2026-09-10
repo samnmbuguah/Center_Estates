@@ -117,6 +117,7 @@ ssh "$REMOTE_HOST" "bash -s" <<EOF
   python apps/backend/manage.py collectstatic --noinput
   (crontab -l 2>/dev/null | grep -vF '# center-estates-scheduled-reports'; echo "*/15 * * * * cd ${API_PATH} && /home2/monitori/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py run_scheduled_reports >> ${API_PATH}/scheduled-reports.log 2>&1 # center-estates-scheduled-reports") | crontab -
   (crontab -l 2>/dev/null | grep -vF '# center-estates-calendar-notifications'; echo "17 * * * * cd ${API_PATH} && /home2/monitori/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py sync_calendar_notifications >> ${API_PATH}/calendar-notifications.log 2>&1 # center-estates-calendar-notifications") | crontab -
+  (crontab -l 2>/dev/null | grep -vF '# center-estates-sales-reservations'; echo "*/30 * * * * cd ${API_PATH} && /home2/monitori/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py sync_sales_reservations >> ${API_PATH}/sales-reservations.log 2>&1 # center-estates-sales-reservations") | crontab -
   (crontab -l 2>/dev/null | grep -vF '# center-estates-daily-backup'; echo "30 2 * * * /home2/monitori/scripts/backup_database.sh >> /home2/monitori/backups/backup.log 2>&1 # center-estates-daily-backup") | crontab -
 
   killall -9 lswsgi 2>/dev/null || true

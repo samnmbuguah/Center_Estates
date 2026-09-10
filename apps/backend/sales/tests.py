@@ -323,6 +323,49 @@ class SalesReportingTests(SalesApiTests):
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class SalesNotificationTests(SalesApiTests):
+    def test_payment_submission_notifies_finance(self):
+        from notifications.models import Notification
+        response = self.client.post('/api/v1/sales/payments/', {
+            'reference': 'PAY-N1', 'sale': str(self.sale.id), 'paid_on': str(timezone.localdate()),
+            'amount': '500', 'method': 'bank', 'external_reference': 'EXT-N1', 'status': 'pending',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertTrue(Notification.objects.filter(
+            organization=self.organization, recipient=self.user,
+            title='Payment submitted for verification',
+        ).exists())
+
+    def test_commission_eligibility_notifies(self):
+        from notifications.models import Notification
+        response = self.client.post(
+            f'/api/v1/sales/payments/{self.pending_payment.id}/verify/', {}, format='json', **self.headers,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        self.commission.refresh_from_db()
+        self.assertEqual(self.commission.status, AgentCommission.Status.ELIGIBLE)
+        self.assertTrue(Notification.objects.filter(
+            organization=self.organization, title='Commission eligible for approval',
+        ).exists())
+
+    def test_reservation_expiry_command_releases_and_notifies(self):
+        from django.core.management import call_command
+        from notifications.models import Notification
+        self.sale.status = PropertySale.Status.RESERVED
+        self.sale.save()
+        self.listing.status = SaleListing.Status.RESERVED
+        self.listing.reservation_expires_at = timezone.now() - timezone.timedelta(minutes=1)
+        self.listing.save()
+        call_command('sync_sales_reservations')
+        self.sale.refresh_from_db(); self.listing.refresh_from_db()
+        self.assertEqual(self.sale.status, PropertySale.Status.CANCELLED)
+        self.assertEqual(self.listing.status, SaleListing.Status.AVAILABLE)
+        self.assertTrue(Notification.objects.filter(
+            organization=self.organization, title='Sale reservation expired',
+        ).exists())
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class SalesListingRenderTests(SalesApiTests):
     def test_render_listing_serializer_exposes_absolute_url(self):
         render = ListingRender.objects.create(
