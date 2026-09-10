@@ -6,6 +6,7 @@ import { Row, Tone } from "../../types/sales.types";
 import { countBy, fmtDate, fmtDateTime, fmtMoney, sumBy } from "../../utils/sales.utils";
 import { DataTable, DField, FilterChips, RefText, TableChrome } from "../SalesUiComponents";
 import { SaleAgreementView } from "./SaleAgreementView";
+import { SavedViews } from "../SavedViews";
 
 function toneForSale(s: string): Tone {
   if (s === "completed") return "green";
@@ -54,7 +55,8 @@ export function SalesView({
   }
 
   const viewToggle = (
-    <div className="row" style={{ gap: 6 }}>
+    <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <SavedViews scope="sales-pipeline" current={{ status, search }} onApply={(f) => { setStatus(f.status); setSearch(f.search); }} />
       <button className={`btn sm ${viewMode === "board" ? "primary" : "ghost"}`} onClick={() => setViewMode("board")}>Board</button>
       <button className={`btn sm ${viewMode === "table" ? "primary" : "ghost"}`} onClick={() => setViewMode("table")}>Table</button>
       {canSell ? <button className="btn primary sm" onClick={openNewSale}>+ New Sale</button> : null}

@@ -6,6 +6,8 @@ import { fmtDate, fmtMoney } from "../../utils/sales.utils";
 import { DataTable, RefText } from "../SalesUiComponents";
 import { Box, Grid, Typography } from "@mui/material";
 import { Building2, TrendingUp, CheckCircle, AlertTriangle, DollarSign, Calendar, Activity } from "lucide-react";
+import { useAuth } from "@/components/auth-provider";
+import { SalesOnboardingChecklist } from "../SalesOnboardingChecklist";
 
 export function OverviewView({
   dashboard,
@@ -21,6 +23,8 @@ export function OverviewView({
   openRecordVisit: () => void;
 }) {
   const kpis = dashboard.kpis ?? {};
+  const { session } = useAuth();
+  const organizationId = session?.activeOrganizationId ?? null;
   const available = Number(kpis.availableUnits ?? 0);
   const reserved = Number(kpis.reservedUnits ?? 0);
   const sold = Number(kpis.soldUnits ?? 0);
@@ -70,6 +74,10 @@ export function OverviewView({
           Multi-project unit sales, buyer onboarding, payments, site visits & commissions.
         </Typography>
       </Box>
+
+      <div style={{ marginBottom: 20 }}>
+        <SalesOnboardingChecklist dashboard={dashboard} setTab={setTab} organizationId={organizationId} />
+      </div>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>

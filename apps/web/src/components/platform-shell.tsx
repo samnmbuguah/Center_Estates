@@ -17,6 +17,7 @@ import { TourLauncher } from "@/components/tour-launcher";
 import { BrandLogo } from "@/components/brand-logo";
 import { BrandedLoader } from "@/components/branded-loader";
 import { NotificationCenter } from "@/components/notification-center";
+import { CommandPalette } from "@/components/command-palette";
 import { EmailUpdateBanner } from "@/components/email-update-banner";
 import { QmChatLauncher } from "@/components/qm-chat-launcher";
 import { CompanionNudgeModal } from "@/components/companion-nudge-modal";
@@ -42,6 +43,7 @@ import {
   InputLabel,
   Paper,
   Typography,
+  Tooltip,
 } from "@mui/material";
 
 const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; icon: string; detail: string; permission?: string }> = [
@@ -455,6 +457,12 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                 {mode === "dark" ? <Sun size={18} /> : <Moon size={18} />}
               </IconButton>
 
+              <Tooltip title="Search & jump (⌘K)">
+                <IconButton onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))} aria-label="Open command palette">
+                  <Search size={18} />
+                </IconButton>
+              </Tooltip>
+
               <NotificationCenter />
 
               <Box ref={profileRef} sx={{ position: "relative" }}>
@@ -595,6 +603,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
       offsetForSidebar={!moduleWorkspaceActive}
     />
     <CompanionNudgeModal />
+    <CommandPalette />
   </TelemetryProvider>
   );
 }
