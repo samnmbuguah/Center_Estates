@@ -1,12 +1,10 @@
 "use client";
 
-import { FormEvent, useState, useSyncExternalStore } from "react";
+import { FormEvent, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { Alert, Button, IconButton, InputAdornment, Paper, TextField } from "@mui/material";
 import { Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
-
-const subscribeToHydration = () => () => undefined;
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -15,7 +13,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const hydrated = useSyncExternalStore(subscribeToHydration, () => true, () => false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -106,7 +103,6 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="e.g. admin or john.doe"
                 autoComplete="username"
-                disabled={!hydrated}
                 required
               />
 
@@ -117,12 +113,11 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   autoComplete="current-password"
-                  disabled={!hydrated}
                   required
                   slotProps={{ input: { endAdornment: <InputAdornment position="end"><IconButton aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(!showPassword)} edge="end">{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</IconButton></InputAdornment> } }}
             />
 
-            <Button type="submit" variant="contained" size="large" disabled={loading || !hydrated} aria-busy={loading} startIcon={<LockKeyhole size={16} />} sx={{ py: 1.4, mt: 0.5, bgcolor: "#c22e2a", "&:hover": { bgcolor: "#9b2422" } }}>
+            <Button type="submit" variant="contained" size="large" disabled={loading} aria-busy={loading} startIcon={<LockKeyhole size={16} />} sx={{ py: 1.4, mt: 0.5, bgcolor: "#c22e2a", "&:hover": { bgcolor: "#9b2422" } }}>
               {loading ? "Signing in…" : "Sign In to Workspace →"}
             </Button>
           </form>
