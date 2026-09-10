@@ -238,10 +238,14 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     mkdir -p tmp
     touch tmp/restart.txt
     # Kill stale Next.js workers matching this application's path.
-    # First try SIGTERM for graceful shutdown, then SIGKILL if needed.
+    # A worker whose release directory has been replaced reports its cwd with a
+    # " (deleted)" suffix, so strip it before matching; otherwise the previous
+    # build's worker survives and keeps serving the old frontend.
     web_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == "next-server" {print \$1}')
     for web_pid in \${web_pids}; do
-      if [[ "\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)" == "${FRONTEND_PATH}/releases/"*/apps/web/.next/standalone/apps/web || "\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)" = "${FRONTEND_PATH}/apps/web/.next/standalone/apps/web" ]]; then
+      cwd="\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)"
+      cwd="\${cwd% (deleted)}"
+      if [[ "\${cwd}" == "${FRONTEND_PATH}/releases/"*/apps/web/.next/standalone/apps/web || "\${cwd}" = "${FRONTEND_PATH}/apps/web/.next/standalone/apps/web" ]]; then
         kill -TERM "\${web_pid}" 2>/dev/null || true
       fi
     done
@@ -249,7 +253,9 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     sleep 3
     web_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == "next-server" {print \$1}')
     for web_pid in \${web_pids}; do
-      if [[ "\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)" == "${FRONTEND_PATH}/releases/"*/apps/web/.next/standalone/apps/web || "\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)" = "${FRONTEND_PATH}/apps/web/.next/standalone/apps/web" ]]; then
+      cwd="\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)"
+      cwd="\${cwd% (deleted)}"
+      if [[ "\${cwd}" == "${FRONTEND_PATH}/releases/"*/apps/web/.next/standalone/apps/web || "\${cwd}" = "${FRONTEND_PATH}/apps/web/.next/standalone/apps/web" ]]; then
         kill -9 "\${web_pid}" 2>/dev/null || true
       fi
     done
