@@ -8,6 +8,7 @@ import {
   Building2, CreditCard, FileText, Gauge, ReceiptText, UserRound,
   CalendarDays, Download, Menu, X, ShoppingBag,
 } from "lucide-react";
+import Unit3DViewer from "@/components/sales-unit3d/Unit3DViewer";
 
 type Row = Record<string, string | number | boolean | null>;
 type Portal = {
@@ -237,9 +238,23 @@ function Overview({ data, setTab, onRecord }: { data: Portal; setTab: (t: Tab) =
 
 function Agreement({ sale, data }: { sale: Row | null; data: Portal }) {
   if (!sale) return <div className="data-panel">No sale agreement found on this account.</div>;
+  const renders = (sale.renders as unknown as { id: string; render_kind: string; title: string; caption: string; render_url: string; is_primary: boolean }[] | undefined) ?? [];
   return (
     <div className="data-panel">
       <h3 style={{ marginTop: 0 }}>Purchase agreement — {String(sale.reference ?? "")}</h3>
+
+      <div style={{ marginBottom: 18 }}>
+        <div className="eyebrow" style={{ marginBottom: 8 }}>3D unit showcase</div>
+        <Unit3DViewer
+          renders={renders}
+          unitCode={String(sale.unit_code ?? "Unit")}
+          unitType={String(sale.unit_type ?? "Unit")}
+          area={Number(sale.unit_area ?? 0)}
+          floor={String(sale.unit_floor ?? "")}
+          height={360}
+        />
+      </div>
+
       <div className="portal-profile-grid">
         <div className="profile-card">
           <p>Project: <strong>{String(sale.project_name ?? "—")}</strong></p>

@@ -1,10 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Alert, Button, MenuItem, Stack, TextField } from "@mui/material";
 import { number, DetailDrawer, EmptyState, KpiCard, KpiStrip, Panel, StatusPill } from "@/components/module-ui";
 import { Row, Tone } from "../../types/sales.types";
 import { countBy, fmtDateTime, fmtMoney, sumBy } from "../../utils/sales.utils";
 import { DataTable, DField, FilterChips, ProgressBar, RefText, TableChrome } from "../SalesUiComponents";
+import Unit3DViewer from "@/components/sales-unit3d/Unit3DViewer";
+import { useAuth } from "@/components/auth-provider";
+import { apiFetch, csrfFromCookie } from "@/lib/api";
+
+type ListingRender = {
+  id: string;
+  render_kind: string;
+  title: string;
+  caption: string;
+  render_url: string;
+  is_primary: boolean;
+};
 
 function toneForInventory(s: string): Tone {
   if (s === "available") return "green";
@@ -153,7 +166,7 @@ export function InventoryView({
       </Panel>
 
       {selected && (
-        <DetailDrawer title={`Unit ${String(selected.unit_code ?? "—")}`} onClose={() => setSelected(null)} width={400}>
+        <DetailDrawer title={`Unit ${String(selected.unit_code ?? "—")}`} onClose={() => setSelected(null)} width={520}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <span className="fc-detail-thumb-placeholder" style={{ height: 44, width: 44, fontSize: 20 }}>🏠</span>
             <div className="fc-detail-meta">
@@ -162,6 +175,19 @@ export function InventoryView({
             </div>
             <StatusPill value={String(selected.status ?? "")} tone={toneForInventory(String(selected.status ?? ""))} />
           </div>
+
+          <div style={{ marginBottom: 18 }}>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>3D unit showcase</div>
+            <Unit3DViewer
+              renders={(selected.renders as ListingRender[] | undefined) ?? []}
+              unitCode={String(selected.unit_code ?? "Unit")}
+              unitType={String(selected.unit_type ?? "Unit")}
+              area={Number(selected.unit_area ?? selected.area ?? 0)}
+              floor={String(selected.floor ?? "")}
+              height={300}
+            />
+          </div>
+
           <div className="fc-detail-grid">
             <DField label="Floor" value={String(selected.floor ?? "—")} />
             <DField label="Unit Type" value={String(selected.unit_type ?? "—")} />
@@ -170,8 +196,69 @@ export function InventoryView({
             <DField label="Construction Progress" value={<ProgressBar pct={Number(selected.construction_progress ?? 0)} />} />
             <DField label="Reservation Expiry" value={selected.reservation_expires_at ? fmtDateTime(selected.reservation_expires_at) : "—"} />
           </div>
+
+          {canSell && <RenderUploader listingId={String(selected.id ?? "")} />}
         </DetailDrawer>
       )}
     </>
+  );
+}
+
+function RenderUploader({ listingId }: { listingId: string }) {
+  const { session } = useAuth();
+  const organizationId = session?.activeOrganizationId ?? null;
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [kind, setKind] = useState("model_3d");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  async function upload() {
+    const file = fileRef.current?.files?.[0];
+    if (!file) { setError("Choose a .glb/.gltf model or an image to upload."); return; }
+    setBusy(true); setError(""); setMessage("");
+    try {
+      await apiFetch("/auth/csrf/");
+      const form = new FormData();
+      form.append("listing", listingId);
+      form.append("render_kind", kind);
+      form.append("file", file);
+      const res = await apiFetch("/sales/listing-renders/", {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+        body: form,
+      }, organizationId);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const msg = Object.values(body as Record<string, unknown>).flat().join(" ");
+        setError(msg || "The rendering could not be uploaded.");
+        return;
+      }
+      setMessage("Rendering uploaded. Reopen the unit to view it.");
+      if (fileRef.current) fileRef.current.value = "";
+    } catch {
+      setError("Unable to reach the server.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 20, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
+      <div className="eyebrow" style={{ marginBottom: 8 }}>Manage renderings</div>
+      {message && <Alert severity="success" sx={{ mb: 1, borderRadius: 2 }}>{message}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 1, borderRadius: 2 }}>{error}</Alert>}
+      <Stack spacing={1.5}>
+        <TextField select size="small" label="Asset type" value={kind} onChange={(e) => setKind(e.target.value)} fullWidth>
+          <MenuItem value="model_3d">3D model (.glb / .gltf)</MenuItem>
+          <MenuItem value="render">Photoreal render (image)</MenuItem>
+          <MenuItem value="floorplan">Floor plan (image)</MenuItem>
+        </TextField>
+        <input ref={fileRef} type="file" accept={kind === "model_3d" ? ".glb,.gltf" : "image/*"} style={{ fontSize: 12 }} />
+        <Button variant="contained" size="small" disabled={busy} onClick={() => void upload()} sx={{ alignSelf: "flex-start", fontWeight: 800 }}>
+          {busy ? "Uploading…" : "Upload rendering"}
+        </Button>
+      </Stack>
+    </div>
   );
 }

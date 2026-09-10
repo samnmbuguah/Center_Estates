@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+import tempfile
+
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.test import TestCase, override_settings
@@ -12,7 +14,7 @@ from properties.models import Project, Property, Unit
 from subscriptions.models import Subscription
 
 from .models import (
-    AgentCommission, Buyer, Installment, PropertySale, SaleDocument, SaleListing,
+    AgentCommission, Buyer, Installment, ListingRender, PropertySale, SaleDocument, SaleListing,
     SalePayment, SalesAuditEvent,
 )
 
@@ -295,6 +297,41 @@ class SalesReportingTests(SalesApiTests):
         rows = [r for r in response.data['rows'] if r['Description'] == 'Second tranche']
         self.assertEqual(len(rows), 1)
         self.assertGreater(int(rows[0]['Days Overdue']), 0)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class SalesListingRenderTests(SalesApiTests):
+    def test_render_listing_serializer_exposes_absolute_url(self):
+        render = ListingRender.objects.create(
+            organization=self.organization, listing=self.listing,
+            render_kind=ListingRender.RenderKind.MODEL_3D, title='A-01 3D model',
+            file_url='https://cdn.example.com/unit.glb', mime_type='model/gltf-binary',
+        )
+        response = self.client.get('/api/v1/sales/inventory/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        row = next((r for r in response.data if str(r['id']) == str(self.listing.id)), None)
+        self.assertIsNotNone(row)
+        self.assertEqual(len(row['renders']), 1)
+        self.assertEqual(row['renders'][0]['render_url'], 'https://cdn.example.com/unit.glb')
+        self.assertEqual(row['renders'][0]['render_kind'], 'model_3d')
+
+    def test_listing_renders_crud_and_primary_flag(self):
+        first = self.client.post('/api/v1/sales/listing-renders/', {
+            'listing': str(self.listing.id), 'render_kind': 'render', 'title': 'Hero render', 'file_url': 'https://cdn.example.com/hero.jpg', 'is_primary': True,
+        }, format='json', **self.headers)
+        self.assertEqual(first.status_code, 201, first.data)
+        second = self.client.post('/api/v1/sales/listing-renders/', {
+            'listing': str(self.listing.id), 'render_kind': 'floorplan', 'title': 'Floor plan', 'file_url': 'https://cdn.example.com/plan.jpg', 'is_primary': True,
+        }, format='json', **self.headers)
+        self.assertEqual(second.status_code, 201, second.data)
+        # Only one primary per listing.
+        self.assertEqual(ListingRender.objects.filter(organization=self.organization, listing=self.listing, is_primary=True).count(), 1)
+
+    def test_model_3d_requires_an_asset(self):
+        response = self.client.post('/api/v1/sales/listing-renders/', {
+            'listing': str(self.listing.id), 'render_kind': 'model_3d', 'title': 'No asset',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 400, response.data)
 
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)

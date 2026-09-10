@@ -33,7 +33,8 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hotkeys-hook": "^5.3.3",
-    "recharts": "^2.15.0"
+    "recharts": "^2.15.0",
+    "three": "^0.169.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -44,6 +45,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.169.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "jest": "^30.4.2",

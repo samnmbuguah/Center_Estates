@@ -18,8 +18,8 @@ from core.tenancy import get_active_membership, get_active_organization
 from core.property_scope import scope_model_queryset, scope_queryset_to_property
 from rest_framework.exceptions import PermissionDenied
 
-from .models import AgentCommission, Buyer, BuyerPortalAccess, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
-from .serializers import AgentCommissionSerializer, BuyerSerializer, BuyerPortalAccessSerializer, InstallmentSerializer, PropertySaleSerializer, SaleDocumentSerializer, SaleListingSerializer, SalePaymentSerializer, SalesAuditEventSerializer, SiteVisitSerializer
+from .models import AgentCommission, Buyer, BuyerPortalAccess, Installment, ListingRender, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
+from .serializers import AgentCommissionSerializer, BuyerSerializer, BuyerPortalAccessSerializer, InstallmentSerializer, ListingRenderSerializer, PropertySaleSerializer, SaleDocumentSerializer, SaleListingSerializer, SalePaymentSerializer, SalesAuditEventSerializer, SiteVisitSerializer
 
 
 class SalesModelViewSet(ModelViewSet):
@@ -94,6 +94,36 @@ class ListingViewSet(SalesModelViewSet):
             listing.save(update_fields=('status', 'reservation_expires_at', 'updated_at'))
             expired += 1
         return Response({'expired': expired})
+
+
+class ListingRenderViewSet(SalesModelViewSet):
+    write_permission = 'sales.selling'
+    queryset = ListingRender.objects.select_related('listing__unit', 'listing__project')
+    serializer_class = ListingRenderSerializer
+    search_fields = ('title', 'caption', 'listing__unit__code', 'listing__reference')
+
+    def perform_create(self, serializer):
+        listing = serializer.validated_data.get('listing')
+        organization = get_active_organization(self.request)
+        if not listing or listing.organization_id != organization.id:
+            raise ValidationError({'listing': 'The listing does not belong to the active organization.'})
+        render_kind = serializer.validated_data.get('render_kind', ListingRender.RenderKind.RENDER)
+        uploaded = serializer.validated_data.get('file')
+        mime_type = ''
+        file_size = 0
+        if uploaded:
+            mime_type = getattr(uploaded, 'content_type', '') or ''
+            file_size = uploaded.size or 0
+        if render_kind == ListingRender.RenderKind.MODEL_3D and not (uploaded or serializer.validated_data.get('file_url')):
+            raise ValidationError({'file': 'A 3D model (.glb/.gltf) or a model URL is required.'})
+        is_primary = serializer.validated_data.get('is_primary')
+        instance = serializer.save(organization=organization, mime_type=mime_type, file_size=file_size)
+        if is_primary:
+            ListingRender.objects.filter(organization=organization, listing=instance.listing).exclude(pk=instance.pk).update(is_primary=False)
+
+    def perform_destroy(self, instance):
+        instance.file.delete(save=False)
+        instance.delete()
 
 
 class BuyerViewSet(SalesModelViewSet):

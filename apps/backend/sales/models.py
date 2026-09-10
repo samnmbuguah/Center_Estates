@@ -164,6 +164,42 @@ class SalePayment(OrganizationOwnedModel):
             raise ValidationError({'amount': 'Payment amount must be greater than zero.'})
 
 
+class ListingRender(OrganizationOwnedModel):
+    """Media assets showcased for a sale listing.
+
+    ``render_kind`` distinguishes a 3D model (GLB/GLTF), a photoreal render or
+    a floor-plan image. The 3D model is loaded in-browser with three.js, while
+    stills are displayed in a gallery carousel. A listing may own many renders.
+    """
+
+    class RenderKind(models.TextChoices):
+        MODEL_3D = 'model_3d', '3D model (GLB/GLTF)'
+        RENDER = 'render', 'Photoreal render'
+        FLOORPLAN = 'floorplan', 'Floor plan'
+
+    listing = models.ForeignKey(SaleListing, on_delete=models.CASCADE, related_name='renders')
+    render_kind = models.CharField(max_length=16, choices=RenderKind.choices, default=RenderKind.RENDER)
+    title = models.CharField(max_length=160, blank=True)
+    caption = models.CharField(max_length=240, blank=True)
+    file = models.FileField(upload_to='sales/renderings/%Y/%m/', blank=True)
+    file_url = models.URLField(max_length=512, blank=True)
+    mime_type = models.CharField(max_length=80, blank=True)
+    file_size = models.PositiveIntegerField(default=0)
+    is_primary = models.BooleanField(default=False)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ('sort_order', '-created_at')
+
+    def clean(self):
+        if self.listing_id and self.listing.organization_id != self.organization_id:
+            raise ValidationError('Render listing must belong to the same organization.')
+        if self.render_kind == self.RenderKind.MODEL_3D:
+            extension = (self.file.name or '').lower().rsplit('.', 1)[-1]
+            if self.file and extension not in ('glb', 'gltf'):
+                raise ValidationError({'file': '3D models must be .glb or .gltf files.'})
+
+
 class BuyerPortalAccess(OrganizationOwnedModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='sales_buyer_portal_accesses')
     buyer = models.ForeignKey(Buyer, on_delete=models.CASCADE, related_name='portal_accesses')

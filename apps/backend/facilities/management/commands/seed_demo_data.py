@@ -420,6 +420,26 @@ class Command(BaseCommand):
             listings.append(listing)
             count += 1
 
+        # Demo 3D showcase assets. A public sample GLB is attached to the first
+        # listing so the in-browser three.js viewer demonstrates a real model;
+        # the remaining listings fall back to the procedural unit preview.
+        from sales.models import ListingRender
+        for idx, listing in enumerate(listings):
+            if ListingRender.objects.filter(organization=org, listing=listing).exists():
+                continue
+            defaults = {
+                'render_kind': ListingRender.RenderKind.MODEL_3D if idx == 0 else ListingRender.RenderKind.FLOORPLAN,
+                'title': f'{listing.unit.code} — 3D showcase',
+                'caption': 'Interactive 3D view of the unit layout.',
+                'is_primary': True,
+                'sort_order': 0,
+            }
+            if idx == 0:
+                defaults['file_url'] = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/main/2.0/Box/glTF-Binary/Box.glb'
+                defaults['mime_type'] = 'model/gltf-binary'
+            ListingRender.objects.create(organization=org, listing=listing, **defaults)
+            count += 1
+
         # Buyer + a contracted sale with installments, payments, commission & portal access.
         buyer, buyer_created = Buyer.objects.get_or_create(
             organization=org, reference='B-SE-001',

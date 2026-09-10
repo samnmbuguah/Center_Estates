@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import AgentCommission, Buyer, BuyerPortalAccess, Installment, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
+from .models import AgentCommission, Buyer, BuyerPortalAccess, Installment, ListingRender, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
 
 
 class SaleListingSerializer(serializers.ModelSerializer):
@@ -10,10 +10,35 @@ class SaleListingSerializer(serializers.ModelSerializer):
     unit_type = serializers.CharField(source='unit.unit_type', read_only=True)
     floor = serializers.CharField(source='unit.floor', read_only=True)
     project_name = serializers.CharField(source='project.name', read_only=True)
+    renders = serializers.SerializerMethodField()
+
     class Meta:
         model = SaleListing
         exclude = ('organization',)
         read_only_fields = ('status', 'reservation_expires_at')
+
+    def get_renders(self, obj):
+        return ListingRenderSerializer(obj.renders.all(), many=True, context=self.context).data
+
+
+class ListingRenderSerializer(serializers.ModelSerializer):
+    render_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ListingRender
+        exclude = ('organization', 'file')
+        read_only_fields = ('mime_type', 'file_size')
+
+    def get_render_url(self, obj):
+        if obj.file:
+            request = self.context.get('request')
+            url = obj.file.url
+            if request is not None:
+                return request.build_absolute_uri(url)
+            return url
+        if obj.file_url:
+            return obj.file_url
+        return ''
 
 
 class BuyerSerializer(serializers.ModelSerializer):
@@ -37,11 +62,26 @@ class PropertySaleSerializer(serializers.ModelSerializer):
     buyer_name = serializers.CharField(source='buyer.full_name', read_only=True)
     unit_code = serializers.CharField(source='listing.unit.code', read_only=True)
     project_name = serializers.CharField(source='listing.project.name', read_only=True)
+    unit_type = serializers.CharField(source='listing.unit.unit_type', read_only=True, default='')
+    unit_floor = serializers.CharField(source='listing.unit.floor', read_only=True, default='')
+    unit_area = serializers.SerializerMethodField()
+    renders = serializers.SerializerMethodField()
     paid_amount = serializers.SerializerMethodField()
+
     class Meta:
         model = PropertySale
         exclude = ('organization',)
         read_only_fields = ('status', 'reserved_at', 'contracted_on', 'cancellation_reason')
+
+    def get_unit_area(self, obj):
+        if obj.listing_id and obj.listing.unit_id and obj.listing.unit.area is not None:
+            return str(obj.listing.unit.area)
+        return None
+
+    def get_renders(self, obj):
+        if not obj.listing_id:
+            return []
+        return ListingRenderSerializer(obj.listing.renders.all(), many=True, context=self.context).data
 
     def get_paid_amount(self, obj) -> Decimal:
         return sum((payment.amount for payment in obj.payments.all() if payment.status == SalePayment.Status.VERIFIED), start=0)
