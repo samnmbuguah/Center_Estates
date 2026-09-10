@@ -190,6 +190,39 @@ STORAGES = {
     'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
     'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
 }
+
+# Optional S3-compatible object storage for user media (3D models, renderings,
+# floor plans, documents). Activate by setting AWS_STORAGE_BUCKET_NAME; when it
+# is absent the platform keeps storing media on the local filesystem so nothing
+# breaks in development or on hosts without object storage. Works with AWS S3,
+# Cloudflare R2, DigitalOcean Spaces and Backblaze B2 via AWS_S3_ENDPOINT_URL.
+AWS_STORAGE_BUCKET_NAME = os.environ.get('AWS_STORAGE_BUCKET_NAME', '').strip()
+if AWS_STORAGE_BUCKET_NAME:
+    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID', '')
+    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY', '')
+    AWS_S3_REGION_NAME = os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')
+    AWS_S3_ENDPOINT_URL = os.environ.get('AWS_S3_ENDPOINT_URL') or None
+    AWS_S3_CUSTOM_DOMAIN = os.environ.get('AWS_S3_CUSTOM_DOMAIN', '').strip() or None
+    AWS_QUERYSTRING_AUTH = os.environ.get('AWS_QUERYSTRING_AUTH', 'false').lower() in ('1', 'true', 'yes')
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_DEFAULT_ACL = os.environ.get('AWS_DEFAULT_ACL') or None
+    AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
+    STORAGES['default'] = {
+        'BACKEND': 'storages.backends.s3.S3Storage',
+        'OPTIONS': {
+            'bucket_name': AWS_STORAGE_BUCKET_NAME,
+            'region_name': AWS_S3_REGION_NAME,
+            'endpoint_url': AWS_S3_ENDPOINT_URL,
+            'custom_domain': AWS_S3_CUSTOM_DOMAIN,
+            'querystring_auth': AWS_QUERYSTRING_AUTH,
+            'file_overwrite': AWS_S3_FILE_OVERWRITE,
+            'default_acl': AWS_DEFAULT_ACL,
+            'object_parameters': AWS_S3_OBJECT_PARAMETERS,
+        },
+    }
+    if AWS_S3_CUSTOM_DOMAIN:
+        MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+
 MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
