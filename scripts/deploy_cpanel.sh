@@ -187,6 +187,15 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     # slow npm install from every web release.
     standalone='apps/web/.next/standalone/apps/web'
     test -f "\${standalone}/server.js"
+    # Next's monorepo standalone build emits an absolute node_modules symlink
+    # that points at the build machine's workspace (e.g. /root/Dev/...). That
+    # path does not exist on the server, so Node intermittently fails to resolve
+    # 'next' during module lookup and Passenger returns HTTP 500. Repoint the
+    # symlink at the standalone node_modules that ships alongside the server.
+    if [ -L "\${standalone}/node_modules" ]; then
+      rm -f "\${standalone}/node_modules"
+      ln -s ../../node_modules "\${standalone}/node_modules"
+    fi
     mkdir -p "\${standalone}/.next/static" "\${standalone}/public"
     cp -rn apps/web/.next/static/* "\${standalone}/.next/static/" 2>/dev/null || cp -a apps/web/.next/static/* "\${standalone}/.next/static/"
     cp -a apps/web/public/* "\${standalone}/public/" 2>/dev/null || true
@@ -214,6 +223,21 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     new_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == "next-server" {print \$1}' | wc -l)
     echo "Active next-server workers after restart: \${new_pids}"
 EOF
+  # Gate the release on the frontend actually serving traffic. A broken
+  # standalone runtime (e.g. an unresolved node_modules symlink) can start
+  # Passenger but return HTTP 500 for every request; fail loudly instead.
+  web_ready=0
+  for attempt in {1..12}; do
+    if curl --fail --silent --show-error --max-time 10 "https://${DOMAIN}/" >/dev/null; then
+      web_ready=1
+      break
+    fi
+    sleep 2
+  done
+  if [[ "$web_ready" != "1" ]]; then
+    echo "Frontend did not become healthy after restart; check ${FRONTEND_PATH}/stderr.log." >&2
+    exit 1
+  fi
 fi
 
 echo "Deployment complete: https://${DOMAIN} and https://${API_DOMAIN}"
