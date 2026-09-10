@@ -1,16 +1,57 @@
 from __future__ import annotations
 
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.permissions import SAFE_METHODS
 from django.db.models import Q
 
-from properties.models import Property
+from properties.models import Property, PropertyModule
+
+
+def _request_module(request):
+    """Resolve the module a request belongs to from its DRF view.
+
+    Every module viewset declares ``required_module``. Reading it here keeps
+    enforcement automatic without threading the module through every call site.
+    """
+    parser_context = getattr(request, 'parser_context', None)
+    if not parser_context:
+        return None
+    view = parser_context.get('view')
+    return getattr(view, 'required_module', None) if view is not None else None
+
+
+def property_module_enabled(organization, property_record, module) -> bool:
+    """A property is available for a module unless it is explicitly disabled.
+
+    Absence of an assignment means "not yet curated" and stays available, which
+    keeps existing properties working. Disabling creates an assignment row with
+    ``is_enabled=False`` so the property is hidden from active pickers while its
+    records remain intact.
+    """
+    if not module or property_record is None:
+        return True
+    return not PropertyModule.objects.filter(
+        organization=organization, property=property_record, module=module, is_enabled=False,
+    ).exists()
+
+
+def filter_properties_by_module(queryset, organization, module):
+    if not module or queryset.model._meta.label != 'properties.Property':
+        return queryset
+    disabled_ids = PropertyModule.objects.filter(
+        organization=organization, module=module, is_enabled=False,
+    ).values_list('property_id', flat=True)
+    return queryset.exclude(pk__in=disabled_ids)
 
 
 PROPERTY_LOOKUPS = {
     # Property management
     'properties.Building': 'property_id',
     'properties.Unit': 'property_id',
+    'properties.Property': 'id',
     'properties.Project': 'property_id',
+    'properties.PropertyModule': 'property_id',
+    'properties.ProjectModuleAssignment': 'project__property_id',
     'properties.Tenant': 'property_id',
     'properties.TenantPortalAccess': 'tenant__leases__unit__property_id',
     'properties.Lease': 'unit__property_id',
@@ -157,6 +198,15 @@ def get_active_property(request, organization, *, required=False):
         accessible_ids = get_accessible_property_ids(request.user, organization)
         if not accessible_ids.filter(pk=property_record.pk).exists():
             raise PermissionDenied('You do not have permission to view or manage this property.')
+    # A module may be switched off for a property. Block new activity in that
+    # module while keeping historical reads available for reporting.
+    module = _request_module(request)
+    if module and not property_module_enabled(organization, property_record, module):
+        if request.method not in SAFE_METHODS:
+            raise ValidationError({
+                'property': f'This property is not enabled for the {module} module. '
+                            f'Enable it before recording new activity.',
+            })
     cache = getattr(request, '_active_property_cache', {})
     cache[cache_key] = property_record
     request._active_property_cache = cache
@@ -164,6 +214,13 @@ def get_active_property(request, organization, *, required=False):
 
 
 def scope_queryset_to_property(queryset, request, organization):
+    # Module-aware property selection: the workspace passes ?module=<slug> so a
+    # property disabled for that module disappears from the picker list.
+    query_params = getattr(request, 'query_params', None)
+    if query_params is not None:
+        requested_module = query_params.get('module')
+        if requested_module:
+            queryset = filter_properties_by_module(queryset, organization, requested_module)
     is_restricted = is_property_manager_restricted(request.user, organization)
     if request.headers.get('X-Property-Scope', '').lower() == 'portfolio':
         if not is_restricted:

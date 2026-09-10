@@ -29,7 +29,7 @@ from .models import (
     ServiceChargeReconciliation, Tenant, TenantDocument, TenantPortalAccess,
     TaxConfiguration, TenantMovement, Unit, UnitChargeRule, UnitStatusHistory, ParkingSpace, ParkingAssignment,
     Owner, PropertyCollectionAccount, PropertyFeeProfile, PayerWallet,
-    LandlordInvoice,
+    LandlordInvoice, Project, PropertyModule, ProjectModuleAssignment,
 )
 
 
@@ -3398,3 +3398,95 @@ class BulkTemplateContractTests(TestCase):
         mary = Owner.objects.get(organization=self.organization, pin_number='A009876543Y')
         self.assertEqual(mary.units.count(), 2)
         self.assertEqual(set(mary.units.values_list('code', flat=True)), {'B-201', 'B-202'})
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class PropertyModuleScopeTests(TestCase):
+    """Property-level module enablement and the cross-module project spine."""
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='module-admin', password='test')
+        self.organization = Organization.objects.create(name='Module Client', slug='module-client')
+        Membership.objects.create(
+            user=self.user, organization=self.organization, is_default=True, is_organization_admin=True,
+        )
+        for module in (Module.PROPERTY, Module.SALES):
+            Subscription.objects.create(
+                organization=self.organization, module=module, status=Subscription.Status.ACTIVE,
+            )
+        self.property = Property.objects.create(
+            organization=self.organization, code='PM-1', name='Module Property', status=Property.Status.ACTIVE,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def test_property_available_by_default(self):
+        response = self.client.get('/api/v1/property/properties/?module=sales', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual([row['code'] for row in response.data], ['PM-1'])
+
+    def test_disabled_module_hides_property_from_picker(self):
+        PropertyModule.objects.create(
+            organization=self.organization, property=self.property, module=Module.SALES, is_enabled=False,
+        )
+        sales = self.client.get('/api/v1/property/properties/?module=sales', **self.headers)
+        self.assertEqual(sales.status_code, 200)
+        self.assertEqual(sales.data, [])
+        # The property remains available for a module that is still enabled.
+        property_module = self.client.get('/api/v1/property/properties/?module=property', **self.headers)
+        self.assertEqual([row['code'] for row in property_module.data], ['PM-1'])
+
+    def test_new_activity_blocked_when_module_disabled(self):
+        PropertyModule.objects.create(
+            organization=self.organization, property=self.property, module=Module.SALES, is_enabled=False,
+        )
+        headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+        response = self.client.post('/api/v1/sales/inventory/', {
+            'list_price': '1000000',
+        }, format='json', **headers)
+        self.assertEqual(response.status_code, 403, response.data)
+
+    def test_reads_allowed_when_module_disabled(self):
+        PropertyModule.objects.create(
+            organization=self.organization, property=self.property, module=Module.SALES, is_enabled=False,
+        )
+        headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+        response = self.client.get('/api/v1/sales/inventory/', **headers)
+        self.assertEqual(response.status_code, 200, response.data)
+
+    def test_property_module_assignment_toggle(self):
+        created = self.client.post('/api/v1/property/property-modules/', {
+            'property': str(self.property.id), 'module': 'sales', 'is_enabled': False,
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        assignment = PropertyModule.objects.get(
+            organization=self.organization, property=self.property, module='sales',
+        )
+        self.assertFalse(assignment.is_enabled)
+        self.assertIsNotNone(assignment.disabled_at)
+
+        reenabled = self.client.patch(
+            f'/api/v1/property/property-modules/{assignment.id}/', {'is_enabled': True},
+            format='json', **self.headers,
+        )
+        self.assertEqual(reenabled.status_code, 200, reenabled.data)
+        assignment.refresh_from_db()
+        self.assertTrue(assignment.is_enabled)
+        self.assertIsNotNone(assignment.enabled_at)
+
+    def test_project_lifecycle_and_module_assignments(self):
+        project = Project.objects.create(
+            organization=self.organization, code='PRJ-1', name='Tower A', property=self.property,
+            lifecycle_stage=Project.LifecycleStage.CONSTRUCTION,
+        )
+        ProjectModuleAssignment.objects.create(
+            organization=self.organization, project=project, module='monitoring',
+            stage=ProjectModuleAssignment.Stage.CONSTRUCTION, started_on='2026-01-01',
+        )
+        response = self.client.get(f'/api/v1/property/projects/{project.id}/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['lifecycle_stage'], 'construction')
+        self.assertEqual(response.data['modules'], ['monitoring'])
+        self.assertEqual(len(response.data['module_assignments']), 1)
+        self.assertEqual(response.data['module_assignments'][0]['module'], 'monitoring')

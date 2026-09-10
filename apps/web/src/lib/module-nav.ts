@@ -15,6 +15,7 @@ export const propertyNav: ModuleNavGroup[] = [
       { id: "properties", label: "Property Details", icon: "🏢" },
       { id: "owners", label: "Landlords & Owners", icon: "👑" },
       { id: "buildings", label: "Buildings", icon: "🏗️" },
+      { id: "module-access", label: "Module Access", icon: "🧩" },
       { id: "feedback-qr", label: "Concierge QR Codes", icon: "▦" },
     ],
   },

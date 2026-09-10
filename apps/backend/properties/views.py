@@ -41,6 +41,7 @@ from .models import (
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant, TenantDocument,
     TenantPortalAccess, TenantMovement, TaxConfiguration, Unit, UnitChargeRule, ParkingSpace, ParkingAssignment, UnitStatusHistory, LeaseEscalation,
     TenantHandover, ExitClearance, LandlordInvoice, Owner, PropertyCollectionAccount, PropertyFeeProfile,
+    PropertyModule, ProjectModuleAssignment,
 )
 from .serializers import (
     BankTransactionSerializer, BillingCandidateSerializer, BillingItemSerializer, BillingProfileSerializer,
@@ -56,6 +57,7 @@ from .serializers import (
     TenantHandoverSerializer, ExitClearanceSerializer, LandlordInvoiceSerializer,
     UnitSerializer, UnitChargeRuleSerializer, UnitStatusHistorySerializer,
     OwnerSerializer, PropertyCollectionAccountSerializer, PropertyFeeProfileSerializer,
+    PropertyModuleSerializer, ProjectModuleAssignmentSerializer,
 )
 
 
@@ -681,7 +683,9 @@ def _sync_property_service_providers(property_record, user=None):
 
 class PropertyViewSet(OrganizationModelViewSet):
     write_permission = 'property.operations'
-    queryset = Property.objects.annotate(buildings_count=Count('buildings'), units_count=Count('units'))
+    queryset = Property.objects.annotate(
+        buildings_count=Count('buildings'), units_count=Count('units'),
+    ).prefetch_related('module_assignments')
     serializer_class = PropertySerializer
     search_fields = ('name', 'code', 'city')
 
@@ -1864,9 +1868,46 @@ class UnitChargeRuleViewSet(OrganizationModelViewSet):
 
 class ProjectViewSet(OrganizationModelViewSet):
     write_permission = 'property.operations'
-    queryset = Project.objects.select_related('property')
+    queryset = Project.objects.select_related('property').prefetch_related('module_assignments')
     serializer_class = ProjectSerializer
     search_fields = ('name', 'code')
+
+
+class PropertyModuleViewSet(OrganizationModelViewSet):
+    write_permission = 'property.operations'
+    queryset = PropertyModule.objects.select_related('property')
+    serializer_class = PropertyModuleSerializer
+    search_fields = ('property__name', 'property__code', 'module')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        now = timezone.now()
+        is_enabled = serializer.validated_data.get('is_enabled', True)
+        serializer.save(
+            organization=organization,
+            enabled_at=now if is_enabled else None,
+            disabled_at=None if is_enabled else now,
+        )
+
+    def perform_update(self, serializer):
+        self._validate_organization(serializer)
+        instance = serializer.instance
+        now = timezone.now()
+        was_enabled = instance.is_enabled
+        is_enabled = serializer.validated_data.get('is_enabled', was_enabled)
+        extra = {}
+        if is_enabled and not was_enabled:
+            extra = {'enabled_at': now, 'disabled_at': None}
+        elif not is_enabled and was_enabled:
+            extra = {'disabled_at': now}
+        serializer.save(**extra)
+
+
+class ProjectModuleAssignmentViewSet(OrganizationModelViewSet):
+    write_permission = 'property.operations'
+    queryset = ProjectModuleAssignment.objects.select_related('project')
+    serializer_class = ProjectModuleAssignmentSerializer
+    search_fields = ('project__name', 'project__code', 'module')
 
 
 class TenantViewSet(OrganizationModelViewSet):

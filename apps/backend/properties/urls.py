@@ -15,6 +15,7 @@ from .views import (
     TaxConfigurationViewSet, TenantMovementViewSet, TenantViewSet,
     UnitChargeRuleViewSet, UnitStatusHistoryViewSet, UnitViewSet,
     OwnerViewSet, PropertyCollectionAccountViewSet, PropertyFeeProfileViewSet,
+    PropertyModuleViewSet, ProjectModuleAssignmentViewSet,
 )
 from .handover_views import ExitClearanceViewSet, TenantHandoverViewSet
 
@@ -30,6 +31,8 @@ router.register('parking-assignments', ParkingAssignmentViewSet)
 router.register('units', UnitViewSet)
 router.register('unit-charge-rules', UnitChargeRuleViewSet)
 router.register('projects', ProjectViewSet)
+router.register('property-modules', PropertyModuleViewSet)
+router.register('project-modules', ProjectModuleAssignmentViewSet)
 router.register('tenants', TenantViewSet)
 router.register('tenant-portal-access', TenantPortalAccessViewSet)
 router.register('portal', TenantPortalViewSet, basename='tenant-portal')

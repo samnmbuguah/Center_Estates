@@ -59,6 +59,11 @@ class HasModuleActionPermission(HasModuleSubscription):
     report_actions = {'export', 'exports', 'download'}
 
     def has_permission(self, request, view):
+        if not self._role_allowed(request, view):
+            return False
+        return _property_module_allowed(request, view)
+
+    def _role_allowed(self, request, view):
         if getattr(request.user, 'is_superuser', False):
             return True
         if not super().has_permission(request, view):
@@ -89,3 +94,35 @@ class HasModuleActionPermission(HasModuleSubscription):
             if not key:
                 key = f'{module}.{suffix}'
         return membership.has_permission(key)
+
+
+def _property_module_allowed(request, view):
+    """Reject new activity on a property that is not enabled for the module.
+
+    The property picker already hides disabled properties, but direct API calls
+    can still target one. Reads remain allowed so historical records stay
+    reportable; unsafe methods are rejected.
+    """
+    if request.method in SAFE_METHODS:
+        return True
+    if getattr(request.user, 'is_superuser', False):
+        return True
+    module = getattr(view, 'required_module', None)
+    property_id = request.headers.get('X-Property-ID')
+    if not module or not property_id:
+        return True
+    organization = get_active_organization(request, required=False)
+    if not organization:
+        return True
+    from properties.models import Property
+    from core.property_scope import property_module_enabled
+    property_record = Property.objects.filter(pk=property_id, organization=organization).first()
+    if property_record is None:
+        return True
+    if not property_module_enabled(organization, property_record, module):
+        from rest_framework.exceptions import PermissionDenied
+        raise PermissionDenied(
+            f'This property is not enabled for the {module} module. '
+            f'Enable it before recording new activity.'
+        )
+    return True

@@ -18,6 +18,7 @@ import { OwnersView } from "./components/tabs/OwnersView";
 import { BuildingsView } from "./components/tabs/BuildingsView";
 import { UnitsView } from "./components/tabs/UnitsView";
 import { ProjectsView } from "./components/tabs/ProjectsView";
+import { ModuleAccessView } from "./components/tabs/ModuleAccessView";
 import { TenantsView } from "./components/tabs/TenantsView";
 import { TenantDocumentsView } from "./components/tabs/TenantDocumentsView";
 import { LeasesView } from "./components/tabs/LeasesView";
@@ -97,6 +98,8 @@ export function PropertyFeaturePage({
         return <UnitsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} setTab={logic.setTab} onSelectRow={logic.handleSelectRow} />;
       case "projects":
         return <ProjectsView rows={logic.rows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} />;
+      case "module-access":
+        return <ModuleAccessView />;
       case "tenancy":
         return <TenancyView activeSection={logic.tenancySection as any} onSectionChange={logic.setTenancySection} onAddTenant={() => logic.setShowAddTenant(true)} onBulkUploadTenant={() => logic.setShowBulkTenantUpload(true)} onAddLease={() => logic.setShowAddLease(true)} unitsRows={logic.tenancyUnitsRows} tenantsRows={logic.tenantsRows} leasesRows={logic.leasesRows} tenantDocsRows={logic.tenantDocsRows} loading={logic.loading} search={logic.search} setSearch={logic.setSearch} onSelectRow={logic.handleSelectRow} onOpenPortal={(r) => logic.setPortalTenant(r as TenantRow)} onUploadDoc={(t) => { logic.setSelectedRow(t ?? null); logic.setShowUploadDoc(true); }} onDownloadDoc={logic.handleDownloadDoc} onVerifyDoc={logic.handleVerifyDoc} onRejectDoc={logic.handleRejectDocPrompt} setTab={logic.setTab} canLease={logic.canLease} onRenewLease={logic.setRenewalTarget} onTerminateLease={logic.setTerminationTarget} onRefresh={logic.fetchData} onDeleteTenant={logic.handleDeleteTenant} onEditTenant={(r) => { logic.setEditTenant(r as TenantRow); logic.setShowEditTenant(true); }} onActivateTenant={logic.handleActivateTenant} onBulkActivateTenants={logic.handleBulkActivateTenants} />;
       case "tenants":

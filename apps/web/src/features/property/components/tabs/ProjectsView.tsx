@@ -49,6 +49,8 @@ export function ProjectsView({ rows, loading, search, setSearch }: {
                   <th>Property</th>
                   <th>Name</th>
                   <th>Status</th>
+                  <th>Lifecycle</th>
+                  <th>Modules</th>
                   <th>Start</th>
                   <th>End</th>
                   <th>Budget</th>
@@ -57,12 +59,24 @@ export function ProjectsView({ rows, loading, search, setSearch }: {
               <tbody>
                 {projects.map((p) => {
                   const budget = (p.metadata as Record<string, unknown> | undefined)?.budget;
+                  const stage = String((p as Record<string, unknown>).lifecycle_stage ?? "planning");
+                  const modules = ((p as Record<string, unknown>).modules as string[] | undefined) ?? [];
                   return (
                     <tr key={String(p.id)}>
                       <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(p.code ?? "—")}</td>
                       <td style={{ fontSize: 12 }}>{String((p.metadata as Record<string, unknown> | undefined)?.property_name ?? "—")}</td>
                       <td><strong style={{ fontSize: 12 }}>{String(p.name ?? "—")}</strong></td>
                       <td><StatusPill value={String(p.status ?? "—")} /></td>
+                      <td style={{ fontSize: 12 }}>{stage.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</td>
+                      <td>
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                          {modules.length === 0 ? (
+                            <span style={{ fontSize: 11, color: "var(--muted)" }}>—</span>
+                          ) : (
+                            modules.map((m) => <Chip key={m} size="small" label={m} variant="outlined" sx={{ height: 20, fontSize: 10 }} />)
+                          )}
+                        </div>
+                      </td>
                       <td style={{ fontSize: 12 }}>{fmtDate(p.starts_on)}</td>
                       <td style={{ fontSize: 12 }}>{fmtDate(p.ends_on)}</td>
                       <td className="mono">{budget === undefined ? "—" : kM(budget)}</td>

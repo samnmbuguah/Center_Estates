@@ -211,7 +211,7 @@ export function usePropertyLogic({
 
   const loadData = useCallback(async () => {
     if (!organizationId || standaloneOnboarding) return;
-    if (tab === "tenancy-reports" || tab === "financial-reports" || tab === "tickets" || tab === "calendar" || tab === "feedback-qr") {
+    if (tab === "tenancy-reports" || tab === "financial-reports" || tab === "tickets" || tab === "calendar" || tab === "feedback-qr" || tab === "module-access") {
       setLoading(false);
       return;
     }

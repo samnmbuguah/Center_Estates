@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.conf import settings
 from django.utils import timezone
 
-from core.models import OrganizationOwnedModel
+from core.models import Module, OrganizationOwnedModel
 
 
 class Property(OrganizationOwnedModel):
@@ -65,6 +65,38 @@ class Property(OrganizationOwnedModel):
 
     def __str__(self):
         return f'{self.code} — {self.name}'
+
+
+class PropertyModule(OrganizationOwnedModel):
+    """Enablement of a module for a property.
+
+    Controls which modules a property is available in. A property may belong to
+    several modules (property, facility, sales, monitoring/construction, ...),
+    and a module may be switched off without deleting its history: assignments
+    are dated rather than removed so records remain available in portfolio and
+    reporting views while the property disappears from active pickers.
+    """
+
+    property = models.ForeignKey(Property, on_delete=models.CASCADE, related_name='module_assignments')
+    module = models.CharField(max_length=32, choices=Module.choices)
+    is_enabled = models.BooleanField(default=True)
+    enabled_at = models.DateTimeField(null=True, blank=True)
+    disabled_at = models.DateTimeField(null=True, blank=True)
+    notes = models.CharField(max_length=240, blank=True)
+
+    class Meta:
+        ordering = ('property__name', 'module')
+        constraints = [models.UniqueConstraint(
+            fields=('organization', 'property', 'module'), name='unique_property_module'
+        )]
+
+    def clean(self):
+        if self.property_id and self.property.organization_id != self.organization_id:
+            raise ValidationError('Module assignment property must belong to the same organization.')
+
+    def __str__(self):
+        state = 'enabled' if self.is_enabled else 'disabled'
+        return f'{self.property} · {self.module} ({state})'
 
 
 class Building(OrganizationOwnedModel):
@@ -294,10 +326,21 @@ class Project(OrganizationOwnedModel):
         COMPLETED = 'completed', 'Completed'
         CANCELLED = 'cancelled', 'Cancelled'
 
+    class LifecycleStage(models.TextChoices):
+        PLANNING = 'planning', 'Planning & design'
+        CONSTRUCTION = 'construction', 'Construction'
+        SALES = 'sales', 'Sales & marketing'
+        OPERATIONS = 'operations', 'Operations & management'
+        CLOSED = 'closed', 'Closed'
+
     code = models.CharField(max_length=40)
     name = models.CharField(max_length=200)
     property = models.ForeignKey(Property, on_delete=models.SET_NULL, related_name='projects', null=True, blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PLANNED)
+    lifecycle_stage = models.CharField(
+        max_length=20, choices=LifecycleStage.choices, default=LifecycleStage.PLANNING,
+        help_text='Current phase of the project as it moves through the modules.',
+    )
     starts_on = models.DateField(null=True, blank=True)
     ends_on = models.DateField(null=True, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
@@ -314,6 +357,47 @@ class Project(OrganizationOwnedModel):
 
     def __str__(self):
         return f'{self.code} — {self.name}'
+
+
+class ProjectModuleAssignment(OrganizationOwnedModel):
+    """Dated record of a project running through a module.
+
+    A project can traverse several modules over its life (construction → sales →
+    operations). Each assignment captures the module, the lifecycle stage the
+    project was in, and when it started and completed, so the full journey is
+    auditable and never lost when a module is later deactivated.
+    """
+
+    class Stage(models.TextChoices):
+        PLANNING = 'planning', 'Planning & design'
+        CONSTRUCTION = 'construction', 'Construction'
+        SALES = 'sales', 'Sales & marketing'
+        OPERATIONS = 'operations', 'Operations & management'
+        CLOSED = 'closed', 'Closed'
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='module_assignments')
+    module = models.CharField(max_length=32, choices=Module.choices)
+    stage = models.CharField(max_length=20, choices=Stage.choices, default=Stage.PLANNING)
+    is_active = models.BooleanField(default=True)
+    started_on = models.DateField(null=True, blank=True)
+    completed_on = models.DateField(null=True, blank=True)
+    notes = models.CharField(max_length=240, blank=True)
+
+    class Meta:
+        ordering = ('project__name', 'module')
+        constraints = [models.UniqueConstraint(
+            fields=('organization', 'project', 'module'), name='unique_project_module_assignment'
+        )]
+
+    def clean(self):
+        if self.project_id and self.project.organization_id != self.organization_id:
+            raise ValidationError('Project module assignment must belong to the same organization.')
+        if self.started_on and self.completed_on and self.completed_on < self.started_on:
+            raise ValidationError({'completed_on': 'Completion date cannot precede the start date.'})
+
+    def __str__(self):
+        state = 'active' if self.is_active else 'inactive'
+        return f'{self.project} · {self.module} ({state})'
 
 
 class Tenant(OrganizationOwnedModel):

@@ -36,6 +36,7 @@ export type PropertyTab =
   | "owner-portal"
   | "forecast"
   | "critical-dates"
+  | "module-access"
   | "tickets"
   | "calendar";
 
@@ -80,6 +81,7 @@ export const labels: Record<PropertyTab, string> = {
   "owner-portal": "Owner Portal",
   forecast: "5-Year Forecast",
   "critical-dates": "Critical Dates",
+  "module-access": "Module Access",
   tickets: "Tickets & Issues",
   calendar: "Calendar",
 };

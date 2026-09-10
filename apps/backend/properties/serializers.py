@@ -13,6 +13,7 @@ from .models import (
     ServiceChargeAllocation, ServiceChargeReconciliation, Tenant,
     TenantDocument, TenantPortalAccess, Unit, UnitChargeRule, ParkingSpace, ParkingAssignment,
     TenantHandover, ExitClearance, LandlordInvoice, Owner, PropertyCollectionAccount, PropertyFeeProfile,
+    PropertyModule, ProjectModuleAssignment,
 )
 
 
@@ -214,10 +215,18 @@ class PropertySerializer(serializers.ModelSerializer):
     units_count = serializers.IntegerField(read_only=True, default=0)
     created_by_username = serializers.CharField(source='created_by.username', read_only=True, default='')
     created_by_name = serializers.SerializerMethodField()
+    modules = serializers.SerializerMethodField()
 
     class Meta:
         model = Property
         exclude = ('organization',)
+
+    def get_modules(self, obj) -> list:
+        """Module slugs enabled for this property (explicit disabled rows win)."""
+        assignments = getattr(obj, 'module_assignments', None)
+        if assignments is None:
+            return []
+        return sorted(a.module for a in assignments.all() if a.is_enabled)
 
     def get_created_by_name(self, obj) -> str:
         if not obj.created_by:
@@ -240,6 +249,25 @@ class BuildingSerializer(serializers.ModelSerializer):
     property_name = serializers.CharField(source='property.name', read_only=True)
     class Meta:
         model = Building
+        exclude = ('organization',)
+
+
+class PropertyModuleSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True, default='')
+    module_label = serializers.CharField(source='get_module_display', read_only=True)
+
+    class Meta:
+        model = PropertyModule
+        exclude = ('organization',)
+        read_only_fields = ('enabled_at', 'disabled_at')
+
+
+class ProjectModuleAssignmentSerializer(serializers.ModelSerializer):
+    project_name = serializers.CharField(source='project.name', read_only=True, default='')
+    module_label = serializers.CharField(source='get_module_display', read_only=True)
+
+    class Meta:
+        model = ProjectModuleAssignment
         exclude = ('organization',)
 
 
@@ -392,10 +420,16 @@ class UnitSerializer(serializers.ModelSerializer):
 
 
 class ProjectSerializer(serializers.ModelSerializer):
+    modules = serializers.SerializerMethodField()
+    module_assignments = ProjectModuleAssignmentSerializer(many=True, read_only=True)
+
     class Meta:
         model = Project
         exclude = ('organization',)
         ref_name = 'PropertyProject'
+
+    def get_modules(self, obj) -> list:
+        return sorted(a.module for a in obj.module_assignments.all() if a.is_active)
 
 
 class TenantHandoverSerializer(serializers.ModelSerializer):

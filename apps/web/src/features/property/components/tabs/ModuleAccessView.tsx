@@ -1,0 +1,162 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { Alert, Chip, CircularProgress } from "@mui/material";
+import { Panel } from "@/components/module-ui";
+import { useAuth } from "@/components/auth-provider";
+import { useToast } from "@/components/monitoring/hooks/useToast";
+import { apiFetch, csrfFromCookie } from "@/lib/api";
+
+type PropertyRow = { id: string; code?: string; name: string; modules?: string[] };
+type Assignment = { id: string; property: string; module: string; is_enabled: boolean };
+
+const MODULES: { slug: string; label: string; icon: string }[] = [
+  { slug: "property", label: "Property Management", icon: "🏢" },
+  { slug: "facility", label: "Facility Management", icon: "🔧" },
+  { slug: "sales", label: "Sales Management", icon: "💰" },
+  { slug: "monitoring", label: "Construction", icon: "🏗️" },
+  { slug: "tender", label: "Tender", icon: "📑" },
+  { slug: "valuation", label: "Valuation", icon: "📈" },
+  { slug: "companion", label: "Companion", icon: "🤖" },
+];
+
+export function ModuleAccessView() {
+  const { session } = useAuth();
+  const { toast } = useToast();
+  const organizationId = session?.activeOrganizationId ?? null;
+  const [properties, setProperties] = useState<PropertyRow[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async () => {
+    if (!organizationId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const [propertiesRes, assignmentsRes] = await Promise.all([
+        apiFetch("/property/properties/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId),
+        apiFetch("/property/property-modules/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId),
+      ]);
+      if (!propertiesRes.ok || !assignmentsRes.ok) {
+        setError("Property module access could not be loaded.");
+        return;
+      }
+      const propsJson = await propertiesRes.json();
+      const assignmentsJson = await assignmentsRes.json();
+      setProperties(Array.isArray(propsJson) ? propsJson : propsJson.results ?? []);
+      setAssignments(Array.isArray(assignmentsJson) ? assignmentsJson : assignmentsJson.results ?? []);
+    } catch {
+      setError("Unable to reach the server. Check your connection.");
+    } finally {
+      setLoading(false);
+    }
+  }, [organizationId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const assignmentFor = (propertyId: string, module: string) =>
+    assignments.find((a) => a.property === propertyId && a.module === module);
+
+  async function toggle(property: PropertyRow, module: string) {
+    if (!organizationId) return;
+    const existing = assignmentFor(property.id, module);
+    const nextEnabled = existing ? !existing.is_enabled : false;
+    const key = `${property.id}:${module}`;
+    setBusy(key);
+    try {
+      await apiFetch("/auth/csrf/");
+      let res: Response;
+      if (existing) {
+        res = await apiFetch(`/property/property-modules/${existing.id}/`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({ is_enabled: nextEnabled }),
+        }, organizationId);
+      } else {
+        res = await apiFetch("/property/property-modules/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({ property: property.id, module, is_enabled: nextEnabled }),
+        }, organizationId);
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const msg = Object.values(body as Record<string, unknown>).flat().join(" ");
+        toast.error(msg || "The module assignment could not be saved.");
+        return;
+      }
+      await load();
+    } catch {
+      toast.error("Unable to reach the server.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const isEnabled = (property: PropertyRow, module: string) => {
+    const existing = assignmentFor(property.id, module);
+    return existing ? existing.is_enabled : true;
+  };
+
+  return (
+    <Panel title="Module Access" badge={properties.length}>
+      <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+        Choose which modules each property is available in. Disabling a module hides the property from that
+        module&apos;s pickers and blocks new activity, while its existing records stay available in portfolio views and reports.
+      </Alert>
+      {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
+      {loading ? (
+        <div style={{ display: "flex", justifyContent: "center", padding: 40 }}><CircularProgress size={28} /></div>
+      ) : properties.length === 0 ? (
+        <p style={{ color: "var(--muted)" }}>No properties yet. Onboard a property to assign it to modules.</p>
+      ) : (
+        <div className="table-scroll">
+          <table className="fc-data-table" style={{ minWidth: 820 }}>
+            <thead>
+              <tr>
+                <th style={{ position: "sticky", left: 0, background: "var(--surface)" }}>Property</th>
+                {MODULES.map((m) => (
+                  <th key={m.slug} style={{ textAlign: "center", whiteSpace: "nowrap" }}>{m.icon} {m.label}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {properties.map((property) => (
+                <tr key={property.id}>
+                  <td style={{ position: "sticky", left: 0, background: "var(--surface)" }}>
+                    <strong style={{ fontSize: 12 }}>{property.name}</strong>
+                    <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{property.code ?? ""}</div>
+                  </td>
+                  {MODULES.map((m) => {
+                    const enabled = isEnabled(property, m.slug);
+                    const key = `${property.id}:${m.slug}`;
+                    return (
+                      <td key={m.slug} style={{ textAlign: "center" }}>
+                        <button
+                          type="button"
+                          disabled={busy === key}
+                          onClick={() => void toggle(property, m.slug)}
+                          title={enabled ? `Disable ${m.label} for ${property.name}` : `Enable ${m.label} for ${property.name}`}
+                          style={{ border: "none", background: "transparent", cursor: busy === key ? "wait" : "pointer", padding: 4 }}
+                        >
+                          <Chip
+                            size="small"
+                            label={busy === key ? "…" : enabled ? "On" : "Off"}
+                            color={enabled ? "success" : "default"}
+                            variant={enabled ? "filled" : "outlined"}
+                          />
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Panel>
+  );
+}

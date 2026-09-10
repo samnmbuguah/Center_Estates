@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch } from "@/lib/api";
 
@@ -17,6 +18,7 @@ interface PropertyContextType {
   properties: PropertyContextValue[];
   loadingProperties: boolean;
   propertyContextReady: boolean;
+  activeModule: string;
   selectProperty: (p: PropertyContextValue | null) => void;
 }
 
@@ -25,19 +27,44 @@ const PropertyContext = createContext<PropertyContextType>({
   properties: [],
   loadingProperties: false,
   propertyContextReady: false,
+  activeModule: "",
   selectProperty: () => {},
 });
 
 const STORAGE_KEY = "ce-active-property";
 
+const MODULE_BY_PATH: Array<[string, string]> = [
+  ["/property", "property"],
+  ["/facility", "facility"],
+  ["/facility-portal", "facility"],
+  ["/caretaker-portal", "facility"],
+  ["/sales", "sales"],
+  ["/buyer-portal", "sales"],
+  ["/agent-portal", "sales"],
+  ["/monitoring", "monitoring"],
+  ["/tender", "tender"],
+  ["/valuation", "valuation"],
+];
+
+function moduleFromPathname(pathname: string): string {
+  const match = MODULE_BY_PATH.find(
+    ([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+  return match ? match[1] : "";
+}
+
 export function PropertyWorkspaceProvider({ children }: { children: ReactNode }) {
   const { session } = useAuth();
+  const pathname = usePathname();
   const [activeProperty, setActiveProperty] = useState<PropertyContextValue | null>(null);
   const [properties, setProperties] = useState<PropertyContextValue[]>([]);
   const [loadingProperties, setLoadingProperties] = useState(false);
   const [propertyContextReady, setPropertyContextReady] = useState(false);
   const organizationId = session?.activeOrganizationId ?? null;
-  const needsPropertyContext = Boolean(session?.modules.some((module) => module.slug === "property" || module.slug === "facility"));
+  const activeModule = moduleFromPathname(pathname);
+  const needsPropertyContext = Boolean(session?.modules.some((module) =>
+    ["property", "facility", "sales", "monitoring", "tender", "valuation"].includes(module.slug),
+  ));
   const storageKey = organizationId ? `${STORAGE_KEY}:${organizationId}` : STORAGE_KEY;
 
   // Hydrate the last property for this organization after mount.
@@ -66,7 +93,10 @@ export function PropertyWorkspaceProvider({ children }: { children: ReactNode })
     let cancelled = false;
     setPropertyContextReady(false);
     setLoadingProperties(true);
-    apiFetch("/property/properties/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId)
+    const propertiesUrl = activeModule
+      ? `/property/properties/?module=${encodeURIComponent(activeModule)}`
+      : "/property/properties/";
+    apiFetch(propertiesUrl, { headers: { "X-Property-Scope": "portfolio" } }, organizationId)
       .then(async (response) => response.ok ? response.json() : [])
       .then((data) => {
         if (cancelled) return;
@@ -98,7 +128,7 @@ export function PropertyWorkspaceProvider({ children }: { children: ReactNode })
         }
       });
     return () => { cancelled = true; };
-  }, [needsPropertyContext, organizationId, storageKey]);
+  }, [needsPropertyContext, organizationId, storageKey, activeModule]);
 
   const selectProperty = useCallback((p: PropertyContextValue | null) => {
     setActiveProperty(p);
@@ -110,7 +140,7 @@ export function PropertyWorkspaceProvider({ children }: { children: ReactNode })
     }
   }, [storageKey]);
 
-  return <PropertyContext.Provider value={{ activeProperty, properties, loadingProperties, propertyContextReady, selectProperty }}>{children}</PropertyContext.Provider>;
+  return <PropertyContext.Provider value={{ activeProperty, properties, loadingProperties, propertyContextReady, activeModule, selectProperty }}>{children}</PropertyContext.Provider>;
 }
 
 export function usePropertyContext() {
