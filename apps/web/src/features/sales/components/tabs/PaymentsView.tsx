@@ -28,6 +28,7 @@ export function PaymentsView({
   openPaymentAction: (row: Row) => void;
 }) {
   const verifiedTotal = sumBy(rows, "amount", ["verified", "partial"]);
+  const pending = rows.filter((r) => String(r.status ?? "") === "pending");
 
   return (
     <>
@@ -37,6 +38,30 @@ export function PaymentsView({
         <KpiCard icon="✖️" iconBg="#fee2e2" iconColor="#b91c1c" label="Rejected" value={number.format(countBy(rows, ["rejected"]))} sub="Needs resubmission" onClick={() => setStatus(status === "rejected" ? "" : "rejected")} />
         <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Total Collected" value={fmtMoney(verifiedTotal)} sub="Verified amount" />
       </KpiStrip>
+
+      {pending.length > 0 && (
+        <Panel title="Verification Queue" badge={pending.length}>
+          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+            {pending.map((r) => (
+              <article key={String(r.id)} style={{ border: "1px solid var(--border)", borderLeft: "3px solid #d97706", borderRadius: 10, padding: 12, background: "var(--surface)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                  <strong style={{ fontSize: 13 }}>{String(r.buyer_name ?? "—")}</strong>
+                  <RefText value={r.reference} />
+                </div>
+                <div style={{ fontSize: 11, color: "var(--muted)", margin: "4px 0 8px" }}>
+                  {String(r.sale_reference ?? "—")} · {String(r.method ?? "—")}
+                </div>
+                <div className="mono" style={{ fontSize: 15, fontWeight: 800 }}>{fmtMoney(r.amount)}</div>
+                <div className="mono" style={{ fontSize: 11, color: "var(--muted)", margin: "4px 0 10px" }}>{String(r.external_reference ?? "—")} · {fmtDate(r.paid_on)}</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button className="btn primary sm" style={{ flex: 1, justifyContent: "center" }} onClick={() => openPaymentAction(r)}>Verify</button>
+                  <button className="btn ghost sm" style={{ flex: 1, justifyContent: "center" }} onClick={() => openPaymentAction(r)}>Reject</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       <Panel title="Payments & Verification" badge={rows.length}>
         <TableChrome

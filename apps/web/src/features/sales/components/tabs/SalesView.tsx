@@ -16,6 +16,14 @@ function toneForSale(s: string): Tone {
   return "gray";
 }
 
+const PIPELINE_STAGES: { key: string; label: string; color: string }[] = [
+  { key: "draft", label: "Draft", color: "#64748b" },
+  { key: "reserved", label: "Reserved", color: "#d97706" },
+  { key: "contracted", label: "Contracted", color: "#2563eb" },
+  { key: "completed", label: "Completed", color: "#16a34a" },
+  { key: "cancelled", label: "Cancelled", color: "#b91c1c" },
+];
+
 export function SalesView({
   rows,
   search,
@@ -37,12 +45,21 @@ export function SalesView({
 }) {
   const [selected, setSelected] = useState<Row | null>(null);
   const [agreementRow, setAgreementRow] = useState<Row | null>(null);
+  const [viewMode, setViewMode] = useState<"board" | "table">("board");
   const pipelineValue = sumBy(rows, "agreed_price", ["draft", "reserved", "contracted"]);
   const pipelineDeals = countBy(rows, ["draft", "reserved", "contracted"]);
 
   if (agreementRow) {
     return <SaleAgreementView sale={agreementRow} onBack={() => setAgreementRow(null)} />;
   }
+
+  const viewToggle = (
+    <div className="row" style={{ gap: 6 }}>
+      <button className={`btn sm ${viewMode === "board" ? "primary" : "ghost"}`} onClick={() => setViewMode("board")}>Board</button>
+      <button className={`btn sm ${viewMode === "table" ? "primary" : "ghost"}`} onClick={() => setViewMode("table")}>Table</button>
+      {canSell ? <button className="btn primary sm" onClick={openNewSale}>+ New Sale</button> : null}
+    </div>
+  );
 
   return (
     <>
@@ -60,10 +77,67 @@ export function SalesView({
           setSearch={setSearch}
           placeholder="Search sale ref, buyer, unit…"
           chips={<FilterChips options={[{ value: "draft", label: "Draft" }, { value: "reserved", label: "Reserved" }, { value: "contracted", label: "Contracted" }, { value: "completed", label: "Completed" }, { value: "cancelled", label: "Cancelled" }]} value={status as "draft" | "reserved" | "contracted" | "completed" | "cancelled" | ""} onChange={(v) => setStatus(v)} />}
-          actions={canSell ? <button className="btn primary sm" onClick={openNewSale}>+ New Sale</button> : null}
+          actions={viewToggle}
         >
           {rows.length === 0 ? (
             <EmptyState icon="📋" title="No sales recorded" description="Register a sale to attach a buyer, unit and installment plan." action={canSell ? <button className="btn primary sm" onClick={openNewSale}>+ New Sale</button> : undefined} />
+          ) : viewMode === "board" ? (
+            <div className="kanban-scroll" style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, alignItems: "flex-start" }}>
+              {PIPELINE_STAGES.map((stage) => {
+                const items = rows.filter((r) => String(r.status ?? "") === stage.key);
+                const stageValue = items.reduce((s, r) => s + Number(r.agreed_price ?? 0), 0);
+                return (
+                  <div key={stage.key} style={{ minWidth: 264, flex: "0 0 264px", background: "var(--surface-2, #f8fafc)", border: "1px solid var(--border)", borderRadius: 12, padding: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12 }}>
+                        <i style={{ width: 8, height: 8, borderRadius: "50%", background: stage.color, display: "inline-block" }} />
+                        {stage.label}
+                        <span style={{ color: "var(--muted)", fontWeight: 600 }}>{items.length}</span>
+                      </span>
+                    </div>
+                    <div className="mono" style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>{fmtMoney(stageValue)}</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {items.length === 0 ? (
+                        <div style={{ fontSize: 11, color: "var(--muted)", padding: "10px 4px", textAlign: "center", border: "1px dashed var(--border)", borderRadius: 8 }}>No deals</div>
+                      ) : items.map((r) => {
+                        const price = Number(r.agreed_price ?? 0);
+                        const paid = Number(r.paid_amount ?? 0);
+                        const pct = price ? Math.min(100, Math.round((paid / price) * 100)) : 0;
+                        return (
+                          <article
+                            key={String(r.id)}
+                            onClick={() => setAgreementRow(r)}
+                            style={{ background: "var(--surface, #fff)", border: "1px solid var(--border)", borderLeft: `3px solid ${stage.color}`, borderRadius: 10, padding: 10, cursor: "pointer" }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+                              <strong style={{ fontSize: 12 }}>{String(r.buyer_name ?? "—")}</strong>
+                              <RefText value={r.reference} />
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--muted)", margin: "4px 0 6px" }}>
+                              {String(r.project_name ?? "—")}{r.unit_code ? ` · ${String(r.unit_code)}` : ""}
+                            </div>
+                            <div className="mono" style={{ fontSize: 12, fontWeight: 700 }}>{fmtMoney(price)}</div>
+                            <div style={{ background: "var(--surface-sunken, #eef2f7)", borderRadius: 99, height: 6, margin: "8px 0 4px", overflow: "hidden" }}>
+                              <i style={{ display: "block", height: "100%", width: `${pct}%`, background: stage.color }} />
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--muted)" }}>
+                              <span>{pct}% paid</span>
+                              <span>{fmtMoney(price - paid)} balance</span>
+                            </div>
+                            {canSell && (
+                              <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
+                                <button className="btn ghost sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={(e) => { e.stopPropagation(); setAgreementRow(r); }}>Agreement</button>
+                                <button className="btn ghost sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={(e) => { e.stopPropagation(); transitionSale(r); }}>Move</button>
+                              </div>
+                            )}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             <DataTable headers={["Sale Ref", "Buyer", "Project / Unit", "Price", "Paid", "Balance", "Plan", "Status", "Date", "Actions"]}>
               {rows.map((r) => {
