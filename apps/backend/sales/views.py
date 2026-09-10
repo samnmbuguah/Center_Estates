@@ -162,6 +162,57 @@ class BuyerViewSet(SalesModelViewSet):
         buyer.save(update_fields=('status', 'confirmed_at', 'updated_at'))
         return Response(self.get_serializer(buyer).data)
 
+    @extend_schema(request=None, responses={200: {"type": "object"}})
+    @action(detail=True, methods=('get',), url_path='profile')
+    def profile(self, request, pk=None):
+        """Aggregated 360° view of a buyer: sales, plan, payments, documents, visits."""
+        buyer = self.get_object()
+        organization = get_active_organization(request)
+        sales = PropertySale.objects.for_organization(organization).filter(
+            buyer=buyer,
+        ).select_related('listing__unit', 'listing__project', 'agent').prefetch_related('payments').order_by('-created_at')
+        installments = Installment.objects.for_organization(organization).filter(
+            sale__buyer=buyer,
+        ).select_related('sale').order_by('due_on')
+        payments = SalePayment.objects.for_organization(organization).filter(
+            sale__buyer=buyer,
+        ).select_related('sale', 'installment').order_by('-paid_on')
+        documents = SaleDocument.objects.for_organization(organization).filter(
+            sale__buyer=buyer,
+        ).select_related('sale').order_by('document_type', 'title')
+        visits = SiteVisit.objects.for_organization(organization).filter(
+            converted_buyer=buyer,
+        ).select_related('project').order_by('-visited_at')
+
+        today = timezone.localdate()
+        active_sales = [s for s in sales if s.status != PropertySale.Status.CANCELLED]
+        total_value = sum((s.agreed_price for s in active_sales), Decimal('0'))
+        verified_paid = sum(
+            (p.amount for p in payments if p.status == SalePayment.Status.VERIFIED), Decimal('0'),
+        )
+        overdue = [i for i in installments if i.status != Installment.Status.PAID and i.due_on < today]
+        overdue_amount = sum((i.amount - i.paid_amount for i in overdue), Decimal('0'))
+        next_due = next((i for i in installments if i.status not in (Installment.Status.PAID,)), None)
+        return Response({
+            'buyer': BuyerSerializer(buyer).data,
+            'sales': PropertySaleSerializer(sales, many=True, context={'request': request}).data,
+            'installments': InstallmentSerializer(installments, many=True).data,
+            'payments': SalePaymentSerializer(payments, many=True).data,
+            'documents': SaleDocumentSerializer(documents, many=True).data,
+            'visits': SiteVisitSerializer(visits, many=True).data,
+            'summary': {
+                'activeSales': len(active_sales),
+                'totalValue': total_value,
+                'verifiedPaid': verified_paid,
+                'outstanding': max(total_value - verified_paid, Decimal('0')),
+                'overdueCount': len(overdue),
+                'overdueAmount': overdue_amount,
+                'nextDueOn': next_due.due_on if next_due else None,
+                'nextDueAmount': (next_due.amount - next_due.paid_amount) if next_due else Decimal('0'),
+                'collectionRate': round(float(verified_paid / total_value * 100), 1) if total_value else 0.0,
+            },
+        })
+
 
 class SaleViewSet(SalesModelViewSet):
     write_permission = 'sales.selling'
@@ -252,6 +303,74 @@ class InstallmentViewSet(SalesModelViewSet):
         if serializer.instance.paid_amount > 0:
             raise ValidationError({'installment': 'An installment with allocations cannot be edited.'})
         super().perform_update(serializer)
+
+    @extend_schema(request=None, responses={200: {"type": "object"}})
+    @action(detail=False, methods=('get',), url_path='aging')
+    def aging(self, request):
+        """Collections cockpit: aging buckets, expected vs collected, top exposures."""
+        organization = get_active_organization(request)
+        today = timezone.localdate()
+        installments = list(
+            scope_model_queryset(Installment, request, organization)
+            .select_related('sale__buyer', 'sale__listing__project')
+        )
+        buckets = {'current': Decimal('0'), 'd1_30': Decimal('0'), 'd31_60': Decimal('0'), 'd61_90': Decimal('0'), 'd90_plus': Decimal('0')}
+        bucket_counts = {key: 0 for key in buckets}
+        expected = Decimal('0')
+        collected = Decimal('0')
+        exposures: dict[str, dict] = {}
+
+        for inst in installments:
+            expected += inst.amount
+            collected += inst.paid_amount
+            balance = inst.amount - inst.paid_amount
+            if inst.status == Installment.Status.PAID or balance <= 0:
+                continue
+            days = (today - inst.due_on).days
+            if days <= 0:
+                key = 'current'
+            elif days <= 30:
+                key = 'd1_30'
+            elif days <= 60:
+                key = 'd31_60'
+            elif days <= 90:
+                key = 'd61_90'
+            else:
+                key = 'd90_plus'
+            buckets[key] += balance
+            bucket_counts[key] += 1
+            if days > 0:
+                sale = inst.sale
+                row = exposures.setdefault(str(sale.id), {
+                    'sale': sale.reference,
+                    'buyer': sale.buyer.full_name,
+                    'project': sale.listing.project.name if sale.listing_id and sale.listing.project_id else '',
+                    'outstanding': Decimal('0'),
+                    'oldest_days': 0,
+                })
+                row['outstanding'] += balance
+                row['oldest_days'] = max(row['oldest_days'], days)
+
+        top = sorted(exposures.values(), key=lambda r: r['outstanding'], reverse=True)[:10]
+        outstanding = expected - collected
+        return Response({
+            'asOf': today,
+            'totals': {
+                'expected': expected,
+                'collected': collected,
+                'outstanding': outstanding,
+                'overdue': sum((buckets[k] for k in ('d1_30', 'd31_60', 'd61_90', 'd90_plus')), Decimal('0')),
+                'collectionRate': round(float(collected / expected * 100), 1) if expected else 0.0,
+            },
+            'buckets': [
+                {'key': 'current', 'label': 'Not yet due', 'amount': buckets['current'], 'count': bucket_counts['current']},
+                {'key': 'd1_30', 'label': '1–30 days', 'amount': buckets['d1_30'], 'count': bucket_counts['d1_30']},
+                {'key': 'd31_60', 'label': '31–60 days', 'amount': buckets['d31_60'], 'count': bucket_counts['d31_60']},
+                {'key': 'd61_90', 'label': '61–90 days', 'amount': buckets['d61_90'], 'count': bucket_counts['d61_90']},
+                {'key': 'd90_plus', 'label': '90+ days', 'amount': buckets['d90_plus'], 'count': bucket_counts['d90_plus']},
+            ],
+            'topExposures': top,
+        })
 
 
 class PaymentViewSet(SalesModelViewSet):

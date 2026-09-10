@@ -298,6 +298,29 @@ class SalesReportingTests(SalesApiTests):
         self.assertEqual(len(rows), 1)
         self.assertGreater(int(rows[0]['Days Overdue']), 0)
 
+    def test_buyer_profile_aggregates_sales_and_payments(self):
+        response = self.client.get(f'/api/v1/sales/buyers/{self.buyer.id}/profile/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['buyer']['reference'], 'B1')
+        self.assertEqual(len(response.data['sales']), 1)
+        self.assertEqual(len(response.data['installments']), 1)
+        self.assertIn('summary', response.data)
+        self.assertEqual(Decimal(response.data['summary']['verifiedPaid']), Decimal('1000000'))
+        self.assertEqual(Decimal(response.data['summary']['outstanding']), Decimal('8500000'))
+
+    def test_installment_aging_buckets_and_exposure(self):
+        self.installment.due_on = timezone.localdate() - timezone.timedelta(days=45)
+        self.installment.status = Installment.Status.OVERDUE
+        self.installment.save(update_fields=('due_on', 'status', 'updated_at'))
+        response = self.client.get('/api/v1/sales/installments/aging/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        buckets = {b['key']: b for b in response.data['buckets']}
+        self.assertEqual(Decimal(buckets['d31_60']['amount']), Decimal('1000000'))
+        self.assertEqual(Decimal(response.data['totals']['overdue']), Decimal('1000000'))
+        self.assertEqual(len(response.data['topExposures']), 1)
+        self.assertEqual(response.data['topExposures'][0]['sale'], 'S1')
+        self.assertGreaterEqual(int(response.data['topExposures'][0]['oldest_days']), 45)
+
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class SalesListingRenderTests(SalesApiTests):
