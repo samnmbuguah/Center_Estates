@@ -91,7 +91,7 @@ export function FacilityWorkOrdersView({
           onSearch={setSearch}
           placeholder="Search work order number, title, or facility…"
         >
-          <div style={{ display: "inline-flex", borderRadius: 8, border: "1px solid #cbd5e1", overflow: "hidden", background: "#f8fafc", marginRight: 8 }}>
+          <div style={{ display: "inline-flex", borderRadius: 8, border: "1px solid var(--color-slate-300)", overflow: "hidden", background: "var(--color-slate-50)", marginRight: 8 }}>
             <button
               type="button"
               onClick={() => setViewMode("table")}
@@ -100,8 +100,8 @@ export function FacilityWorkOrdersView({
                 fontSize: 12,
                 fontWeight: 800,
                 border: 0,
-                background: viewMode === "table" ? "#0f172a" : "transparent",
-                color: viewMode === "table" ? "#ffffff" : "#475569",
+                background: viewMode === "table" ? "var(--color-slate-900)" : "transparent",
+                color: viewMode === "table" ? "#ffffff" : "var(--color-slate-600)",
                 cursor: "pointer",
               }}
             >
@@ -115,8 +115,8 @@ export function FacilityWorkOrdersView({
                 fontSize: 12,
                 fontWeight: 800,
                 border: 0,
-                background: viewMode === "kanban" ? "#0f172a" : "transparent",
-                color: viewMode === "kanban" ? "#ffffff" : "#475569",
+                background: viewMode === "kanban" ? "var(--color-slate-900)" : "transparent",
+                color: viewMode === "kanban" ? "#ffffff" : "var(--color-slate-600)",
                 cursor: "pointer",
               }}
             >

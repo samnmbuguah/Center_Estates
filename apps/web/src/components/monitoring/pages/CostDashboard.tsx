@@ -17,11 +17,11 @@ const money = (v: unknown) =>
   "KES " + Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const STATE_COLORS: Record<string, string> = {
-  budgeted: "#94a3b8",
-  ascertained: "#8b5cf6",
-  committed: "#3b82f6",
-  certified: "#22c55e",
-  paid: "#059669",
+  budgeted: "var(--color-slate-400)",
+  ascertained: "var(--color-violet-strong)",
+  committed: "var(--color-blue)",
+  certified: "var(--color-green)",
+  paid: "var(--color-emerald-strong)",
 };
 
 function CashFlowTab({ id }: { id: string }) {
@@ -87,8 +87,8 @@ function CashFlowTab({ id }: { id: string }) {
           <SimpleBarChart
             data={chartData}
             bars={[
-              { key: "Planned", color: "var(--accent, #2563eb)" },
-              { key: "Actual", color: "var(--success, #16a34a)" },
+              { key: "Planned", color: "var(--accent, var(--color-info))" },
+              { key: "Actual", color: "var(--success, var(--color-success))" },
             ]}
             height={250}
           />
@@ -193,7 +193,7 @@ export function CostDashboard() {
         </div>
       </div>
 
-      <div className="row gap-sm mb-md" style={{ borderBottom: "1px solid var(--border, #334155)", paddingBottom: 4 }}>
+      <div className="row gap-sm mb-md" style={{ borderBottom: "1px solid var(--border, var(--color-slate-700))", paddingBottom: 4 }}>
         <button
           className={`btn sm ghost ${tab === "overview" ? "" : ""}`}
           style={tab === "overview" ? { borderBottom: "2px solid var(--accent)" } : {}}
@@ -234,7 +234,7 @@ export function CostDashboard() {
                 label: state.charAt(0).toUpperCase() + state.slice(1),
                 value: Number(info.total) / 1_000_000,
                 count: info.count,
-                color: STATE_COLORS[state] || "#94a3b8",
+                color: STATE_COLORS[state] || "var(--color-slate-400)",
               })).filter((d) => d.value > 0 || d.count > 0) : [];
               const rows = [
                 { label: "Tender Amount", value: data.tender_amount },
@@ -289,13 +289,13 @@ export function CostDashboard() {
                   <div className="grid-2 mb-md">
                     <div className="card">
                       <h3 className="mt-0">Planned vs Actual (KES millions)</h3>
-                      <SimpleBarChart data={chartData} bars={[{ key: "value", color: "var(--accent, #2563eb)" }]} />
+                      <SimpleBarChart data={chartData} bars={[{ key: "value", color: "var(--accent, var(--color-info))" }]} />
                     </div>
                     <div className="card">
                       <h3 className="mt-0">Burn Rate</h3>
                       <p className="muted">{burnPercent}% of budget utilised</p>
-                      <div className="mt-sm" style={{ background: "var(--surface-2, #1e293b)", borderRadius: 8, height: 24, overflow: "hidden" }}>
-                        <div style={{ width: `${Math.min(burnPercent, 100)}%`, height: "100%", background: costVariance > 0 ? "var(--danger, #dc2626)" : "var(--success, #16a34a)", borderRadius: 8, transition: "width 0.5s" }} />
+                      <div className="mt-sm" style={{ background: "var(--surface-2, var(--color-slate-800))", borderRadius: 8, height: 24, overflow: "hidden" }}>
+                        <div style={{ width: `${Math.min(burnPercent, 100)}%`, height: "100%", background: costVariance > 0 ? "var(--danger, var(--color-danger))" : "var(--success, var(--color-success))", borderRadius: 8, transition: "width 0.5s" }} />
                       </div>
                       <div className="flex-between mt-sm fs-sm">
                         <span>0%</span>

@@ -271,7 +271,7 @@ export default function ChatPage() {
                 </div>
                 {conv && conv.unread > 0 && (
                   <div style={{
-                    background: "#d92d2d", color: "#fff", borderRadius: 10,
+                    background: "var(--color-danger)", color: "#fff", borderRadius: 10,
                     padding: "1px 7px", fontSize: 11, fontWeight: 600,
                   }}>
                     {conv.unread}
@@ -368,7 +368,7 @@ export default function ChatPage() {
                 <Send size={16} /> Send
               </button>
             </div>
-            {error && <div style={{ padding: "4px 16px", fontSize: 13, color: "#d92d2d" }}>{error}</div>}
+            {error && <div style={{ padding: "4px 16px", fontSize: 13, color: "var(--color-danger)" }}>{error}</div>}
           </>
         ) : (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1, color: "var(--muted)", flexDirection: "column", gap: 12 }}>

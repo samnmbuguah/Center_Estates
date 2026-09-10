@@ -39,10 +39,10 @@ export function TeamMatrixView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="👥" iconBg="#e0e7ff" iconColor="#4f46e5" label="Team Members" value={number.format(totalMembers)} sub="Organization users" />
-        <KpiCard icon="🛡️" iconBg="#fef3c7" iconColor="#92400e" label="Super Admins" value={number.format(adminCount)} sub="Full portfolio access" />
-        <KpiCard icon="💼" iconBg="#e0f2fe" iconColor="#0284c7" label="Operational Staff" value={number.format(staffCount)} sub="Property-assigned staff" />
-        <KpiCard icon="🏢" iconBg="#dcfce7" iconColor="#16a34a" label="Active Status" value={number.format(members.filter((m) => m.status === "active").length)} sub="Ready for task delegation" />
+        <KpiCard icon="👥" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Team Members" value={number.format(totalMembers)} sub="Organization users" />
+        <KpiCard icon="🛡️" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Super Admins" value={number.format(adminCount)} sub="Full portfolio access" />
+        <KpiCard icon="💼" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky)" label="Operational Staff" value={number.format(staffCount)} sub="Property-assigned staff" />
+        <KpiCard icon="🏢" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Active Status" value={number.format(members.filter((m) => m.status === "active").length)} sub="Ready for task delegation" />
       </KpiStrip>
 
       <Panel
@@ -97,7 +97,7 @@ export function TeamMatrixView({
                             height: 32,
                             minWidth: 32,
                             borderRadius: "50%",
-                            background: m.is_organization_admin ? "linear-gradient(135deg, #d92d2d, #b91c1c)" : "linear-gradient(135deg, #4f46e5, #3730a3)",
+                            background: m.is_organization_admin ? "linear-gradient(135deg, var(--color-danger), var(--color-danger-strong))" : "linear-gradient(135deg, var(--color-indigo), #3730a3)",
                             color: "#fff",
                             display: "flex",
                             alignItems: "center",
@@ -115,7 +115,7 @@ export function TeamMatrixView({
                               @{m.username}
                             </span>
                             {m.is_organization_admin && (
-                              <span style={{ fontSize: 10, fontWeight: 700, background: "#fef3c7", color: "#92400e", padding: "1px 6px", borderRadius: 10 }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, background: "var(--color-amber-bg)", color: "var(--color-amber-strong)", padding: "1px 6px", borderRadius: 10 }}>
                                 Super Admin
                               </span>
                             )}
@@ -139,7 +139,7 @@ export function TeamMatrixView({
                     <td style={{ verticalAlign: "top" }}>
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                         {m.is_organization_admin ? (
-                          <span style={{ fontSize: 11, padding: "2px 8px", background: "#e0f2fe", color: "#0369a1", borderRadius: 4, fontWeight: 600, border: "1px solid #bae6fd" }}>
+                          <span style={{ fontSize: 11, padding: "2px 8px", background: "var(--color-sky-bg)", color: "var(--color-sky-deep)", borderRadius: 4, fontWeight: 600, border: "1px solid #bae6fd" }}>
                             🌐 All Properties (Portfolio)
                           </span>
                         ) : m.assigned_properties?.length > 0 ? (
@@ -149,7 +149,7 @@ export function TeamMatrixView({
                             </span>
                           ))
                         ) : m.roles?.some((r) => r.slug === "property-manager" || r.name.toLowerCase().includes("property manager")) ? (
-                          <span style={{ fontSize: 11, padding: "2px 8px", background: "#fef3c7", color: "#92400e", borderRadius: 4, fontWeight: 700, border: "1px solid #fde68a" }}>
+                          <span style={{ fontSize: 11, padding: "2px 8px", background: "var(--color-amber-bg)", color: "var(--color-amber-strong)", borderRadius: 4, fontWeight: 700, border: "1px solid var(--color-amber-200)" }}>
                             🔒 Self-Created Only (0 Assigned)
                           </span>
                         ) : (
@@ -187,7 +187,7 @@ export function TeamMatrixView({
                 width: 44,
                 height: 44,
                 borderRadius: "50%",
-                background: selectedMember.is_organization_admin ? "#ea580c" : "#4f46e5",
+                background: selectedMember.is_organization_admin ? "var(--color-orange)" : "var(--color-indigo)",
                 color: "#fff",
                 display: "flex",
                 alignItems: "center",

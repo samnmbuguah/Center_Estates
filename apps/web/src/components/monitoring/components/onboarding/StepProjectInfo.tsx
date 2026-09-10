@@ -29,7 +29,7 @@ function FieldLabel({ label, required, tip }: { label: string; required?: boolea
   return (
     <label style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 5, fontSize: 13, fontWeight: 600, color: "var(--text)" }}>
       {label}
-      {required && <span style={{ color: "#ef4444", fontWeight: 700 }}> *</span>}
+      {required && <span style={{ color: "var(--color-danger)", fontWeight: 700 }}> *</span>}
       {tip && (
         <span title={tip} style={{ color: "var(--muted)", cursor: "help", display: "inline-flex" }}>
           <Info size={13} />
@@ -251,7 +251,7 @@ export function StepProjectInfo({
                     value={plannedCompletionDate || (project?.planned_completion_date ? project.planned_completion_date.split("T")[0] : "")}
                     onChange={e => setPlannedCompletionDate(e.target.value)}
                   />
-                  {dateError && <div style={{ color: "#ef4444", fontSize: 12, marginTop: 4 }}>{dateError}</div>}
+                  {dateError && <div style={{ color: "var(--color-danger)", fontSize: 12, marginTop: 4 }}>{dateError}</div>}
                 </div>
               </div>
             </div>

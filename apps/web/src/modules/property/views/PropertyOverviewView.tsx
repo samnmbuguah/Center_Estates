@@ -20,8 +20,8 @@ export function PropertyOverviewView({
       <KpiStrip>
         <KpiCard
           icon="🏢"
-          iconBg="#dbeafe"
-          iconColor="#2563eb"
+          iconBg="var(--color-blue-bg)"
+          iconColor="var(--color-info)"
           label="Total Properties"
           value={String(kpis.total_properties ?? 0)}
           sub={`${kpis.total_units ?? 0} total units`}
@@ -30,8 +30,8 @@ export function PropertyOverviewView({
         />
         <KpiCard
           icon="👥"
-          iconBg="#dcfce7"
-          iconColor="#16a34a"
+          iconBg="var(--color-green-bg)"
+          iconColor="var(--color-success)"
           label="Occupancy Rate"
           value={`${kpis.occupancy_rate ?? 0}%`}
           sub={`${kpis.occupied_units ?? 0} occupied / ${kpis.vacant_units ?? 0} vacant`}
@@ -40,8 +40,8 @@ export function PropertyOverviewView({
         />
         <KpiCard
           icon="💰"
-          iconBg="#fef3c7"
-          iconColor="#d97706"
+          iconBg="var(--color-amber-bg)"
+          iconColor="var(--color-warning)"
           label="Monthly Rent Roll"
           value={money.format(kpis.monthly_rent ?? 0)}
           sub="Contracted monthly rent"
@@ -50,8 +50,8 @@ export function PropertyOverviewView({
         />
         <KpiCard
           icon="⚠️"
-          iconBg="#fee2e2"
-          iconColor="#dc2626"
+          iconBg="var(--color-red-bg)"
+          iconColor="var(--color-danger)"
           label="Outstanding Arrears"
           value={money.format(kpis.outstanding_rent ?? 0)}
           sub={`Collection rate: ${kpis.collection_rate ?? 0}%`}

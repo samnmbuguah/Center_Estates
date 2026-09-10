@@ -121,11 +121,11 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
       </div>
       {/* Top Building KPI Strip */}
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Gross Floor Area (GFA)" value={`${gfa.toLocaleString()} m²`} sub="Total measured envelope" />
-        <FcKpiCard icon="🚪" iconBg="#dcfce7" iconColor="#16a34a" label="Lettable / Net Area" value={`${lettableArea.toLocaleString()} m²`} sub={`${lettableAreaPct}% of Gross Area`} />
-        <FcKpiCard icon="👥" iconBg="#fef3c7" iconColor="#d97706" label="Common Area %" value={`${commonAreaPct}%`} sub={`${commonArea.toLocaleString()} m² Circulation`} />
-        <FcKpiCard icon="📊" iconBg="#dbeafe" iconColor="#2563eb" label="Occupancy Rate" value={`${occupancyPct}%`} sub={`${occupiedArea.toLocaleString()} m² Leased`} />
-        <FcKpiCard icon="⚡" iconBg="#fdf4ff" iconColor="#9333ea" label="Building Efficiency" value={gfa ? `${lettableAreaPct}%` : "—"} sub="Lettable / GFA ratio" />
+        <FcKpiCard icon="🏢" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Gross Floor Area (GFA)" value={`${gfa.toLocaleString()} m²`} sub="Total measured envelope" />
+        <FcKpiCard icon="🚪" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Lettable / Net Area" value={`${lettableArea.toLocaleString()} m²`} sub={`${lettableAreaPct}% of Gross Area`} />
+        <FcKpiCard icon="👥" iconBg="var(--color-amber-bg)" iconColor="var(--color-warning)" label="Common Area %" value={`${commonAreaPct}%`} sub={`${commonArea.toLocaleString()} m² Circulation`} />
+        <FcKpiCard icon="📊" iconBg="var(--color-blue-bg)" iconColor="var(--color-info)" label="Occupancy Rate" value={`${occupancyPct}%`} sub={`${occupiedArea.toLocaleString()} m² Leased`} />
+        <FcKpiCard icon="⚡" iconBg="#fdf4ff" iconColor="var(--color-purple)" label="Building Efficiency" value={gfa ? `${lettableAreaPct}%` : "—"} sub="Lettable / GFA ratio" />
       </div>
 
       {/* Building Header Card & Specifications */}
@@ -178,7 +178,7 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
             </div>
             <div>
               <span style={{ color: "var(--text-secondary)", display: "block" }}>Emergency Contact Desk</span>
-              <strong style={{ color: "#dc2626" }}>{String(currentBuilding.emergency_contact ?? "Not recorded")}</strong>
+              <strong style={{ color: "var(--color-danger)" }}>{String(currentBuilding.emergency_contact ?? "Not recorded")}</strong>
             </div>
           </div>
 
@@ -211,7 +211,7 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
                 <span>- Common Area (Lobbies, Stairs, M&E)</span>
                 <span>{commonArea.toLocaleString()} m² ({commonAreaPct}%)</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--border)", fontWeight: 800, color: "#16a34a" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--border)", fontWeight: 800, color: "var(--color-success)" }}>
                 <span>= Lettable / Net Rentable Area</span>
                 <span>{lettableArea.toLocaleString()} m² ({lettableAreaPct}%)</span>
               </div>
@@ -222,7 +222,7 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
                 <strong style={{ display: "block", color: "var(--text-primary)" }}>Current Occupied Lettable Area</strong>
                 <small style={{ color: "var(--text-secondary)" }}>{occupiedArea.toLocaleString()} m² under active tenant leases</small>
               </div>
-              <div style={{ fontSize: "1.2rem", fontWeight: 900, color: "#2563eb" }}>
+              <div style={{ fontSize: "1.2rem", fontWeight: 900, color: "var(--color-info)" }}>
                 {occupancyPct}%
               </div>
             </div>
@@ -402,7 +402,7 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
                     top: tag.y,
                     width: tag.w,
                     height: tag.h,
-                    background: isHovered ? `${tag.color}35` : `${tag.color}18`,
+                    background: isHovered ? `color-mix(in srgb, ${tag.color} 21%, transparent)` : `color-mix(in srgb, ${tag.color} 9%, transparent)`,
                     border: `2px solid ${tag.color}`,
                     borderRadius: 6,
                     padding: "8px",
@@ -412,7 +412,7 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
                     cursor: "pointer",
                     transition: "all 0.15s ease",
                     transform: isHovered ? "scale(1.02)" : "none",
-                    boxShadow: isHovered ? `0 8px 16px ${tag.color}40` : "0 2px 4px rgba(0,0,0,0.05)",
+                    boxShadow: isHovered ? `0 8px 16px color-mix(in srgb, ${tag.color} 25%, transparent)` : "0 2px 4px rgba(0,0,0,0.05)",
                     zIndex: isHovered ? 15 : 1,
                   }}
                 >
@@ -463,7 +463,7 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
                     {hoveredTag.tenant}
                   </span>
                 </div>
-                <span style={{ background: `${hoveredTag.color}20`, color: hoveredTag.color, padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>
+                <span style={{ background: `color-mix(in srgb, ${hoveredTag.color} 13%, transparent)`, color: hoveredTag.color, padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>
                   {hoveredTag.type}
                 </span>
               </div>
@@ -475,7 +475,7 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
                 </div>
                 <div>
                   <span style={{ color: "var(--text-secondary)" }}>Open Tickets:</span>
-                  <strong style={{ display: "#16a34a", fontWeight: 700 }}>0 active</strong>
+                  <strong style={{ display: "var(--color-success)", fontWeight: 700 }}>0 active</strong>
                 </div>
               </div>
 
@@ -513,9 +513,9 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
                     <td style={{ padding: "10px 14px", textAlign: "right" }}>{fl.gfa} m²</td>
                     <td style={{ padding: "10px 14px", textAlign: "right", color: "var(--text-secondary)" }}>{fl.common} m²</td>
                     <td style={{ padding: "10px 14px", textAlign: "right", fontWeight: 700 }}>{fl.lettable} m²</td>
-                    <td style={{ padding: "10px 14px", textAlign: "right", color: "#16a34a" }}>{fl.occupied} m²</td>
+                    <td style={{ padding: "10px 14px", textAlign: "right", color: "var(--color-success)" }}>{fl.occupied} m²</td>
                     <td style={{ padding: "10px 14px", textAlign: "center" }}>
-                      <span style={{ background: flOcc === "100" ? "#dcfce7" : flOcc === "—" ? "var(--surface-sunken)" : "#dbeafe", color: flOcc === "100" ? "#166534" : flOcc === "—" ? "var(--text-muted)" : "#1e40af", padding: "2px 6px", borderRadius: 4, fontSize: 11, fontWeight: 800 }}>
+                      <span style={{ background: flOcc === "100" ? "var(--color-green-bg)" : flOcc === "—" ? "var(--surface-sunken)" : "var(--color-blue-bg)", color: flOcc === "100" ? "var(--color-green-text)" : flOcc === "—" ? "var(--text-muted)" : "var(--color-info-deep)", padding: "2px 6px", borderRadius: 4, fontSize: 11, fontWeight: 800 }}>
                         {flOcc === "—" ? "N/A" : `${flOcc}%`}
                       </span>
                     </td>

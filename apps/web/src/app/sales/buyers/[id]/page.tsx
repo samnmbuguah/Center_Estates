@@ -79,7 +79,7 @@ export default function SingleBuyerWorkspacePage({ params }: { params: Promise<{
       eyebrow="Buyer 360°"
       title={buyerName}
       subtitle="Complete buyer account: purchase agreements, installment plan, payments, documents and site visits."
-      accent="#ea580c"
+      accent="var(--color-orange)"
       groups={salesNav}
       activeId="buyers"
       onSelect={(tabId) => {
@@ -99,11 +99,11 @@ export default function SingleBuyerWorkspacePage({ params }: { params: Promise<{
         ) : data ? (
           <>
             <KpiStrip cols={5}>
-              <KpiCard icon="🏠" iconBg="#e0e7ff" iconColor="#4f46e5" label="Active Purchases" value={String(Number(summary.activeSales ?? 0))} sub="Sale agreements" />
-              <KpiCard icon="💼" iconBg="#fff7ed" iconColor="#ea580c" label="Contract Value" value={fmtMoney(summary.totalValue)} sub="Total agreed price" />
-              <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Verified Paid" value={fmtMoney(summary.verifiedPaid)} sub={`${Number(summary.collectionRate ?? 0)}% collected`} />
-              <KpiCard icon="📉" iconBg="#fee2e2" iconColor="#b91c1c" label="Outstanding" value={fmtMoney(summary.outstanding)} sub="Uncollected balance" />
-              <KpiCard icon="⚠️" iconBg="#fef3c7" iconColor="#92400e" label="Overdue" value={fmtMoney(summary.overdueAmount)} sub={`${Number(summary.overdueCount ?? 0)} installment(s)`} />
+              <KpiCard icon="🏠" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Active Purchases" value={String(Number(summary.activeSales ?? 0))} sub="Sale agreements" />
+              <KpiCard icon="💼" iconBg="var(--color-orange-bg)" iconColor="var(--color-orange)" label="Contract Value" value={fmtMoney(summary.totalValue)} sub="Total agreed price" />
+              <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Verified Paid" value={fmtMoney(summary.verifiedPaid)} sub={`${Number(summary.collectionRate ?? 0)}% collected`} />
+              <KpiCard icon="📉" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Outstanding" value={fmtMoney(summary.outstanding)} sub="Uncollected balance" />
+              <KpiCard icon="⚠️" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Overdue" value={fmtMoney(summary.overdueAmount)} sub={`${Number(summary.overdueCount ?? 0)} installment(s)`} />
             </KpiStrip>
 
             <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -142,8 +142,8 @@ export default function SingleBuyerWorkspacePage({ params }: { params: Promise<{
                             <td className="mono" style={{ fontSize: 12 }}>{String(s.reference ?? "—")}</td>
                             <td style={{ fontSize: 12 }}>{String(s.project_name ?? "—")}{s.unit_code ? ` · ${String(s.unit_code)}` : ""}</td>
                             <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(price)}</td>
-                            <td className="mono" style={{ fontSize: 12, color: "#16a34a" }}>{fmtMoney(paid)}</td>
-                            <td className="mono" style={{ fontSize: 12, color: paid >= price ? "#16a34a" : "#b91c1c" }}>{fmtMoney(price - paid)}</td>
+                            <td className="mono" style={{ fontSize: 12, color: "var(--color-success)" }}>{fmtMoney(paid)}</td>
+                            <td className="mono" style={{ fontSize: 12, color: paid >= price ? "var(--color-success)" : "var(--color-danger-strong)" }}>{fmtMoney(price - paid)}</td>
                             <td><StatusPill value={String(s.status ?? "")} tone={toneForStatus(String(s.status ?? ""))} /></td>
                             <td style={{ fontSize: 12 }}>{fmtDate(s.contracted_on)}</td>
                           </tr>
@@ -172,8 +172,8 @@ export default function SingleBuyerWorkspacePage({ params }: { params: Promise<{
                             <td style={{ fontSize: 12 }}>{String(r.description ?? "")}</td>
                             <td style={{ fontSize: 12 }}>{fmtDate(r.due_on)}</td>
                             <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(amt)}</td>
-                            <td className="mono" style={{ fontSize: 12, color: "#16a34a" }}>{fmtMoney(paid)}</td>
-                            <td className="mono" style={{ fontSize: 12, color: paid >= amt ? "#16a34a" : "#b91c1c" }}>{fmtMoney(amt - paid)}</td>
+                            <td className="mono" style={{ fontSize: 12, color: "var(--color-success)" }}>{fmtMoney(paid)}</td>
+                            <td className="mono" style={{ fontSize: 12, color: paid >= amt ? "var(--color-success)" : "var(--color-danger-strong)" }}>{fmtMoney(amt - paid)}</td>
                             <td><StatusPill value={String(r.status ?? "")} tone={toneForStatus(String(r.status ?? ""))} /></td>
                           </tr>
                         );

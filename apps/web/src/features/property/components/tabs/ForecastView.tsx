@@ -45,15 +45,15 @@ export function ForecastView({ dashboard }: { dashboard: DashboardData | null })
             <div className="row" style={{ alignItems: "flex-end", gap: 24, height: 210, padding: "22px 24px 10px", borderBottom: "1px solid var(--border)" }}>
               {projections.map((row) => (
                 <div key={row.year} style={{ flex: 1, minWidth: 70, height: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 6 }}>
-                  <div title={`Income ${kM(row.rentalIncome)}`} style={{ width: 24, height: `${Math.max((row.rentalIncome / max) * 100, 3)}%`, background: "#16a34a", borderRadius: "5px 5px 0 0" }} />
-                  <div title={`Expenses ${kM(row.operatingExpenses)}`} style={{ width: 24, height: `${Math.max((row.operatingExpenses / max) * 100, 3)}%`, background: "#dc2626", borderRadius: "5px 5px 0 0" }} />
+                  <div title={`Income ${kM(row.rentalIncome)}`} style={{ width: 24, height: `${Math.max((row.rentalIncome / max) * 100, 3)}%`, background: "var(--color-success)", borderRadius: "5px 5px 0 0" }} />
+                  <div title={`Expenses ${kM(row.operatingExpenses)}`} style={{ width: 24, height: `${Math.max((row.operatingExpenses / max) * 100, 3)}%`, background: "var(--color-danger)", borderRadius: "5px 5px 0 0" }} />
                   <span className="muted" style={{ position: "absolute", transform: "translateY(22px)", fontSize: 11 }}>{row.year}</span>
                 </div>
               ))}
             </div>
             <div style={{ padding: "14px 20px", fontSize: 12, display: "flex", gap: 20 }}>
-              <span><i style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: "#16a34a", marginRight: 6 }} />Rental income</span>
-              <span><i style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: "#dc2626", marginRight: 6 }} />Operating expenses</span>
+              <span><i style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: "var(--color-success)", marginRight: 6 }} />Rental income</span>
+              <span><i style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: "var(--color-danger)", marginRight: 6 }} />Operating expenses</span>
             </div>
           </Panel>
 
@@ -66,7 +66,7 @@ export function ForecastView({ dashboard }: { dashboard: DashboardData | null })
                     <td className="mono">{row.year}</td>
                     <td className="mono">{kM(row.rentalIncome)}</td>
                     <td className="mono" style={{ color: "var(--danger)" }}>{kM(row.operatingExpenses)}</td>
-                    <td className="mono" style={{ color: row.netOperatingIncome >= 0 ? "#16a34a" : "var(--danger)", fontWeight: 800 }}>{kM(row.netOperatingIncome)}</td>
+                    <td className="mono" style={{ color: row.netOperatingIncome >= 0 ? "var(--color-success)" : "var(--danger)", fontWeight: 800 }}>{kM(row.netOperatingIncome)}</td>
                   </tr>
                 ))}</tbody>
               </table>

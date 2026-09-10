@@ -104,7 +104,7 @@ export function Panel({ title, badge, action, children, style }: { title?: React
           <h2 style={{ fontSize: 14, margin: 0, display: "flex", gap: 8, alignItems: "center" }}>
             {title}
             {badge !== undefined && (
-              <span style={{ background: "var(--error-bg, #fee2e2)", borderRadius: 99, color: "var(--error, #c02727)", fontSize: 10, fontWeight: 800, padding: "2px 8px" }}>{badge}</span>
+              <span style={{ background: "var(--error-bg, var(--color-red-bg))", borderRadius: 99, color: "var(--error, #c02727)", fontSize: 10, fontWeight: 800, padding: "2px 8px" }}>{badge}</span>
             )}
           </h2>
           {action ? <div className="panel-actions">{action}</div> : null}
@@ -276,8 +276,8 @@ export function DetailDrawer({ title, onClose, children, width = 540, centered =
                 maxHeight: "88vh",
                 overflowY: "auto",
                 background: "var(--surface, #ffffff)",
-                color: "var(--text-primary, #0f172a)",
-                border: "1px solid var(--border, #e2e8f0)",
+                color: "var(--text-primary, var(--color-slate-900))",
+                border: "1px solid var(--border, var(--color-slate-200))",
                 borderRadius: 16,
                 boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.35)",
                 display: "flex",
@@ -291,8 +291,8 @@ export function DetailDrawer({ title, onClose, children, width = 540, centered =
                 width: `min(${width}px, 92vw)`,
                 maxHeight: "100vh",
                 background: "var(--surface, #ffffff)",
-                color: "var(--text-primary, #0f172a)",
-                borderLeft: "1px solid var(--border, #e2e8f0)",
+                color: "var(--text-primary, var(--color-slate-900))",
+                borderLeft: "1px solid var(--border, var(--color-slate-200))",
                 boxShadow: "-16px 0 48px rgba(15, 23, 42, 0.25)",
                 display: "flex",
                 flexDirection: "column",
@@ -307,12 +307,12 @@ export function DetailDrawer({ title, onClose, children, width = 540, centered =
             justifyContent: "space-between",
             alignItems: "center",
             padding: "16px 20px",
-            borderBottom: "1px solid var(--border, #e2e8f0)",
+            borderBottom: "1px solid var(--border, var(--color-slate-200))",
             background: "var(--surface, #ffffff)",
             flexShrink: 0,
           }}
         >
-          <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary, #0f172a)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary, var(--color-slate-900))", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 }}>
             {title}
           </div>
           <button
@@ -321,8 +321,8 @@ export function DetailDrawer({ title, onClose, children, width = 540, centered =
             onClick={onClose}
             aria-label="Close"
             style={{
-              background: "var(--surface-2, #f1f5f9)",
-              border: "1px solid var(--border, #e2e8f0)",
+              background: "var(--surface-2, var(--color-slate-100))",
+              border: "1px solid var(--border, var(--color-slate-200))",
               borderRadius: 8,
               width: 32,
               height: 32,
@@ -330,7 +330,7 @@ export function DetailDrawer({ title, onClose, children, width = 540, centered =
               alignItems: "center",
               justifyContent: "center",
               cursor: "pointer",
-              color: "var(--text-secondary, #64748b)",
+              color: "var(--text-secondary, var(--color-slate-500))",
               fontSize: 18,
               fontWeight: 700,
               flexShrink: 0,
@@ -418,7 +418,7 @@ export function Modal({
           py: 2,
           fontSize: 17,
           fontWeight: 800,
-          borderBottom: "1px solid var(--border, #e2e8f0)",
+          borderBottom: "1px solid var(--border, var(--color-slate-200))",
           background: "var(--surface, #ffffff)",
           position: "sticky",
           top: 0,
@@ -443,8 +443,8 @@ export function Modal({
         <div
           style={{
             padding: "14px 24px",
-            borderTop: "1px solid var(--border, #e2e8f0)",
-            background: "var(--surface-2, #f8fafc)",
+            borderTop: "1px solid var(--border, var(--color-slate-200))",
+            background: "var(--surface-2, var(--color-slate-50))",
             display: "flex",
             justifyContent: "flex-end",
             gap: 12,
@@ -467,7 +467,7 @@ export function TableSkeleton({ rows = 5, cols = 4 }: { rows?: number; cols?: nu
         <thead>
           <tr>
             {Array.from({ length: cols }).map((_, c) => (
-              <th key={c} style={{ padding: "12px 14px", borderBottom: "2px solid var(--border-color, #cbd5e1)" }}>
+              <th key={c} style={{ padding: "12px 14px", borderBottom: "2px solid var(--border-color, var(--color-slate-300))" }}>
                 <div className="skeleton-shimmer" style={{ height: 14, width: "60%" }} />
               </th>
             ))}
@@ -475,7 +475,7 @@ export function TableSkeleton({ rows = 5, cols = 4 }: { rows?: number; cols?: nu
         </thead>
         <tbody>
           {Array.from({ length: rows }).map((_, r) => (
-            <tr key={r} style={{ borderBottom: "1px solid var(--border-subtle, #e2e8f0)" }}>
+            <tr key={r} style={{ borderBottom: "1px solid var(--border-subtle, var(--color-slate-200))" }}>
               {Array.from({ length: cols }).map((_, c) => (
                 <td key={c} style={{ padding: "14px" }}>
                   <div className="skeleton-shimmer" style={{ height: 14, width: c === 0 ? "80%" : "50%" }} />

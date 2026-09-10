@@ -228,7 +228,7 @@ export function ProjectWorkspace() {
             <button className="btn" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)", fontWeight: 700, minWidth: 142, justifyContent: "center", whiteSpace: "nowrap" }} onClick={() => navigate("/app/reports")}>
               <Share2 size={15} style={{ marginRight: 4 }} /> Share / Reports
             </button>
-            <button className="btn btn-primary" style={{ background: "#d92d2d", borderColor: "#d92d2d" }} onClick={() => navigate("/app/daily-logs")}>
+            <button className="btn btn-primary" style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }} onClick={() => navigate("/app/daily-logs")}>
               <Plus size={15} style={{ marginRight: 4 }} /> New Log
             </button>
           </div>
@@ -237,12 +237,12 @@ export function ProjectWorkspace() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
           <div>
             <div style={{ fontSize: 11, color: "var(--muted)" }}>Overall Physical Progress</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#00a3ff", fontFamily: "IBM Plex Mono, monospace", margin: "2px 0" }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "var(--color-brand-blue)", fontFamily: "IBM Plex Mono, monospace", margin: "2px 0" }}>
               {averageProgress != null ? pct(averageProgress) : "—"}
             </div>
             {averageProgress != null ? (
               <div style={{ width: "100%", height: 4, background: "var(--surface-3)", borderRadius: 2, overflow: "hidden" }}>
-                <div style={{ width: `${Math.min(100, averageProgress)}%`, height: "100%", background: "#00a3ff" }} />
+                <div style={{ width: `${Math.min(100, averageProgress)}%`, height: "100%", background: "var(--color-brand-blue)" }} />
               </div>
             ) : (
               <div style={{ fontSize: 11, color: "var(--muted)" }}>
@@ -278,7 +278,7 @@ export function ProjectWorkspace() {
 
           <div>
             <div style={{ fontSize: 11, color: "var(--muted)" }}>Next Milestone</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#00a3ff", margin: "2px 0" }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--color-brand-blue)", margin: "2px 0" }}>
               {nextMilestone ? milestoneTitle(nextMilestone) : milestones.length ? "All complete" : "—"}
             </div>
             <div style={{ fontSize: 11, color: "var(--muted)" }}>
@@ -300,7 +300,7 @@ export function ProjectWorkspace() {
                   Planned vs actual from reports API
                 </div>
               </div>
-              <Link to={`/app/projects/${projectId}/milestones`} style={{ fontSize: 12, color: "#00a3ff" }}>
+              <Link to={`/app/projects/${projectId}/milestones`} style={{ fontSize: 12, color: "var(--color-brand-blue)" }}>
                 Programme →
               </Link>
             </div>
@@ -314,8 +314,8 @@ export function ProjectWorkspace() {
                 <SimpleBarChart
                   data={scurveChart}
                   bars={[
-                    { key: "planned", color: "var(--steel, #94a3b8)" },
-                    { key: "actual", color: "#00a3ff" },
+                    { key: "planned", color: "var(--steel, var(--color-slate-400))" },
+                    { key: "actual", color: "var(--color-brand-blue)" },
                   ]}
                   height={240}
                 />
@@ -342,7 +342,7 @@ export function ProjectWorkspace() {
               </div>
               <div style={{ background: "var(--surface-2)", padding: 12, borderRadius: 6, textAlign: "center" }}>
                 <div style={{ fontSize: 11, color: "var(--muted)" }}>Milestones Generated</div>
-                <strong style={{ color: ingestion?.milestones_generated ? "#10b981" : "var(--muted)", fontSize: 18 }}>
+                <strong style={{ color: ingestion?.milestones_generated ? "var(--color-emerald)" : "var(--muted)", fontSize: 18 }}>
                   {ingestion ? (ingestion.milestones_generated || milestones.length > 0 ? "Yes" : "No") : "—"}
                 </strong>
               </div>
@@ -366,7 +366,7 @@ export function ProjectWorkspace() {
             <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
               MILESTONES TIMELINE
             </h4>
-            <Link to={`/app/projects/${projectId}/milestones`} style={{ fontSize: 12, color: "#00a3ff" }}>
+            <Link to={`/app/projects/${projectId}/milestones`} style={{ fontSize: 12, color: "var(--color-brand-blue)" }}>
               View all
             </Link>
           </div>
@@ -401,7 +401,7 @@ export function ProjectWorkspace() {
                         {(m.target_date || m.planned_date) ? ` · ${formatDate(m.target_date || m.planned_date)}` : ""}
                       </div>
                       <div style={{ width: "100%", height: 3, background: "var(--surface-3)", borderRadius: 2, marginTop: 4, overflow: "hidden" }}>
-                        <div style={{ width: `${Math.min(100, progress)}%`, height: "100%", background: st.tone === "success" ? "#10b981" : "#00a3ff" }} />
+                        <div style={{ width: `${Math.min(100, progress)}%`, height: "100%", background: st.tone === "success" ? "var(--color-emerald)" : "var(--color-brand-blue)" }} />
                       </div>
                     </div>
                     <StatusPill label={st.label} tone={st.tone} />

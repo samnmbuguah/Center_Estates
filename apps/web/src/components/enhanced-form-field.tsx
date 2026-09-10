@@ -119,11 +119,11 @@ export function EnhancedFormField({
   const hasProgressiveDisclosure = progressiveDisclosure ? value === progressiveDisclosure.triggerValue : false;
 
   const getStrengthColor = () => {
-    if (strength <= 1) return "#ef4444";
-    if (strength <= 2) return "#f59e0b";
+    if (strength <= 1) return "var(--color-danger)";
+    if (strength <= 2) return "var(--color-amber)";
     if (strength <= 3) return "#eab308";
-    if (strength <= 4) return "#22c55e";
-    return "#16a34a";
+    if (strength <= 4) return "var(--color-green)";
+    return "var(--color-success)";
   };
 
   const getStrengthLabel = () => {
@@ -143,7 +143,7 @@ export function EnhancedFormField({
         {tooltip && (
           <Tooltip title={tooltip} arrow>
             <IconButton size="small" sx={{ p: 0.2 }}>
-              <Info size={14} style={{ color: "#64748b" }} />
+              <Info size={14} style={{ color: "var(--color-slate-500)" }} />
             </IconButton>
           </Tooltip>
         )}
@@ -180,12 +180,12 @@ export function EnhancedFormField({
                 )}
                 {touched && !hasErrors && value && (
                   <InputAdornment position="end">
-                    <Check size={18} style={{ color: "#22c55e" }} />
+                    <Check size={18} style={{ color: "var(--color-green)" }} />
                   </InputAdornment>
                 )}
                 {touched && hasErrors && (
                   <InputAdornment position="end">
-                    <X size={18} style={{ color: "#ef4444" }} />
+                    <X size={18} style={{ color: "var(--color-danger)" }} />
                   </InputAdornment>
                 )}
               </>
@@ -195,10 +195,10 @@ export function EnhancedFormField({
         sx={{
           "& .MuiOutlinedInput-root": {
             "&:hover fieldset": {
-              borderColor: focused ? "#4f46e5" : "inherit",
+              borderColor: focused ? "var(--color-indigo)" : "inherit",
             },
             "&.Mui-focused fieldset": {
-              borderColor: hasErrors ? "#ef4444" : "#4f46e5",
+              borderColor: hasErrors ? "var(--color-danger)" : "var(--color-indigo)",
             },
           },
           ...sx,
@@ -214,7 +214,7 @@ export function EnhancedFormField({
                 flex: 1, 
                 height: 4, 
                 borderRadius: 2, 
-                bgcolor: "#e2e8f0",
+                bgcolor: "var(--color-slate-200)",
                 overflow: "hidden"
               }}
             >
@@ -258,7 +258,7 @@ export function EnhancedFormField({
       {/* Progressive Disclosure */}
       <Collapse in={hasProgressiveDisclosure}>
         <Box sx={{ mt: 2, p: 2, bgcolor: "rgba(79, 70, 229, 0.05)", borderRadius: 1.5, border: "1px solid rgba(79, 70, 229, 0.2)" }}>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: "#4f46e5", display: "block", mb: 1 }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: "var(--color-indigo)", display: "block", mb: 1 }}>
             Additional Options
           </Typography>
           {progressiveDisclosure?.additionalFields}

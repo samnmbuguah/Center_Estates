@@ -213,7 +213,7 @@ export function QuickRecordMeterModal({
     >
       <Box
         sx={{
-          background: "linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)",
+          background: "linear-gradient(135deg, var(--color-info-dark) 0%, var(--color-info) 100%)",
           color: "#fff",
           p: 2.5,
         }}
@@ -258,7 +258,7 @@ export function QuickRecordMeterModal({
               mb: 2.5,
               borderRadius: 1.5,
               background: "rgba(37,99,235,0.06)",
-              color: "#1e40af",
+              color: "var(--color-info-deep)",
               borderColor: "rgba(37,99,235,0.2)",
               fontSize: 12,
             }}
@@ -336,7 +336,7 @@ export function QuickRecordMeterModal({
                   placeholder={`e.g. ${previousReading + 25}`}
                   slotProps={{
                     input: {
-                      startAdornment: <Gauge size={16} style={{ marginRight: 8, color: "#2563eb" }} />,
+                      startAdornment: <Gauge size={16} style={{ marginRight: 8, color: "var(--color-info)" }} />,
                       endAdornment: (
                         <Typography variant="caption" sx={{ color: "var(--text-secondary)", fontWeight: 700 }}>
                           {selectedMeter?.unit || "m³"}
@@ -386,7 +386,7 @@ export function QuickRecordMeterModal({
                       <Typography variant="caption" sx={{ color: "#065f46", fontWeight: 700 }}>
                         ESTIMATED WATER CHARGE
                       </Typography>
-                      <Typography variant="h6" sx={{ fontWeight: 800, color: "#047857", fontSize: 16 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 800, color: "var(--color-emerald-deep)", fontSize: 16 }}>
                         {money.format(estimatedCost)}
                       </Typography>
                     </Box>
@@ -417,10 +417,10 @@ export function QuickRecordMeterModal({
             variant="contained"
             disabled={submitting || loading || enteredReading <= previousReading}
             sx={{
-              background: "var(--brand-primary, #2563eb)",
+              background: "var(--brand-primary, var(--color-info))",
               fontWeight: 700,
               px: 3,
-              "&:hover": { background: "#1d4ed8" },
+              "&:hover": { background: "var(--color-info-strong)" },
             }}
           >
             {submitting ? "Saving & Approving…" : "Save & Unlock Billing"}

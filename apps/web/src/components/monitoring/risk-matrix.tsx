@@ -50,23 +50,23 @@ export function RiskMatrix({ risks = DEFAULT_RISKS }: RiskMatrixProps) {
 
   const getCellColor = (l: number, i: number) => {
     const score = l * i;
-    if (score >= 15) return { bg: "#fee2e2", border: "#fca5a5", text: "#991b1b" }; // High Risk (Red)
-    if (score >= 8) return { bg: "#fef3c7", border: "#fcd34d", text: "#92400e" };  // Medium Risk (Yellow)
-    return { bg: "#dcfce7", border: "#86efac", text: "#166534" };                 // Low Risk (Green)
+    if (score >= 15) return { bg: "var(--color-red-bg)", border: "var(--color-red-300)", text: "var(--color-danger-deep)" }; // High Risk (Red)
+    if (score >= 8) return { bg: "var(--color-amber-bg)", border: "#fcd34d", text: "var(--color-amber-strong)" };  // Medium Risk (Yellow)
+    return { bg: "var(--color-green-bg)", border: "var(--color-green-300)", text: "var(--color-green-text)" };                 // Low Risk (Green)
   };
 
   return (
-    <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", padding: 16 }}>
+    <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid var(--color-slate-200)", padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#0f172a" }}>⚠️ 5x5 Visual Risk Matrix & Heatmap</h3>
-          <small style={{ color: "#64748b" }}>Click any cell to filter the active risk register below</small>
+          <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--color-slate-900)" }}>⚠️ 5x5 Visual Risk Matrix & Heatmap</h3>
+          <small style={{ color: "var(--color-slate-500)" }}>Click any cell to filter the active risk register below</small>
         </div>
 
         {selectedCell && (
           <button
             onClick={() => setSelectedCell(null)}
-            style={{ background: "#f1f5f9", color: "#475569", border: "1px solid #cbd5e1", padding: "4px 10px", borderRadius: 6, fontSize: "0.8rem", cursor: "pointer" }}
+            style={{ background: "var(--color-slate-100)", color: "var(--color-slate-600)", border: "1px solid var(--color-slate-300)", padding: "4px 10px", borderRadius: 6, fontSize: "0.8rem", cursor: "pointer" }}
           >
             Clear Matrix Filter ({selectedCell.l}L × {selectedCell.i}I)
           </button>
@@ -76,7 +76,7 @@ export function RiskMatrix({ risks = DEFAULT_RISKS }: RiskMatrixProps) {
       <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: 20 }}>
         {/* 5x5 Matrix Visual Heatmap */}
         <div>
-          <div style={{ textAlign: "center", fontSize: "0.75rem", fontWeight: "bold", color: "#64748b", marginBottom: 4 }}>
+          <div style={{ textAlign: "center", fontSize: "0.75rem", fontWeight: "bold", color: "var(--color-slate-500)", marginBottom: 4 }}>
             IMPACT $\rightarrow$ (1: Minimal to 5: Critical)
           </div>
 
@@ -127,21 +127,21 @@ export function RiskMatrix({ risks = DEFAULT_RISKS }: RiskMatrixProps) {
               })
             )}
           </div>
-          <div style={{ textAlign: "center", fontSize: "0.75rem", fontWeight: "bold", color: "#64748b", marginTop: 4 }}>
+          <div style={{ textAlign: "center", fontSize: "0.75rem", fontWeight: "bold", color: "var(--color-slate-500)", marginTop: 4 }}>
             $\uparrow$ LIKELIHOOD (1: Low to 5: High)
           </div>
         </div>
 
         {/* Filtered Risk Register List */}
         <div>
-          <h4 style={{ margin: "0 0 10px 0", fontSize: "0.95rem", color: "#0f172a" }}>
+          <h4 style={{ margin: "0 0 10px 0", fontSize: "0.95rem", color: "var(--color-slate-900)" }}>
             Risk Register {selectedCell ? `(Filtered Matrix Cell ${selectedCell.l}L × ${selectedCell.i}I)` : `(${risks.length} Total Risks)`}
           </h4>
 
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
               <thead>
-                <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+                <tr style={{ background: "var(--color-slate-50)", borderBottom: "2px solid var(--color-slate-200)" }}>
                   <th style={{ padding: 8, textAlign: "left" }}>Ref</th>
                   <th style={{ padding: 8, textAlign: "left" }}>Risk Description</th>
                   <th style={{ padding: 8, textAlign: "center" }}>L × I</th>
@@ -153,27 +153,27 @@ export function RiskMatrix({ risks = DEFAULT_RISKS }: RiskMatrixProps) {
                 {filteredRisks.map((r) => {
                   const score = r.likelihood * r.impact;
                   return (
-                    <tr key={r.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                    <tr key={r.id} style={{ borderBottom: "1px solid var(--color-slate-100)" }}>
                       <td style={{ padding: 8, fontWeight: "bold", fontFamily: "monospace" }}>{r.reference}</td>
                       <td style={{ padding: 8 }}>
                         <div style={{ fontWeight: 600 }}>{r.description}</div>
-                        <small style={{ color: "#64748b" }}>Category: {r.category} | Owner: {r.owner}</small>
+                        <small style={{ color: "var(--color-slate-500)" }}>Category: {r.category} | Owner: {r.owner}</small>
                       </td>
                       <td style={{ padding: 8, textAlign: "center" }}>
                         <span style={{
                           padding: "2px 8px", borderRadius: 4, fontWeight: "bold", fontSize: "0.75rem",
-                          background: score >= 15 ? "#fee2e2" : score >= 8 ? "#fef3c7" : "#dcfce7",
-                          color: score >= 15 ? "#991b1b" : score >= 8 ? "#92400e" : "#166534"
+                          background: score >= 15 ? "var(--color-red-bg)" : score >= 8 ? "var(--color-amber-bg)" : "var(--color-green-bg)",
+                          color: score >= 15 ? "var(--color-danger-deep)" : score >= 8 ? "var(--color-amber-strong)" : "var(--color-green-text)"
                         }}>
                           {r.likelihood}L × {r.impact}I ({score})
                         </span>
                       </td>
-                      <td style={{ padding: 8, color: "#334155", fontSize: "0.8rem" }}>{r.mitigation}</td>
+                      <td style={{ padding: 8, color: "var(--color-slate-700)", fontSize: "0.8rem" }}>{r.mitigation}</td>
                       <td style={{ padding: 8 }}>
                         <span style={{
                           padding: "2px 8px", borderRadius: 12, fontSize: "0.75rem", fontWeight: "bold",
-                          background: r.status === "open" ? "#fee2e2" : r.status === "mitigated" ? "#dbeafe" : "#f1f5f9",
-                          color: r.status === "open" ? "#dc2626" : r.status === "mitigated" ? "#2563eb" : "#64748b"
+                          background: r.status === "open" ? "var(--color-red-bg)" : r.status === "mitigated" ? "var(--color-blue-bg)" : "var(--color-slate-100)",
+                          color: r.status === "open" ? "var(--color-danger)" : r.status === "mitigated" ? "var(--color-info)" : "var(--color-slate-500)"
                         }}>
                           {r.status.toUpperCase()}
                         </span>

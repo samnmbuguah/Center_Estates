@@ -178,7 +178,7 @@ export function CommandCenterWorkspace() {
                         width: 90,
                         height: 90,
                         borderRadius: "50%",
-                        background: `${module.accent}18`,
+                        background: `color-mix(in srgb, ${module.accent} 9%, transparent)`,
                         color: module.accent,
                         display: "grid",
                         placeItems: "center",

@@ -213,7 +213,7 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
             Pre-configured default roles and custom organization roles across all 7 core platform modules.
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<Plus size={17} />} onClick={() => setCreateOpen(true)} style={{ background: "#d92d2d", borderColor: "#d92d2d" }}>
+        <Button variant="contained" startIcon={<Plus size={17} />} onClick={() => setCreateOpen(true)} style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }}>
           Create Custom Role
         </Button>
       </Box>
@@ -321,11 +321,11 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
                     {grouped.map((group) => {
                       const groupSelectedCount = group.permissions.filter((p) => selected.has(p.key)).length;
                       const isExpanded = expandedModules.has(group.module);
-                      const moduleColor = group.module === "property" ? "#4f46e5" : 
-                                        group.module === "facility" ? "#22c55e" : 
-                                        group.module === "companion" ? "#f59e0b" : 
+                      const moduleColor = group.module === "property" ? "var(--color-indigo)" : 
+                                        group.module === "facility" ? "var(--color-green)" : 
+                                        group.module === "companion" ? "var(--color-amber)" : 
                                         group.module === "sales" ? "#ec4899" : 
-                                        group.module === "valuation" ? "#8b5cf6" : "#64748b";
+                                        group.module === "valuation" ? "var(--color-violet-strong)" : "var(--color-slate-500)";
                       
                       return (
                         <Accordion 
@@ -335,22 +335,22 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
                           sx={{ 
                             border: `1px solid ${isExpanded ? moduleColor : "var(--border)"}`,
                             borderRadius: 2,
-                            boxShadow: isExpanded ? `0 0 0 1px ${moduleColor}20` : "none",
+                            boxShadow: isExpanded ? `0 0 0 1px color-mix(in srgb, ${moduleColor} 13%, transparent)` : "none",
                             "&:before": { display: "none" }
                           }}
                         >
                           <AccordionSummary 
                             expandIcon={<IconButton size="small">{isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</IconButton>}
                             sx={{ 
-                              bgcolor: isExpanded ? `${moduleColor}08` : "transparent",
+                              bgcolor: isExpanded ? `color-mix(in srgb, ${moduleColor} 3%, transparent)` : "transparent",
                               borderRadius: 2,
-                              "&:hover": { bgcolor: `${moduleColor}12` }
+                              "&:hover": { bgcolor: `color-mix(in srgb, ${moduleColor} 7%, transparent)` }
                             }}
                           >
                             <Box sx={{ display: "flex", alignItems: "center", gap: 2, flex: 1 }}>
                               <Box sx={{ 
                                 width: 32, height: 32, borderRadius: 1.5, 
-                                bgcolor: `${moduleColor}15`, color: moduleColor,
+                                bgcolor: `color-mix(in srgb, ${moduleColor} 8%, transparent)`, color: moduleColor,
                                 display: "flex", alignItems: "center", justifyContent: "center",
                                 fontSize: 16
                               }}>
@@ -376,7 +376,7 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
                                   color={groupSelectedCount > 0 ? "primary" : "default"}
                                   sx={{ 
                                     height: 24, fontSize: 11, fontWeight: 700,
-                                    bgcolor: groupSelectedCount > 0 ? `${moduleColor}15` : "transparent",
+                                    bgcolor: groupSelectedCount > 0 ? `color-mix(in srgb, ${moduleColor} 8%, transparent)` : "transparent",
                                     color: groupSelectedCount > 0 ? moduleColor : "inherit"
                                   }}
                                 />
@@ -407,12 +407,12 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
                                   sx={{
                                     p: 1.5,
                                     borderRadius: 1.5,
-                                    border: selected.has(permission.key) ? `1px solid ${moduleColor}30` : "1px solid var(--border)",
-                                    bgcolor: selected.has(permission.key) ? `${moduleColor}08` : "transparent",
+                                    border: selected.has(permission.key) ? `1px solid color-mix(in srgb, ${moduleColor} 19%, transparent)` : "1px solid var(--border)",
+                                    bgcolor: selected.has(permission.key) ? `color-mix(in srgb, ${moduleColor} 3%, transparent)` : "transparent",
                                     transition: "all 0.2s ease",
                                     "&:hover": { 
-                                      bgcolor: `${moduleColor}12`,
-                                      borderColor: `${moduleColor}40`
+                                      bgcolor: `color-mix(in srgb, ${moduleColor} 7%, transparent)`,
+                                      borderColor: `color-mix(in srgb, ${moduleColor} 25%, transparent)`
                                     },
                                     cursor: "pointer"
                                   }}
@@ -493,8 +493,8 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
                       border: "1px solid rgba(79, 70, 229, 0.2)" 
                     }}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                        <Eye size={16} style={{ color: "#4f46e5" }} />
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#4f46e5" }}>
+                        <Eye size={16} style={{ color: "var(--color-indigo)" }} />
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "var(--color-indigo)" }}>
                           Role Preview: What users with this role can do
                         </Typography>
                       </Box>
@@ -506,7 +506,7 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
                             label={`${g.label}: ${g.permissions.filter(p => selected.has(p.key)).length} permissions`}
                             sx={{ 
                               bgcolor: "rgba(79, 70, 229, 0.1)", 
-                              color: "#4f46e5",
+                              color: "var(--color-indigo)",
                               border: "1px solid rgba(79, 70, 229, 0.3)"
                             }}
                           />
@@ -522,7 +522,7 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
                       <Button color="error" startIcon={<Trash2 size={17} />} disabled={active.is_system || saving} onClick={deleteRole}>
                         {active.is_system ? "Default System Role (Cannot delete)" : "Delete Custom Role"}
                       </Button>
-                      <Button variant="contained" startIcon={<Save size={17} />} disabled={saving || !name.trim()} onClick={saveRole} style={{ background: "#d92d2d", borderColor: "#d92d2d" }}>
+                      <Button variant="contained" startIcon={<Save size={17} />} disabled={saving || !name.trim()} onClick={saveRole} style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }}>
                         {saving ? "Saving Changes…" : `Save ${name} Permissions`}
                       </Button>
                     </Stack>
@@ -557,7 +557,7 @@ export function RoleAccessManager({ organizationId }: { organizationId: string |
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
-          <Button variant="contained" disabled={saving || !newName.trim()} onClick={createRole} style={{ background: "#d92d2d" }}>
+          <Button variant="contained" disabled={saving || !newName.trim()} onClick={createRole} style={{ background: "var(--color-danger)" }}>
             Create Role
           </Button>
         </DialogActions>

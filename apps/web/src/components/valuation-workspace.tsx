@@ -79,7 +79,7 @@ type Analytics = {
 };
 type Tone = "green" | "red" | "yellow" | "blue" | "cyan" | "purple" | "gray";
 
-const PALETTE = ["#0891b2", "#6366f1", "#f59e0b", "#16a34a", "#dc2626", "#8b5cf6", "#0ea5e9", "#eab308"];
+const PALETTE = ["var(--color-cyan)", "var(--color-indigo-strong)", "var(--color-amber)", "var(--color-success)", "var(--color-danger)", "var(--color-violet-strong)", "#0ea5e9", "#eab308"];
 const EMPTY_ROWS: Row[] = [];
 const EMPTY_PIPELINE: { status: string; count: number }[] = [];
 const EMPTY_MIX: { valuation_type: string; count: number }[] = [];
@@ -188,7 +188,7 @@ function FilterChips({ options, value, onChange }: {
   );
 }
 
-function BarChart({ data, color = "#0891b2", height = 130 }: { data: { label: string; value: number }[]; color?: string; height?: number }) {
+function BarChart({ data, color = "var(--color-cyan)", height = 130 }: { data: { label: string; value: number }[]; color?: string; height?: number }) {
   const max = Math.max(1, ...data.map((d) => d.value));
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height, paddingTop: 8 }}>
@@ -211,7 +211,7 @@ function Donut({ segments, center }: { segments: { label: string; color: string;
     const toPct = fromPct + (s.value / total) * 100;
     return `${s.color} ${fromPct.toFixed(2)}% ${toPct.toFixed(2)}%`;
   });
-  const grad = parts.length ? `conic-gradient(${parts.join(", ")})` : "conic-gradient(#edf0f5 0% 100%)";
+  const grad = parts.length ? `conic-gradient(${parts.join(", ")})` : "conic-gradient(var(--color-surface-alt) 0% 100%)";
   return (
     <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
       <div style={{ width: 118, height: 118, borderRadius: "50%", background: grad, display: "grid", placeItems: "center", flexShrink: 0 }}>
@@ -317,7 +317,7 @@ function InstructionTimeline({ status }: { status: string }) {
     <div style={{ display: "flex", alignItems: "center", gap: 0, margin: "16px 0 20px" }}>
       {steps.map((s, i) => (
         <Fragment key={s}>
-          {i > 0 ? <div style={{ flex: 1, height: 3, background: current >= i ? "#0891b2" : "var(--border)", borderRadius: 2, minWidth: 4 }} /> : null}
+          {i > 0 ? <div style={{ flex: 1, height: 3, background: current >= i ? "var(--color-cyan)" : "var(--border)", borderRadius: 2, minWidth: 4 }} /> : null}
           <div
             title={s}
             style={{
@@ -329,7 +329,7 @@ function InstructionTimeline({ status }: { status: string }) {
               fontSize: 10,
               fontWeight: 800,
               color: current >= i ? "white" : "var(--muted)",
-              background: current >= i ? "#0891b2" : "var(--border)",
+              background: current >= i ? "var(--color-cyan)" : "var(--border)",
               flexShrink: 0,
             }}
           >
@@ -421,10 +421,10 @@ function OverviewView({ dashboard, setTab, openNewInstruction }: {
       </KpiStrip>
 
       <KpiStrip cols={4}>
-        <KpiCard icon="📝" iconBg="#fef3c7" iconColor="#92400e" label="Draft Reports" value={number.format(draftReports)} sub="Awaiting review" link="Review drafts" onClick={() => setTab("draft-reports")} />
+        <KpiCard icon="📝" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Draft Reports" value={number.format(draftReports)} sub="Awaiting review" link="Review drafts" onClick={() => setTab("draft-reports")} />
         <KpiCard icon="📄" iconBg="#cffafe" iconColor="#0e7490" label="Final Reports" value={number.format(finalReports)} sub="Signed & issued" link="View reports" onClick={() => setTab("final-reports")} />
-        <KpiCard icon="📈" iconBg="#e0e7ff" iconColor="#6d28d9" label="Turnaround" value={`${turnaround}%`} sub="Completed on time" onClick={() => setTab("analytics")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Fees" value={fmtMoney(outstanding)} sub={`${fmtMoney(revenue)} collected YTD`} link="View invoicing" onClick={() => setTab("invoices")} />
+        <KpiCard icon="📈" iconBg="var(--color-indigo-bg)" iconColor="#6d28d9" label="Turnaround" value={`${turnaround}%`} sub="Completed on time" onClick={() => setTab("analytics")} />
+        <KpiCard icon="💰" iconBg="var(--color-orange-bg)" iconColor="var(--color-orange)" label="Fees" value={fmtMoney(outstanding)} sub={`${fmtMoney(revenue)} collected YTD`} link="View invoicing" onClick={() => setTab("invoices")} />
       </KpiStrip>
 
       <div className="grid-2" style={{ gridTemplateColumns: "minmax(0, 1.55fr) minmax(0, 1fr)", alignItems: "start" }}>
@@ -568,11 +568,11 @@ function InstructionsView({ rows, search, setSearch, status, setStatus, canCoord
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <KpiStrip cols={5}>
-        <KpiCard icon="📐" iconBg="#e0e7ff" iconColor="#4f46e5" label="All Instructions" value={number.format(rows.length)} sub="Total register" onClick={() => setStatus("")} />
-        <KpiCard icon="⚙️" iconBg="#dbeafe" iconColor="#2563eb" label="In Progress" value={number.format(inProgress)} sub="Assigned to drafting" onClick={() => setStatus(status === "in-progress" ? "" : "in-progress")} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(completed)} sub="Final or delivered" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
-        <KpiCard icon="📝" iconBg="#fef3c7" iconColor="#92400e" label="Draft / Review" value={number.format(rows.filter((r) => ["drafting", "review"].includes(String(r.status))).length)} sub="In report preparation" onClick={() => setStatus(status === "drafting" ? "" : "drafting")} />
-        <KpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={number.format(overdue)} sub="Past target date" onClick={() => setStatus(status === "overdue" ? "" : "overdue")} />
+        <KpiCard icon="📐" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="All Instructions" value={number.format(rows.length)} sub="Total register" onClick={() => setStatus("")} />
+        <KpiCard icon="⚙️" iconBg="var(--color-blue-bg)" iconColor="var(--color-info)" label="In Progress" value={number.format(inProgress)} sub="Assigned to drafting" onClick={() => setStatus(status === "in-progress" ? "" : "in-progress")} />
+        <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Completed" value={number.format(completed)} sub="Final or delivered" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
+        <KpiCard icon="📝" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Draft / Review" value={number.format(rows.filter((r) => ["drafting", "review"].includes(String(r.status))).length)} sub="In report preparation" onClick={() => setStatus(status === "drafting" ? "" : "drafting")} />
+        <KpiCard icon="⏰" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Overdue" value={number.format(overdue)} sub="Past target date" onClick={() => setStatus(status === "overdue" ? "" : "overdue")} />
       </KpiStrip>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 20, alignItems: "start" }}>
@@ -779,10 +779,10 @@ function InspectionsView({ rows, search, setSearch, setShowAddModal }: {
   }).length;
   const monthMax = Math.max(1, monthCompleted, monthInProgress, monthScheduled, monthOverdue);
   const monthStatuses = [
-    { label: "Completed", count: monthCompleted, color: "#16a34a" },
-    { label: "In Progress", count: monthInProgress, color: "#2563eb" },
-    { label: "Scheduled", count: monthScheduled, color: "#f59e0b" },
-    { label: "Overdue", count: monthOverdue, color: "#dc2626" },
+    { label: "Completed", count: monthCompleted, color: "var(--color-success)" },
+    { label: "In Progress", count: monthInProgress, color: "var(--color-info)" },
+    { label: "Scheduled", count: monthScheduled, color: "var(--color-amber)" },
+    { label: "Overdue", count: monthOverdue, color: "var(--color-danger)" },
   ];
 
   const checklistItems = ["Property Access", "Building Exterior", "Interior Inspection", "Systems & Equipment", "Safety & Compliance"];
@@ -790,11 +790,11 @@ function InspectionsView({ rows, search, setSearch, setShowAddModal }: {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <KpiStrip cols={5}>
-        <KpiCard icon="📍" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Inspections" value={number.format(total)} sub="Across all instructions" />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(completed)} sub="Evidence captured" />
-        <KpiCard icon="⚙️" iconBg="#dbeafe" iconColor="#2563eb" label="In Progress" value={number.format(inProgress)} sub="Fieldwork underway" />
-        <KpiCard icon="📅" iconBg="#fef3c7" iconColor="#92400e" label="Scheduled" value={number.format(scheduled)} sub="Upcoming visits" />
-        <KpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={number.format(overdue)} sub="Past schedule" />
+        <KpiCard icon="📍" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Inspections" value={number.format(total)} sub="Across all instructions" />
+        <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Completed" value={number.format(completed)} sub="Evidence captured" />
+        <KpiCard icon="⚙️" iconBg="var(--color-blue-bg)" iconColor="var(--color-info)" label="In Progress" value={number.format(inProgress)} sub="Fieldwork underway" />
+        <KpiCard icon="📅" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Scheduled" value={number.format(scheduled)} sub="Upcoming visits" />
+        <KpiCard icon="⏰" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Overdue" value={number.format(overdue)} sub="Past schedule" />
       </KpiStrip>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 20, alignItems: "start" }}>
@@ -990,10 +990,10 @@ function DraftReportsView({ rows, search, setSearch, canReview, openReview, setS
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <KpiStrip cols={4}>
-        <KpiCard icon="📝" iconBg="#e0e7ff" iconColor="#4f46e5" label="Draft Reports" value={number.format(rows.length)} sub="All versions" />
-        <KpiCard icon="👁️" iconBg="#fef3c7" iconColor="#92400e" label="In Review" value={number.format(inReview)} sub="Awaiting reviewer" />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Approved" value={number.format(approved)} sub="Ready to finalise" />
-        <KpiCard icon="🔁" iconBg="#fee2e2" iconColor="#b91c1c" label="Changes Required" value={number.format(changes)} sub="Returned to valuer" />
+        <KpiCard icon="📝" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Draft Reports" value={number.format(rows.length)} sub="All versions" />
+        <KpiCard icon="👁️" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="In Review" value={number.format(inReview)} sub="Awaiting reviewer" />
+        <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Approved" value={number.format(approved)} sub="Ready to finalise" />
+        <KpiCard icon="🔁" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Changes Required" value={number.format(changes)} sub="Returned to valuer" />
       </KpiStrip>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 20, alignItems: "start" }}>
@@ -1059,8 +1059,8 @@ function FinalReportsView({ rows, search, setSearch, setTab }: {
   const issued = thisMonthRows.filter((r) => !Boolean(r.delivered_at)).length;
   const deliveryMax = Math.max(1, delivered, issued);
   const deliveryStatuses = [
-    { label: "Delivered", count: delivered, color: "#16a34a" },
-    { label: "Issued", count: issued, color: "#0891b2" },
+    { label: "Delivered", count: delivered, color: "var(--color-success)" },
+    { label: "Issued", count: issued, color: "var(--color-cyan)" },
   ];
 
   return (
@@ -1180,9 +1180,9 @@ function InvoicesView({ rows, search, setSearch, setShowRecordPayment, setShowCr
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <KpiStrip cols={3}>
-        <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Invoiced" value={fmtMoney(invoiced)} sub={`${rows.length} invoices issued`} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Collected" value={fmtMoney(collected)} sub="Payments received" />
-        <KpiCard icon="⏳" iconBg="#fee2e2" iconColor="#b91c1c" label="Outstanding" value={fmtMoney(outstanding)} sub="Unpaid balance" />
+        <KpiCard icon="🧾" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Invoiced" value={fmtMoney(invoiced)} sub={`${rows.length} invoices issued`} />
+        <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Collected" value={fmtMoney(collected)} sub="Payments received" />
+        <KpiCard icon="⏳" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Outstanding" value={fmtMoney(outstanding)} sub="Unpaid balance" />
       </KpiStrip>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 20, alignItems: "start" }}>
@@ -1195,7 +1195,7 @@ function InvoicesView({ rows, search, setSearch, setShowRecordPayment, setShowCr
                 {Object.entries(aging).map(([bucket, value]) => (
                   <div key={bucket} style={{ padding: "12px 14px", background: "var(--surface-2)", borderRadius: 10, border: "1px solid var(--border)" }}>
                     <span className="muted" style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>{bucket} days</span>
-                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: Number(value) > 0 ? "#b91c1c" : "var(--text)" }}>{fmtMoney(value)}</div>
+                    <div style={{ fontSize: 16, fontWeight: 800, marginTop: 4, color: Number(value) > 0 ? "var(--color-danger-strong)" : "var(--text)" }}>{fmtMoney(value)}</div>
                   </div>
                 ))}
               </div>
@@ -1220,7 +1220,7 @@ function InvoicesView({ rows, search, setSearch, setShowRecordPayment, setShowCr
                       <td style={{ fontSize: 12 }}>{fmtDate(r.issued_on)}</td>
                       <td style={{ fontSize: 12 }}>{fmtDate(r.due_on)}</td>
                       <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.total)}</td>
-                      <td className="mono" style={{ fontSize: 12, color: "#16a34a" }}>{fmtMoney(Number(r.total ?? 0) - Number(r.balance ?? 0))}</td>
+                      <td className="mono" style={{ fontSize: 12, color: "var(--color-success)" }}>{fmtMoney(Number(r.total ?? 0) - Number(r.balance ?? 0))}</td>
                       <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(r.balance)}</td>
                       <td><StatusPill value={strOrNull(r.status)} tone={invoiceTone(String(r.status))} /></td>
                       <td><button className="btn ghost sm" onClick={() => setSelected(r)}>View</button></td>
@@ -1255,7 +1255,7 @@ function InvoicesView({ rows, search, setSearch, setShowRecordPayment, setShowCr
           </div>
           <div className="grid-2" style={{ gap: 12, marginTop: 12 }}>
             <Field label="Total"><span className="mono" style={{ fontSize: 13 }}>{fmtMoney(selected.total)}</span></Field>
-            <Field label="Balance"><span className="mono" style={{ fontSize: 13, color: Number(selected.balance) > 0 ? "#b91c1c" : "var(--text)" }}>{fmtMoney(selected.balance)}</span></Field>
+            <Field label="Balance"><span className="mono" style={{ fontSize: 13, color: Number(selected.balance) > 0 ? "var(--color-danger-strong)" : "var(--text)" }}>{fmtMoney(selected.balance)}</span></Field>
           </div>
         </DetailDrawer>
       )}
@@ -1277,8 +1277,8 @@ function PaymentsView({ rows, search, setSearch, canFinance, openRecordPayment }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <KpiStrip cols={3}>
-        <KpiCard icon="💳" iconBg="#e0e7ff" iconColor="#4f46e5" label="Payments" value={number.format(rows.length)} sub="Fee collections" />
-        <KpiCard icon="💰" iconBg="#dcfce7" iconColor="#16a34a" label="Collected" value={fmtMoney(total)} sub="Total received" />
+        <KpiCard icon="💳" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Payments" value={number.format(rows.length)} sub="Fee collections" />
+        <KpiCard icon="💰" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Collected" value={fmtMoney(total)} sub="Total received" />
         <KpiCard icon="✅" iconBg="#cffafe" iconColor="#0e7490" label="Allocations" value={number.format(rows.filter((r) => !["rejected", "unapplied"].includes(String(r.status))).length)} sub="Applied to invoices" />
       </KpiStrip>
 
@@ -1418,13 +1418,13 @@ function AnalyticsView({ analytics, dashboard }: { analytics: Analytics | null; 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       <KpiStrip cols={7}>
-        <KpiCard icon="📐" iconBg="#e0e7ff" iconColor="#4f46e5" label="Instructions YTD" value={number.format(totalInstructions)} sub="Assigned workload" />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(delivered)} sub="Delivered on time" />
-        <KpiCard icon="⏱️" iconBg="#fef3c7" iconColor="#92400e" label="Avg Turnaround" value={avgTurnaround !== null ? `${avgTurnaround} days` : "Data pending"} sub="Completed instruction avg" />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Quoted Fees" value={fmtMoney(feeEstimate)} sub="Across the pipeline" />
+        <KpiCard icon="📐" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Instructions YTD" value={number.format(totalInstructions)} sub="Assigned workload" />
+        <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Completed" value={number.format(delivered)} sub="Delivered on time" />
+        <KpiCard icon="⏱️" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Avg Turnaround" value={avgTurnaround !== null ? `${avgTurnaround} days` : "Data pending"} sub="Completed instruction avg" />
+        <KpiCard icon="💰" iconBg="var(--color-orange-bg)" iconColor="var(--color-orange)" label="Quoted Fees" value={fmtMoney(feeEstimate)} sub="Across the pipeline" />
         <KpiCard icon="🎯" iconBg="#cffafe" iconColor="#0e7490" label="Completion Rate" value={`${completionRate}%`} sub="Of assigned work" />
-        <KpiCard icon="📤" iconBg="#ede9fe" iconColor="#6d28d9" label="On-time %" value="—" sub="Delivery SLA pending" />
-        <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Rate" value={number.format(overdueInvoices)} sub={`${fmtMoney(overdueBalance)} aged`} />
+        <KpiCard icon="📤" iconBg="var(--color-violet-bg)" iconColor="#6d28d9" label="On-time %" value="—" sub="Delivery SLA pending" />
+        <KpiCard icon="⚠️" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Overdue Rate" value={number.format(overdueInvoices)} sub={`${fmtMoney(overdueBalance)} aged`} />
       </KpiStrip>
 
       <div className="grid-2" style={{ alignItems: "start" }}>
@@ -1441,7 +1441,7 @@ function AnalyticsView({ analytics, dashboard }: { analytics: Analytics | null; 
           {typeBars.length ? <BarChart data={typeBars.map((t) => ({ label: t.label, value: t.value }))} height={140} /> : <EmptyState icon="🧩" title="No type data" description="Valuation type distribution will appear here." />}
         </Panel>
         <Panel title="Fee Analysis (This Period)">
-          {feeBars.length ? <BarChart data={feeBars} color="#ea580c" height={140} /> : <EmptyState icon="💰" title="No fee data" description="Quoted fee value by valuer will appear once instructions are recorded." />}
+          {feeBars.length ? <BarChart data={feeBars} color="var(--color-orange)" height={140} /> : <EmptyState icon="💰" title="No fee data" description="Quoted fee value by valuer will appear once instructions are recorded." />}
         </Panel>
       </div>
 
@@ -1531,7 +1531,7 @@ function ReportsView({ reports, recentExports, onExport }: {
               return (
                 <article className="data-panel" key={key} style={{ padding: 18 }}>
                   <div style={{ alignItems: "center", display: "flex", gap: 10, marginBottom: 10 }}>
-                    <span style={{ background: "#e0f2fe", borderRadius: 10, color: "#0891b2", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 16, height: 38, width: 38 }}>{icons[key] ?? "📄"}</span>
+                    <span style={{ background: "var(--color-sky-bg)", borderRadius: 10, color: "var(--color-cyan)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 16, height: 38, width: 38 }}>{icons[key] ?? "📄"}</span>
                     <strong style={{ fontSize: 13 }}>{name}</strong>
                   </div>
                   <p className="muted" style={{ fontSize: 12, lineHeight: 1.5, margin: "0 0 14px", minHeight: 36 }}>{descriptions[key] ?? "Exports the current valuation dataset as CSV."}</p>
@@ -1591,9 +1591,9 @@ function AuditEventsView({ rows, search, setSearch }: {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <KpiStrip cols={4}>
-        <KpiCard icon="🕘" iconBg="#e0e7ff" iconColor="#4f46e5" label="Audit Events" value={number.format(rows.length)} sub="Immutable activity log" />
-        <KpiCard icon="🔀" iconBg="#fef3c7" iconColor="#92400e" label="Status Changes" value={number.format(statusChanges)} sub="Instruction moves" />
-        <KpiCard icon="💳" iconBg="#dcfce7" iconColor="#16a34a" label="Financial Events" value={number.format(financial)} sub="Invoices & payments" />
+        <KpiCard icon="🕘" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Audit Events" value={number.format(rows.length)} sub="Immutable activity log" />
+        <KpiCard icon="🔀" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Status Changes" value={number.format(statusChanges)} sub="Instruction moves" />
+        <KpiCard icon="💳" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Financial Events" value={number.format(financial)} sub="Invoices & payments" />
         <KpiCard icon="🧾" iconBg="#cffafe" iconColor="#0e7490" label="Reports" value={number.format(rows.filter((r) => String(r.event_type).includes("draft") || String(r.event_type).includes("final")).length)} sub="Draft & final events" />
       </KpiStrip>
 
@@ -2308,7 +2308,7 @@ export function ValuationWorkspace({ initialTab = "overview" }: { initialTab?: s
       eyebrow="Property Valuation Workspace"
       title="Valuation Management"
       subtitle="Valuation instructions, site inspections, comparable sales, draft reports & fee invoicing."
-      accent="#0891b2"
+      accent="var(--color-cyan)"
       activeId={tab}
       onSelect={selectTab}
     >

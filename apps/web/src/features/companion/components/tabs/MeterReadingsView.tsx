@@ -313,7 +313,7 @@ export function MeterReadingsView({
           p: 3,
           borderRadius: 3,
           background: "var(--surface, #ffffff)",
-          borderColor: "var(--border, #e2e8f0)",
+          borderColor: "var(--border, var(--color-slate-200))",
           color: "text.primary",
           display: "flex",
           flexDirection: { xs: "column", md: "row" },
@@ -341,7 +341,7 @@ export function MeterReadingsView({
               size="small"
               startIcon={<RefreshRounded />}
               onClick={onRefresh}
-              sx={{ color: "#cbd5e1", borderColor: "rgba(255,255,255,0.2)" }}
+              sx={{ color: "var(--color-slate-300)", borderColor: "rgba(255,255,255,0.2)" }}
             >
               Refresh
             </Button>
@@ -354,7 +354,7 @@ export function MeterReadingsView({
               startIcon={<CheckCircleRounded />}
               onClick={handleBatchApprovePending}
               disabled={submittingBatch}
-              sx={{ bgcolor: "#16a34a", "&:hover": { bgcolor: "#15803d" }, fontWeight: 800 }}
+              sx={{ bgcolor: "var(--color-success)", "&:hover": { bgcolor: "var(--color-success-strong)" }, fontWeight: 800 }}
             >
               Verify & Approve All ({pendingCount})
             </Button>
@@ -376,11 +376,11 @@ export function MeterReadingsView({
           </Typography>
         </Paper>
 
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5, background: "var(--surface)", borderLeft: "4px solid #f59e0b" }}>
-          <Typography variant="caption" sx={{ color: "#d97706", fontWeight: 700, textTransform: "uppercase" }}>
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5, background: "var(--surface)", borderLeft: "4px solid var(--color-amber)" }}>
+          <Typography variant="caption" sx={{ color: "var(--color-warning)", fontWeight: 700, textTransform: "uppercase" }}>
             Pending Verification
           </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 900, mt: 0.5, color: "#d97706" }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mt: 0.5, color: "var(--color-warning)" }}>
             {pendingCount}
           </Typography>
           <Typography variant="caption" sx={{ color: "var(--text-secondary)" }}>
@@ -388,11 +388,11 @@ export function MeterReadingsView({
           </Typography>
         </Paper>
 
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5, background: "var(--surface)", borderLeft: "4px solid #16a34a" }}>
-          <Typography variant="caption" sx={{ color: "#16a34a", fontWeight: 700, textTransform: "uppercase" }}>
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5, background: "var(--surface)", borderLeft: "4px solid var(--color-success)" }}>
+          <Typography variant="caption" sx={{ color: "var(--color-success)", fontWeight: 700, textTransform: "uppercase" }}>
             Approved for Billing
           </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 900, mt: 0.5, color: "#16a34a" }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mt: 0.5, color: "var(--color-success)" }}>
             {approvedCount}
           </Typography>
           <Typography variant="caption" sx={{ color: "var(--text-secondary)" }}>
@@ -400,11 +400,11 @@ export function MeterReadingsView({
           </Typography>
         </Paper>
 
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5, background: "var(--surface)", borderLeft: "4px solid #ef4444" }}>
-          <Typography variant="caption" sx={{ color: "#dc2626", fontWeight: 700, textTransform: "uppercase" }}>
+        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2.5, background: "var(--surface)", borderLeft: "4px solid var(--color-danger)" }}>
+          <Typography variant="caption" sx={{ color: "var(--color-danger)", fontWeight: 700, textTransform: "uppercase" }}>
             Anomalies Detected
           </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 900, mt: 0.5, color: "#dc2626" }}>
+          <Typography variant="h5" sx={{ fontWeight: 900, mt: 0.5, color: "var(--color-danger)" }}>
             {anomalyCount}
           </Typography>
           <Typography variant="caption" sx={{ color: "var(--text-secondary)" }}>
@@ -498,8 +498,8 @@ export function MeterReadingsView({
               disabled={filledDraftCount === 0 || submittingBatch}
               onClick={handleSubmitBatch}
               sx={{
-                bgcolor: "#2563eb",
-                "&:hover": { bgcolor: "#1d4ed8" },
+                bgcolor: "var(--color-info)",
+                "&:hover": { bgcolor: "var(--color-info-strong)" },
                 fontWeight: 800,
                 px: 3,
                 py: 1,
@@ -547,7 +547,7 @@ export function MeterReadingsView({
                     p: 2,
                     borderRadius: 3,
                     background: isSurge || isReverse ? "rgba(239, 68, 68, 0.03)" : "var(--surface)",
-                    borderColor: isReverse ? "#ef4444" : isSurge ? "#f59e0b" : draft.value ? "#3b82f6" : "var(--border)",
+                    borderColor: isReverse ? "var(--color-danger)" : isSurge ? "var(--color-amber)" : draft.value ? "var(--color-blue)" : "var(--border)",
                     display: "flex",
                     flexDirection: "column",
                     gap: 1.5,
@@ -568,9 +568,9 @@ export function MeterReadingsView({
                     </Box>
 
                     {isPending ? (
-                      <Chip label="Pending" size="small" sx={{ bgcolor: "#fef3c7", color: "#b45309", fontWeight: 700, fontSize: 10 }} />
+                      <Chip label="Pending" size="small" sx={{ bgcolor: "var(--color-amber-bg)", color: "var(--color-amber-deep)", fontWeight: 700, fontSize: 10 }} />
                     ) : isApproved ? (
-                      <Chip label="Verified" size="small" sx={{ bgcolor: "#dcfce7", color: "#15803d", fontWeight: 700, fontSize: 10 }} />
+                      <Chip label="Verified" size="small" sx={{ bgcolor: "var(--color-green-bg)", color: "var(--color-success-strong)", fontWeight: 700, fontSize: 10 }} />
                     ) : (
                       <Chip label="Due" size="small" sx={{ bgcolor: "var(--surface-sunken)", color: "var(--text-secondary)", fontWeight: 600, fontSize: 10 }} />
                     )}
@@ -596,7 +596,7 @@ export function MeterReadingsView({
                             style={{
                               fontWeight: 800,
                               fontSize: 14,
-                              color: isReverse ? "#dc2626" : isSurge ? "#d97706" : "#16a34a",
+                              color: isReverse ? "var(--color-danger)" : isSurge ? "var(--color-warning)" : "var(--color-success)",
                             }}
                           >
                             {delta > 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2)} {meter.unit}
@@ -659,7 +659,7 @@ export function MeterReadingsView({
                         variant="contained"
                         disabled={approvingId === meter.latest_reading.id}
                         onClick={() => handleApproveReading(meter.latest_reading!.id)}
-                        sx={{ bgcolor: "#16a34a", "&:hover": { bgcolor: "#15803d" }, fontSize: 11 }}
+                        sx={{ bgcolor: "var(--color-success)", "&:hover": { bgcolor: "var(--color-success-strong)" }, fontSize: 11 }}
                       >
                         ✓ Approve
                       </Button>
@@ -782,19 +782,19 @@ export function MeterReadingsView({
                               style={{
                                 fontWeight: 800,
                                 fontSize: 13,
-                                color: isReverse ? "#dc2626" : isSurge ? "#d97706" : "#16a34a",
+                                color: isReverse ? "var(--color-danger)" : isSurge ? "var(--color-warning)" : "var(--color-success)",
                               }}
                             >
                               {delta > 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2)} {meter.unit}
                             </span>
                             {isReverse && (
                               <Tooltip title="Reverse reading detected! Authorize a reset or check dial.">
-                                <ErrorOutlineRounded sx={{ color: "#dc2626", fontSize: 16 }} />
+                                <ErrorOutlineRounded sx={{ color: "var(--color-danger)", fontSize: 16 }} />
                               </Tooltip>
                             )}
                             {isSurge && (
                               <Tooltip title="Consumption is over 150% higher than last cycle!">
-                                <ErrorOutlineRounded sx={{ color: "#d97706", fontSize: 16 }} />
+                                <ErrorOutlineRounded sx={{ color: "var(--color-warning)", fontSize: 16 }} />
                               </Tooltip>
                             )}
                           </Box>
@@ -821,14 +821,14 @@ export function MeterReadingsView({
                             icon={<PendingActionsRounded sx={{ fontSize: "14px !important" }} />}
                             label="Pending Admin"
                             size="small"
-                            sx={{ bgcolor: "#fef3c7", color: "#b45309", fontWeight: 700, fontSize: 11 }}
+                            sx={{ bgcolor: "var(--color-amber-bg)", color: "var(--color-amber-deep)", fontWeight: 700, fontSize: 11 }}
                           />
                         ) : isApproved ? (
                           <Chip
                             icon={<CheckCircleRounded sx={{ fontSize: "14px !important" }} />}
                             label="Verified"
                             size="small"
-                            sx={{ bgcolor: "#dcfce7", color: "#15803d", fontWeight: 700, fontSize: 11 }}
+                            sx={{ bgcolor: "var(--color-green-bg)", color: "var(--color-success-strong)", fontWeight: 700, fontSize: 11 }}
                           />
                         ) : (
                           <Chip
@@ -848,7 +848,7 @@ export function MeterReadingsView({
                               variant="contained"
                               disabled={approvingId === meter.latest_reading.id}
                               onClick={() => handleApproveReading(meter.latest_reading!.id)}
-                              sx={{ bgcolor: "#16a34a", "&:hover": { bgcolor: "#15803d" }, fontSize: 11, py: 0.5 }}
+                              sx={{ bgcolor: "var(--color-success)", "&:hover": { bgcolor: "var(--color-success-strong)" }, fontSize: 11, py: 0.5 }}
                             >
                               ✓ Approve
                             </Button>

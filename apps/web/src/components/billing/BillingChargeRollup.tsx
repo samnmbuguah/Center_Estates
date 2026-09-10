@@ -53,7 +53,7 @@ export function BillingChargeRollup({
           type: "management_fee",
           label: "Management Fees",
           icon: <Building2 size={17} />,
-          color: "#f59e0b",
+          color: "var(--color-amber)",
           totalCount,
           billedCount,
           pendingCount: Math.max(0, totalCount - billedCount),
@@ -65,10 +65,10 @@ export function BillingChargeRollup({
     }
 
     const typeConfigs: Array<{ type: InvoiceChargeType; label: string; icon: ReactNode; color: string }> = [
-      { type: "rent", label: "Rent", icon: <Building2 size={17} />, color: "#3b82f6" },
-      { type: "service_charge", label: "Service charge", icon: <ReceiptText size={17} />, color: "#8b5cf6" },
+      { type: "rent", label: "Rent", icon: <Building2 size={17} />, color: "var(--color-blue)" },
+      { type: "service_charge", label: "Service charge", icon: <ReceiptText size={17} />, color: "var(--color-violet-strong)" },
       { type: "utility", label: "Utilities", icon: <Droplets size={17} />, color: "#06b6d4" },
-      { type: "other", label: "Other charges", icon: <ListChecks size={17} />, color: "#64748b" },
+      { type: "other", label: "Other charges", icon: <ListChecks size={17} />, color: "var(--color-slate-500)" },
     ];
 
     return typeConfigs.map((config) => {
@@ -180,16 +180,16 @@ export function BillingChargeRollup({
                 ) : isComplete ? (
                   <Chip
                     size="small"
-                    icon={<CheckCircle2 size={11} color="#16a34a" />}
+                    icon={<CheckCircle2 size={11} color="var(--color-success)" />}
                     label="100% Invoiced"
-                    sx={{ fontSize: 9.5, height: 20, bgcolor: "rgba(22, 163, 74, 0.1)", color: "#16a34a", fontWeight: 700 }}
+                    sx={{ fontSize: 9.5, height: 20, bgcolor: "rgba(22, 163, 74, 0.1)", color: "var(--color-success)", fontWeight: 700 }}
                   />
                 ) : (
                   <Chip
                     size="small"
-                    icon={<AlertCircle size={11} color="#ea580c" />}
+                    icon={<AlertCircle size={11} color="var(--color-orange)" />}
                     label={`${sum.pendingCount} Pending`}
-                    sx={{ fontSize: 9.5, height: 20, bgcolor: "rgba(234, 88, 12, 0.1)", color: "#ea580c", fontWeight: 700 }}
+                    sx={{ fontSize: 9.5, height: 20, bgcolor: "rgba(234, 88, 12, 0.1)", color: "var(--color-orange)", fontWeight: 700 }}
                   />
                 )}
               </Box>
@@ -206,17 +206,17 @@ export function BillingChargeRollup({
                       <Typography variant="caption" sx={{ color: "var(--text-secondary)", fontSize: 11 }}>
                         <strong>{sum.billedCount}</strong> of <strong>{sum.totalCount}</strong> tenants billed
                       </Typography>
-                      <Typography variant="caption" sx={{ fontWeight: 800, color: isComplete ? "#16a34a" : "var(--text)", fontSize: 12 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 800, color: isComplete ? "var(--color-success)" : "var(--text)", fontSize: 12 }}>
                         {money.format(sum.billedAmount)}
                       </Typography>
                     </Box>
 
                     {sum.pendingCount > 0 && (
                       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mt: 0.5 }}>
-                        <Typography variant="caption" sx={{ color: "#ea580c", fontWeight: 600, fontSize: 10.5 }}>
+                        <Typography variant="caption" sx={{ color: "var(--color-orange)", fontWeight: 600, fontSize: 10.5 }}>
                           Remaining: {sum.pendingCount} tenants
                         </Typography>
-                        <Typography variant="caption" sx={{ color: "#ea580c", fontWeight: 700, fontSize: 11 }}>
+                        <Typography variant="caption" sx={{ color: "var(--color-orange)", fontWeight: 700, fontSize: 11 }}>
                           {money.format(sum.pendingAmount)}
                         </Typography>
                       </Box>

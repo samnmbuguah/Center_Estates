@@ -144,12 +144,12 @@ function LandlordInvoicePanel({ search }: { search: string }) {
             <tbody>
               {filtered.map((inv) => (
                 <tr key={inv.id}>
-                  <td className="mono" style={{ fontWeight: 700, color: "var(--brand-primary, #dc2626)" }}>{inv.number}</td>
+                  <td className="mono" style={{ fontWeight: 700, color: "var(--brand-primary, var(--color-danger))" }}>{inv.number}</td>
                   <td style={{ fontSize: 12 }}>
                     <span style={{
                       fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
-                      background: inv.fee_type === "letting" ? "#ede9fe" : "#dbeafe",
-                      color: inv.fee_type === "letting" ? "#7c3aed" : "#1d4ed8",
+                      background: inv.fee_type === "letting" ? "var(--color-violet-bg)" : "var(--color-blue-bg)",
+                      color: inv.fee_type === "letting" ? "var(--color-violet)" : "var(--color-info-strong)",
                     }}>
                       {inv.fee_type === "letting" ? "Letting Fee" : "Mgmt Commission"}
                     </span>
@@ -157,10 +157,10 @@ function LandlordInvoicePanel({ search }: { search: string }) {
                   <td style={{ fontSize: 12 }}>{inv.billing_period}</td>
                   <td style={{ fontSize: 12, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inv.property_name}</td>
                   <td style={{ fontSize: 12 }}>{inv.landlord_name}</td>
-                  <td className="mono" style={{ color: "#4f46e5" }}>{kM(Number(inv.fee_amount))}</td>
-                  <td className="mono" style={{ color: "#d97706" }}>{kM(Number(inv.vat_amount))}</td>
+                  <td className="mono" style={{ color: "var(--color-indigo)" }}>{kM(Number(inv.fee_amount))}</td>
+                  <td className="mono" style={{ color: "var(--color-warning)" }}>{kM(Number(inv.vat_amount))}</td>
                   <td className="mono" style={{ fontWeight: 800 }}>{kM(Number(inv.total_amount))}</td>
-                  <td className="mono" style={{ color: "#2563eb", fontWeight: 800 }}>{kM(Number(inv.net_payout))}</td>
+                  <td className="mono" style={{ color: "var(--color-info)", fontWeight: 800 }}>{kM(Number(inv.net_payout))}</td>
                   <td style={{ fontSize: 12 }}>{inv.issued_on ? fmtDate(inv.issued_on) : "—"}</td>
                   <td>
                     <StatusPill value={inv.status === "sent" ? "issued" : inv.status} />
@@ -193,10 +193,10 @@ function LandlordInvoicePanel({ search }: { search: string }) {
           <Typography variant="caption" sx={{ color: "var(--text-secondary)" }}>
             {invoices.length} invoice{invoices.length !== 1 ? "s" : ""} total
           </Typography>
-          <Typography variant="caption" sx={{ color: "#4f46e5", fontWeight: 700 }}>
+          <Typography variant="caption" sx={{ color: "var(--color-indigo)", fontWeight: 700 }}>
             Fees: {kM(invoices.reduce((s, i) => s + Number(i.fee_amount || 0), 0))}
           </Typography>
-          <Typography variant="caption" sx={{ color: "#16a34a", fontWeight: 700 }}>
+          <Typography variant="caption" sx={{ color: "var(--color-success)", fontWeight: 700 }}>
             Paid: {invoices.filter(i => i.status === "paid").length}
           </Typography>
           <Typography variant="caption" sx={{ color: "#ca8a04", fontWeight: 700 }}>

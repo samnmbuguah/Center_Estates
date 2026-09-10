@@ -40,7 +40,7 @@ export function stageLabel(stage: string | undefined | null): string {
 }
 
 export function riskLevel(score: number): { level: string; color: string; bg: string } {
-  if (score >= 15) return { level: "High", color: "#ef4444", bg: "rgba(239,68,68,0.12)" };
-  if (score >= 8) return { level: "Medium", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" };
-  return { level: "Low", color: "#10b981", bg: "rgba(16,185,129,0.12)" };
+  if (score >= 15) return { level: "High", color: "var(--color-danger)", bg: "rgba(239,68,68,0.12)" };
+  if (score >= 8) return { level: "Medium", color: "var(--color-amber)", bg: "rgba(245,158,11,0.12)" };
+  return { level: "Low", color: "var(--color-emerald)", bg: "rgba(16,185,129,0.12)" };
 }

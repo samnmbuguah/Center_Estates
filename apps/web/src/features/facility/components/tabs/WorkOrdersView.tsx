@@ -74,7 +74,7 @@ export function WorkOrdersView({
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const priorityColors: Record<string, string> = {
-    critical: "#b91c1c", high: "#c2410c", medium: "#a16207", low: "#15803d",
+    critical: "var(--color-danger-strong)", high: "#c2410c", medium: "#a16207", low: "var(--color-success-strong)",
   };
   const displayRows = rows.filter((row) => {
     const term = search.trim().toLowerCase();
@@ -126,11 +126,11 @@ export function WorkOrdersView({
       </div>
 
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${String(kpis?.maintenanceCompliance ?? 0)}%`} sub="Schedule compliance" />
-        <FcKpiCard icon="📂" iconBg="#dcfce7" iconColor="#16a34a" label="Open Work Orders" value={String(kpis?.openWorkOrders ?? 0)} sub="Active across all buildings" />
-        <FcKpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Work Orders" value={String(kpis?.overdueWorkOrders ?? 0)} sub="Past resolution due" />
-        <FcKpiCard icon="⏱" iconBg="#fef3c7" iconColor="#92400e" label="Avg. Resolution Time" value="—" sub="Target 24 hrs" />
-        <FcKpiCard icon="📈" iconBg="#f0fdf4" iconColor="#15803d" label="Asset Health Index" value="—" sub="No data available" />
+        <FcKpiCard icon="📋" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="PPM Compliance" value={`${String(kpis?.maintenanceCompliance ?? 0)}%`} sub="Schedule compliance" />
+        <FcKpiCard icon="📂" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Open Work Orders" value={String(kpis?.openWorkOrders ?? 0)} sub="Active across all buildings" />
+        <FcKpiCard icon="⏰" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Overdue Work Orders" value={String(kpis?.overdueWorkOrders ?? 0)} sub="Past resolution due" />
+        <FcKpiCard icon="⏱" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Avg. Resolution Time" value="—" sub="Target 24 hrs" />
+        <FcKpiCard icon="📈" iconBg="var(--color-green-soft)" iconColor="var(--color-success-strong)" label="Asset Health Index" value="—" sub="No data available" />
       </div>
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0,1fr) 300px" }}>
@@ -181,8 +181,8 @@ export function WorkOrdersView({
                         </td>
                         <td>
                           <div style={{ alignItems: "center", display: "flex", gap: 8 }}>
-                            <div style={{ background: "#edf0f5", borderRadius: 99, flex: 1, height: 6, minWidth: 70, overflow: "hidden" }}>
-                              <i style={{ background: "#3b82f6", borderRadius: "inherit", display: "block", height: "100%", width: `${progress}%` }} />
+                            <div style={{ background: "var(--color-surface-alt)", borderRadius: 99, flex: 1, height: 6, minWidth: 70, overflow: "hidden" }}>
+                              <i style={{ background: "var(--color-blue)", borderRadius: "inherit", display: "block", height: "100%", width: `${progress}%` }} />
                             </div>
                             <span style={{ fontSize: 11, fontWeight: 700 }}>{progress}%</span>
                           </div>
@@ -193,7 +193,7 @@ export function WorkOrdersView({
                             {permissions.canWork && String(row.status) === "open" && (
                               <button
                                 onClick={(event) => { event.stopPropagation(); onTransition(row, "assigned", "Work order assigned"); }}
-                                style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, color: "#1d4ed8", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}
+                                style={{ background: "var(--color-blue-soft)", border: "1px solid var(--color-blue-200)", borderRadius: 6, color: "var(--color-info-strong)", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}
                               >
                                 Assign
                               </button>
@@ -225,7 +225,7 @@ export function WorkOrdersView({
                                 Verify
                               </button>
                             )}
-                            {Boolean(row.supervisor_verified) && <span style={{ color: "#166534", fontSize: 11, fontWeight: 800 }}>✓ Verified</span>}
+                            {Boolean(row.supervisor_verified) && <span style={{ color: "var(--color-green-text)", fontSize: 11, fontWeight: 800 }}>✓ Verified</span>}
                           </div>
                         </td>
                       </tr>
@@ -246,15 +246,15 @@ export function WorkOrdersView({
           <article className="data-panel">
             <PanelHeader title="SLA Performance (This Month)" />
             <div className="fc-sla-gauge">
-              <div className="donut" style={{ background: `conic-gradient(#22c55e 0% ${slaPercent}%, #ef4444 ${slaPercent}% 100%)`, height: 130, width: 130, marginBottom: 12 }}>
+              <div className="donut" style={{ background: `conic-gradient(var(--color-green) 0% ${slaPercent}%, var(--color-danger) ${slaPercent}% 100%)`, height: 130, width: 130, marginBottom: 12 }}>
                 <strong style={{ fontSize: 22 }}>{slaPercent}%</strong>
                 <small>Within SLA</small>
               </div>
               <div style={{ display: "grid", gap: 8, width: "100%" }}>
                 {[
-                  { label: "Within SLA", pct: slaPercent, count: withinSlaCount, color: "#22c55e" },
-                  { label: "At Risk", pct: rows.length ? Math.round(atRiskCount / rows.length * 100) : 0, count: atRiskCount, color: "#f59e0b" },
-                  { label: "Breached", pct: rows.length ? Math.round(breachedCount / rows.length * 100) : 0, count: breachedCount, color: "#ef4444" },
+                  { label: "Within SLA", pct: slaPercent, count: withinSlaCount, color: "var(--color-green)" },
+                  { label: "At Risk", pct: rows.length ? Math.round(atRiskCount / rows.length * 100) : 0, count: atRiskCount, color: "var(--color-amber)" },
+                  { label: "Breached", pct: rows.length ? Math.round(breachedCount / rows.length * 100) : 0, count: breachedCount, color: "var(--color-danger)" },
                 ].map((item) => (
                   <div key={item.label} style={{ alignItems: "center", display: "flex", fontSize: 12, gap: 8 }}>
                     <i style={{ background: item.color, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />
@@ -292,7 +292,7 @@ export function WorkOrdersView({
               </div>
               <p style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, margin: "0 0 10px", textTransform: "uppercase" }}>Top Cost by Category</p>
               {categoryCosts.slice(0, 5).map((item, i) => {
-                const colors = ["#4f46e5", "#3b82f6", "#22c55e", "#f59e0b", "#ef4444"];
+                const colors = ["var(--color-indigo)", "var(--color-blue)", "var(--color-green)", "var(--color-amber)", "var(--color-danger)"];
                 const pct = totalMaintenanceCost ? Math.round(item.amount / totalMaintenanceCost * 100) : 0;
                 return (
                   <div key={item.label} style={{ marginBottom: 8 }}>
@@ -300,7 +300,7 @@ export function WorkOrdersView({
                       <span style={{ color: "#4b5563" }}>{item.label}</span>
                       <span style={{ fontWeight: 700 }}>{money.format(item.amount)}</span>
                     </div>
-                    <div style={{ background: "#edf0f5", borderRadius: 99, height: 5, overflow: "hidden" }}>
+                    <div style={{ background: "var(--color-surface-alt)", borderRadius: 99, height: 5, overflow: "hidden" }}>
                       <i style={{ background: colors[i], borderRadius: "inherit", display: "block", height: "100%", width: `${pct}%` }} />
                     </div>
                   </div>

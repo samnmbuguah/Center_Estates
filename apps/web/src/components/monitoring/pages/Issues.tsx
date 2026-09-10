@@ -17,9 +17,9 @@ const SUB_TABS = [
 ];
 
 function scoreColor(score: number): string {
-  if (score >= 15) return "#ef4444";
-  if (score >= 8) return "#f59e0b";
-  return "#10b981";
+  if (score >= 15) return "var(--color-danger)";
+  if (score >= 8) return "var(--color-amber)";
+  return "var(--color-emerald)";
 }
 
 /** Build a live 5×5 matrix from register likelihood × impact (open risks only by default). */
@@ -105,7 +105,7 @@ export function Issues() {
         trend: "flat",
         status: r.status === "open" ? "Open" : (r.status || "Open"),
         nextReview: r.next_review || "—",
-        color: (r.current ?? r.score ?? 0) >= 15 ? "#ef4444" : (r.current ?? r.score ?? 0) >= 8 ? "#f59e0b" : "#10b981",
+        color: (r.current ?? r.score ?? 0) >= 15 ? "var(--color-danger)" : (r.current ?? r.score ?? 0) >= 8 ? "var(--color-amber)" : "var(--color-emerald)",
       }))))
       .catch((e) => { setRegister([]); setLoadError(e.message || "Failed to load risks"); })
       .finally(() => setLoading(false));
@@ -162,7 +162,7 @@ export function Issues() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn primary" onClick={async () => { const description = window.prompt("Describe the new risk"); if (!description || !activeProjectId) return; const created = await post<any>("/risks", { project_id: activeProjectId, description, reference: `R-${Date.now().toString().slice(-4)}` }); setRegister(items => [{ ...created, id: created.reference, desc: created.description, cat: created.category, inherent: created.inherent, current: created.current, status: "Open", owner: created.owner, nextReview: created.next_review || "—", color: created.current >= 15 ? "#ef4444" : created.current >= 8 ? "#f59e0b" : "#10b981" }, ...items]); }} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button className="btn primary" onClick={async () => { const description = window.prompt("Describe the new risk"); if (!description || !activeProjectId) return; const created = await post<any>("/risks", { project_id: activeProjectId, description, reference: `R-${Date.now().toString().slice(-4)}` }); setRegister(items => [{ ...created, id: created.reference, desc: created.description, cat: created.category, inherent: created.inherent, current: created.current, status: "Open", owner: created.owner, nextReview: created.next_review || "—", color: created.current >= 15 ? "var(--color-danger)" : created.current >= 8 ? "var(--color-amber)" : "var(--color-emerald)" }, ...items]); }} style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <Plus size={15} /> Add New Risk
           </button>
         </div>
@@ -180,11 +180,11 @@ export function Issues() {
         const open = register.filter((r) => String(r.status).toLowerCase() === "open" || String(r.status).toLowerCase() === "in_progress").length;
         const closed = register.filter((r) => String(r.status).toLowerCase() === "closed").length;
         const kpis = [
-          { label: "Total Risks", value: total, sub: activeProjectId ? "Selected project" : "All projects", color: "#3b82f6" },
-          { label: "High Risks", value: high, sub: total ? `${Math.round((high / total) * 100)}% of total` : "—", color: "#ef4444" },
-          { label: "Medium Risks", value: medium, sub: total ? `${Math.round((medium / total) * 100)}% of total` : "—", color: "#f59e0b" },
-          { label: "Low Risks", value: low, sub: total ? `${Math.round((low / total) * 100)}% of total` : "—", color: "#10b981" },
-          { label: "Open Risks", value: open, sub: total ? `${Math.round((open / total) * 100)}% of total` : "—", color: "#3b82f6" },
+          { label: "Total Risks", value: total, sub: activeProjectId ? "Selected project" : "All projects", color: "var(--color-blue)" },
+          { label: "High Risks", value: high, sub: total ? `${Math.round((high / total) * 100)}% of total` : "—", color: "var(--color-danger)" },
+          { label: "Medium Risks", value: medium, sub: total ? `${Math.round((medium / total) * 100)}% of total` : "—", color: "var(--color-amber)" },
+          { label: "Low Risks", value: low, sub: total ? `${Math.round((low / total) * 100)}% of total` : "—", color: "var(--color-emerald)" },
+          { label: "Open Risks", value: open, sub: total ? `${Math.round((open / total) * 100)}% of total` : "—", color: "var(--color-blue)" },
           { label: "Closed Risks", value: closed, sub: total ? `${Math.round((closed / total) * 100)}% of total` : "—", color: "#6b7280" },
         ];
         return (
@@ -234,10 +234,10 @@ export function Issues() {
                   </td>
                   <td style={{ padding: "10px 12px", color: "var(--muted)" }}>{r.owner}</td>
                   <td style={{ padding: "10px 12px" }}>
-                    <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 8, background: `${r.color}20`, color: r.color }}>{r.current}</span>
+                    <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 8, background: `color-mix(in srgb, ${r.color} 13%, transparent)`, color: r.color }}>{r.current}</span>
                   </td>
                   <td style={{ padding: "10px 12px" }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 6, background: "rgba(59,130,246,0.12)", color: "#3b82f6" }}>{r.status}</span>
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 6, background: "rgba(59,130,246,0.12)", color: "var(--color-blue)" }}>{r.status}</span>
                   </td>
                   <td style={{ padding: "10px 12px", color: "var(--muted)", fontSize: 11 }}>{r.nextReview}</td>
                 </tr>
@@ -264,7 +264,7 @@ export function Issues() {
                   <div key={r} style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }}>
                     {[1, 2, 3, 4, 5].map(c => {
                       const cell = matrixCells.find(m => m.row === r && m.col === c);
-                      const bg = cell?.color === "#ef4444" ? "rgba(239,68,68,0.25)" : cell?.color === "#f59e0b" ? "rgba(245,158,11,0.25)" : "rgba(16,185,129,0.25)";
+                      const bg = cell?.color === "var(--color-danger)" ? "rgba(239,68,68,0.25)" : cell?.color === "var(--color-amber)" ? "rgba(245,158,11,0.25)" : "rgba(16,185,129,0.25)";
                       return (
                         <div key={c} onClick={() => setSelectedCell(`${r}-${c}`)} title={`${cell?.val || 0} open risk(s)`} style={{
                           background: bg, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center",
@@ -292,9 +292,9 @@ export function Issues() {
 
             {/* Legend — live counts */}
             <div style={{ display: "flex", flexDirection: "column", gap: 6, justifyContent: "center", fontSize: 11, fontWeight: 700 }}>
-              <div style={{ color: "#ef4444" }}>● High ({matrixStats.high})</div>
-              <div style={{ color: "#f59e0b" }}>● Medium ({matrixStats.medium})</div>
-              <div style={{ color: "#10b981" }}>● Low ({matrixStats.low})</div>
+              <div style={{ color: "var(--color-danger)" }}>● High ({matrixStats.high})</div>
+              <div style={{ color: "var(--color-amber)" }}>● Medium ({matrixStats.medium})</div>
+              <div style={{ color: "var(--color-emerald)" }}>● Low ({matrixStats.low})</div>
             </div>
           </div>
         </div>
@@ -321,7 +321,7 @@ export function Issues() {
 
       {activeTab === "register" && <div className="card"><h3>Risk Register</h3><p className="muted">{loading ? "Loading persistent project risks…" : "Filterable register of risks and their owners."}</p><table><thead><tr><th>ID</th><th>Description</th><th>Category</th><th>Owner</th><th>Inherent</th><th>Current</th><th>Status</th></tr></thead><tbody>{register.map(r => <tr key={r.id}><td className="mono">{r.id}</td><td>{r.desc}</td><td>{r.cat}</td><td>{r.owner}</td><td>{r.inherent}</td><td>{r.current}</td><td>{r.status}</td></tr>)}</tbody></table></div>}
       {activeTab === "category" && <div className="grid">{Array.from(new Set(register.map(r => r.cat))).map(category => { const items = register.filter(r => r.cat === category); return <div className="card" key={category}><h3>{category}</h3><div className="stat">{items.length}</div><p className="muted">{items.filter(r => r.status === "Open").length} open risk(s)</p>{items.map(r => <div className="row" key={r.id} style={{ justifyContent: "space-between", borderTop: "1px solid var(--border)", padding: "8px 0" }}><span>{r.id}</span><span>{r.current}</span></div>)}</div>; })}</div>}
-      {activeTab === "matrix" && <div className="card"><h3>Risk Matrix</h3><p className="muted">Live counts from the open risk register (likelihood × impact).</p><div className="grid">{matrixCells.map(cell => <button className="card" key={`${cell.row}-${cell.col}`} onClick={() => setSelectedCell(`${cell.row}-${cell.col}`)} style={{ cursor: "pointer", border: selectedCell === `${cell.row}-${cell.col}` ? "2px solid var(--text)" : "1px solid var(--border)", background: `${cell.color}20` }}><strong>{cell.row} × {cell.col}</strong><div>{cell.val} risk(s)</div></button>)}</div>
+      {activeTab === "matrix" && <div className="card"><h3>Risk Matrix</h3><p className="muted">Live counts from the open risk register (likelihood × impact).</p><div className="grid">{matrixCells.map(cell => <button className="card" key={`${cell.row}-${cell.col}`} onClick={() => setSelectedCell(`${cell.row}-${cell.col}`)} style={{ cursor: "pointer", border: selectedCell === `${cell.row}-${cell.col}` ? "2px solid var(--text)" : "1px solid var(--border)", background: `color-mix(in srgb, ${cell.color} 13%, transparent)` }}><strong>{cell.row} × {cell.col}</strong><div>{cell.val} risk(s)</div></button>)}</div>
         {selectedCell && <div style={{ marginTop: 12 }}><strong>Selected {selectedCell}:</strong> {(matrixCells.find(c => `${c.row}-${c.col}` === selectedCell)?.risks || []).map(r => <div key={r.id}>{r.id} — {r.desc}</div>)}</div>}
       </div>}
       {activeTab === "reports" && <div className="card"><h3>Risk Reports</h3><p className="muted">Generate a printable PDF or spreadsheet export from the current risk register.</p><div className="grid">{RISK_REPORTS.map(report => <div className="card" key={report.title}><FileText size={18} /><h3>{report.title}</h3><p className="muted">{report.sub}</p><div className="row"><button className="btn sm" onClick={() => downloadReport("pdf", report.title)}>PDF</button><button className="btn ghost sm" onClick={() => downloadReport("excel", report.title)}>Excel</button></div></div>)}</div></div>}

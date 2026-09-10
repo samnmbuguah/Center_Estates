@@ -231,13 +231,13 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
   return (
     <div style={{
       minHeight: "100vh",
-      background: "radial-gradient(ellipse at top, #f8fafc 0%, #edf2f7 50%, #e2e8f0 100%)",
+      background: "radial-gradient(ellipse at top, var(--color-slate-50) 0%, #edf2f7 50%, var(--color-slate-200) 100%)",
       padding: "24px 16px 60px",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-      color: "#0f172a"
+      color: "var(--color-slate-900)"
     }}>
       {/* Centered Luxury Container */}
       <div style={{ width: "100%", maxWidth: 680 }}>
@@ -248,7 +248,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             display: "inline-flex",
             alignItems: "center",
             gap: 7,
-            background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+            background: "linear-gradient(135deg, var(--color-slate-900) 0%, var(--color-slate-800) 100%)",
             color: "#ffffff",
             padding: "6px 14px",
             borderRadius: 30,
@@ -263,10 +263,10 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             <span>CeEst Smart Concierge</span>
           </div>
 
-          <h1 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", color: "#0f172a" }}>
+          <h1 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--color-slate-900)" }}>
             {state === "tracking" ? "Live Ticket Tracking" : "Report an Issue or Service Request"}
           </h1>
-          <p style={{ margin: 0, fontSize: 14, color: "#64748b" }}>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--color-slate-500)" }}>
             {state === "tracking"
               ? "Real-time dispatch and resolution progress for your request"
               : "Scan-to-log helpdesk · Direct technician dispatch · No login required"}
@@ -277,7 +277,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
         {context && (
           <div style={{
             background: "#ffffff",
-            border: "1px solid #e2e8f0",
+            border: "1px solid var(--color-slate-200)",
             borderRadius: 16,
             padding: "14px 18px",
             marginBottom: 16,
@@ -290,30 +290,30 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
               width: 44,
               height: 44,
               borderRadius: 12,
-              background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)",
-              color: "#2563eb",
+              background: "linear-gradient(135deg, var(--color-blue-soft) 0%, var(--color-blue-bg) 100%)",
+              color: "var(--color-info)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               flexShrink: 0,
-              border: "1px solid #bfdbfe"
+              border: "1px solid var(--color-blue-200)"
             }}>
               <Building2 size={22} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 16, fontWeight: 800, color: "#0f172a" }}>{context.property}</span>
-                <span style={{ fontSize: 10, fontWeight: 800, background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: 12 }}>
+                <span style={{ fontSize: 16, fontWeight: 800, color: "var(--color-slate-900)" }}>{context.property}</span>
+                <span style={{ fontSize: 10, fontWeight: 800, background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "2px 8px", borderRadius: 12 }}>
                   Verified Location
                 </span>
               </div>
-              <div style={{ fontSize: 13, color: "#64748b", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 3 }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, color: "#334155" }}>
-                  <MapPin size={13} color="#dc2626" /> {context.label}
+              <div style={{ fontSize: 13, color: "var(--color-slate-500)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 3 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, color: "var(--color-slate-700)" }}>
+                  <MapPin size={13} color="var(--color-danger)" /> {context.label}
                 </span>
-                {context.building && <span style={{ color: "#94a3b8" }}>• {context.building}</span>}
-                {context.floor && <span style={{ color: "#94a3b8" }}>• Floor {context.floor}</span>}
-                {context.unit && <span style={{ color: "#94a3b8" }}>• Unit {context.unit}</span>}
+                {context.building && <span style={{ color: "var(--color-slate-400)" }}>• {context.building}</span>}
+                {context.floor && <span style={{ color: "var(--color-slate-400)" }}>• Floor {context.floor}</span>}
+                {context.unit && <span style={{ color: "var(--color-slate-400)" }}>• Unit {context.unit}</span>}
               </div>
             </div>
           </div>
@@ -321,27 +321,27 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
         {/* ERROR STATE */}
         {state === "error" && (
-          <div style={{ background: "#ffffff", border: "1px solid #fecaca", borderRadius: 16, padding: 32, textAlign: "center", boxShadow: "0 8px 30px rgba(0,0,0,0.06)" }}>
-            <AlertCircle size={42} color="#dc2626" style={{ margin: "0 auto 12px" }} />
-            <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 6px", color: "#991b1b" }}>Helpdesk Portal Unavailable</h2>
-            <p style={{ margin: 0, fontSize: 14, color: "#64748b" }}>{error}</p>
+          <div style={{ background: "#ffffff", border: "1px solid var(--color-red-200)", borderRadius: 16, padding: 32, textAlign: "center", boxShadow: "0 8px 30px rgba(0,0,0,0.06)" }}>
+            <AlertCircle size={42} color="var(--color-danger)" style={{ margin: "0 auto 12px" }} />
+            <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 6px", color: "var(--color-danger-deep)" }}>Helpdesk Portal Unavailable</h2>
+            <p style={{ margin: 0, fontSize: 14, color: "var(--color-slate-500)" }}>{error}</p>
           </div>
         )}
 
         {/* LOADING STATE */}
         {state === "loading" && (
-          <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 48, textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+          <div style={{ background: "#ffffff", border: "1px solid var(--color-slate-200)", borderRadius: 16, padding: 48, textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
             <div style={{
               display: "inline-block",
               width: 34,
               height: 34,
-              border: "3px solid #e2e8f0",
-              borderTopColor: "#0284c7",
+              border: "3px solid var(--color-slate-200)",
+              borderTopColor: "var(--color-sky)",
               borderRadius: "50%",
               animation: "spin 0.8s linear infinite",
               marginBottom: 14
             }} />
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#475569" }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--color-slate-600)" }}>
               Connecting to Smart Helpdesk…
             </p>
           </div>
@@ -351,7 +351,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
         {state === "ready" && (
           <form onSubmit={handleSubmit} style={{
             background: "#ffffff",
-            border: "1px solid #e2e8f0",
+            border: "1px solid var(--color-slate-200)",
             borderRadius: 20,
             padding: "24px 22px",
             boxShadow: "0 12px 40px -8px rgba(15,23,42,0.08)",
@@ -360,7 +360,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             gap: 22
           }}>
             {error && (
-              <div style={{ padding: "12px 16px", borderRadius: 10, background: "#fee2e2", border: "1px solid #fca5a5", color: "#991b1b", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ padding: "12px 16px", borderRadius: 10, background: "var(--color-red-bg)", border: "1px solid var(--color-red-300)", color: "var(--color-danger-deep)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
                 <AlertCircle size={18} style={{ flexShrink: 0 }} />
                 <span>{error}</span>
               </div>
@@ -369,11 +369,11 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             {/* Step 1: Category Grid */}
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <label style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", display: "flex", alignItems: "center", gap: 6 }}>
+                <label style={{ fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", display: "flex", alignItems: "center", gap: 6 }}>
                   <span>1. What needs attention?</span>
-                  <span style={{ color: "#dc2626" }}>*</span>
+                  <span style={{ color: "var(--color-danger)" }}>*</span>
                 </label>
-                <span style={{ fontSize: 12, color: "#64748b" }}>Select category</span>
+                <span style={{ fontSize: 12, color: "var(--color-slate-500)" }}>Select category</span>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
@@ -387,8 +387,8 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                       style={{
                         padding: "14px 8px",
                         borderRadius: 12,
-                        border: isSelected ? "2px solid #0284c7" : "1px solid #e2e8f0",
-                        background: isSelected ? "#f0f9ff" : "#f8fafc",
+                        border: isSelected ? "2px solid var(--color-sky)" : "1px solid var(--color-slate-200)",
+                        background: isSelected ? "#f0f9ff" : "var(--color-slate-50)",
                         cursor: "pointer",
                         display: "flex",
                         flexDirection: "column",
@@ -402,7 +402,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                       }}
                     >
                       <span style={{ fontSize: 24 }}>{cat.icon}</span>
-                      <span style={{ fontSize: 12, fontWeight: isSelected ? 800 : 600, color: isSelected ? "#0369a1" : "#1e293b", lineHeight: 1.2 }}>
+                      <span style={{ fontSize: 12, fontWeight: isSelected ? 800 : 600, color: isSelected ? "var(--color-sky-deep)" : "var(--color-slate-800)", lineHeight: 1.2 }}>
                         {cat.label}
                       </span>
                       {isSelected && (
@@ -413,7 +413,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                           width: 16,
                           height: 16,
                           borderRadius: "50%",
-                          background: "#0284c7",
+                          background: "var(--color-sky)",
                           color: "#ffffff",
                           display: "flex",
                           alignItems: "center",
@@ -432,8 +432,8 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
             {/* Step 2: Description */}
             <div>
-              <label style={{ display: "block", fontSize: 14, fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>
-                2. Describe the Issue / Maintenance Details <span style={{ color: "#dc2626" }}>*</span>
+              <label style={{ display: "block", fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 6 }}>
+                2. Describe the Issue / Maintenance Details <span style={{ color: "var(--color-danger)" }}>*</span>
               </label>
               <textarea
                 required
@@ -445,7 +445,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                   width: "100%",
                   padding: "12px 14px",
                   borderRadius: 10,
-                  border: "1px solid #cbd5e1",
+                  border: "1px solid var(--color-slate-300)",
                   fontSize: 14,
                   fontFamily: "inherit",
                   boxSizing: "border-box",
@@ -459,7 +459,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
             {/* Step 3: Priority & SLA */}
             <div>
-              <label style={{ display: "block", fontSize: 14, fontWeight: 800, color: "#0f172a", marginBottom: 8 }}>
+              <label style={{ display: "block", fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 8 }}>
                 3. Urgency &amp; Target SLA Response
               </label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -469,8 +469,8 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                   style={{
                     padding: "12px 14px",
                     borderRadius: 10,
-                    border: priority === "normal" ? "2px solid #0284c7" : "1px solid #e2e8f0",
-                    background: priority === "normal" ? "#f0f9ff" : "#f8fafc",
+                    border: priority === "normal" ? "2px solid var(--color-sky)" : "1px solid var(--color-slate-200)",
+                    background: priority === "normal" ? "#f0f9ff" : "var(--color-slate-50)",
                     textAlign: "left",
                     cursor: "pointer",
                     display: "flex",
@@ -479,10 +479,10 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                     transition: "all 0.12s ease"
                   }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 800, color: priority === "normal" ? "#0369a1" : "#1e293b" }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: priority === "normal" ? "var(--color-sky-deep)" : "var(--color-slate-800)" }}>
                     🟢 Normal Priority
                   </div>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>
+                  <div style={{ fontSize: 11, color: "var(--color-slate-500)" }}>
                     Standard ~24h resolution SLA
                   </div>
                 </button>
@@ -493,8 +493,8 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                   style={{
                     padding: "12px 14px",
                     borderRadius: 10,
-                    border: priority === "urgent" ? "2px solid #dc2626" : "1px solid #e2e8f0",
-                    background: priority === "urgent" ? "#fef2f2" : "#f8fafc",
+                    border: priority === "urgent" ? "2px solid var(--color-danger)" : "1px solid var(--color-slate-200)",
+                    background: priority === "urgent" ? "var(--color-red-soft)" : "var(--color-slate-50)",
                     textAlign: "left",
                     cursor: "pointer",
                     display: "flex",
@@ -503,10 +503,10 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                     transition: "all 0.12s ease"
                   }}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 800, color: priority === "urgent" ? "#991b1b" : "#1e293b" }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: priority === "urgent" ? "var(--color-danger-deep)" : "var(--color-slate-800)" }}>
                     🔴 Urgent / Emergency
                   </div>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>
+                  <div style={{ fontSize: 11, color: "var(--color-slate-500)" }}>
                     Priority express ~4h response SLA
                   </div>
                 </button>
@@ -515,7 +515,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
             {/* Step 4: Photo Attachment */}
             <div>
-              <label style={{ display: "block", fontSize: 14, fontWeight: 800, color: "#0f172a", marginBottom: 6 }}>
+              <label style={{ display: "block", fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 6 }}>
                 4. Attach Photo or Video Evidence (Optional)
               </label>
 
@@ -540,22 +540,22 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                     width: "100%",
                     padding: "18px",
                     borderRadius: 12,
-                    border: "2px dashed #cbd5e1",
-                    background: "#f8fafc",
+                    border: "2px dashed var(--color-slate-300)",
+                    background: "var(--color-slate-50)",
                     cursor: "pointer",
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     gap: 8,
-                    color: "#475569",
+                    color: "var(--color-slate-600)",
                     transition: "all 0.15s ease"
                   }}
                 >
-                  <Camera size={26} color="#0284c7" />
+                  <Camera size={26} color="var(--color-sky)" />
                   <div style={{ fontSize: 13, fontWeight: 700 }}>
                     {uploadingPhoto ? "Uploading image to secure cloud…" : "Take a Photo or Choose from Device"}
                   </div>
-                  <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                  <div style={{ fontSize: 11, color: "var(--color-slate-400)" }}>
                     Supports JPG, PNG, WEBP (Max 25 MB)
                   </div>
                 </button>
@@ -566,19 +566,19 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                   justifyContent: "space-between",
                   padding: "10px 14px",
                   borderRadius: 10,
-                  border: "1px solid #bfdbfe",
-                  background: "#eff6ff"
+                  border: "1px solid var(--color-blue-200)",
+                  background: "var(--color-blue-soft)"
                 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                     <img src={photoUrl} alt="Preview" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 6, border: "1px solid #93c5fd" }} />
-                    <div style={{ fontSize: 12, fontWeight: 700, color: "#1e3a8a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-info-dark)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       Photo attached successfully
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={() => setPhotoUrl("")}
-                    style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#991b1b", borderRadius: 6, padding: "4px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+                    style={{ background: "var(--color-red-bg)", border: "1px solid var(--color-red-300)", color: "var(--color-danger-deep)", borderRadius: 6, padding: "4px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
                   >
                     Remove
                   </button>
@@ -587,15 +587,15 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             </div>
 
             {/* Step 5: Contact Info */}
-            <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 14, padding: "16px 18px" }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-                <User size={16} color="#0284c7" />
+            <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", borderRadius: 14, padding: "16px 18px" }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                <User size={16} color="var(--color-sky)" />
                 <span>5. Where should we send updates?</span>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 4 }}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--color-slate-600)", marginBottom: 4 }}>
                     Your Name (Optional)
                   </label>
                   <input
@@ -603,12 +603,12 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Alex Kamau (Tenant / Visitor / Staff)"
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, boxSizing: "border-box" }}
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, boxSizing: "border-box" }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 6 }}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--color-slate-600)", marginBottom: 6 }}>
                     Notification Channel
                   </label>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
@@ -624,9 +624,9 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                         style={{
                           padding: "8px 6px",
                           borderRadius: 8,
-                          border: contactChannel === ch.id ? "1.5px solid #0f172a" : "1px solid #cbd5e1",
-                          background: contactChannel === ch.id ? "#0f172a" : "#fff",
-                          color: contactChannel === ch.id ? "#fff" : "#334155",
+                          border: contactChannel === ch.id ? "1.5px solid var(--color-slate-900)" : "1px solid var(--color-slate-300)",
+                          background: contactChannel === ch.id ? "var(--color-slate-900)" : "#fff",
+                          color: contactChannel === ch.id ? "#fff" : "var(--color-slate-700)",
                           fontSize: 12,
                           fontWeight: 700,
                           cursor: "pointer",
@@ -651,7 +651,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                         ? "Enter your email for instant acknowledgement & updates"
                         : "Enter phone or WhatsApp number (e.g. 0712 345 678)"
                     }
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, boxSizing: "border-box" }}
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, boxSizing: "border-box" }}
                   />
                 </div>
               </div>
@@ -662,7 +662,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
               type="submit"
               disabled={submitting}
               style={{
-                background: "linear-gradient(135deg, #0284c7 0%, #0369a1 100%)",
+                background: "linear-gradient(135deg, var(--color-sky) 0%, var(--color-sky-deep) 100%)",
                 color: "#ffffff",
                 border: 0,
                 borderRadius: 12,
@@ -697,7 +697,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
         {state === "tracking" && ticket && (
           <div style={{
             background: "#ffffff",
-            border: "1px solid #e2e8f0",
+            border: "1px solid var(--color-slate-200)",
             borderRadius: 20,
             padding: "24px 22px",
             boxShadow: "0 12px 40px -8px rgba(15,23,42,0.08)",
@@ -707,19 +707,19 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
           }}>
             {/* Top Ticket Status Hero */}
             <div style={{
-              background: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
-              border: "1px solid #bbf7d0",
+              background: "linear-gradient(135deg, var(--color-green-soft) 0%, var(--color-green-bg) 100%)",
+              border: "1px solid var(--color-green-200)",
               borderRadius: 16,
               padding: "20px",
               textAlign: "center"
             }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#166534", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "var(--color-green-text)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
                 Ticket Reference
               </div>
               <div style={{ fontSize: 26, fontWeight: 900, color: "#14532d", fontFamily: "monospace", letterSpacing: "0.02em" }}>
                 {ticket.reference}
               </div>
-              <div style={{ fontSize: 14, color: "#166534", fontWeight: 700, marginTop: 4 }}>
+              <div style={{ fontSize: 14, color: "var(--color-green-text)", fontWeight: 700, marginTop: 4 }}>
                 {ticket.category} • {ticket.title}
               </div>
 
@@ -729,8 +729,8 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                   onClick={copyTicketLink}
                   style={{
                     background: "#ffffff",
-                    border: "1px solid #86efac",
-                    color: "#166534",
+                    border: "1px solid var(--color-green-300)",
+                    color: "var(--color-green-text)",
                     padding: "6px 14px",
                     borderRadius: 8,
                     fontSize: 12,
@@ -741,40 +741,40 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                     gap: 6
                   }}
                 >
-                  {copied ? <Check size={14} color="#16a34a" /> : <Copy size={14} />}
+                  {copied ? <Check size={14} color="var(--color-success)" /> : <Copy size={14} />}
                   <span>{copied ? "Link Copied!" : "Copy Tracking Link"}</span>
                 </button>
               </div>
             </div>
 
             {ticket.acknowledgement_email_status === "queued" ? (
-              <div style={{ padding: "11px 14px", borderRadius: 10, background: "#ecfdf5", border: "1px solid #a7f3d0", color: "#166534", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ padding: "11px 14px", borderRadius: 10, background: "#ecfdf5", border: "1px solid #a7f3d0", color: "var(--color-green-text)", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
                 <Mail size={16} /> Acknowledgement email queued for delivery. Check the inbox and spam folder.
               </div>
             ) : ticket.acknowledgement_email_status === "failed" ? (
-              <div style={{ padding: "11px 14px", borderRadius: 10, background: "#fff7ed", border: "1px solid #fed7aa", color: "#9a3412", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ padding: "11px 14px", borderRadius: 10, background: "var(--color-orange-bg)", border: "1px solid #fed7aa", color: "#9a3412", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
                 <AlertCircle size={16} /> The ticket is safely recorded, but its acknowledgement email could not be sent. Keep the reference above and ask the property team to verify outbound email settings.
               </div>
             ) : ticket.acknowledgement_email_status === "not_requested" ? (
-              <div style={{ padding: "11px 14px", borderRadius: 10, background: "#f8fafc", border: "1px solid #e2e8f0", color: "#475569", fontSize: 13, fontWeight: 700 }}>
+              <div style={{ padding: "11px 14px", borderRadius: 10, background: "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-600)", fontSize: 13, fontWeight: 700 }}>
                 No email acknowledgement was requested for this ticket.
               </div>
             ) : null}
 
             {/* SLA & Team Assignment Info */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: "12px 16px" }}>
-                <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Dispatched Team</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", marginTop: 2 }}>{ticket.assigned_team}</div>
-                <div style={{ fontSize: 12, color: "#475569" }}>{ticket.assigned_to || "Field Technician"}</div>
+              <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: "12px 16px" }}>
+                <div style={{ fontSize: 11, color: "var(--color-slate-500)", fontWeight: 700, textTransform: "uppercase" }}>Dispatched Team</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", marginTop: 2 }}>{ticket.assigned_team}</div>
+                <div style={{ fontSize: 12, color: "var(--color-slate-600)" }}>{ticket.assigned_to || "Field Technician"}</div>
               </div>
 
-              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 12, padding: "12px 16px" }}>
-                <div style={{ fontSize: 11, color: "#64748b", fontWeight: 700, textTransform: "uppercase" }}>Status &amp; Target SLA</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: ticket.status === "resolved" ? "#16a34a" : ticket.status === "closed" ? "#475569" : "#0284c7", marginTop: 2, textTransform: "uppercase" }}>
+              <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: "12px 16px" }}>
+                <div style={{ fontSize: 11, color: "var(--color-slate-500)", fontWeight: 700, textTransform: "uppercase" }}>Status &amp; Target SLA</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: ticket.status === "resolved" ? "var(--color-success)" : ticket.status === "closed" ? "var(--color-slate-600)" : "var(--color-sky)", marginTop: 2, textTransform: "uppercase" }}>
                   {ticket.status.replace("_", " ")} ({ticket.priority})
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b" }}>
+                <div style={{ fontSize: 12, color: "var(--color-slate-500)" }}>
                   {ticket.sla_due_at ? `Due: ${new Date(ticket.sla_due_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Within 24 Hours"}
                 </div>
               </div>
@@ -782,7 +782,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
             {/* Progress Lifecycle Stepper */}
             <div style={{ padding: "10px 6px" }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "#475569", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--color-slate-600)", marginBottom: 14 }}>
                 Resolution Lifecycle:
               </div>
 
@@ -803,9 +803,9 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                         width: 28,
                         height: 28,
                         borderRadius: "50%",
-                        background: isDone ? "#16a34a" : "#f1f5f9",
-                        border: isDone ? "2px solid #16a34a" : "2px solid #cbd5e1",
-                        color: isDone ? "#ffffff" : "#94a3b8",
+                        background: isDone ? "var(--color-success)" : "var(--color-slate-100)",
+                        border: isDone ? "2px solid var(--color-success)" : "2px solid var(--color-slate-300)",
+                        color: isDone ? "#ffffff" : "var(--color-slate-400)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -814,7 +814,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                       }}>
                         {isDone ? "✓" : idx + 1}
                       </div>
-                      <div style={{ fontSize: 11, fontWeight: isDone ? 800 : 500, color: isDone ? "#0f172a" : "#94a3b8" }}>
+                      <div style={{ fontSize: 11, fontWeight: isDone ? 800 : 500, color: isDone ? "var(--color-slate-900)" : "var(--color-slate-400)" }}>
                         {step.label}
                       </div>
                     </div>
@@ -825,12 +825,12 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
             {/* Resolution Notice & Actions */}
             {ticket.status === "resolved" && (
-              <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", borderRadius: 14, padding: "16px 18px" }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: "#166534", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ background: "var(--color-green-soft)", border: "1.5px solid var(--color-green-300)", borderRadius: 14, padding: "16px 18px" }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "var(--color-green-text)", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                   <CheckCircle2 size={18} />
                   <span>Work Completed &amp; Ready for Confirmation</span>
                 </div>
-                <p style={{ margin: "0 0 12px", fontSize: 13, color: "#166534", lineHeight: 1.5 }}>
+                <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--color-green-text)", lineHeight: 1.5 }}>
                   {ticket.resolution_notes || "The maintenance officer has completed work on this issue."}
                 </p>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -838,7 +838,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                     type="button"
                     disabled={actionBusy}
                     onClick={() => handleTicketAction("confirm")}
-                    style={{ background: "#16a34a", color: "#fff", border: 0, padding: "10px 16px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}
+                    style={{ background: "var(--color-success)", color: "#fff", border: 0, padding: "10px 16px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}
                   >
                     ✓ Confirm Resolution &amp; Close Ticket
                   </button>
@@ -846,7 +846,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                     type="button"
                     disabled={actionBusy}
                     onClick={() => handleTicketAction("reopen")}
-                    style={{ background: "#fff", color: "#dc2626", border: "1px solid #dc2626", padding: "10px 16px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}
+                    style={{ background: "#fff", color: "var(--color-danger)", border: "1px solid var(--color-danger)", padding: "10px 16px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}
                   >
                     ↻ Reopen (Issue Persists)
                   </button>
@@ -855,7 +855,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             )}
 
             {actionMessage && (
-              <div style={{ padding: "10px 14px", borderRadius: 8, background: actionMessage.type === "success" ? "#dcfce7" : "#fee2e2", color: actionMessage.type === "success" ? "#166534" : "#991b1b", fontSize: 13, fontWeight: 600 }}>
+              <div style={{ padding: "10px 14px", borderRadius: 8, background: actionMessage.type === "success" ? "var(--color-green-bg)" : "var(--color-red-bg)", color: actionMessage.type === "success" ? "var(--color-green-text)" : "var(--color-danger-deep)", fontSize: 13, fontWeight: 600 }}>
                 {actionMessage.text}
               </div>
             )}
@@ -863,18 +863,18 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             {/* Activity History */}
             {ticket.messages && ticket.messages.length > 0 && (
               <div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: "#0f172a", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                  <MessageSquare size={16} color="#0284c7" />
+                <div style={{ fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                  <MessageSquare size={16} color="var(--color-sky)" />
                   <span>Activity &amp; Dialogue Timeline</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 240, overflowY: "auto" }}>
                   {ticket.messages.map((m, i) => (
-                    <div key={i} style={{ background: m.is_developer_response ? "#f0f9ff" : "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 14px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#64748b", marginBottom: 3 }}>
-                        <strong style={{ color: m.is_developer_response ? "#0369a1" : "#0f172a" }}>{m.sender}</strong>
+                    <div key={i} style={{ background: m.is_developer_response ? "#f0f9ff" : "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", borderRadius: 10, padding: "10px 14px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--color-slate-500)", marginBottom: 3 }}>
+                        <strong style={{ color: m.is_developer_response ? "var(--color-sky-deep)" : "var(--color-slate-900)" }}>{m.sender}</strong>
                         <span>{new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                       </div>
-                      <div style={{ fontSize: 13, color: "#1e293b", lineHeight: 1.4 }}>{m.message}</div>
+                      <div style={{ fontSize: 13, color: "var(--color-slate-800)", lineHeight: 1.4 }}>{m.message}</div>
                     </div>
                   ))}
                 </div>
@@ -882,18 +882,18 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             )}
 
             {/* Bottom Actions */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 14, borderTop: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 14, borderTop: "1px solid var(--color-slate-200)" }}>
               <button
                 type="button"
                 onClick={() => void loadTicketStatus(ticket.reference)}
-                style={{ background: "none", border: 0, color: "#0284c7", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}
+                style={{ background: "none", border: 0, color: "var(--color-sky)", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}
               >
                 <RefreshCw size={14} /> Refresh Live Status
               </button>
               <button
                 type="button"
                 onClick={() => { setState("ready"); setTicket(null); setTicketRef(""); window.history.replaceState(null, "", window.location.pathname); }}
-                style={{ background: "#f1f5f9", border: "1px solid #cbd5e1", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                style={{ background: "var(--color-slate-100)", border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
               >
                 + Raise Another Request
               </button>
@@ -902,7 +902,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
         )}
 
         {/* Footer */}
-        <footer style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: "#94a3b8" }}>
+        <footer style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: "var(--color-slate-400)" }}>
           Powered by CeEst ERP Smart Property Helpdesk
         </footer>
       </div>

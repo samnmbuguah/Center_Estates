@@ -64,7 +64,7 @@ export default function BuyersDirectoryPage() {
       eyebrow="Sales & Marketing Workspace"
       title="Buyer & Client Directory"
       subtitle="Registered property buyers, KYC identifiers, financing type and lead status."
-      accent="#ea580c"
+      accent="var(--color-orange)"
       groups={salesNav}
       activeId="buyers"
       onSelect={(id) => {

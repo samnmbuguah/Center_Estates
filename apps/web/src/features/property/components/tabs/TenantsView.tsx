@@ -116,10 +116,10 @@ export function TenantsView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="👥" iconBg="#e0e7ff" iconColor="#4f46e5" label="Tenants" value={kN(tenants.length)} sub="Registered tenants" link="View tenants" onClick={() => setTab("tenants")} />
-        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active" value={kN(active)} sub="Active tenancies" link="View tenants" onClick={() => setTab("tenants")} />
-        <KpiCard icon="◌" iconBg="#fef3c7" iconColor="#d97706" label="Prospects" value={kN(prospects)} sub="Pending activation" link="View tenants" onClick={() => setTab("tenants")} />
-        <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Combined arrears" link="View arrears" onClick={() => setTab("arrears")} />
+        <KpiCard icon="👥" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Tenants" value={kN(tenants.length)} sub="Registered tenants" link="View tenants" onClick={() => setTab("tenants")} />
+        <KpiCard icon="✓" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Active" value={kN(active)} sub="Active tenancies" link="View tenants" onClick={() => setTab("tenants")} />
+        <KpiCard icon="◌" iconBg="var(--color-amber-bg)" iconColor="var(--color-warning)" label="Prospects" value={kN(prospects)} sub="Pending activation" link="View tenants" onClick={() => setTab("tenants")} />
+        <KpiCard icon="⚠️" iconBg="var(--color-red-bg)" iconColor="var(--color-danger)" label="Outstanding" value={kM(outstanding)} sub="Combined arrears" link="View arrears" onClick={() => setTab("arrears")} />
       </KpiStrip>
 
       <ViewToolbar title="Tenant Register" subtitle="Tenants and occupancy for the selected property" search={search} onSearch={setSearch} searchTestid="tenant-search-input" placeholder="Search tenant name, email, phone…">
@@ -132,7 +132,7 @@ export function TenantsView({
             className="btn primary sm"
             onClick={() => void handleRunBulkActivate()}
             disabled={activating}
-            style={{ background: "#16a34a", borderColor: "#15803d", fontWeight: 800, display: "flex", alignItems: "center", gap: 5 }}
+            style={{ background: "var(--color-success)", borderColor: "var(--color-success-strong)", fontWeight: 800, display: "flex", alignItems: "center", gap: 5 }}
           >
             {activating ? "Activating…" : `⚡ Bulk Activate (${selectedIds.length})`}
           </button>
@@ -231,7 +231,7 @@ export function TenantsView({
                       <td>
                         {(t as any).units && (t as any).units.length > 1 ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: "#2563eb" }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-info)" }}>
                               🏢 {(t as any).units.length} Units ({[...new Set((t as any).units.map((u: any) => u.floor).filter(Boolean))].map((f: any) => `Fl ${f}`).join(', ') || 'Multi-floor'})
                             </span>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
@@ -247,7 +247,7 @@ export function TenantsView({
                         )}
                       </td>
                       <td style={{ fontSize: 12 }}>
-                        <div>{t.email ? <a href={`mailto:${t.email}`} onClick={e => e.stopPropagation()} style={{ color: "#2563eb", fontSize: 12, fontWeight: 500, textDecoration: "none" }}>{String(t.email)}</a> : <span className="muted">—</span>}</div>
+                        <div>{t.email ? <a href={`mailto:${t.email}`} onClick={e => e.stopPropagation()} style={{ color: "var(--color-info)", fontSize: 12, fontWeight: 500, textDecoration: "none" }}>{String(t.email)}</a> : <span className="muted">—</span>}</div>
                         <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2, fontWeight: 600 }}>{t.phone ? String(t.phone) : "—"}</div>
                       </td>
                       <td style={{ fontSize: 12 }}>
@@ -267,7 +267,7 @@ export function TenantsView({
                           <StatusPill value={String(t.status ?? "—")} />
                         )}
                       </td>
-                      <td style={{ fontSize: 13, color: Number(t.outstanding ?? 0) > 0 ? "#dc2626" : "var(--text-secondary)", fontWeight: 700 }}>
+                      <td style={{ fontSize: 13, color: Number(t.outstanding ?? 0) > 0 ? "var(--color-danger)" : "var(--text-secondary)", fontWeight: 700 }}>
                         {t.outstanding === undefined ? "—" : kM(t.outstanding)}
                       </td>
                       <td>

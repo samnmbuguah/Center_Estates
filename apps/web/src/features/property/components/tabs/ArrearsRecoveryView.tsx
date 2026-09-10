@@ -88,9 +88,9 @@ export function ArrearsRecoveryView({
       {subTab === "aging" && (
         <>
           <KpiStrip>
-            <KpiCard icon="⚠️" iconBg="rgba(220,38,38,0.12)" iconColor="#dc2626" label="Total Outstanding" value={kM(totalOutstanding)} sub={`${tenants.length} tenant(s)`} />
-            <KpiCard icon="📅" iconBg="rgba(217,119,6,0.12)" iconColor="#d97706" label="Oldest Debt" value={`${kN(oldestDays)} days`} sub="Days overdue" />
-            <KpiCard icon="🔔" iconBg="rgba(79,70,229,0.12)" iconColor="#4f46e5" label="Reminders Sent" value={kN(reminderList.length)} sub="This period" />
+            <KpiCard icon="⚠️" iconBg="rgba(220,38,38,0.12)" iconColor="var(--color-danger)" label="Total Outstanding" value={kM(totalOutstanding)} sub={`${tenants.length} tenant(s)`} />
+            <KpiCard icon="📅" iconBg="rgba(217,119,6,0.12)" iconColor="var(--color-warning)" label="Oldest Debt" value={`${kN(oldestDays)} days`} sub="Days overdue" />
+            <KpiCard icon="🔔" iconBg="rgba(79,70,229,0.12)" iconColor="var(--color-indigo)" label="Reminders Sent" value={kN(reminderList.length)} sub="This period" />
           </KpiStrip>
 
           <Panel title="Aging Buckets">
@@ -108,7 +108,7 @@ export function ArrearsRecoveryView({
                           <td className="mono" style={{ fontSize: 11, width: 50 }}>{pct(amount, total)}%</td>
                           <td>
                             <div style={{ flex: 1, height: 6, borderRadius: 99, background: "var(--border)", overflow: "hidden", minWidth: 120 }}>
-                              <div style={{ width: `${pct(amount, total)}%`, height: "100%", background: amount > 0 ? "#e23b3b" : "var(--border-strong)", transition: "width 0.3s" }} />
+                              <div style={{ width: `${pct(amount, total)}%`, height: "100%", background: amount > 0 ? "var(--color-brand-red)" : "var(--border-strong)", transition: "width 0.3s" }} />
                             </div>
                           </td>
                         </tr>

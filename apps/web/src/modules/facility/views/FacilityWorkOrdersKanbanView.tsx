@@ -28,22 +28,22 @@ export function FacilityWorkOrdersKanbanView() {
   };
 
   const columns: Array<{ id: WorkOrderItem["status"]; label: string; color: string }> = [
-    { id: "unassigned", label: "Unassigned", color: "#dc2626" },
-    { id: "dispatched", label: "Dispatched", color: "#d97706" },
-    { id: "in_progress", label: "In Progress", color: "#2563eb" },
-    { id: "inspection", label: "Under Inspection", color: "#7c3aed" },
-    { id: "closed", label: "Closed & Verified", color: "#16a34a" },
+    { id: "unassigned", label: "Unassigned", color: "var(--color-danger)" },
+    { id: "dispatched", label: "Dispatched", color: "var(--color-warning)" },
+    { id: "in_progress", label: "In Progress", color: "var(--color-info)" },
+    { id: "inspection", label: "Under Inspection", color: "var(--color-violet)" },
+    { id: "closed", label: "Closed & Verified", color: "var(--color-success)" },
   ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Header Toolbar */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, padding: "16px 20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px" }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
             Work Order Kanban Dispatch Board
           </h2>
-          <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 750 }}>
+          <span style={{ fontSize: 13, color: "var(--color-slate-900)", fontWeight: 750 }}>
             Drag and track work order progression across real-time technician status columns.
           </span>
         </div>
@@ -58,8 +58,8 @@ export function FacilityWorkOrdersKanbanView() {
             <div
               key={col.id}
               style={{
-                background: "#f8fafc",
-                border: "1px solid #cbd5e1",
+                background: "var(--color-slate-50)",
+                border: "1px solid var(--color-slate-300)",
                 borderRadius: 12,
                 padding: 14,
                 display: "flex",
@@ -86,7 +86,7 @@ export function FacilityWorkOrdersKanbanView() {
                       key={item.id}
                       style={{
                         background: "#ffffff",
-                        border: "1px solid #cbd5e1",
+                        border: "1px solid var(--color-slate-300)",
                         borderRadius: 10,
                         padding: 14,
                         display: "flex",
@@ -106,8 +106,8 @@ export function FacilityWorkOrdersKanbanView() {
                             padding: "2px 6px",
                             borderRadius: 4,
                             textTransform: "uppercase",
-                            background: isCritical ? "#fee2e2" : "#fef3c7",
-                            color: isCritical ? "#b91c1c" : "#b45309",
+                            background: isCritical ? "var(--color-red-bg)" : "var(--color-amber-bg)",
+                            color: isCritical ? "var(--color-danger-strong)" : "var(--color-amber-deep)",
                           }}
                         >
                           {item.priority}
@@ -118,41 +118,41 @@ export function FacilityWorkOrdersKanbanView() {
                         {item.title}
                       </strong>
 
-                      <small style={{ fontSize: 11, fontWeight: 700, color: "#0f172a" }}>
+                      <small style={{ fontSize: 11, fontWeight: 700, color: "var(--color-slate-900)" }}>
                         🏢 {item.property}
                       </small>
 
                       {item.technician ? (
-                        <div style={{ fontSize: 11, fontWeight: 800, color: "#166534", background: "#dcfce7", padding: "4px 8px", borderRadius: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "var(--color-green-text)", background: "var(--color-green-bg)", padding: "4px 8px", borderRadius: 6, display: "flex", alignItems: "center", gap: 4 }}>
                           <UserCheck size={14} />
                           <span>Tech: {item.technician}</span>
                         </div>
                       ) : (
-                        <div style={{ fontSize: 11, fontWeight: 800, color: "#b91c1c", background: "#fee2e2", padding: "4px 8px", borderRadius: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "var(--color-danger-strong)", background: "var(--color-red-bg)", padding: "4px 8px", borderRadius: 6, display: "flex", alignItems: "center", gap: 4 }}>
                           <AlertTriangle size={14} />
                           <span>Needs Tech Dispatch</span>
                         </div>
                       )}
 
                       {/* Column Move Quick Buttons */}
-                      <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 8, marginTop: 4, display: "flex", justifyContent: "space-between", gap: 6 }}>
+                      <div style={{ borderTop: "1px solid var(--color-slate-100)", paddingTop: 8, marginTop: 4, display: "flex", justifyContent: "space-between", gap: 6 }}>
                         {col.id === "unassigned" && (
-                          <button onClick={() => moveStatus(item.id, "dispatched")} style={{ width: "100%", background: "#dc2626", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                          <button onClick={() => moveStatus(item.id, "dispatched")} style={{ width: "100%", background: "var(--color-danger)", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
                             Dispatch Technician →
                           </button>
                         )}
                         {col.id === "dispatched" && (
-                          <button onClick={() => moveStatus(item.id, "in_progress")} style={{ width: "100%", background: "#2563eb", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                          <button onClick={() => moveStatus(item.id, "in_progress")} style={{ width: "100%", background: "var(--color-info)", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
                             Start Work →
                           </button>
                         )}
                         {col.id === "in_progress" && (
-                          <button onClick={() => moveStatus(item.id, "inspection")} style={{ width: "100%", background: "#7c3aed", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                          <button onClick={() => moveStatus(item.id, "inspection")} style={{ width: "100%", background: "var(--color-violet)", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
                             Request Inspection →
                           </button>
                         )}
                         {col.id === "inspection" && (
-                          <button onClick={() => moveStatus(item.id, "closed")} style={{ width: "100%", background: "#16a34a", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                          <button onClick={() => moveStatus(item.id, "closed")} style={{ width: "100%", background: "var(--color-success)", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
                             Verify & Close ✓
                           </button>
                         )}

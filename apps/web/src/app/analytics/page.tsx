@@ -55,13 +55,13 @@ type TelemetryResponse = {
 };
 
 const moduleMeta: Record<string, { label: string; icon: string; color: string; desc: string }> = {
-  property: { label: "Property & Leasing", icon: "🏢", color: "#dc2626", desc: "Tenants, Units, Leases & Rent Roll" },
-  facility: { label: "Facility & Assets", icon: "🔧", color: "#0284c7", desc: "Work Orders, Preventive PPM, Assets & Meters" },
-  sales: { label: "Sales Pipeline", icon: "💰", color: "#16a34a", desc: "Plots, Buyers, Installments & Escrow" },
-  tender: { label: "Tender Engine", icon: "📋", color: "#d97706", desc: "RFQs, Contractor Bids & Evaluations" },
-  valuation: { label: "Valuation Services", icon: "📜", color: "#9333ea", desc: "Instructions, Site Inspections & Sign-offs" },
-  monitoring: { label: "Construction Monitoring", icon: "📊", color: "#ea580c", desc: "Site Snags, IPCs, S-Curves & Programme" },
-  companion: { label: "Companion & Operations", icon: "🧭", color: "#059669", desc: "Staff Tasks, Feedback Tickets & Leaves" },
+  property: { label: "Property & Leasing", icon: "🏢", color: "var(--color-danger)", desc: "Tenants, Units, Leases & Rent Roll" },
+  facility: { label: "Facility & Assets", icon: "🔧", color: "var(--color-sky)", desc: "Work Orders, Preventive PPM, Assets & Meters" },
+  sales: { label: "Sales Pipeline", icon: "💰", color: "var(--color-success)", desc: "Plots, Buyers, Installments & Escrow" },
+  tender: { label: "Tender Engine", icon: "📋", color: "var(--color-warning)", desc: "RFQs, Contractor Bids & Evaluations" },
+  valuation: { label: "Valuation Services", icon: "📜", color: "var(--color-purple)", desc: "Instructions, Site Inspections & Sign-offs" },
+  monitoring: { label: "Construction Monitoring", icon: "📊", color: "var(--color-orange)", desc: "Site Snags, IPCs, S-Curves & Programme" },
+  companion: { label: "Companion & Operations", icon: "🧭", color: "var(--color-emerald-strong)", desc: "Staff Tasks, Feedback Tickets & Leaves" },
 };
 
 function formatWhen(iso: string | null): string {
@@ -173,8 +173,8 @@ export default function UsageAnalyticsPage() {
   if (!isAdministrator) {
     return (
       <div className="page-wrap" style={{ maxWidth: 800, margin: "60px auto", textAlign: "center" }}>
-        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: "48px 24px" }}>
-          <ShieldCheck size={48} style={{ color: "#dc2626", marginBottom: 16 }} />
+        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: "48px 24px" }}>
+          <ShieldCheck size={48} style={{ color: "var(--color-danger)", marginBottom: 16 }} />
           <h1 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 8px" }}>Administrator Access Required</h1>
           <p style={{ color: "var(--muted)", maxWidth: 480, margin: "0 auto", fontSize: 14 }}>
             System usage analytics and staff adoption telemetry are restricted to organization administrators and management.
@@ -189,7 +189,7 @@ export default function UsageAnalyticsPage() {
       {/* 1. Header & Controls */}
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, borderBottom: "1px solid var(--border)", paddingBottom: 16 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#dc2626", fontWeight: 800, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--color-danger)", fontWeight: 800, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
             <BarChart2 size={15} />
             <span>Platform Intelligence &amp; Adoption Matrix</span>
           </div>
@@ -251,7 +251,7 @@ export default function UsageAnalyticsPage() {
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
             <span>Logged Operations · {windowDays} Days</span>
-            <Activity size={16} style={{ color: "#dc2626" }} />
+            <Activity size={16} style={{ color: "var(--color-danger)" }} />
           </div>
           <div style={{ fontSize: 26, fontWeight: 900, color: "var(--text-primary)" }}>
             {totalEvents.toLocaleString()}
@@ -265,10 +265,10 @@ export default function UsageAnalyticsPage() {
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
             <span>Staff Adoption Index</span>
-            <TrendingUp size={16} style={{ color: "#16a34a" }} />
+            <TrendingUp size={16} style={{ color: "var(--color-success)" }} />
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 26, fontWeight: 900, color: adoptionRate >= 70 ? "#16a34a" : "#d97706" }}>
+            <span style={{ fontSize: 26, fontWeight: 900, color: adoptionRate >= 70 ? "var(--color-success)" : "var(--color-warning)" }}>
               {adoptionRate}%
             </span>
             <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
@@ -276,7 +276,7 @@ export default function UsageAnalyticsPage() {
             </span>
           </div>
           <div style={{ width: "100%", height: 5, borderRadius: 3, background: "var(--border)", marginTop: 2, overflow: "hidden" }}>
-            <div style={{ width: `${adoptionRate}%`, height: "100%", background: adoptionRate >= 70 ? "#16a34a" : "#dc2626", borderRadius: 3 }} />
+            <div style={{ width: `${adoptionRate}%`, height: "100%", background: adoptionRate >= 70 ? "var(--color-success)" : "var(--color-danger)", borderRadius: 3 }} />
           </div>
         </div>
 
@@ -284,7 +284,7 @@ export default function UsageAnalyticsPage() {
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
             <span>Power Contributors</span>
-            <Zap size={16} style={{ color: "#f59e0b" }} />
+            <Zap size={16} style={{ color: "var(--color-amber)" }} />
           </div>
           <div style={{ fontSize: 26, fontWeight: 900, color: "var(--text-primary)" }}>
             {tierCounts.power} Staff
@@ -298,9 +298,9 @@ export default function UsageAnalyticsPage() {
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, textTransform: "uppercase" }}>
             <span>Dormant Accounts</span>
-            <UserMinus size={16} style={{ color: tierCounts.inactive > 0 ? "#dc2626" : "#64748b" }} />
+            <UserMinus size={16} style={{ color: tierCounts.inactive > 0 ? "var(--color-danger)" : "var(--color-slate-500)" }} />
           </div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: tierCounts.inactive > 0 ? "#dc2626" : "var(--text-primary)" }}>
+          <div style={{ fontSize: 26, fontWeight: 900, color: tierCounts.inactive > 0 ? "var(--color-danger)" : "var(--text-primary)" }}>
             {tierCounts.inactive} Staff
           </div>
           <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
@@ -385,12 +385,12 @@ export default function UsageAnalyticsPage() {
                     Share of logged operations by functional ERP domain
                   </small>
                 </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#dc2626" }}>{totalEvents} Total</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-danger)" }}>{totalEvents} Total</span>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {modules.map(([modKey, count]) => {
-                  const meta = moduleMeta[modKey] || { label: modKey, icon: "📦", color: "#64748b", desc: "" };
+                  const meta = moduleMeta[modKey] || { label: modKey, icon: "📦", color: "var(--color-slate-500)", desc: "" };
                   const percentage = totalEvents > 0 ? Math.round((count / totalEvents) * 100) : 0;
                   return (
                     <div key={modKey} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -446,7 +446,7 @@ export default function UsageAnalyticsPage() {
                         style={{
                           width: "100%",
                           height: `${heightPercent}%`,
-                          background: isPeak ? "#dc2626" : hour >= 8 && hour <= 18 ? "rgba(220,38,38,0.4)" : "rgba(100,116,139,0.3)",
+                          background: isPeak ? "var(--color-danger)" : hour >= 8 && hour <= 18 ? "rgba(220,38,38,0.4)" : "rgba(100,116,139,0.3)",
                           borderRadius: "3px 3px 0 0",
                           transition: "height 0.2s ease",
                         }}
@@ -476,8 +476,8 @@ export default function UsageAnalyticsPage() {
                 style={{ padding: 14, borderRadius: 8, background: "rgba(245, 158, 11, 0.06)", border: "1px solid rgba(245, 158, 11, 0.2)", cursor: "pointer" }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#d97706" }}>⚡ Power Users</span>
-                  <span style={{ fontSize: 16, fontWeight: 900, color: "#d97706" }}>{tierCounts.power}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-warning)" }}>⚡ Power Users</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: "var(--color-warning)" }}>{tierCounts.power}</span>
                 </div>
                 <small style={{ color: "var(--text-secondary)", fontSize: 11 }}>20+ actions recorded · Daily workflow drivers</small>
               </div>
@@ -487,8 +487,8 @@ export default function UsageAnalyticsPage() {
                 style={{ padding: 14, borderRadius: 8, background: "rgba(22, 163, 74, 0.06)", border: "1px solid rgba(22, 163, 74, 0.2)", cursor: "pointer" }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#16a34a" }}>✓ Active Contributors</span>
-                  <span style={{ fontSize: 16, fontWeight: 900, color: "#16a34a" }}>{tierCounts.active}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-success)" }}>✓ Active Contributors</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: "var(--color-success)" }}>{tierCounts.active}</span>
                 </div>
                 <small style={{ color: "var(--text-secondary)", fontSize: 11 }}>5-19 actions · Regular operational users</small>
               </div>
@@ -498,8 +498,8 @@ export default function UsageAnalyticsPage() {
                 style={{ padding: 14, borderRadius: 8, background: "rgba(2, 132, 199, 0.06)", border: "1px solid rgba(2, 132, 199, 0.2)", cursor: "pointer" }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#0284c7" }}>⏳ Casual Users</span>
-                  <span style={{ fontSize: 16, fontWeight: 900, color: "#0284c7" }}>{tierCounts.casual}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-sky)" }}>⏳ Casual Users</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: "var(--color-sky)" }}>{tierCounts.casual}</span>
                 </div>
                 <small style={{ color: "var(--text-secondary)", fontSize: 11 }}>1-4 actions · Occasional or new logins</small>
               </div>
@@ -509,8 +509,8 @@ export default function UsageAnalyticsPage() {
                 style={{ padding: 14, borderRadius: 8, background: "rgba(220, 38, 38, 0.06)", border: "1px solid rgba(220, 38, 38, 0.2)", cursor: "pointer" }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#dc2626" }}>⚠️ Dormant / Inactive</span>
-                  <span style={{ fontSize: 16, fontWeight: 900, color: "#dc2626" }}>{tierCounts.inactive}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-danger)" }}>⚠️ Dormant / Inactive</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: "var(--color-danger)" }}>{tierCounts.inactive}</span>
                 </div>
                 <small style={{ color: "var(--text-secondary)", fontSize: 11 }}>0 actions · Need onboarding &amp; training</small>
               </div>
@@ -549,7 +549,7 @@ export default function UsageAnalyticsPage() {
                       fontWeight: 700,
                       cursor: "pointer",
                       border: "1px solid var(--border)",
-                      background: tierFilter === t ? "#dc2626" : "var(--surface-sunken)",
+                      background: tierFilter === t ? "var(--color-danger)" : "var(--surface-sunken)",
                       color: tierFilter === t ? "#ffffff" : "var(--text-primary)",
                       textTransform: "capitalize",
                     }}
@@ -617,7 +617,7 @@ export default function UsageAnalyticsPage() {
                             fontSize: 11,
                             fontWeight: 800,
                             background: u.tier === "power" ? "rgba(245, 158, 11, 0.15)" : u.tier === "active" ? "rgba(22, 163, 74, 0.15)" : u.tier === "casual" ? "rgba(2, 132, 199, 0.15)" : "rgba(220, 38, 38, 0.15)",
-                            color: u.tier === "power" ? "#d97706" : u.tier === "active" ? "#16a34a" : u.tier === "casual" ? "#0284c7" : "#dc2626",
+                            color: u.tier === "power" ? "var(--color-warning)" : u.tier === "active" ? "var(--color-success)" : u.tier === "casual" ? "var(--color-sky)" : "var(--color-danger)",
                             textTransform: "uppercase",
                           }}
                         >
@@ -641,7 +641,7 @@ export default function UsageAnalyticsPage() {
                         </div>
                       </td>
                       <td>
-                        <span style={{ fontSize: 12, color: u.tier === "inactive" ? "#dc2626" : "var(--text-secondary)" }}>
+                        <span style={{ fontSize: 12, color: u.tier === "inactive" ? "var(--color-danger)" : "var(--text-secondary)" }}>
                           {formatWhen(u.last_seen)}
                         </span>
                       </td>
@@ -658,7 +658,7 @@ export default function UsageAnalyticsPage() {
       {activeTab === "modules" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
           {modules.map(([modKey, count]) => {
-            const meta = moduleMeta[modKey] || { label: modKey, icon: "📦", color: "#64748b", desc: "Operational workflows" };
+            const meta = moduleMeta[modKey] || { label: modKey, icon: "📦", color: "var(--color-slate-500)", desc: "Operational workflows" };
             const percentage = totalEvents > 0 ? Math.round((count / totalEvents) * 100) : 0;
             const moduleActiveUsers = users.filter(u => u.modules.includes(modKey)).length;
             return (

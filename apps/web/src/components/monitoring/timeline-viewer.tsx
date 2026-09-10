@@ -53,21 +53,21 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
   }, []);
 
   return (
-    <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", padding: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+    <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid var(--color-slate-200)", padding: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
       {/* Controls & Mode Selection */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#0f172a" }}>📊 Programme & Gantt Schedule</h3>
-          <small style={{ color: "#64748b" }}>{projectName} — Baseline vs Actual progress tracking</small>
+          <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--color-slate-900)" }}>📊 Programme & Gantt Schedule</h3>
+          <small style={{ color: "var(--color-slate-500)" }}>{projectName} — Baseline vs Actual progress tracking</small>
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 8, border: "1px solid #cbd5e1" }}>
+          <div style={{ display: "flex", background: "var(--color-slate-100)", padding: 3, borderRadius: 8, border: "1px solid var(--color-slate-300)" }}>
             <button
               onClick={() => setActiveTab("gantt")}
               style={{
-                background: activeTab === "gantt" ? "#2563eb" : "transparent",
-                color: activeTab === "gantt" ? "#ffffff" : "#475569",
+                background: activeTab === "gantt" ? "var(--color-info)" : "transparent",
+                color: activeTab === "gantt" ? "#ffffff" : "var(--color-slate-600)",
                 border: "none",
                 padding: "6px 14px",
                 borderRadius: 6,
@@ -81,8 +81,8 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
             <button
               onClick={() => setActiveTab("scurve")}
               style={{
-                background: activeTab === "scurve" ? "#2563eb" : "transparent",
-                color: activeTab === "scurve" ? "#ffffff" : "#475569",
+                background: activeTab === "scurve" ? "var(--color-info)" : "transparent",
+                color: activeTab === "scurve" ? "#ffffff" : "var(--color-slate-600)",
                 border: "none",
                 padding: "6px 14px",
                 borderRadius: 6,
@@ -100,7 +100,7 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: "0.85rem", background: "#fff" }}
+                style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--color-slate-300)", fontSize: "0.85rem", background: "#fff" }}
               >
                 <option value="all">All Statuses</option>
                 <option value="completed">Completed</option>
@@ -109,7 +109,7 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
                 <option value="not_started">Not Started</option>
               </select>
 
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", color: "#dc2626", fontWeight: 600, cursor: "pointer" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.85rem", color: "var(--color-danger)", fontWeight: 600, cursor: "pointer" }}>
                 <input
                   type="checkbox"
                   checked={showCriticalOnly}
@@ -126,7 +126,7 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
             <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "2px solid #e2e8f0" }}>
+              <tr style={{ background: "var(--color-slate-50)", borderBottom: "2px solid var(--color-slate-200)" }}>
                 <th style={{ padding: 10, textAlign: "left", width: 60 }}>WBS</th>
                 <th style={{ padding: 10, textAlign: "left" }}>Task Name</th>
                 <th style={{ padding: 10, textAlign: "left", width: 100 }}>Start</th>
@@ -138,14 +138,14 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
             </thead>
             <tbody>
               {filteredTasks.map((t) => (
-                <tr key={t.id} style={{ borderBottom: "1px solid #f1f5f9", background: t.criticalPath ? "#fff5f5" : "#ffffff" }}>
+                <tr key={t.id} style={{ borderBottom: "1px solid var(--color-slate-100)", background: t.criticalPath ? "#fff5f5" : "#ffffff" }}>
                   <td style={{ padding: 10, fontFamily: "monospace", fontWeight: "bold" }}>{t.wbs}</td>
                   <td style={{ padding: 10 }}>
-                    <div style={{ fontWeight: 600, color: "#0f172a" }}>{t.name}</div>
-                    <small style={{ color: "#64748b" }}>Owner: {t.responsible}</small>
+                    <div style={{ fontWeight: 600, color: "var(--color-slate-900)" }}>{t.name}</div>
+                    <small style={{ color: "var(--color-slate-500)" }}>Owner: {t.responsible}</small>
                   </td>
-                  <td style={{ padding: 10, color: "#475569" }}>{t.startDate}</td>
-                  <td style={{ padding: 10, color: "#475569" }}>{t.endDate}</td>
+                  <td style={{ padding: 10, color: "var(--color-slate-600)" }}>{t.startDate}</td>
+                  <td style={{ padding: 10, color: "var(--color-slate-600)" }}>{t.endDate}</td>
                   <td style={{ padding: 10, textAlign: "center", fontWeight: "bold" }}>{t.durationDays}d</td>
                   <td style={{ padding: 10, textAlign: "center" }}>
                     <span
@@ -155,8 +155,8 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
                         borderRadius: 12,
                         fontSize: "0.75rem",
                         fontWeight: "bold",
-                        background: t.status === "completed" ? "#dcfce7" : t.status === "delayed" ? "#fee2e2" : "#dbeafe",
-                        color: t.status === "completed" ? "#166534" : t.status === "delayed" ? "#991b1b" : "#1e40af",
+                        background: t.status === "completed" ? "var(--color-green-bg)" : t.status === "delayed" ? "var(--color-red-bg)" : "var(--color-blue-bg)",
+                        color: t.status === "completed" ? "var(--color-green-text)" : t.status === "delayed" ? "var(--color-danger-deep)" : "var(--color-info-deep)",
                       }}
                     >
                       {t.progressPct}% ({t.status.replace("_", " ")})
@@ -164,7 +164,7 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
                   </td>
                   <td style={{ padding: 10 }}>
                     {/* Visual Gantt Bar */}
-                    <div style={{ position: "relative", height: 22, background: "#e2e8f0", borderRadius: 4, overflow: "hidden" }}>
+                    <div style={{ position: "relative", height: 22, background: "var(--color-slate-200)", borderRadius: 4, overflow: "hidden" }}>
                       {/* Baseline Ghost Bar */}
                       <div
                         style={{
@@ -172,7 +172,7 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
                           left: 0,
                           width: `${t.baselinePct}%`,
                           height: "100%",
-                          background: "#cbd5e1",
+                          background: "var(--color-slate-300)",
                           opacity: 0.5,
                         }}
                         title={`Baseline Planned: ${t.baselinePct}%`}
@@ -184,7 +184,7 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
                           left: 0,
                           width: `${t.progressPct}%`,
                           height: "100%",
-                          background: t.status === "completed" ? "#22c55e" : t.status === "delayed" ? "#ef4444" : "#3b82f6",
+                          background: t.status === "completed" ? "var(--color-green)" : t.status === "delayed" ? "var(--color-danger)" : "var(--color-blue)",
                           transition: "width 0.3s ease",
                         }}
                       />
@@ -200,16 +200,16 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
         <div style={{ padding: 10 }}>
           <div style={{ display: "flex", gap: 20, marginBottom: 10, fontSize: "0.85rem", justifyContent: "center" }}>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <i style={{ width: 14, height: 4, background: "#2563eb", borderRadius: 2 }} />
+              <i style={{ width: 14, height: 4, background: "var(--color-info)", borderRadius: 2 }} />
               <strong>Planned Baseline Curve (S-Curve)</strong>
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <i style={{ width: 14, height: 4, background: "#16a34a", borderRadius: 2 }} />
+              <i style={{ width: 14, height: 4, background: "var(--color-success)", borderRadius: 2 }} />
               <strong>Actual Progress Curve (Earned)</strong>
             </span>
           </div>
 
-          <svg viewBox="0 0 700 280" style={{ width: "100%", height: 280, background: "#fafafa", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+          <svg viewBox="0 0 700 280" style={{ width: "100%", height: 280, background: "#fafafa", borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
             {/* Grid lines */}
             {[0, 25, 50, 75, 100].map((val) => {
               const y = 240 - (val / 100) * 200;

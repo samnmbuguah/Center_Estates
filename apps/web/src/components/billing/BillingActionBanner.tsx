@@ -90,14 +90,14 @@ export function BillingActionBanner({
             fontSize: 12,
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "#b45309" }}>
-            <Droplets size={15} color="#d97706" />
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "var(--color-amber-deep)" }}>
+            <Droplets size={15} color="var(--color-warning)" />
             <span>
               <strong>{pendingWaterCount} candidate{pendingWaterCount === 1 ? "" : "s"} on hold:</strong> Water meter readings must be recorded before rent or utilities can be billed (Consolidated Invoicing Policy).
             </span>
           </Box>
           {onLogMeters && (
-            <Button size="small" onClick={onLogMeters} sx={{ fontSize: 11, py: 0.2, fontWeight: 700, color: "#b45309", textTransform: "none" }}>
+            <Button size="small" onClick={onLogMeters} sx={{ fontSize: 11, py: 0.2, fontWeight: 700, color: "var(--color-amber-deep)", textTransform: "none" }}>
               Log in Facility →
             </Button>
           )}

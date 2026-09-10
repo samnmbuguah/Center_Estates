@@ -75,12 +75,12 @@ export function InspectionsView({
   return (
     <>
       <div className="fc-kpi-strip six-col">
-        <FcKpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Inspections" value={String(totalInsp)} sub={hasData ? "All records" : "0"} />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={String(completedInsp)} sub={`${pctOfTotal(completedInsp)}%`} />
-        <FcKpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="In Progress" value={String(inProgressInsp)} sub={`${pctOfTotal(inProgressInsp)}%`} />
-        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={String(overdueInsp)} sub={`${pctOfTotal(overdueInsp)}%`} />
-        <FcKpiCard icon="🔍" iconBg="#fdf4ff" iconColor="#9333ea" label="Defects Found" value={String(defectsFound)} sub="All items" />
-        <FcKpiCard icon="🛡" iconBg="#f0fdf4" iconColor="#15803d" label="Compliance Score" value={`${complianceScore}%`} sub="Avg. completed score" />
+        <FcKpiCard icon="📋" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Inspections" value={String(totalInsp)} sub={hasData ? "All records" : "0"} />
+        <FcKpiCard icon="✓" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Completed" value={String(completedInsp)} sub={`${pctOfTotal(completedInsp)}%`} />
+        <FcKpiCard icon="⏳" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="In Progress" value={String(inProgressInsp)} sub={`${pctOfTotal(inProgressInsp)}%`} />
+        <FcKpiCard icon="⚠" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Overdue" value={String(overdueInsp)} sub={`${pctOfTotal(overdueInsp)}%`} />
+        <FcKpiCard icon="🔍" iconBg="#fdf4ff" iconColor="var(--color-purple)" label="Defects Found" value={String(defectsFound)} sub="All items" />
+        <FcKpiCard icon="🛡" iconBg="var(--color-green-soft)" iconColor="var(--color-success-strong)" label="Compliance Score" value={`${complianceScore}%`} sub="Avg. completed score" />
       </div>
 
       {/* Table Toolbar & View Filter */}
@@ -144,7 +144,7 @@ export function InspectionsView({
                         <tr key={String(row.id)} className={selectedRow?.id === row.id ? "selected" : ""} onClick={() => setSelectedRow(selectedRow?.id === row.id ? null : row)}>
                           <td>
                             <strong style={{ fontSize: 13, color: "var(--text-primary)", display: "block" }}>{String(row.title ?? "—")}</strong>
-                            {Boolean(row.reference) && <small style={{ fontSize: 10, color: "#64748b" }}>{String(row.reference)}</small>}
+                            {Boolean(row.reference) && <small style={{ fontSize: 10, color: "var(--color-slate-500)" }}>{String(row.reference)}</small>}
                           </td>
                           <td style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 600 }}>{String(row.asset_name ?? "—")}</td>
                           <td style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 600 }}>{String(row.property_name ?? "—")}</td>
@@ -154,7 +154,7 @@ export function InspectionsView({
                           <td>
                             {score > 0 ? (
                               <div className="fc-score">
-                                <span className="fc-score-dot" style={{ background: score >= 90 ? "#22c55e" : score >= 75 ? "#f59e0b" : "#ef4444" }} />
+                                <span className="fc-score-dot" style={{ background: score >= 90 ? "var(--color-green)" : score >= 75 ? "var(--color-amber)" : "var(--color-danger)" }} />
                                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{score}%</span>
                               </div>
                             ) : <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>}
@@ -162,7 +162,7 @@ export function InspectionsView({
                           <td>
                             <div style={{ display: "flex", gap: 6 }}>
                               {permissions.canInspect && ["scheduled", "in_progress"].includes(status) && (
-                                <button onClick={(e) => { e.stopPropagation(); onAction(row, "complete"); }} style={{ background: "#e23b3b", border: 0, borderRadius: 6, color: "white", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}>
+                                <button onClick={(e) => { e.stopPropagation(); onAction(row, "complete"); }} style={{ background: "var(--color-brand-red)", border: 0, borderRadius: 6, color: "white", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}>
                                   Complete
                                 </button>
                               )}

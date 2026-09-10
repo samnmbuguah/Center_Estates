@@ -99,7 +99,7 @@ function SpiderRadarChart({ pillars }: { pillars: { name: string; weight: number
               key={lIdx}
               points={pts}
               fill={lIdx === levels.length - 1 ? "var(--surface-sunken)" : "none"}
-              stroke="var(--border)"
+              stroke="#cbd5e1"
               strokeDasharray={lIdx < levels.length - 1 ? "2,2" : "none"}
               strokeWidth={1}
             />
@@ -116,7 +116,7 @@ function SpiderRadarChart({ pillars }: { pillars: { name: string; weight: number
               y1={center}
               x2={end.x}
               y2={end.y}
-              stroke="var(--border)"
+              stroke="#cbd5e1"
               strokeWidth={1}
             />
           );
@@ -154,7 +154,7 @@ function SpiderRadarChart({ pillars }: { pillars: { name: string; weight: number
                 dominantBaseline="central"
                 fontSize={9}
                 fontWeight={700}
-                fill="var(--text-secondary)"
+                fill="#0f172a"
               >
                 {shortName} ({p.score}%)
               </text>
@@ -163,11 +163,11 @@ function SpiderRadarChart({ pillars }: { pillars: { name: string; weight: number
         })}
       </svg>
       <div style={{ display: "flex", gap: 14, marginTop: 12, fontSize: 11 }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#2563eb", fontWeight: 700 }}>
-          <span style={{ width: 10, height: 10, background: "rgba(37,99,235,0.4)", border: "1.5px solid #2563eb", borderRadius: 2 }} /> Provider Score
+        <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--color-info)", fontWeight: 700 }}>
+          <span style={{ width: 10, height: 10, background: "rgba(37,99,235,0.4)", border: "1.5px solid var(--color-info)", borderRadius: 2 }} /> Provider Score
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#64748b" }}>
-          <span style={{ width: 10, height: 2, background: "#94a3b8" }} /> 85% Target Benchmark
+        <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--color-slate-500)" }}>
+          <span style={{ width: 10, height: 2, background: "var(--color-slate-400)" }} /> 85% Target Benchmark
         </span>
       </div>
     </div>
@@ -255,11 +255,11 @@ export function ContractorsView({
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* KPI Strip */}
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="🤝" iconBg="#e0e7ff" iconColor="#4f46e5" label="Registered Providers" value={String(displayRows.length)} sub="Specialist vendor master" />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active & Approved" value={String(activeCount)} sub={`${displayRows.length - activeCount} pending or suspended`} />
-        <FcKpiCard icon="📄" iconBg="#dbeafe" iconColor="#2563eb" label="Active SLA Contracts" value={String(activeContracts)} sub="Across all providers" />
-        <FcKpiCard icon="⭐" iconBg="#fdf4ff" iconColor="#9333ea" label="Average Vendor Rating" value={avgRating === "—" ? "—" : `${avgRating} / 5.0`} sub={`${rated.length} rated on 7 pillars`} />
-        <FcKpiCard icon="🚨" iconBg="#fee2e2" iconColor="#dc2626" label="Compliance Expiring" value={expiredCount > 0 ? `${expiredCount} expired` : `${expiringDocs.length} due ≤60d`} sub="Tax, insurance & licenses" />
+        <FcKpiCard icon="🤝" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Registered Providers" value={String(displayRows.length)} sub="Specialist vendor master" />
+        <FcKpiCard icon="✓" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Active & Approved" value={String(activeCount)} sub={`${displayRows.length - activeCount} pending or suspended`} />
+        <FcKpiCard icon="📄" iconBg="var(--color-blue-bg)" iconColor="var(--color-info)" label="Active SLA Contracts" value={String(activeContracts)} sub="Across all providers" />
+        <FcKpiCard icon="⭐" iconBg="#fdf4ff" iconColor="var(--color-purple)" label="Average Vendor Rating" value={avgRating === "—" ? "—" : `${avgRating} / 5.0`} sub={`${rated.length} rated on 7 pillars`} />
+        <FcKpiCard icon="🚨" iconBg="var(--color-red-bg)" iconColor="var(--color-danger)" label="Compliance Expiring" value={expiredCount > 0 ? `${expiredCount} expired` : `${expiringDocs.length} due ≤60d`} sub="Tax, insurance & licenses" />
       </div>
 
       {expiringDocs.length > 0 && (
@@ -350,7 +350,7 @@ export function ContractorsView({
                       <span style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 800 }}>
                         {String(vendor.code)}
                       </span>
-                      <span style={{ color: "#2563eb", fontSize: 11, fontWeight: 700 }}>{String(vendor.specialty)}</span>
+                      <span style={{ color: "var(--color-info)", fontSize: 11, fontWeight: 700 }}>{String(vendor.specialty)}</span>
                     </div>
                   </td>
 
@@ -360,12 +360,12 @@ export function ContractorsView({
                   </td>
 
                   <td style={{ padding: "12px 14px", fontSize: 12 }}>
-                    <span style={{ color: "#dc2626", fontWeight: 800 }}>🚨 {String(vendor.emergency_phone ?? "24/7 Callout Ready")}</span>
+                    <span style={{ color: "var(--color-danger)", fontWeight: 800 }}>🚨 {String(vendor.emergency_phone ?? "24/7 Callout Ready")}</span>
                     <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>Tax PIN: {String(vendor.pin_number ?? "—")}</div>
                   </td>
 
                   <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                    <span style={{ background: "#fff7ed", color: "#ea580c", padding: "3px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                    <span style={{ background: "var(--color-orange-bg)", color: "var(--color-orange)", padding: "3px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
                       ★ {vendor.rating == null ? "Not rated" : Number(vendor.rating).toFixed(1)}
                     </span>
                   </td>
@@ -418,12 +418,12 @@ export function ContractorsView({
                 <div style={{ padding: 16, background: "var(--surface-sunken)", borderRadius: 8, border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <span style={{ fontSize: "0.78rem", color: "var(--text-secondary)", fontWeight: 700, textTransform: "uppercase" }}>Overall Weighted Score</span>
-                    <div style={{ fontSize: "1.8rem", fontWeight: 900, color: "#16a34a" }}>
+                    <div style={{ fontSize: "1.8rem", fontWeight: 900, color: "var(--color-success)" }}>
                       {scorecardData.weighted_score} / 100
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <span style={{ background: "#dcfce7", color: "#166534", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
+                    <span style={{ background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
                       APPROVED · TIER 1 SPECIALIST VENDOR
                     </span>
                     <small style={{ display: "block", color: "var(--text-muted)", marginTop: 4 }}>
@@ -448,7 +448,7 @@ export function ContractorsView({
                           <span style={{ fontSize: 11, color: "var(--text-secondary)", marginLeft: 6 }}>({p.weight}% Weight)</span>
                           <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{p.metric}</div>
                         </div>
-                        <div style={{ fontSize: "1rem", fontWeight: 900, color: p.score >= 90 ? "#16a34a" : "#2563eb" }}>
+                        <div style={{ fontSize: "1rem", fontWeight: 900, color: p.score >= 90 ? "var(--color-success)" : "var(--color-info)" }}>
                           {p.score}%
                         </div>
                       </div>

@@ -91,8 +91,8 @@ export function ServiceChargeAllocationsView({
           value={`${kN(filteredAllocations.length)} Units`}
           sub={`Total Ratio: ${(totalRatio * 100).toFixed(2)}% ${Math.abs(totalRatio - 1) < 0.001 ? "✓ Balanced" : ""}`}
           iconBg="rgba(37, 99, 235, 0.12)"
-          iconColor="#2563eb"
-          borderColor="#2563eb"
+          iconColor="var(--color-info)"
+          borderColor="var(--color-info)"
         />
         <KpiCard
           icon={<DollarSign size={16} />}
@@ -100,8 +100,8 @@ export function ServiceChargeAllocationsView({
           value={money.format(totalAnnual)}
           sub="Sum of active unit charges"
           iconBg="rgba(217, 119, 6, 0.12)"
-          iconColor="#d97706"
-          borderColor="#d97706"
+          iconColor="var(--color-warning)"
+          borderColor="var(--color-warning)"
         />
         <KpiCard
           icon={<Calculator size={16} />}
@@ -118,8 +118,8 @@ export function ServiceChargeAllocationsView({
           value={money.format(avgMonthly)}
           sub="Per billable tenancy"
           iconBg="rgba(16, 185, 129, 0.12)"
-          iconColor="#10b981"
-          borderColor="#10b981"
+          iconColor="var(--color-emerald)"
+          borderColor="var(--color-emerald)"
         />
       </KpiStrip>
 

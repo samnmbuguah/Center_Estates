@@ -85,7 +85,7 @@ export function ServiceRequestsView({
               }}
               startIcon={<Sparkles size={16} />}
               sx={{
-                background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+                background: "linear-gradient(135deg, var(--color-violet) 0%, var(--color-indigo) 100%)",
                 fontWeight: 700,
                 boxShadow: "0 2px 8px rgba(124, 58, 237, 0.25)",
               }}
@@ -103,7 +103,7 @@ export function ServiceRequestsView({
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Box sx={{ 
-              p: 2, borderRadius: 2, bgcolor: "#4f46e5", color: "white",
+              p: 2, borderRadius: 2, bgcolor: "var(--color-indigo)", color: "white",
               textAlign: "center"
             }}>
               <ClipboardList size={24} style={{ marginBottom: 8 }} />
@@ -113,7 +113,7 @@ export function ServiceRequestsView({
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Box sx={{ 
-              p: 2, borderRadius: 2, bgcolor: "#f59e0b", color: "white",
+              p: 2, borderRadius: 2, bgcolor: "var(--color-amber)", color: "white",
               textAlign: "center"
             }}>
               <Clock size={24} style={{ marginBottom: 8 }} />
@@ -123,7 +123,7 @@ export function ServiceRequestsView({
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Box sx={{ 
-              p: 2, borderRadius: 2, bgcolor: "#3b82f6", color: "white",
+              p: 2, borderRadius: 2, bgcolor: "var(--color-blue)", color: "white",
               textAlign: "center"
             }}>
               <TrendingUp size={24} style={{ marginBottom: 8 }} />
@@ -133,7 +133,7 @@ export function ServiceRequestsView({
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Box sx={{ 
-              p: 2, borderRadius: 2, bgcolor: overdueReq > 0 ? "#ef4444" : "#22c55e", color: "white",
+              p: 2, borderRadius: 2, bgcolor: overdueReq > 0 ? "var(--color-danger)" : "var(--color-green)", color: "white",
               textAlign: "center"
             }}>
               <AlertTriangle size={24} style={{ marginBottom: 8 }} />
@@ -237,7 +237,7 @@ export function ServiceRequestsView({
                   className="btn sm"
                   disabled={triageLoading || !triageDescription.trim()}
                   style={{
-                    background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+                    background: "linear-gradient(135deg, var(--color-violet) 0%, var(--color-indigo) 100%)",
                     color: "#ffffff",
                     border: "none",
                     fontWeight: 700,
@@ -255,7 +255,7 @@ export function ServiceRequestsView({
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontWeight: 800, fontSize: 14, color: "var(--text-primary)" }}>
-                      Trade: <strong style={{ color: "#7c3aed" }}>{triageResult.detected_category?.toUpperCase()}</strong>
+                      Trade: <strong style={{ color: "var(--color-violet)" }}>{triageResult.detected_category?.toUpperCase()}</strong>
                     </span>
                     <span
                       style={{
@@ -264,13 +264,13 @@ export function ServiceRequestsView({
                         fontSize: 11,
                         fontWeight: 800,
                         background: triageResult.suggested_priority === "critical" ? "rgba(239,68,68,0.15)" : "rgba(245,158,11,0.15)",
-                        color: triageResult.suggested_priority === "critical" ? "#ef4444" : "#f59e0b",
+                        color: triageResult.suggested_priority === "critical" ? "var(--color-danger)" : "var(--color-amber)",
                       }}
                     >
                       Priority: {triageResult.suggested_priority?.toUpperCase()}
                     </span>
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#10b981" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-emerald)" }}>
                     Est. Cost: KES {triageResult.estimated_cost_range?.min_kes?.toLocaleString()} - {triageResult.estimated_cost_range?.max_kes?.toLocaleString()}
                   </div>
                 </div>
@@ -302,7 +302,7 @@ export function ServiceRequestsView({
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                               <strong style={{ fontSize: 13 }}>{c.name}</strong>
                               {c.is_trade_matched && (
-                                <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "rgba(16,185,129,0.15)", color: "#10b981", fontWeight: 700 }}>
+                                <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "rgba(16,185,129,0.15)", color: "var(--color-emerald)", fontWeight: 700 }}>
                                   ✓ Trade Match
                                 </span>
                               )}

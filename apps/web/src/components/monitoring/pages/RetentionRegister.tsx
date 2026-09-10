@@ -52,19 +52,19 @@ export function RetentionRegister() {
         <>
           {/* KPI summary cards */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 24 }}>
-            <div style={{ padding: "16px 20px", borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", borderTop: "3px solid #3b82f6" }}>
+            <div style={{ padding: "16px 20px", borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", borderTop: "3px solid var(--color-blue)" }}>
               <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, marginBottom: 4 }}>Total Certified Gross</div>
               <div style={{ fontSize: 22, fontWeight: 800 }}>{money(totalGross)}</div>
               <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{data?.certificate_count || 0} certificates</div>
             </div>
-            <div style={{ padding: "16px 20px", borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", borderTop: "3px solid #f59e0b" }}>
+            <div style={{ padding: "16px 20px", borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", borderTop: "3px solid var(--color-amber)" }}>
               <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, marginBottom: 4 }}>Total Retention Held</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#f59e0b" }}>{money(totalRetained)}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "var(--color-amber)" }}>{money(totalRetained)}</div>
               <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{retentionPct}% of gross certified</div>
             </div>
-            <div style={{ padding: "16px 20px", borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", borderTop: "3px solid #10b981" }}>
+            <div style={{ padding: "16px 20px", borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", borderTop: "3px solid var(--color-emerald)" }}>
               <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, marginBottom: 4 }}>Contractors on Register</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#10b981" }}>{contractors.length}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "var(--color-emerald)" }}>{contractors.length}</div>
               <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>Unique contractor entries</div>
             </div>
           </div>
@@ -111,11 +111,11 @@ export function RetentionRegister() {
                         <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--muted)" }}>{c.certificate_count}</td>
                         <td style={{ padding: "12px 16px", fontSize: 14, fontFamily: "monospace", fontWeight: 600 }}>{money(c.total_gross)}</td>
                         <td style={{ padding: "12px 16px" }}>
-                          <span style={{ fontSize: 14, fontFamily: "monospace", fontWeight: 800, color: "#f59e0b" }}>
+                          <span style={{ fontSize: 14, fontFamily: "monospace", fontWeight: 800, color: "var(--color-amber)" }}>
                             {money(c.retention_held)}
                           </span>
                           <div style={{ marginTop: 4, height: 4, borderRadius: 2, background: "var(--surface-3)", overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: `${Math.min(parseFloat(pct) * 20, 100)}%`, background: "#f59e0b", borderRadius: 2 }} />
+                            <div style={{ height: "100%", width: `${Math.min(parseFloat(pct) * 20, 100)}%`, background: "var(--color-amber)", borderRadius: 2 }} />
                           </div>
                         </td>
                         <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--muted)" }}>{pct}%</td>
@@ -128,7 +128,7 @@ export function RetentionRegister() {
                     <td style={{ padding: "12px 16px", fontWeight: 800, fontSize: 14 }}>TOTAL</td>
                     <td style={{ padding: "12px 16px", fontWeight: 700 }}>{data?.certificate_count || 0}</td>
                     <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 800 }}>{money(totalGross)}</td>
-                    <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 800, color: "#f59e0b" }}>{money(totalRetained)}</td>
+                    <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 800, color: "var(--color-amber)" }}>{money(totalRetained)}</td>
                     <td style={{ padding: "12px 16px", fontWeight: 700 }}>{retentionPct}%</td>
                   </tr>
                 </tfoot>
@@ -162,7 +162,7 @@ export function RetentionRegister() {
                       <td style={{ padding: "10px 16px", fontFamily: "monospace", fontWeight: 700, color: "var(--primary)" }}>{c.number}</td>
                       <td style={{ padding: "10px 16px", fontSize: 13 }}>{c.contractor_name}</td>
                       <td style={{ padding: "10px 16px", fontSize: 13, fontFamily: "monospace" }}>{money(c.gross)}</td>
-                      <td style={{ padding: "10px 16px", fontSize: 13, fontFamily: "monospace", color: "#f59e0b", fontWeight: 700 }}>{money(c.retention_amount)}</td>
+                      <td style={{ padding: "10px 16px", fontSize: 13, fontFamily: "monospace", color: "var(--color-amber)", fontWeight: 700 }}>{money(c.retention_amount)}</td>
                       <td style={{ padding: "10px 16px", fontSize: 13, fontFamily: "monospace" }}>{money(c.net_payable)}</td>
                       <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--muted)" }}>
                         {c.issued_at ? new Date(c.issued_at * 1000).toLocaleDateString() : "—"}

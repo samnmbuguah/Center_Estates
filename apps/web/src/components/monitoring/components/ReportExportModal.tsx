@@ -95,8 +95,8 @@ export function ReportExportModal({ onClose }: { onClose: () => void }) {
 
         {error && (
           <div style={{
-            padding: "8px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid #ef4444",
-            color: "#ef4444", borderRadius: 6, fontSize: 12, marginBottom: 14,
+            padding: "8px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid var(--color-danger)",
+            color: "var(--color-danger)", borderRadius: 6, fontSize: 12, marginBottom: 14,
           }}>
             {error}
           </div>

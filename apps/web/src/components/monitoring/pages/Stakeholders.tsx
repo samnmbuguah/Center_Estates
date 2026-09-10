@@ -171,7 +171,7 @@ export function Stakeholders() {
         </div>
         <button
           className="btn btn-primary"
-          style={{ background: "#d92d2d", borderColor: "#d92d2d" }}
+          style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }}
           onClick={() => navigate("/app/users")}
         >
           <Plus size={15} style={{ marginRight: 4 }} /> Manage Users
@@ -186,12 +186,12 @@ export function Stakeholders() {
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
             <KpiCard label="Total Stakeholders" value={rows.length} color="var(--text)" icon={<Users size={18} />} />
-            <KpiCard label="Active" value={activeCount} color="#10b981" icon={<UserCheck size={18} />} />
-            <KpiCard label="Distinct Roles" value={uniqueRoles} color="#00a3ff" />
+            <KpiCard label="Active" value={activeCount} color="var(--color-emerald)" icon={<UserCheck size={18} />} />
+            <KpiCard label="Distinct Roles" value={uniqueRoles} color="var(--color-brand-blue)" />
             <KpiCard
               label="On Active Project"
               value={members.length}
-              color="#f59e0b"
+              color="var(--color-amber)"
               sub={activeProject?.name || (activeProjectId ? "Project members" : "No project selected")}
             />
           </div>
@@ -280,7 +280,7 @@ export function Stakeholders() {
                         <td style={{ padding: 8, fontWeight: 600 }}>
                           {stk.roles.length ? stk.roles.join(", ") : "—"}
                         </td>
-                        <td style={{ padding: 8, color: "#00a3ff", fontWeight: 600 }}>
+                        <td style={{ padding: 8, color: "var(--color-brand-blue)", fontWeight: 600 }}>
                           {stk.projectRole || "—"}
                         </td>
                         <td style={{ padding: 8, color: "var(--muted)" }}>

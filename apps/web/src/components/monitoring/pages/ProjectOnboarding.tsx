@@ -77,7 +77,7 @@ export function ProjectOnboarding() {
 
   // Branding
   const [logoUrl, setLogoUrl] = useState("");
-  const [brandColor, setBrandColor] = useState("#d92d2d");
+  const [brandColor, setBrandColor] = useState("var(--color-danger)");
   const [companyName, setCompanyName] = useState("");
 
   // Waivers
@@ -319,14 +319,14 @@ export function ProjectOnboarding() {
                   gap: 6, padding: "10px 8px", borderRadius: 7, fontWeight: 600,
                   fontSize: 13, cursor: project || isDone ? "pointer" : "default",
                   background: isActive ? "var(--primary)" : isDone ? "rgba(16,185,129,0.12)" : "transparent",
-                  color: isActive ? "white" : isDone ? "#10b981" : "var(--muted)",
+                  color: isActive ? "white" : isDone ? "var(--color-emerald)" : "var(--muted)",
                   transition: "all 0.2s",
                 }}
               >
                 <span style={{
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
                   width: 20, height: 20, borderRadius: "50%", fontSize: 11, fontWeight: 700,
-                  background: isActive ? "rgba(255,255,255,0.25)" : isDone ? "#10b981" : "var(--surface-2)",
+                  background: isActive ? "rgba(255,255,255,0.25)" : isDone ? "var(--color-emerald)" : "var(--surface-2)",
                   color: isActive ? "white" : isDone ? "white" : "var(--muted)",
                   flexShrink: 0,
                 }}>

@@ -258,7 +258,7 @@ export function LettingFeeModal({
               onClick={handleSubmit}
               sx={{
                 textTransform: "none",
-                background: "#2563eb",
+                background: "var(--color-info)",
                 fontWeight: 700,
               }}
             >
@@ -273,7 +273,7 @@ export function LettingFeeModal({
         <Box
           sx={{
             background:
-              "linear-gradient(112deg, #123b78 0%, #1d4ed8 58%, #2563eb 100%)",
+              "linear-gradient(112deg, #123b78 0%, var(--color-info-strong) 58%, var(--color-info) 100%)",
             color: "#ffffff",
             p: { xs: 2, sm: 2.5 },
             borderRadius: 2.5,
@@ -318,18 +318,18 @@ export function LettingFeeModal({
             <Box
               sx={{
                 p: 2.5,
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
+                background: "var(--color-slate-50)",
+                border: "1px solid var(--color-slate-200)",
                 borderRadius: 2,
                 display: "flex",
                 flexDirection: "column",
                 gap: 1.5,
               }}
             >
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "#0f172a" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--color-slate-900)" }}>
                 Official Document Ready
               </Typography>
-              <Typography variant="body2" sx={{ color: "#475569" }}>
+              <Typography variant="body2" sx={{ color: "var(--color-slate-600)" }}>
                 The KRA Tax Invoice <strong>{createdInvoice.number}</strong> is ready. You can view or download the branded PDF document immediately.
               </Typography>
               <Box sx={{ display: "flex", gap: 1.5, mt: 1 }}>
@@ -471,7 +471,7 @@ export function LettingFeeModal({
               <Box
                 sx={{
                   width: 36, height: 20, borderRadius: 10,
-                  background: applyVat ? "#2563eb" : "#94a3b8",
+                  background: applyVat ? "var(--color-info)" : "var(--color-slate-400)",
                   position: "relative", flexShrink: 0, transition: "background 0.2s",
                 }}
               >
@@ -510,7 +510,7 @@ export function LettingFeeModal({
                 variant="subtitle2"
                 sx={{
                   fontWeight: 800,
-                  color: "#1e40af",
+                  color: "var(--color-info-deep)",
                   display: "flex",
                   alignItems: "center",
                   gap: 1,
@@ -537,7 +537,7 @@ export function LettingFeeModal({
                     <span
                       style={{
                         fontSize: 11,
-                        color: selectedUnit.tenant_name ? "#16a34a" : "#ca8a04",
+                        color: selectedUnit.tenant_name ? "var(--color-success)" : "#ca8a04",
                       }}
                     >
                       ({selectedUnit.tenant_name ? `Leased` : "Vacant"})
@@ -578,14 +578,14 @@ export function LettingFeeModal({
                       alignItems: "center",
                     }}
                   >
-                    <span style={{ fontWeight: 600, color: "#1e40af" }}>
+                    <span style={{ fontWeight: 600, color: "var(--color-info-deep)" }}>
                       Total Tax Invoice Payable:
                     </span>
                     <span
                       style={{
                         fontSize: 16,
                         fontWeight: 800,
-                        color: "#1e40af",
+                        color: "var(--color-info-deep)",
                       }}
                     >
                       KES {totalPayable.toLocaleString()}

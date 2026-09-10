@@ -6,10 +6,10 @@ import { ChecklistItem, Row } from "../../types/companion.types";
 import { fmtDateTime, STATUS_TONE } from "../../utils/companion.utils";
 
 const KANBAN_COLUMNS = [
-  { id: "pending", label: "To Do / Pending", icon: "📌", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.08)", border: "rgba(245, 158, 11, 0.25)" },
-  { id: "acknowledged", label: "Acknowledged", icon: "👁️", color: "#0284c7", bg: "rgba(2, 132, 199, 0.08)", border: "rgba(2, 132, 199, 0.25)" },
-  { id: "in_progress", label: "In Progress", icon: "⚡", color: "#6366f1", bg: "rgba(99, 102, 241, 0.08)", border: "rgba(99, 102, 241, 0.25)" },
-  { id: "completed", label: "Completed", icon: "✅", color: "#16a34a", bg: "rgba(22, 163, 74, 0.08)", border: "rgba(22, 163, 74, 0.25)" },
+  { id: "pending", label: "To Do / Pending", icon: "📌", color: "var(--color-amber)", bg: "rgba(245, 158, 11, 0.08)", border: "rgba(245, 158, 11, 0.25)" },
+  { id: "acknowledged", label: "Acknowledged", icon: "👁️", color: "var(--color-sky)", bg: "rgba(2, 132, 199, 0.08)", border: "rgba(2, 132, 199, 0.25)" },
+  { id: "in_progress", label: "In Progress", icon: "⚡", color: "var(--color-indigo-strong)", bg: "rgba(99, 102, 241, 0.08)", border: "rgba(99, 102, 241, 0.25)" },
+  { id: "completed", label: "Completed", icon: "✅", color: "var(--color-success)", bg: "rgba(22, 163, 74, 0.08)", border: "rgba(22, 163, 74, 0.25)" },
   { id: "delegated", label: "Delegated", icon: "🔄", color: "#f43f5e", bg: "rgba(244, 63, 94, 0.08)", border: "rgba(244, 63, 94, 0.25)" },
 ] as const;
 
@@ -159,8 +159,8 @@ export function TasksView({
         </div>
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 11, color: "#6366f1", fontWeight: 600, textTransform: "uppercase" }}>In Progress</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#6366f1" }}>{metrics.inProgress}</div>
+            <div style={{ fontSize: 11, color: "var(--color-indigo-strong)", fontWeight: 600, textTransform: "uppercase" }}>In Progress</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--color-indigo-strong)" }}>{metrics.inProgress}</div>
           </div>
           <span style={{ fontSize: 20 }}>⚡</span>
         </div>
@@ -168,7 +168,7 @@ export function TasksView({
           onClick={() => setOverdueOnly(!overdueOnly)}
           style={{
             background: overdueOnly ? "rgba(239, 68, 68, 0.12)" : "var(--surface)",
-            border: `1px solid ${overdueOnly ? "#ef4444" : "var(--border)"}`,
+            border: `1px solid ${overdueOnly ? "var(--color-danger)" : "var(--border)"}`,
             borderRadius: 8,
             padding: "10px 14px",
             display: "flex",
@@ -178,17 +178,17 @@ export function TasksView({
           }}
         >
           <div>
-            <div style={{ fontSize: 11, color: "#ef4444", fontWeight: 600, textTransform: "uppercase" }}>
+            <div style={{ fontSize: 11, color: "var(--color-danger)", fontWeight: 600, textTransform: "uppercase" }}>
               Overdue / SLA Alerts {overdueOnly && "✓"}
             </div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#ef4444" }}>{metrics.overdue}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--color-danger)" }}>{metrics.overdue}</div>
           </div>
           <span style={{ fontSize: 20 }}>⚠️</span>
         </div>
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 11, color: "#16a34a", fontWeight: 600, textTransform: "uppercase" }}>Completed</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: "#16a34a" }}>{metrics.completed}</div>
+            <div style={{ fontSize: 11, color: "var(--color-success)", fontWeight: 600, textTransform: "uppercase" }}>Completed</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "var(--color-success)" }}>{metrics.completed}</div>
           </div>
           <span style={{ fontSize: 20 }}>✅</span>
         </div>
@@ -349,7 +349,7 @@ export function TasksView({
                           onClick={() => onSelectTask(t)}
                           style={{
                             background: "var(--surface-sunken)",
-                            border: `1px solid ${isOverdue ? "#ef4444" : "var(--border)"}`,
+                            border: `1px solid ${isOverdue ? "var(--color-danger)" : "var(--border)"}`,
                             borderRadius: 8,
                             padding: 12,
                             cursor: "pointer",
@@ -407,14 +407,14 @@ export function TasksView({
                                 <span>{completedCount}/{checklist.length} ({progressPct}%)</span>
                               </div>
                               <div style={{ width: "100%", height: 4, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
-                                <div style={{ width: `${progressPct}%`, height: "100%", background: progressPct === 100 ? "#16a34a" : "var(--primary)" }} />
+                                <div style={{ width: `${progressPct}%`, height: "100%", background: progressPct === 100 ? "var(--color-success)" : "var(--primary)" }} />
                               </div>
                             </div>
                           )}
 
                           {/* DUE DATE & OVERDUE BADGE */}
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, marginTop: 4 }}>
-                            <div style={{ color: isOverdue ? "#ef4444" : "var(--muted)", fontWeight: isOverdue ? 700 : 500 }}>
+                            <div style={{ color: isOverdue ? "var(--color-danger)" : "var(--muted)", fontWeight: isOverdue ? 700 : 500 }}>
                               {isOverdue ? "⚠️ Overdue: " : "⏱️ Due: "}
                               {fmtDateTime(t.due_at)}
                             </div>
@@ -450,7 +450,7 @@ export function TasksView({
                             {(col.id === "pending" || col.id === "acknowledged") && (
                               <button
                                 className="btn ghost sm"
-                                style={{ padding: "2px 8px", fontSize: 11, flex: 1, color: "#6366f1" }}
+                                style={{ padding: "2px 8px", fontSize: 11, flex: 1, color: "var(--color-indigo-strong)" }}
                                 onClick={() => onRunAction(t, "start")}
                               >
                                 ⚡ Start
@@ -459,7 +459,7 @@ export function TasksView({
                             {col.id === "in_progress" && (
                               <button
                                 className="btn ghost sm"
-                                style={{ padding: "2px 8px", fontSize: 11, flex: 1, color: "#16a34a", fontWeight: 700 }}
+                                style={{ padding: "2px 8px", fontSize: 11, flex: 1, color: "var(--color-success)", fontWeight: 700 }}
                                 onClick={() => {
                                   if (onOpenCompleteModal) onOpenCompleteModal(t);
                                   else onRunAction(t, "complete");
@@ -531,7 +531,7 @@ export function TasksView({
                       <td><StatusPill value={String(t.priority ?? "normal")} /></td>
                       <td style={{ fontSize: 12 }}>
                         {checklist.length > 0 ? (
-                          <span style={{ fontWeight: 600, color: completedCount === checklist.length ? "#16a34a" : "var(--muted)" }}>
+                          <span style={{ fontWeight: 600, color: completedCount === checklist.length ? "var(--color-success)" : "var(--muted)" }}>
                             {completedCount}/{checklist.length}
                           </span>
                         ) : (
@@ -555,7 +555,7 @@ export function TasksView({
                           {status === "in_progress" && (
                             <button
                               className="btn ghost sm"
-                              style={{ padding: "3px 8px", fontSize: 11, color: "#16a34a", fontWeight: 700 }}
+                              style={{ padding: "3px 8px", fontSize: 11, color: "var(--color-success)", fontWeight: 700 }}
                               onClick={() => {
                                 if (onOpenCompleteModal) onOpenCompleteModal(t);
                                 else onRunAction(t, "complete");

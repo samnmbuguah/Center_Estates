@@ -32,9 +32,9 @@ export function ProjectsView({ rows, loading, search, setSearch }: {
   return (
     <>
       <KpiStrip cols={3}>
-        <KpiCard icon="🗂" iconBg="#e0e7ff" iconColor="#4f46e5" label="Projects" value={kN(projects.length)} sub="Development projects" />
-        <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#d97706" label="In Progress" value={kN(active)} sub="Active projects" />
-        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={kN(completed)} sub="Delivered projects" />
+        <KpiCard icon="🗂" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Projects" value={kN(projects.length)} sub="Development projects" />
+        <KpiCard icon="⏳" iconBg="var(--color-amber-bg)" iconColor="var(--color-warning)" label="In Progress" value={kN(active)} sub="Active projects" />
+        <KpiCard icon="✓" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Completed" value={kN(completed)} sub="Delivered projects" />
       </KpiStrip>
 
       <ViewToolbar title="Development Projects" subtitle="Property development and refurbishment projects" search={search} onSearch={setSearch} placeholder="Search by name or project code…" />

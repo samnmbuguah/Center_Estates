@@ -260,9 +260,9 @@ export function TeamDialogueView({
           type="button"
           className="btn"
           style={{
-            background: "#dc2626",
+            background: "var(--color-danger)",
             color: "#ffffff",
-            borderColor: "#dc2626",
+            borderColor: "var(--color-danger)",
             fontWeight: 700,
             fontSize: 13,
             padding: "8px 18px",
@@ -486,7 +486,7 @@ export function TeamDialogueView({
                         <button
                           type="button"
                           className="btn"
-                          style={{ background: "#dc2626", color: "#fff", borderColor: "#dc2626" }}
+                          style={{ background: "var(--color-danger)", color: "#fff", borderColor: "var(--color-danger)" }}
                           onClick={openNewThreadModal}
                         >
                           <Plus size={14} /> New Dialogue / Report Bug
@@ -513,7 +513,7 @@ export function TeamDialogueView({
                       className="hover-row"
                     >
                       {/* ID Column */}
-                      <td style={{ padding: "12px 14px", fontWeight: 700, color: "#2563eb" }}>
+                      <td style={{ padding: "12px 14px", fontWeight: 700, color: "var(--color-info)" }}>
                         {t.reference || `FB-${t.id}`}
                       </td>
 
@@ -559,7 +559,7 @@ export function TeamDialogueView({
                         </div>
                         {t.messages?.[0]?.attachment_url && (
                           <div style={{ marginTop: 4 }}>
-                            <span style={{ fontSize: 11, color: "#2563eb", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            <span style={{ fontSize: 11, color: "var(--color-info)", display: "inline-flex", alignItems: "center", gap: 3 }}>
                               📎 Screenshot Attached
                             </span>
                           </div>
@@ -577,19 +577,19 @@ export function TeamDialogueView({
                             fontWeight: 600,
                             background:
                               t.status === "open"
-                                ? "#dbeafe"
+                                ? "var(--color-blue-bg)"
                                 : t.status === "in_progress"
-                                ? "#fef3c7"
+                                ? "var(--color-amber-bg)"
                                 : t.status === "resolved"
-                                ? "#fef3c7"
+                                ? "var(--color-amber-bg)"
                                 : "#d1fae5",
                             color:
                               t.status === "open"
-                                ? "#1e40af"
+                                ? "var(--color-info-deep)"
                                 : t.status === "in_progress"
-                                ? "#92400e"
+                                ? "var(--color-amber-strong)"
                                 : t.status === "resolved"
-                                ? "#92400e"
+                                ? "var(--color-amber-strong)"
                                 : "#065f46",
                           }}
                         >
@@ -647,7 +647,7 @@ export function TeamDialogueView({
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: "#dc2626",
+                  background: "var(--color-danger)",
                   color: "#ffffff",
                   borderRadius: 4,
                   fontWeight: 700,
@@ -703,12 +703,12 @@ export function TeamDialogueView({
           <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "8px 0" }}>
             {/* Header: reference + assigned to */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-              <span style={{ fontSize: 12, color: "#2563eb", fontWeight: 700 }}>
+              <span style={{ fontSize: 12, color: "var(--color-info)", fontWeight: 700 }}>
                 {activeThread.reference || `FB-${activeThread.id}`}
               </span>
               {activeThread.assigned_to_name && (
                 <span style={{ fontSize: 11, color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--color-green)", display: "inline-block" }} />
                   Assigned to <strong style={{ color: "var(--text)" }}>{activeThread.assigned_to_name}</strong>
                 </span>
               )}
@@ -717,10 +717,10 @@ export function TeamDialogueView({
             {/* Progress Stepper */}
             <div style={{ display: "flex", alignItems: "center", gap: 0, padding: "12px 16px", background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
               {([
-                { key: "open", label: "Open", color: "#3b82f6" },
-                { key: "in_progress", label: "In Progress", color: "#f59e0b" },
-                { key: "resolved", label: "Resolved", color: "#22c55e" },
-                { key: "closed", label: "Closed", color: "#6366f1" },
+                { key: "open", label: "Open", color: "var(--color-blue)" },
+                { key: "in_progress", label: "In Progress", color: "var(--color-amber)" },
+                { key: "resolved", label: "Resolved", color: "var(--color-green)" },
+                { key: "closed", label: "Closed", color: "var(--color-indigo-strong)" },
               ] as const).map((step, i) => {
                 const statusOrder = ["open", "in_progress", "resolved", "closed"];
                 const currentIdx = statusOrder.indexOf(activeThread.status);
@@ -733,7 +733,7 @@ export function TeamDialogueView({
                         style={{
                           width: 28, height: 28, borderRadius: "50%", display: "grid", placeItems: "center",
                           fontSize: 12, fontWeight: 800,
-                          background: isComplete ? step.color : isCurrent ? `${step.color}18` : "var(--surface)",
+                          background: isComplete ? step.color : isCurrent ? `color-mix(in srgb, ${step.color} 9%, transparent)` : "var(--surface)",
                           color: isComplete ? "#fff" : isCurrent ? step.color : "var(--muted)",
                           border: isCurrent ? `2px solid ${step.color}` : isComplete ? "none" : "1px solid var(--border)",
                           transition: "all 0.2s",
@@ -801,7 +801,7 @@ export function TeamDialogueView({
                 <button
                   type="button"
                   className="btn sm"
-                  style={{ background: "#f59e0b", color: "#fff", borderColor: "#f59e0b", fontSize: 11 }}
+                  style={{ background: "var(--color-amber)", color: "#fff", borderColor: "var(--color-amber)", fontSize: 11 }}
                   onClick={() => updateThreadStatus(activeThread.id, "in_progress")}
                 >
                   ◐ Start Progress
@@ -811,7 +811,7 @@ export function TeamDialogueView({
                 <button
                   type="button"
                   className="btn sm"
-                  style={{ background: "#22c55e", color: "#fff", borderColor: "#22c55e", fontSize: 11 }}
+                  style={{ background: "var(--color-green)", color: "#fff", borderColor: "var(--color-green)", fontSize: 11 }}
                   onClick={() => updateThreadStatus(activeThread.id, "resolved")}
                 >
                   ✓ Mark Complete
@@ -822,7 +822,7 @@ export function TeamDialogueView({
                   <button
                     type="button"
                     className="btn sm"
-                    style={{ background: "#6366f1", color: "#fff", borderColor: "#6366f1", fontSize: 11 }}
+                    style={{ background: "var(--color-indigo-strong)", color: "#fff", borderColor: "var(--color-indigo-strong)", fontSize: 11 }}
                     onClick={() => updateThreadStatus(activeThread.id, "closed")}
                   >
                     ✓ Confirm Done
@@ -888,7 +888,7 @@ export function TeamDialogueView({
                             style={{
                               fontWeight: 700,
                               fontSize: 12,
-                              color: isDev ? "#4f46e5" : "var(--text)",
+                              color: isDev ? "var(--color-indigo)" : "var(--text)",
                             }}
                           >
                             {isDev ? "🛠️ System / Developer Response" : `👤 ${m.sender_name || "Team Member"}`}
@@ -921,7 +921,7 @@ export function TeamDialogueView({
                                   <img src={url} alt={name} style={{ width: "100%", maxHeight: 180, objectFit: "cover", display: "block" }} />
                                 </a>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px" }}>
-                                  <FileImage size={14} style={{ color: "#2563eb", flexShrink: 0 }} />
+                                  <FileImage size={14} style={{ color: "var(--color-info)", flexShrink: 0 }} />
                                   <span title={name} style={{ flex: 1, fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
                                   <a className="btn ghost sm" href={url} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, padding: "3px 8px" }}>
                                     <ExternalLink size={12} /> Open
@@ -934,7 +934,7 @@ export function TeamDialogueView({
                             ) : (
                               /* ── File / PDF: icon card + metadata row ── */
                               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 10, background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
-                                <div style={{ width: 52, height: 52, display: "grid", placeItems: "center", borderRadius: 8, background: kind === "pdf" ? "#fef2f2" : "#eff6ff", border: `1px solid ${kind === "pdf" ? "#fecaca" : "#dbeafe"}`, color: kind === "pdf" ? "#dc2626" : "#2563eb", flexShrink: 0 }}>
+                                <div style={{ width: 52, height: 52, display: "grid", placeItems: "center", borderRadius: 8, background: kind === "pdf" ? "var(--color-red-soft)" : "var(--color-blue-soft)", border: `1px solid ${kind === "pdf" ? "var(--color-red-200)" : "var(--color-blue-bg)"}`, color: kind === "pdf" ? "var(--color-danger)" : "var(--color-info)", flexShrink: 0 }}>
                                   {attachmentIcon(m.attachment_url, 24)}
                                 </div>
                                 <div style={{ minWidth: 0, flex: 1 }}>

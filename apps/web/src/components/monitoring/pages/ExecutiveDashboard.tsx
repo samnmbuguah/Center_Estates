@@ -82,7 +82,7 @@ export function ExecutiveDashboard() {
             />
           </div>
           <div className="card">
-            <SimpleBarChart data={scurveData} bars={[{ key: "planned", color: "var(--muted, #94a3b8)" }, { key: "actual", color: "var(--accent, #2563eb)" }]} />
+            <SimpleBarChart data={scurveData} bars={[{ key: "planned", color: "var(--muted, var(--color-slate-400))" }, { key: "actual", color: "var(--accent, var(--color-info))" }]} />
           </div>
 
           <h3 className="mt-md">Cost</h3>
@@ -100,7 +100,7 @@ export function ExecutiveDashboard() {
             />
           </div>
           <div className="card">
-            <SimpleBarChart data={costData} bars={[{ key: "value", color: "var(--accent, #2563eb)" }]} />
+            <SimpleBarChart data={costData} bars={[{ key: "value", color: "var(--accent, var(--color-info))" }]} />
           </div>
 
           <h3 className="mt-md">Risk summary</h3>

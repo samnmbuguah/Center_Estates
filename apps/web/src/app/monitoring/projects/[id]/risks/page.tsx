@@ -15,7 +15,7 @@ export default function RisksPage({ params }: { params: Promise<{ id: string }> 
       eyebrow="Site Operations & Governance"
       title="Project Risk Matrix & Issue Register"
       subtitle="5x5 visual likelihood vs impact heatmap, mitigation action tracking, and status controls."
-      accent="#dc2626"
+      accent="var(--color-danger)"
       groups={constructionNav}
       activeId="risks"
       onSelect={(tabId) => {
@@ -25,7 +25,7 @@ export default function RisksPage({ params }: { params: Promise<{ id: string }> 
     >
       <div className="property-app monitoring-app">
         <div style={{ marginBottom: 14 }}>
-          <Link href={`/monitoring/projects/${id}`} style={{ color: "#2563eb", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
+          <Link href={`/monitoring/projects/${id}`} style={{ color: "var(--color-info)", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
             $\leftarrow$ Back to Project Workspace
           </Link>
         </div>

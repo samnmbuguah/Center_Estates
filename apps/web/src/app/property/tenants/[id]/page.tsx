@@ -43,7 +43,7 @@ export default function SingleTenantWorkspacePage({ params }: { params: Promise<
       eyebrow="Tenant Account"
       title={name}
       subtitle="Tenant ledger, active lease agreements, rent payment history, and documents."
-      accent="#00a3ff"
+      accent="var(--color-brand-blue)"
       groups={propertyNav}
       activeId="tenants"
       onSelect={(tabId) => {
@@ -53,7 +53,7 @@ export default function SingleTenantWorkspacePage({ params }: { params: Promise<
     >
       <div className="property-app">
         <div style={{ marginBottom: 14 }}>
-          <Link href="/property/tenants" style={{ color: "#00a3ff", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
+          <Link href="/property/tenants" style={{ color: "var(--color-brand-blue)", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
             $\leftarrow$ Back to Tenant Directory
           </Link>
         </div>
@@ -63,22 +63,22 @@ export default function SingleTenantWorkspacePage({ params }: { params: Promise<
         ) : (
           <div style={{ background: "var(--surface)", padding: 20, borderRadius: 10, border: "1px solid var(--line)" }}>
             <h3 style={{ margin: "0 0 8px 0", color: "var(--text)" }}>{name}</h3>
-            <p style={{ margin: "0 0 16px 0", color: "#64748b", fontSize: "0.85rem" }}>
+            <p style={{ margin: "0 0 16px 0", color: "var(--color-slate-500)", fontSize: "0.85rem" }}>
               📧 {String(tenant?.email)} | 📞 {String(tenant?.phone_number)}
             </p>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
               <div style={{ background: "var(--surface-2)", padding: 12, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "#64748b" }}>Active Leases</small>
-                <div style={{ fontWeight: "bold", fontSize: "1.1rem", color: "#00a3ff", marginTop: 2 }}>1 Active Contract</div>
+                <small style={{ color: "var(--color-slate-500)" }}>Active Leases</small>
+                <div style={{ fontWeight: "bold", fontSize: "1.1rem", color: "var(--color-brand-blue)", marginTop: 2 }}>1 Active Contract</div>
               </div>
               <div style={{ background: "var(--surface-2)", padding: 12, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "#64748b" }}>Monthly Rent</small>
-                <div style={{ fontWeight: "bold", fontSize: "1.1rem", color: "#16a34a", marginTop: 2 }}>KES 185,000</div>
+                <small style={{ color: "var(--color-slate-500)" }}>Monthly Rent</small>
+                <div style={{ fontWeight: "bold", fontSize: "1.1rem", color: "var(--color-success)", marginTop: 2 }}>KES 185,000</div>
               </div>
               <div style={{ background: "var(--surface-2)", padding: 12, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "#64748b" }}>Arrears Balance</small>
-                <div style={{ fontWeight: "bold", fontSize: "1.1rem", color: "#2563eb", marginTop: 2 }}>KES 0 (Current)</div>
+                <small style={{ color: "var(--color-slate-500)" }}>Arrears Balance</small>
+                <div style={{ fontWeight: "bold", fontSize: "1.1rem", color: "var(--color-info)", marginTop: 2 }}>KES 0 (Current)</div>
               </div>
             </div>
           </div>

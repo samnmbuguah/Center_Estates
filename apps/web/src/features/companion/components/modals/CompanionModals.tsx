@@ -76,7 +76,7 @@ export function AddTeamMemberModal({
   return (
     <Modal title="Add Team Member (Staff Creation)" onClose={onClose} wide>
       {error && (
-        <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid #ef4444", color: "#b91c1c", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
+        <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid var(--color-danger)", color: "var(--color-danger-strong)", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
           ⚠️ {error}
         </div>
       )}
@@ -258,8 +258,8 @@ export function EditMemberMatrixModal({
           />
         </Field>
 
-        <div style={{ padding: "10px 14px", background: isAdmin ? "#fef3c7" : "var(--surface-2)", borderRadius: 8, border: isAdmin ? "1px solid #fde68a" : "1px solid var(--border)" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, color: isAdmin ? "#92400e" : "var(--text)" }}>
+        <div style={{ padding: "10px 14px", background: isAdmin ? "var(--color-amber-bg)" : "var(--surface-2)", borderRadius: 8, border: isAdmin ? "1px solid var(--color-amber-200)" : "1px solid var(--border)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 700, color: isAdmin ? "var(--color-amber-strong)" : "var(--text)" }}>
             <input
               type="checkbox"
               checked={isAdmin}
@@ -277,7 +277,7 @@ export function EditMemberMatrixModal({
               <button
                 type="button"
                 onClick={() => setSelectedRoles(roles.map((r) => r.id))}
-                style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+                style={{ fontSize: 11, color: "var(--primary, var(--color-danger))", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
               >
                 Select All
               </button>
@@ -316,7 +316,7 @@ export function EditMemberMatrixModal({
               <button
                 type="button"
                 onClick={() => setSelectedProps(properties.map((p) => p.id))}
-                style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+                style={{ fontSize: 11, color: "var(--primary, var(--color-danger))", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
               >
                 Select All ({properties.length})
               </button>
@@ -625,7 +625,7 @@ export function AssignTaskModal({
                   sx={{ 
                     bgcolor: "rgba(79, 70, 229, 0.05)",
                     border: "1px solid rgba(79, 70, 229, 0.2)",
-                    "& .MuiAlert-icon": { color: "#4f46e5" }
+                    "& .MuiAlert-icon": { color: "var(--color-indigo)" }
                   }}
                 >
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -943,10 +943,10 @@ export function CompleteTaskModal({
       <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ background: "rgba(13, 148, 136, 0.08)", border: "1px solid rgba(13, 148, 136, 0.25)", padding: 12, borderRadius: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#0d9488", letterSpacing: "0.5px" }}>Task Ref: {String(task.reference || "CPN")}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "var(--color-teal)", letterSpacing: "0.5px" }}>Task Ref: {String(task.reference || "CPN")}</span>
             <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text)", marginTop: 2 }}>{String(task.title)}</div>
           </div>
-          <span style={{ fontSize: 12, padding: "3px 8px", borderRadius: 4, background: "rgba(13, 148, 136, 0.15)", color: "#0d9488", fontWeight: 700 }}>
+          <span style={{ fontSize: 12, padding: "3px 8px", borderRadius: 4, background: "rgba(13, 148, 136, 0.15)", color: "var(--color-teal)", fontWeight: 700 }}>
             {String(task.priority || "normal").toUpperCase()}
           </span>
         </div>
@@ -970,7 +970,7 @@ export function CompleteTaskModal({
               ))}
             </div>
             {!allDone && (
-              <div style={{ fontSize: 12, color: "#d97706", display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ fontSize: 12, color: "var(--color-warning)", display: "flex", alignItems: "center", gap: 6 }}>
                 <span>⚠️ Note: Some checklist sub-tasks are still unchecked.</span>
               </div>
             )}
@@ -998,7 +998,7 @@ export function CompleteTaskModal({
 
         <div className="modal-actions" style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
           <button type="button" className="btn ghost" onClick={onClose} disabled={busy}>Cancel</button>
-          <button type="submit" className="btn primary" disabled={busy || !note.trim()} style={{ background: "#16a34a", borderColor: "#16a34a" }}>
+          <button type="submit" className="btn primary" disabled={busy || !note.trim()} style={{ background: "var(--color-success)", borderColor: "var(--color-success)" }}>
             {busy ? "Submitting…" : "✓ Confirm & Complete Task"}
           </button>
         </div>

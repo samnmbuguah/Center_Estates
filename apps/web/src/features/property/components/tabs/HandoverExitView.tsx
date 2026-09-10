@@ -109,10 +109,10 @@ export function HandoverExitView({ handovers, clearances, loading, error, search
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2, width: "100%" }}>
       <KpiStrip>
-        <KpiCard icon="🔑" iconBg="rgba(79,70,229,0.12)" iconColor="#4f46e5" label="Open Handovers" value={String(kpis.openHandovers)} sub="Awaiting sign-off" />
-        <KpiCard icon="✓" iconBg="rgba(22,163,74,0.12)" iconColor="#16a34a" label="Acknowledged" value={String(kpis.acknowledged)} sub="Move-ins complete" />
-        <KpiCard icon="🚪" iconBg="rgba(217,119,6,0.12)" iconColor="#d97706" label="Active Clearances" value={String(kpis.activeClearances)} sub="In progress" />
-        <KpiCard icon="🎫" iconBg="rgba(22,163,74,0.12)" iconColor="#16a34a" label="Gate Passes" value={String(kpis.gatePasses)} sub="Exits complete" />
+        <KpiCard icon="🔑" iconBg="rgba(79,70,229,0.12)" iconColor="var(--color-indigo)" label="Open Handovers" value={String(kpis.openHandovers)} sub="Awaiting sign-off" />
+        <KpiCard icon="✓" iconBg="rgba(22,163,74,0.12)" iconColor="var(--color-success)" label="Acknowledged" value={String(kpis.acknowledged)} sub="Move-ins complete" />
+        <KpiCard icon="🚪" iconBg="rgba(217,119,6,0.12)" iconColor="var(--color-warning)" label="Active Clearances" value={String(kpis.activeClearances)} sub="In progress" />
+        <KpiCard icon="🎫" iconBg="rgba(22,163,74,0.12)" iconColor="var(--color-success)" label="Gate Passes" value={String(kpis.gatePasses)} sub="Exits complete" />
       </KpiStrip>
 
       <SubTabs tabs={[{ id: "handover", label: `Move-in Handover (${hList.length})` }, { id: "exit", label: `Exit Clearance (${cList.length})` }]} active={subTab} onChange={(id) => setSubTab(id as "handover" | "exit")} />
@@ -147,7 +147,7 @@ export function HandoverExitView({ handovers, clearances, loading, error, search
                   <tbody>
                     {hList.map((h) => (
                       <tr key={h.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                        <td style={{ padding: "12px 14px" }}><span className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, #2563eb)" }}>{h.code}</span></td>
+                        <td style={{ padding: "12px 14px" }}><span className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, var(--color-info))" }}>{h.code}</span></td>
                         <td style={{ padding: "12px 14px" }}>
                           <div style={{ fontWeight: 700 }}>{h.tenant_name}</div>
                           <div style={{ fontSize: 11, color: "text.secondary" }}>Unit {h.unit_code || "—"}</div>
@@ -210,7 +210,7 @@ export function HandoverExitView({ handovers, clearances, loading, error, search
                       ];
                       return (
                         <tr key={c.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                          <td style={{ padding: "12px 14px" }}><span className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, #dc2626)" }}>{c.code}</span></td>
+                          <td style={{ padding: "12px 14px" }}><span className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, var(--color-danger))" }}>{c.code}</span></td>
                           <td style={{ padding: "12px 14px" }}>
                             <div style={{ fontWeight: 700 }}>{c.tenant_name}</div>
                             <div className="mono" style={{ fontSize: 11, color: "text.secondary" }}>{c.lease_reference}</div>
@@ -224,12 +224,12 @@ export function HandoverExitView({ handovers, clearances, loading, error, search
                           </td>
                           <td style={{ padding: "12px 14px" }}>
                             <div className="mono" style={{ fontSize: 12 }}>{c.deposit_amount ? money.format(Number(c.deposit_amount)) : "—"}</div>
-                            {c.refund_amount !== null && <div className="mono" style={{ fontSize: 12, color: "#16a34a" }}>→ {money.format(Number(c.refund_amount))}</div>}
+                            {c.refund_amount !== null && <div className="mono" style={{ fontSize: 12, color: "var(--color-success)" }}>→ {money.format(Number(c.refund_amount))}</div>}
                           </td>
                           <td style={{ padding: "12px 14px" }}>
                             <StatusPill value={c.status} />
                             {c.gate_pass_number && <div className="mono" style={{ fontSize: 11, marginTop: 2 }}>{c.gate_pass_number}</div>}
-                            {c.rejected_reason && <div style={{ fontSize: 11, color: "var(--error, #dc2626)", marginTop: 2 }}>{c.rejected_reason}</div>}
+                            {c.rejected_reason && <div style={{ fontSize: 11, color: "var(--error, var(--color-danger))", marginTop: 2 }}>{c.rejected_reason}</div>}
                           </td>
                           <td style={{ padding: "12px 14px", textAlign: "right" }}>
                             <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>

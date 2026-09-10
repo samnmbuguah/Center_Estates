@@ -102,8 +102,8 @@ export function GuidedTenantWizardModal({
                     width: 28,
                     height: 28,
                     borderRadius: "50%",
-                    background: active ? "#dc2626" : completed ? "#16a34a" : "#e2e8f0",
-                    color: active || completed ? "#ffffff" : "#64748b",
+                    background: active ? "var(--color-danger)" : completed ? "var(--color-success)" : "var(--color-slate-200)",
+                    color: active || completed ? "#ffffff" : "var(--color-slate-500)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -113,7 +113,7 @@ export function GuidedTenantWizardModal({
                 >
                   {completed ? <CheckCircle2 size={16} /> : s.num}
                 </span>
-                <span style={{ fontSize: 12, fontWeight: active ? 900 : 700, color: active ? "#000000" : "#64748b" }}>
+                <span style={{ fontSize: 12, fontWeight: active ? 900 : 700, color: active ? "#000000" : "var(--color-slate-500)" }}>
                   {s.label}
                 </span>
               </div>
@@ -131,7 +131,7 @@ export function GuidedTenantWizardModal({
               <select
                 value={formData.unitId}
                 onChange={(e) => setFormData({ ...formData, unitId: e.target.value })}
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000", background: "#fff" }}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000", background: "#fff" }}
               >
                 <option value="102">U-102 (Floor 1) — Westlands Business Centre</option>
                 <option value="204">U-204 (Floor 2) — Westlands Business Centre</option>
@@ -149,7 +149,7 @@ export function GuidedTenantWizardModal({
                   value={formData.monthlyRent}
                   onChange={(e) => setFormData({ ...formData, monthlyRent: Number(e.target.value) })}
                   required
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000" }}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000" }}
                 />
               </div>
 
@@ -162,7 +162,7 @@ export function GuidedTenantWizardModal({
                   value={formData.deposit}
                   onChange={(e) => setFormData({ ...formData, deposit: Number(e.target.value) })}
                   required
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000" }}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000" }}
                 />
               </div>
             </div>
@@ -177,7 +177,7 @@ export function GuidedTenantWizardModal({
                   value={formData.startDate}
                   onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                   required
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000" }}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000" }}
                 />
               </div>
 
@@ -188,7 +188,7 @@ export function GuidedTenantWizardModal({
                 <select
                   value={formData.leaseMonths}
                   onChange={(e) => setFormData({ ...formData, leaseMonths: Number(e.target.value) })}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000", background: "#fff" }}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000", background: "#fff" }}
                 >
                   <option value={6}>6 Months</option>
                   <option value={12}>12 Months (1 Year)</option>
@@ -199,10 +199,10 @@ export function GuidedTenantWizardModal({
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 12 }}>
-              <button type="button" onClick={onClose} style={{ background: "#f1f5f9", border: 0, color: "#0f172a", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+              <button type="button" onClick={onClose} style={{ background: "var(--color-slate-100)", border: 0, color: "var(--color-slate-900)", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
                 Cancel
               </button>
-              <button type="submit" style={{ background: "#dc2626", border: 0, color: "#ffffff", padding: "10px 22px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <button type="submit" style={{ background: "var(--color-danger)", border: 0, color: "#ffffff", padding: "10px 22px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <span>Next: Tenant Profile</span>
                 <ArrowRight size={16} />
               </button>
@@ -224,7 +224,7 @@ export function GuidedTenantWizardModal({
                   value={formData.tenantName}
                   onChange={(e) => setFormData({ ...formData, tenantName: e.target.value })}
                   required
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000" }}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000" }}
                 />
               </div>
 
@@ -238,7 +238,7 @@ export function GuidedTenantWizardModal({
                   value={formData.nationalId}
                   onChange={(e) => setFormData({ ...formData, nationalId: e.target.value })}
                   required
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000" }}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000" }}
                 />
               </div>
             </div>
@@ -254,7 +254,7 @@ export function GuidedTenantWizardModal({
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000" }}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000" }}
                 />
               </div>
 
@@ -268,7 +268,7 @@ export function GuidedTenantWizardModal({
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   required
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000" }}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000" }}
                 />
               </div>
             </div>
@@ -283,7 +283,7 @@ export function GuidedTenantWizardModal({
                   placeholder="e.g. Jane Doe"
                   value={formData.emergencyContact}
                   onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 700, color: "#000000" }}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 700, color: "#000000" }}
                 />
               </div>
 
@@ -296,17 +296,17 @@ export function GuidedTenantWizardModal({
                   placeholder="+254 711 000 000"
                   value={formData.emergencyPhone}
                   onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 700, color: "#000000" }}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 700, color: "#000000" }}
                 />
               </div>
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
-              <button type="button" onClick={() => setStep(1)} style={{ background: "#f1f5f9", border: 0, color: "#0f172a", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <button type="button" onClick={() => setStep(1)} style={{ background: "var(--color-slate-100)", border: 0, color: "var(--color-slate-900)", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <ArrowLeft size={16} />
                 <span>Back</span>
               </button>
-              <button type="submit" style={{ background: "#dc2626", border: 0, color: "#ffffff", padding: "10px 22px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <button type="submit" style={{ background: "var(--color-danger)", border: 0, color: "#ffffff", padding: "10px 22px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <span>Next: Lease & Billing</span>
                 <ArrowRight size={16} />
               </button>
@@ -317,23 +317,23 @@ export function GuidedTenantWizardModal({
         {/* Step 3: Lease Summary & Deposit */}
         {step === 3 && (
           <div style={{ padding: 28, display: "flex", flexDirection: "column", gap: 18 }}>
-            <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 10, padding: 18 }}>
+            <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-300)", borderRadius: 10, padding: 18 }}>
               <h4 style={{ fontSize: 14, fontWeight: 900, color: "#000000", margin: "0 0 12px" }}>
                 Lease Agreement Summary
               </h4>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13 }}>
-                <div><span style={{ color: "#64748b" }}>Tenant Name:</span> <strong style={{ color: "#000000" }}>{formData.tenantName || "John Doe"}</strong></div>
-                <div><span style={{ color: "#64748b" }}>Assigned Unit:</span> <strong style={{ color: "#000000" }}>{formData.unitCode}</strong></div>
-                <div><span style={{ color: "#64748b" }}>Monthly Rent:</span> <strong style={{ color: "#000000" }}>KES {formData.monthlyRent.toLocaleString()}</strong></div>
-                <div><span style={{ color: "#64748b" }}>Security Deposit:</span> <strong style={{ color: "#000000" }}>KES {formData.deposit.toLocaleString()}</strong></div>
-                <div><span style={{ color: "#64748b" }}>Commencement:</span> <strong style={{ color: "#000000" }}>{formData.startDate}</strong></div>
-                <div><span style={{ color: "#64748b" }}>Lease Term:</span> <strong style={{ color: "#000000" }}>{formData.leaseMonths} Months</strong></div>
+                <div><span style={{ color: "var(--color-slate-500)" }}>Tenant Name:</span> <strong style={{ color: "#000000" }}>{formData.tenantName || "John Doe"}</strong></div>
+                <div><span style={{ color: "var(--color-slate-500)" }}>Assigned Unit:</span> <strong style={{ color: "#000000" }}>{formData.unitCode}</strong></div>
+                <div><span style={{ color: "var(--color-slate-500)" }}>Monthly Rent:</span> <strong style={{ color: "#000000" }}>KES {formData.monthlyRent.toLocaleString()}</strong></div>
+                <div><span style={{ color: "var(--color-slate-500)" }}>Security Deposit:</span> <strong style={{ color: "#000000" }}>KES {formData.deposit.toLocaleString()}</strong></div>
+                <div><span style={{ color: "var(--color-slate-500)" }}>Commencement:</span> <strong style={{ color: "#000000" }}>{formData.startDate}</strong></div>
+                <div><span style={{ color: "var(--color-slate-500)" }}>Lease Term:</span> <strong style={{ color: "#000000" }}>{formData.leaseMonths} Months</strong></div>
               </div>
 
-              <div style={{ borderTop: "1px solid #cbd5e1", marginTop: 14, paddingTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ borderTop: "1px solid var(--color-slate-300)", marginTop: 14, paddingTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: 14, fontWeight: 900, color: "#000000" }}>Initial Payable Total:</span>
-                <strong style={{ fontSize: 18, fontWeight: 900, color: "#dc2626" }}>
+                <strong style={{ fontSize: 18, fontWeight: 900, color: "var(--color-danger)" }}>
                   KES {(formData.monthlyRent + formData.deposit).toLocaleString()}
                 </strong>
               </div>
@@ -344,13 +344,13 @@ export function GuidedTenantWizardModal({
                 type="checkbox"
                 checked={formData.autoInvoice}
                 onChange={(e) => setFormData({ ...formData, autoInvoice: e.target.checked })}
-                style={{ width: 18, height: 18, accentColor: "#dc2626" }}
+                style={{ width: 18, height: 18, accentColor: "var(--color-danger)" }}
               />
               <span>Auto-generate initial rent invoice & dispatch welcome receipt</span>
             </label>
 
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
-              <button type="button" onClick={() => setStep(2)} style={{ background: "#f1f5f9", border: 0, color: "#0f172a", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <button type="button" onClick={() => setStep(2)} style={{ background: "var(--color-slate-100)", border: 0, color: "var(--color-slate-900)", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <ArrowLeft size={16} />
                 <span>Back</span>
               </button>
@@ -359,7 +359,7 @@ export function GuidedTenantWizardModal({
                 type="button"
                 disabled={submitting}
                 onClick={handleFinalSubmit}
-                style={{ background: "#16a34a", border: 0, color: "#ffffff", padding: "10px 24px", borderRadius: 8, fontSize: 13, fontWeight: 900, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}
+                style={{ background: "var(--color-success)", border: 0, color: "#ffffff", padding: "10px 24px", borderRadius: 8, fontSize: 13, fontWeight: 900, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}
               >
                 <ShieldCheck size={18} />
                 <span>{submitting ? "Processing Onboarding…" : "Complete Tenant Onboarding"}</span>

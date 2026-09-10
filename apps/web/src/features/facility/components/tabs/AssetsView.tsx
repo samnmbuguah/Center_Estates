@@ -146,11 +146,11 @@ export function AssetsView({
       {assetError && <div className="form-error" role="alert">{assetError}</div>}
       {/* Top KPI Cards */}
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="📦" iconBg="#e0e7ff" iconColor="#4f46e5" label="Registered Assets" value={String(displayRows.length)} sub="Unique tagged assets" />
-        <FcKpiCard icon="💰" iconBg="#dcfce7" iconColor="#16a34a" label="Asset Portfolio Value" value={money.format(totalValue)} sub="Cumulative purchase value" />
-        <FcKpiCard icon="🚨" iconBg="#fee2e2" iconColor="#dc2626" label="Critical Life Safety/M&E" value={String(criticalCount)} sub="Highest priority assets" />
-        <FcKpiCard icon="📅" iconBg="#ffedd5" iconColor="#ea580c" label="Warranty Expiring" value={String(displayRows.filter(a => { const d = a.warranty_expires_on ? new Date(String(a.warranty_expires_on)) : null; return d && d.getTime() - Date.now() < 90 * 86400000 && d.getTime() > Date.now(); }).length)} sub="Within 90 days" />
-        <FcKpiCard icon="⭐" iconBg="#fdf4ff" iconColor="#9333ea" label="Active Assets" value={String(displayRows.filter(a => a.is_active !== false).length)} sub="Currently in service" />
+        <FcKpiCard icon="📦" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Registered Assets" value={String(displayRows.length)} sub="Unique tagged assets" />
+        <FcKpiCard icon="💰" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Asset Portfolio Value" value={money.format(totalValue)} sub="Cumulative purchase value" />
+        <FcKpiCard icon="🚨" iconBg="var(--color-red-bg)" iconColor="var(--color-danger)" label="Critical Life Safety/M&E" value={String(criticalCount)} sub="Highest priority assets" />
+        <FcKpiCard icon="📅" iconBg="var(--color-orange-soft)" iconColor="var(--color-orange)" label="Warranty Expiring" value={String(displayRows.filter(a => { const d = a.warranty_expires_on ? new Date(String(a.warranty_expires_on)) : null; return d && d.getTime() - Date.now() < 90 * 86400000 && d.getTime() > Date.now(); }).length)} sub="Within 90 days" />
+        <FcKpiCard icon="⭐" iconBg="#fdf4ff" iconColor="var(--color-purple)" label="Active Assets" value={String(displayRows.filter(a => a.is_active !== false).length)} sub="Currently in service" />
       </div>
 
       {/* Main Asset Master Table */}
@@ -179,7 +179,7 @@ export function AssetsView({
             <button
               onClick={onAdd}
               style={{
-                background: "var(--primary, #e23b3b)",
+                background: "var(--primary, var(--color-brand-red))",
                 color: "#fff",
                 border: 0,
                 padding: "6px 14px",
@@ -225,10 +225,10 @@ export function AssetsView({
               {displayRows.map((asset) => {
                 const isChecked = selectedIds.has(String(asset.id));
                 const critColor: Record<string, string> = {
-                  critical: "#dc2626",
-                  high: "#ea580c",
-                  medium: "#2563eb",
-                  low: "#16a34a",
+                  critical: "var(--color-danger)",
+                  high: "var(--color-orange)",
+                  medium: "var(--color-info)",
+                  low: "var(--color-success)",
                 };
                 return (
                   <tr key={String(asset.id)} style={{ borderBottom: "1px solid var(--border)", background: isChecked ? "rgba(37,99,235,0.06)" : "transparent" }}>
@@ -270,8 +270,8 @@ export function AssetsView({
                     <td style={{ padding: "12px 14px", textAlign: "center" }}>
                       <span
                         style={{
-                          background: `${critColor[String(asset.criticality)] ?? "#2563eb"}15`,
-                          color: critColor[String(asset.criticality)] ?? "#2563eb",
+                          background: `${critColor[String(asset.criticality)] ?? "var(--color-info)"}15`,
+                          color: critColor[String(asset.criticality)] ?? "var(--color-info)",
                           padding: "3px 8px",
                           borderRadius: 4,
                           fontSize: 10,
@@ -321,9 +321,9 @@ export function AssetsView({
                         <button
                           onClick={() => openLifecycle(asset)}
                           style={{
-                            background: "#dbeafe",
-                            color: "#1e40af",
-                            border: "1px solid #bfdbfe",
+                            background: "var(--color-blue-bg)",
+                            color: "var(--color-info-deep)",
+                            border: "1px solid var(--color-blue-200)",
                             padding: "4px 8px",
                             borderRadius: 4,
                             fontSize: 11,
@@ -370,7 +370,7 @@ export function AssetsView({
                 <div style={{ padding: 16, background: "var(--surface-sunken)", borderRadius: 8, border: "1px solid var(--border)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <strong style={{ fontSize: "0.9rem", color: "var(--text-primary)" }}>Repair vs Replace Ratio</strong>
-                    <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 800 }}>
+                    <span style={{ background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 800 }}>
                       {lifecycleData.recommendation}
                     </span>
                   </div>
@@ -385,7 +385,7 @@ export function AssetsView({
                     </div>
                     <div>
                       <span style={{ color: "var(--text-secondary)" }}>Cost Ratio:</span>
-                      <strong style={{ display: "block", color: "#2563eb" }}>{lifecycleData.repair_to_replacement_ratio_percent}%</strong>
+                      <strong style={{ display: "block", color: "var(--color-info)" }}>{lifecycleData.repair_to_replacement_ratio_percent}%</strong>
                     </div>
                   </div>
                 </div>
@@ -400,14 +400,14 @@ export function AssetsView({
                   <div style={{ padding: "14px 16px", background: "var(--surface-sunken)", borderRadius: 8, border: "1px solid var(--border)", marginBottom: 12 }}>
                     <svg width="100%" height={140} viewBox="0 0 540 140" style={{ overflow: "visible" }}>
                       {/* Grid Lines */}
-                      <line x1={40} y1={20} x2={500} y2={20} stroke="var(--border)" strokeDasharray="3,3" />
-                      <line x1={40} y1={65} x2={500} y2={65} stroke="var(--border)" strokeDasharray="3,3" />
-                      <line x1={40} y1={110} x2={500} y2={110} stroke="var(--border)" />
+                      <line x1={40} y1={20} x2={500} y2={20} stroke="#cbd5e1" strokeDasharray="3,3" />
+                      <line x1={40} y1={65} x2={500} y2={65} stroke="#cbd5e1" strokeDasharray="3,3" />
+                      <line x1={40} y1={110} x2={500} y2={110} stroke="#cbd5e1" />
 
                       {/* Y-Axis Labels */}
-                      <text x={32} y={24} textAnchor="end" fontSize={9} fill="var(--text-muted)">Grade 5</text>
-                      <text x={32} y={69} textAnchor="end" fontSize={9} fill="var(--text-muted)">Grade 3</text>
-                      <text x={32} y={114} textAnchor="end" fontSize={9} fill="var(--text-muted)">Grade 1</text>
+                      <text x={32} y={24} textAnchor="end" fontSize={9} fill="#64748b">Grade 5</text>
+                      <text x={32} y={69} textAnchor="end" fontSize={9} fill="#64748b">Grade 3</text>
+                      <text x={32} y={114} textAnchor="end" fontSize={9} fill="#64748b">Grade 1</text>
 
                       {/* Bars & Condition Trend Line */}
                       {(() => {
@@ -440,11 +440,11 @@ export function AssetsView({
                                     stroke={pt.capex > 0 ? "var(--primary)" : "none"}
                                     strokeWidth={1}
                                   />
-                                  <text x={pt.x} y={124} textAnchor="middle" fontSize={10} fontWeight={700} fill="var(--text-primary)">
+                                  <text x={pt.x} y={124} textAnchor="middle" fontSize={10} fontWeight={700} fill="#000000">
                                     {pt.year}
                                   </text>
                                   {pt.capex > 0 && (
-                                    <text x={pt.x} y={barY - 5} textAnchor="middle" fontSize={9} fontWeight={800} fill="var(--primary)">
+                                    <text x={pt.x} y={barY - 5} textAnchor="middle" fontSize={9} fontWeight={800} fill="#2563eb">
                                       {money.format(pt.capex)}
                                     </text>
                                   )}
@@ -467,7 +467,7 @@ export function AssetsView({
                         Planned Capital Renewal Outlay
                       </span>
                       <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                        <span style={{ width: 12, height: 2.5, background: "#2563eb" }} />
+                        <span style={{ width: 12, height: 2.5, background: "var(--color-info)" }} />
                         Projected Asset Health Score (1–5)
                       </span>
                     </div>
@@ -491,7 +491,7 @@ export function AssetsView({
                           </td>
                           <td style={{ padding: "8px", textAlign: "center" }}>{proj.projected_condition_score} / 5.0</td>
                           <td style={{ padding: "8px" }}>
-                            <span style={{ background: proj.planned_capex > 0 ? "#fee2e2" : "var(--surface-sunken)", color: proj.planned_capex > 0 ? "#991b1b" : "inherit", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
+                            <span style={{ background: proj.planned_capex > 0 ? "var(--color-red-bg)" : "var(--surface-sunken)", color: proj.planned_capex > 0 ? "var(--color-danger-deep)" : "inherit", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
                               {proj.status}
                             </span>
                           </td>
@@ -560,7 +560,7 @@ export function AssetsView({
                 <button type="button" onClick={() => setShowAssessmentModal(false)} style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "8px 14px", borderRadius: 6, fontWeight: 700, cursor: "pointer" }}>
                   Cancel
                 </button>
-                <button type="submit" style={{ background: "var(--primary, #e23b3b)", color: "#fff", border: 0, padding: "8px 16px", borderRadius: 6, fontWeight: 800, cursor: "pointer" }}>
+                <button type="submit" style={{ background: "var(--primary, var(--color-brand-red))", color: "#fff", border: 0, padding: "8px 16px", borderRadius: 6, fontWeight: 800, cursor: "pointer" }}>
                   Save Assessment
                 </button>
               </div>
@@ -577,7 +577,7 @@ export function AssetsView({
             bottom: 24,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "#0f172a",
+            background: "var(--color-slate-900)",
             color: "#fff",
             padding: "10px 20px",
             borderRadius: 12,
@@ -595,7 +595,7 @@ export function AssetsView({
             <button
               onClick={() => setShowQrModal(true)}
               style={{
-                background: "#2563eb",
+                background: "var(--color-info)",
                 color: "#fff",
                 border: 0,
                 padding: "6px 14px",
@@ -649,25 +649,25 @@ export function AssetsView({
       {showQrModal && (
         <div className="modal-backdrop" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
           <div style={{ background: "var(--surface-raised)", color: "var(--text-primary)", border: "1px solid var(--border-color)", width: "100%", maxWidth: 840, borderRadius: 12, padding: 24, maxHeight: "90vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, borderBottom: "1px solid #e2e8f0", paddingBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, borderBottom: "1px solid var(--color-slate-200)", paddingBottom: 12 }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 900, color: "var(--text-primary)" }}>
                   🖨️ Batch Asset QR Code Tag Sheet (Avery / Label Print Ready)
                 </h2>
-                <small style={{ color: "#64748b", fontSize: "0.8rem" }}>
+                <small style={{ color: "var(--color-slate-500)", fontSize: "0.8rem" }}>
                   Generating {selectedIds.size} tags · Formatted with high-contrast QR scan targets for mobile maintenance
                 </small>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button
                   onClick={() => window.print()}
-                  style={{ background: "#2563eb", color: "#fff", border: 0, padding: "8px 16px", borderRadius: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" }}
+                  style={{ background: "var(--color-info)", color: "#fff", border: 0, padding: "8px 16px", borderRadius: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" }}
                 >
                   🖨️ Print Labels Now
                 </button>
                 <button
                   onClick={() => setShowQrModal(false)}
-                  style={{ background: "#f1f5f9", color: "#334155", border: "1px solid #cbd5e1", padding: "8px 14px", borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                  style={{ background: "var(--color-slate-100)", color: "var(--color-slate-700)", border: "1px solid var(--color-slate-300)", padding: "8px 14px", borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
                 >
                   Close
                 </button>
@@ -682,10 +682,10 @@ export function AssetsView({
                   <div
                     key={String(asset.id)}
                     style={{
-                      border: "2px dashed #94a3b8",
+                      border: "2px dashed var(--color-slate-400)",
                       borderRadius: 8,
                       padding: 12,
-                      background: "#f8fafc",
+                      background: "var(--color-slate-50)",
                       display: "flex",
                       flexDirection: "column",
                       justifyContent: "space-between",
@@ -693,10 +693,10 @@ export function AssetsView({
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", color: "#64748b" }}>
+                      <span style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--color-slate-500)" }}>
                         CENTER ESTATES FM
                       </span>
-                      <span style={{ background: "#0f172a", color: "#fff", padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 800 }}>
+                      <span style={{ background: "var(--color-slate-900)", color: "#fff", padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 800 }}>
                         {String(asset.code)}
                       </span>
                     </div>
@@ -710,12 +710,12 @@ export function AssetsView({
                         <strong style={{ display: "block", color: "var(--text-primary)", fontSize: 12, lineHeight: 1.2 }}>
                           {String(asset.name)}
                         </strong>
-                        <div style={{ color: "#64748b", marginTop: 2 }}>{String(asset.building_name ?? "Tower A")}</div>
-                        <small style={{ color: "#2563eb", fontWeight: 700 }}>Scan for Ticket / SOP</small>
+                        <div style={{ color: "var(--color-slate-500)", marginTop: 2 }}>{String(asset.building_name ?? "Tower A")}</div>
+                        <small style={{ color: "var(--color-info)", fontWeight: 700 }}>Scan for Ticket / SOP</small>
                       </div>
                     </div>
 
-                    <div style={{ fontSize: 9, color: "var(--text-muted)", textAlign: "center", borderTop: "1px solid #e2e8f0", paddingTop: 4 }}>
+                    <div style={{ fontSize: 9, color: "var(--text-muted)", textAlign: "center", borderTop: "1px solid var(--color-slate-200)", paddingTop: 4 }}>
                       Serial: {String(asset.serial_number ?? "AST-KE-2026")}
                     </div>
                   </div>

@@ -229,12 +229,12 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
     <>
       <div className="fc-kpi-strip six-col">
         {[
-          { icon: "⚡", bg: "#e0e7ff", color: "#4f46e5", label: "Total Energy (kWh)", value: energyKwh, trend: "YTD consumption", up: false },
-          { icon: "💧", bg: "#dbeafe", color: "#2563eb", label: "Water Consumption (m³)", value: consumptionByType("water").toLocaleString(), trend: "Recorded YTD", up: true },
-          { icon: "⛽", bg: "#dcfce7", color: "#16a34a", label: "Generator Fuel (L)", value: consumptionByType("fuel").toLocaleString(), trend: "Recorded YTD", up: true },
-          { icon: "🔥", bg: "#fff7ed", color: "#ea580c", label: "Gas Consumption (kg)", value: consumptionByType("gas").toLocaleString(), trend: "Recorded YTD", up: true },
-          { icon: "💰", bg: "#fdf4ff", color: "#9333ea", label: "Utility Cost (KES)", value: utilityCost, trend: "YTD spend", up: false },
-          { icon: "🌱", bg: "#f0fdf4", color: "#15803d", label: "Meters Reporting", value: String(rows.filter((row) => row.read_at).length), trend: "Current register", up: true },
+          { icon: "⚡", bg: "var(--color-indigo-bg)", color: "var(--color-indigo)", label: "Total Energy (kWh)", value: energyKwh, trend: "YTD consumption", up: false },
+          { icon: "💧", bg: "var(--color-blue-bg)", color: "var(--color-info)", label: "Water Consumption (m³)", value: consumptionByType("water").toLocaleString(), trend: "Recorded YTD", up: true },
+          { icon: "⛽", bg: "var(--color-green-bg)", color: "var(--color-success)", label: "Generator Fuel (L)", value: consumptionByType("fuel").toLocaleString(), trend: "Recorded YTD", up: true },
+          { icon: "🔥", bg: "var(--color-orange-bg)", color: "var(--color-orange)", label: "Gas Consumption (kg)", value: consumptionByType("gas").toLocaleString(), trend: "Recorded YTD", up: true },
+          { icon: "💰", bg: "#fdf4ff", color: "var(--color-purple)", label: "Utility Cost (KES)", value: utilityCost, trend: "YTD spend", up: false },
+          { icon: "🌱", bg: "var(--color-green-soft)", color: "var(--color-success-strong)", label: "Meters Reporting", value: String(rows.filter((row) => row.read_at).length), trend: "Current register", up: true },
         ].map((kpi) => (
           <div key={kpi.label} className="fc-kpi-card" style={{ cursor: "default" }}>
             <div className="fc-kpi-top">
@@ -271,7 +271,7 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
       {subTab === "reconciliation" ? (
         <div style={{ display: "grid", gap: 16 }}>
           {(bulkMeters.length === 0 || checkMeters.length === 0) && (
-            <div className="form-error" style={{ background: "#fff7ed", color: "#9a3412", border: "1px solid #fdba74" }}>
+            <div className="form-error" style={{ background: "var(--color-orange-bg)", color: "#9a3412", border: "1px solid #fdba74" }}>
               Register at least one bulk meter and one linked check meter before recording a variance reconciliation.
             </div>
           )}
@@ -413,7 +413,7 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
               </table>
             </div>
             <div style={{ padding: "12px 18px" }}>
-              {filteredRows.length > 5 && <button type="button" onClick={() => setShowAllMeters((value) => !value)} style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{showAllMeters ? "Show Recent Meters ↑" : `View All ${filteredRows.length} Meters →`}</button>}
+              {filteredRows.length > 5 && <button type="button" onClick={() => setShowAllMeters((value) => !value)} style={{ background: "none", border: 0, color: "var(--color-brand-red)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{showAllMeters ? "Show Recent Meters ↑" : `View All ${filteredRows.length} Meters →`}</button>}
             </div>
           </article>
 
@@ -422,14 +422,14 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
               title="Utility Consumption Trend"
               months={trendMonths}
               values={consumptionByMonth}
-              color="#4f46e5"
+              color="var(--color-indigo)"
               format={(v) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)}
             />
             <UtilityBarChart
               title="Utility Cost Trend (KES)"
               months={trendMonths}
               values={costByMonth}
-              color="#22c55e"
+              color="var(--color-green)"
               format={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
             />
           </div>
@@ -485,7 +485,7 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
               <div style={{ marginBottom: 14 }}>
                 <span style={{ color: "var(--text-secondary)", display: "block", fontSize: 11 }}>Total Cost</span>
                 <strong style={{ fontSize: 22 }}>KES {utilityCost}</strong>
-                <span style={{ color: "#ef4444", fontSize: 11 }}> YTD</span>
+                <span style={{ color: "var(--color-danger)", fontSize: 11 }}> YTD</span>
               </div>
               {[
                 { icon: "⚡", label: "Electricity", value: `KES ${costByType("electricity").toLocaleString()}` },
@@ -505,7 +505,7 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
       </div>
       ); })()}
       {utilityError && <div className="form-error">{utilityError}</div>}
-      {utilityNotice && <div className="form-hint" style={{ color: "#166534", background: "#f0fdf4", border: "1px solid #86efac", padding: 10, borderRadius: 8 }}>{utilityNotice}</div>}
+      {utilityNotice && <div className="form-hint" style={{ color: "var(--color-green-text)", background: "var(--color-green-soft)", border: "1px solid var(--color-green-300)", padding: 10, borderRadius: 8 }}>{utilityNotice}</div>}
       {approveTarget && (
         <Modal title="Approve meter reconciliation" onClose={() => setApproveTarget(null)}>
           <form onSubmit={submitReconApproval} style={{ display: "flex", flexDirection: "column", gap: 14 }}>

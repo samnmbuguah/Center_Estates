@@ -43,9 +43,9 @@ export function Login() {
         <div style={{ margin: "auto 0" }}>
           <h1 style={{ fontSize: 38, lineHeight: 1.2, margin: "0 0 16px", fontWeight: 800 }}>
             Site to boardroom,<br />
-            <span className="accent" style={{ color: "#00a3ff" }}>in real time.</span>
+            <span className="accent" style={{ color: "var(--color-brand-blue)" }}>in real time.</span>
           </h1>
-          <p style={{ color: "#cbd5e1", fontSize: 15, maxWidth: 480, lineHeight: 1.6, margin: "0 0 24px" }}>
+          <p style={{ color: "var(--color-slate-300)", fontSize: 15, maxWidth: 480, lineHeight: 1.6, margin: "0 0 24px" }}>
             Geofenced photo evidence, milestone verification, property accounting, valuation tracking, and bid intelligence — one source of truth across all operations.
           </p>
           <div className="pills" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -78,7 +78,7 @@ export function Login() {
             </div>
           </div>
 
-          {error && <div style={{ padding: 12, borderRadius: 8, background: "rgba(239, 68, 68, 0.15)", border: "1px solid #ef4444", color: "#ef4444", fontSize: 13, marginBottom: 16 }}>{error}</div>}
+          {error && <div style={{ padding: 12, borderRadius: 8, background: "rgba(239, 68, 68, 0.15)", border: "1px solid var(--color-danger)", color: "var(--color-danger)", fontSize: 13, marginBottom: 16 }}>{error}</div>}
 
           <button type="submit" className="btn primary" style={{ width: "100%", justifyContent: "center", padding: "12px", fontSize: 14, fontWeight: 700, borderRadius: 8, background: "var(--primary)", color: "#fff", border: 0, cursor: "pointer" }} disabled={busy || !username || !password}>
             {busy ? "Signing in…" : "Sign in"}

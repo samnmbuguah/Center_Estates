@@ -35,13 +35,13 @@ function greeting() {
 }
 
 const STAGE_COLORS: Record<string, string> = {
-  planning: "#3b82f6",
-  active: "#f59e0b",
-  on_hold: "#94a3b8",
-  review_required: "#8b5cf6",
+  planning: "var(--color-blue)",
+  active: "var(--color-amber)",
+  on_hold: "var(--color-slate-400)",
+  review_required: "var(--color-violet-strong)",
   complete: "#06b6d4",
-  closed: "#10b981",
-  construction: "#f59e0b",
+  closed: "var(--color-emerald)",
+  construction: "var(--color-amber)",
 };
 
 export function Dashboard() {
@@ -124,7 +124,7 @@ export function Dashboard() {
         label: stageLabel(label),
         count,
         pct: totalProjects ? Math.round((count / totalProjects) * 100) : 0,
-        color: STAGE_COLORS[label] || "#94a3b8",
+        color: STAGE_COLORS[label] || "var(--color-slate-400)",
         key: label,
       }));
     }
@@ -132,7 +132,7 @@ export function Dashboard() {
       label: stageLabel(label),
       count,
       pct: totalProjects ? Math.round((count / totalProjects) * 100) : 0,
-      color: STAGE_COLORS[label] || "#94a3b8",
+      color: STAGE_COLORS[label] || "var(--color-slate-400)",
       key: label,
     }));
   }, [byStage, projects, totalProjects]);
@@ -175,14 +175,14 @@ export function Dashboard() {
   }, [byStage]);
 
   const quickActions = [
-    { icon: Plus, label: "Onboard Project", path: "/app/onboarding", color: "#e53e3e" },
-    { icon: Camera, label: "Site Visits", path: "/app/site-visits", color: "#3b82f6" },
-    { icon: AlertTriangle, label: "Raise Risk", path: "/app/issues", color: "#f59e0b" },
-    { icon: CircleDollarSign, label: "Drawdowns", path: "/app/drawdown-requests", color: "#10b981" },
-    { icon: CalendarDays, label: "Schedule Meeting", path: "/app/calendar", color: "#8b5cf6" },
+    { icon: Plus, label: "Onboard Project", path: "/app/onboarding", color: "var(--color-danger)" },
+    { icon: Camera, label: "Site Visits", path: "/app/site-visits", color: "var(--color-blue)" },
+    { icon: AlertTriangle, label: "Raise Risk", path: "/app/issues", color: "var(--color-amber)" },
+    { icon: CircleDollarSign, label: "Drawdowns", path: "/app/drawdown-requests", color: "var(--color-emerald)" },
+    { icon: CalendarDays, label: "Schedule Meeting", path: "/app/calendar", color: "var(--color-violet-strong)" },
     { icon: FileText, label: "Generate Report", path: "/app/reports", color: "#06b6d4" },
     { icon: FolderOpen, label: "Documents", path: "/app/project-documents", color: "#f97316" },
-    { icon: ClipboardList, label: "Daily Logs", path: "/app/daily-logs", color: "#10b981" },
+    { icon: ClipboardList, label: "Daily Logs", path: "/app/daily-logs", color: "var(--color-emerald)" },
   ];
 
   if (loading) return <PageLoading rows={3} />;
@@ -235,7 +235,7 @@ export function Dashboard() {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
             <Box sx={{ 
-              p: 2, borderRadius: 2, bgcolor: "#fee2e2", color: "#dc2626",
+              p: 2, borderRadius: 2, bgcolor: "var(--color-red-bg)", color: "var(--color-danger)",
               textAlign: "center"
             }}>
               <Building2 size={24} style={{ marginBottom: 8 }} />
@@ -245,7 +245,7 @@ export function Dashboard() {
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
             <Box sx={{ 
-              p: 2, borderRadius: 2, bgcolor: "#fef3c7", color: "#d97706",
+              p: 2, borderRadius: 2, bgcolor: "var(--color-amber-bg)", color: "var(--color-warning)",
               textAlign: "center"
             }}>
               <Camera size={24} style={{ marginBottom: 8 }} />
@@ -255,7 +255,7 @@ export function Dashboard() {
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
             <Box sx={{ 
-              p: 2, borderRadius: 2, bgcolor: "#dcfce7", color: "#059669",
+              p: 2, borderRadius: 2, bgcolor: "var(--color-green-bg)", color: "var(--color-emerald-strong)",
               textAlign: "center"
             }}>
               <Wallet size={24} style={{ marginBottom: 8 }} />
@@ -265,7 +265,7 @@ export function Dashboard() {
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
             <Box sx={{ 
-              p: 2, borderRadius: 2, bgcolor: "#fee2e2", color: "#dc2626",
+              p: 2, borderRadius: 2, bgcolor: "var(--color-red-bg)", color: "var(--color-danger)",
               textAlign: "center"
             }}>
               <AlertTriangle size={24} style={{ marginBottom: 8 }} />
@@ -275,7 +275,7 @@ export function Dashboard() {
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
             <Box sx={{ 
-              p: 2, borderRadius: 2, bgcolor: "#ede9fe", color: "#7c3aed",
+              p: 2, borderRadius: 2, bgcolor: "var(--color-violet-bg)", color: "var(--color-violet)",
               textAlign: "center"
             }}>
               <ClipboardList size={24} style={{ marginBottom: 8 }} />
@@ -285,7 +285,7 @@ export function Dashboard() {
           </Grid>
           <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
             <Box sx={{ 
-              p: 2, borderRadius: 2, bgcolor: "#dbeafe", color: "#2563eb",
+              p: 2, borderRadius: 2, bgcolor: "var(--color-blue-bg)", color: "var(--color-info)",
               textAlign: "center"
             }}>
               <TrendingUp size={24} style={{ marginBottom: 8 }} />
@@ -322,7 +322,7 @@ export function Dashboard() {
                 </div>
               </div>
             )}
-            <Link to="/app/projects" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "#e53e3e", fontWeight: 700, marginTop: 12, textDecoration: "none" }}>
+            <Link to="/app/projects" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--color-danger)", fontWeight: 700, marginTop: 12, textDecoration: "none" }}>
               View all projects <ArrowRight size={12} />
             </Link>
           </div>
@@ -334,11 +334,11 @@ export function Dashboard() {
             <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>Portfolio Budget</div>
             <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 2 }}>{money(budgetTotal)}</div>
             <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 2 }}>Utilized (paid / certified)</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#10b981", marginBottom: 12 }}>{money(budgetSpent)}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--color-emerald)", marginBottom: 12 }}>{money(budgetSpent)}</div>
             <div style={{ position: "relative", height: 80, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <div style={{
                 width: 80, height: 80, borderRadius: "50%",
-                background: `conic-gradient(#e53e3e 0% ${Math.min(utilPct, 100)}%, var(--surface-3) ${Math.min(utilPct, 100)}% 100%)`,
+                background: `conic-gradient(var(--color-danger) 0% ${Math.min(utilPct, 100)}%, var(--surface-3) ${Math.min(utilPct, 100)}% 100%)`,
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}>
                 <div style={{ width: 54, height: 54, borderRadius: "50%", background: "var(--surface)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
@@ -352,7 +352,7 @@ export function Dashboard() {
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "18px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "var(--muted)", textTransform: "uppercase" }}>Top Risks</span>
-              <Link to="/app/issues" style={{ fontSize: 12, color: "#e53e3e", fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}>View all <ArrowRight size={11} /></Link>
+              <Link to="/app/issues" style={{ fontSize: 12, color: "var(--color-danger)", fontWeight: 700, textDecoration: "none", display: "flex", alignItems: "center", gap: 3 }}>View all <ArrowRight size={11} /></Link>
             </div>
             {topRisks.length === 0 ? (
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>No open risks in the register.</p>
@@ -376,7 +376,7 @@ export function Dashboard() {
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "18px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "var(--muted)", textTransform: "uppercase" }}>Upcoming Visits & Meetings</span>
-              <Link to="/app/calendar" style={{ fontSize: 12, color: "#e53e3e", fontWeight: 700, textDecoration: "none" }}>Calendar</Link>
+              <Link to="/app/calendar" style={{ fontSize: 12, color: "var(--color-danger)", fontWeight: 700, textDecoration: "none" }}>Calendar</Link>
             </div>
             {visits.length === 0 ? (
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>No upcoming calendar events.</p>
@@ -405,7 +405,7 @@ export function Dashboard() {
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "18px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "var(--muted)", textTransform: "uppercase" }}>Drawdowns Pending</span>
-              <Link to="/app/drawdown-requests" style={{ fontSize: 12, color: "#e53e3e", fontWeight: 700, textDecoration: "none" }}>View all</Link>
+              <Link to="/app/drawdown-requests" style={{ fontSize: 12, color: "var(--color-danger)", fontWeight: 700, textDecoration: "none" }}>View all</Link>
             </div>
             {drawdowns.length === 0 ? (
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>No pending drawdown requests.</p>
@@ -434,7 +434,7 @@ export function Dashboard() {
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "18px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", color: "var(--muted)", textTransform: "uppercase" }}>Recent Activity</span>
-              <Link to="/app/audit-log" style={{ fontSize: 12, color: "#e53e3e", fontWeight: 700, textDecoration: "none" }}>Audit trail</Link>
+              <Link to="/app/audit-log" style={{ fontSize: 12, color: "var(--color-danger)", fontWeight: 700, textDecoration: "none" }}>Audit trail</Link>
             </div>
             {activity.length === 0 ? (
               <p className="muted" style={{ margin: 0, fontSize: 13 }}>No recent audit activity.</p>
@@ -443,7 +443,7 @@ export function Dashboard() {
                 {activity.slice(0, 5).map((a, i) => (
                   <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                     <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(16,185,129,0.12)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <CheckCircle2 size={14} style={{ color: "#10b981" }} />
+                      <CheckCircle2 size={14} style={{ color: "var(--color-emerald)" }} />
                     </div>
                     <div>
                       <div style={{ fontSize: 12, fontWeight: 600 }}>{a.action}</div>
@@ -468,7 +468,7 @@ export function Dashboard() {
                   <Link to={s.path} style={{ textDecoration: "none" }}>
                     <div style={{
                       width: 44, height: 44, borderRadius: "50%",
-                      background: s.active ? "linear-gradient(135deg,#e53e3e,#c53030)" : "var(--surface-2)",
+                      background: s.active ? "linear-gradient(135deg,var(--color-danger),#c53030)" : "var(--surface-2)",
                       border: s.active ? "none" : "2px solid var(--border)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       boxShadow: s.active ? "0 4px 16px rgba(229,62,62,0.4)" : "none",
@@ -477,12 +477,12 @@ export function Dashboard() {
                     </div>
                   </Link>
                   <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: s.active ? "#e53e3e" : "var(--text)", whiteSpace: "pre-line", lineHeight: 1.2 }}>{s.label}</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: s.active ? "var(--color-danger)" : "var(--text)", whiteSpace: "pre-line", lineHeight: 1.2 }}>{s.label}</div>
                     <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>{s.count} Projects</div>
                   </div>
                 </div>
                 {i < lifecycleStages.length - 1 && (
-                  <div style={{ width: 24, height: 2, background: s.count > 0 ? "#e53e3e" : "var(--border)", flexShrink: 0, marginBottom: 24 }} />
+                  <div style={{ width: 24, height: 2, background: s.count > 0 ? "var(--color-danger)" : "var(--border)", flexShrink: 0, marginBottom: 24 }} />
                 )}
               </div>
             ))}
@@ -517,9 +517,9 @@ export function Dashboard() {
         }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1.4 }}>
             Construction Monitoring<br />
-            <span style={{ color: "#f59e0b" }}>made simple,</span>{" "}
-            <span style={{ color: "#10b981" }}>transparent</span><br />
-            and <span style={{ color: "#e53e3e" }}>accountable.</span>
+            <span style={{ color: "var(--color-amber)" }}>made simple,</span>{" "}
+            <span style={{ color: "var(--color-emerald)" }}>transparent</span><br />
+            and <span style={{ color: "var(--color-danger)" }}>accountable.</span>
           </div>
           <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", marginTop: 8 }}>
             Real Estate Solutions — Center Estates

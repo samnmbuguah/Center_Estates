@@ -32,10 +32,10 @@ export function BuildingsView({ rows, loading, search, setSearch, setTab }: {
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Buildings" value={kN(buildings.length)} sub="Registered buildings" link="View register" onClick={() => setTab("buildings")} />
-        <KpiCard icon="📐" iconBg="#dbeafe" iconColor="#2563eb" label="Total Floors" value={kN(totalFloors)} sub="Across buildings" link="View buildings" onClick={() => setTab("buildings")} />
-        <KpiCard icon="📍" iconBg="#dcfce7" iconColor="#16a34a" label="Locations" value={kN(locations)} sub="Properties with buildings" link="View properties" onClick={() => setTab("properties")} />
-        <KpiCard icon="▦" iconBg="#e0f2fe" iconColor="#0284c7" label="Units" value={kN(0)} sub="Linked via properties" link="View units" onClick={() => setTab("units")} />
+        <KpiCard icon="🏢" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Buildings" value={kN(buildings.length)} sub="Registered buildings" link="View register" onClick={() => setTab("buildings")} />
+        <KpiCard icon="📐" iconBg="var(--color-blue-bg)" iconColor="var(--color-info)" label="Total Floors" value={kN(totalFloors)} sub="Across buildings" link="View buildings" onClick={() => setTab("buildings")} />
+        <KpiCard icon="📍" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Locations" value={kN(locations)} sub="Properties with buildings" link="View properties" onClick={() => setTab("properties")} />
+        <KpiCard icon="▦" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky)" label="Units" value={kN(0)} sub="Linked via properties" link="View units" onClick={() => setTab("units")} />
       </KpiStrip>
 
       <ViewToolbar title="Buildings Register" subtitle="Buildings, floors and property locations" search={search} onSearch={setSearch} placeholder="Search by name, code or property…" />

@@ -71,7 +71,7 @@ export default function SingleTenderWorkspacePage({ params }: { params: Promise<
       eyebrow="Tender Invitation"
       title={title}
       subtitle="AI document extraction, compliance checklist, bid decisioning, proposal assembly, and review."
-      accent="#7c3aed"
+      accent="var(--color-violet)"
       groups={tenderNav}
       activeId="tenders"
       onSelect={(tabId) => {
@@ -91,10 +91,10 @@ export default function SingleTenderWorkspacePage({ params }: { params: Promise<
         ) : row ? (
           <>
             <KpiStrip cols={4}>
-              <KpiCard icon="📋" iconBg="rgba(124,58,237,0.12)" iconColor="#7c3aed" label="Reference" value={<span className="mono">{String(row.reference ?? "—")}</span>} />
-              <KpiCard icon="💼" iconBg="#dcfce7" iconColor="#16a34a" label="Estimated Value" value={money.format(Number(row.estimated_value ?? 0))} />
-              <KpiCard icon="📅" iconBg="#fef3c7" iconColor="#92400e" label="Submission Deadline" value={fmtDate(row.submission_deadline)} />
-              <KpiCard icon="📊" iconBg="#e0e7ff" iconColor="#4f46e5" label="Readiness" value={`${readiness}%`} />
+              <KpiCard icon="📋" iconBg="rgba(124,58,237,0.12)" iconColor="var(--color-violet)" label="Reference" value={<span className="mono">{String(row.reference ?? "—")}</span>} />
+              <KpiCard icon="💼" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Estimated Value" value={money.format(Number(row.estimated_value ?? 0))} />
+              <KpiCard icon="📅" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Submission Deadline" value={fmtDate(row.submission_deadline)} />
+              <KpiCard icon="📊" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Readiness" value={`${readiness}%`} />
             </KpiStrip>
 
             <div className="row" style={{ gap: 8 }}>

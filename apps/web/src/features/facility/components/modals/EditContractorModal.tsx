@@ -131,8 +131,8 @@ export function EditContractorModal({
         <div
           style={{
             background: "rgba(239, 68, 68, 0.1)",
-            border: "1px solid #ef4444",
-            color: "#dc2626",
+            border: "1px solid var(--color-danger)",
+            color: "var(--color-danger)",
             borderRadius: 8,
             padding: "10px 14px",
             marginBottom: 16,
@@ -299,8 +299,8 @@ export function EditContractorModal({
                       padding: "6px 12px",
                       borderRadius: 6,
                       background: checked ? "rgba(37, 99, 235, 0.12)" : "var(--surface)",
-                      border: checked ? "1.5px solid #2563eb" : "1px solid var(--border)",
-                      color: checked ? "#2563eb" : "var(--text-primary)",
+                      border: checked ? "1.5px solid var(--color-info)" : "1px solid var(--border)",
+                      color: checked ? "var(--color-info)" : "var(--text-primary)",
                       fontWeight: checked ? 700 : 500,
                       fontSize: 12,
                       cursor: "pointer",

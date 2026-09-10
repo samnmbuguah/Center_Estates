@@ -48,45 +48,45 @@ export function PropertyUnitsGridMapView({
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Summary KPI Strip */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-        <div className="data-panel" style={{ padding: 18, background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 10 }}>
+        <div className="data-panel" style={{ padding: 18, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 900, color: "#000000", textTransform: "uppercase" }}>Total Inventory</span>
           <strong style={{ fontSize: 24, fontWeight: 900, color: "#000000", display: "block", marginTop: 4 }}>{total} Units</strong>
-          <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>Westlands Business Centre</span>
+          <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Westlands Business Centre</span>
         </div>
 
-        <div className="data-panel" style={{ padding: 18, background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 10 }}>
-          <span style={{ fontSize: 11, fontWeight: 900, color: "#16a34a", textTransform: "uppercase" }}>Occupied ({occupancyPct}%)</span>
-          <strong style={{ fontSize: 24, fontWeight: 900, color: "#16a34a", display: "block", marginTop: 4 }}>{occupied} Units</strong>
-          <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>Active leases</span>
+        <div className="data-panel" style={{ padding: 18, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 900, color: "var(--color-success)", textTransform: "uppercase" }}>Occupied ({occupancyPct}%)</span>
+          <strong style={{ fontSize: 24, fontWeight: 900, color: "var(--color-success)", display: "block", marginTop: 4 }}>{occupied} Units</strong>
+          <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Active leases</span>
         </div>
 
-        <div className="data-panel" style={{ padding: 18, background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 10 }}>
-          <span style={{ fontSize: 11, fontWeight: 900, color: "#d97706", textTransform: "uppercase" }}>Leases Expiring</span>
-          <strong style={{ fontSize: 24, fontWeight: 900, color: "#d97706", display: "block", marginTop: 4 }}>{expiring} Units</strong>
-          <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>Requires renewal &lt; 30 days</span>
+        <div className="data-panel" style={{ padding: 18, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 900, color: "var(--color-warning)", textTransform: "uppercase" }}>Leases Expiring</span>
+          <strong style={{ fontSize: 24, fontWeight: 900, color: "var(--color-warning)", display: "block", marginTop: 4 }}>{expiring} Units</strong>
+          <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Requires renewal &lt; 30 days</span>
         </div>
 
-        <div className="data-panel" style={{ padding: 18, background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 10 }}>
-          <span style={{ fontSize: 11, fontWeight: 900, color: "#dc2626", textTransform: "uppercase" }}>Vacant & Available</span>
-          <strong style={{ fontSize: 24, fontWeight: 900, color: "#dc2626", display: "block", marginTop: 4 }}>{vacant} Units</strong>
-          <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>Ready for onboarding</span>
+        <div className="data-panel" style={{ padding: 18, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 900, color: "var(--color-danger)", textTransform: "uppercase" }}>Vacant & Available</span>
+          <strong style={{ fontSize: 24, fontWeight: 900, color: "var(--color-danger)", display: "block", marginTop: 4 }}>{vacant} Units</strong>
+          <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Ready for onboarding</span>
         </div>
       </div>
 
       {/* Interactive Legend & Onboard Action */}
-      <div style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+      <div style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
           <span style={{ fontSize: 13, fontWeight: 900, color: "#000000" }}>Floorplan Status Legend:</span>
           <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: "#000000" }}>
-            <i style={{ width: 12, height: 12, background: "#dcfce7", border: "1px solid #86efac", borderRadius: 3 }} />
+            <i style={{ width: 12, height: 12, background: "var(--color-green-bg)", border: "1px solid var(--color-green-300)", borderRadius: 3 }} />
             Occupied (Green)
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: "#000000" }}>
-            <i style={{ width: 12, height: 12, background: "#fef3c7", border: "1px solid #fde047", borderRadius: 3 }} />
+            <i style={{ width: 12, height: 12, background: "var(--color-amber-bg)", border: "1px solid #fde047", borderRadius: 3 }} />
             Expiring &lt; 30d (Yellow)
           </span>
           <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: "#000000" }}>
-            <i style={{ width: 12, height: 12, background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 3 }} />
+            <i style={{ width: 12, height: 12, background: "var(--color-slate-50)", border: "1px solid var(--color-slate-300)", borderRadius: 3 }} />
             Vacant (White)
           </span>
         </div>
@@ -94,7 +94,7 @@ export function PropertyUnitsGridMapView({
         <button
           onClick={() => setShowWizard(true)}
           style={{
-            background: "#dc2626",
+            background: "var(--color-danger)",
             color: "#ffffff",
             border: 0,
             padding: "8px 16px",
@@ -118,9 +118,9 @@ export function PropertyUnitsGridMapView({
           const floorUnits = units.filter((u) => u.floor === floor);
 
           return (
-            <div key={floor} style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, padding: 20 }}>
+            <div key={floor} style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-                <Layers size={18} style={{ color: "#dc2626" }} />
+                <Layers size={18} style={{ color: "var(--color-danger)" }} />
                 <h3 style={{ fontSize: 16, fontWeight: 900, color: "#000000", margin: 0 }}>
                   {floor} Layout ({floorUnits.length} Units)
                 </h3>
@@ -136,8 +136,8 @@ export function PropertyUnitsGridMapView({
                     <div
                       key={u.id}
                       style={{
-                        background: isOccupied ? "#f0fdf4" : isExpiring ? "#fffbeb" : "#ffffff",
-                        border: `2px solid ${isOccupied ? "#86efac" : isExpiring ? "#fde047" : "#cbd5e1"}`,
+                        background: isOccupied ? "var(--color-green-soft)" : isExpiring ? "#fffbeb" : "#ffffff",
+                        border: `2px solid ${isOccupied ? "var(--color-green-300)" : isExpiring ? "#fde047" : "var(--color-slate-300)"}`,
                         borderRadius: 10,
                         padding: 16,
                         display: "flex",
@@ -157,19 +157,19 @@ export function PropertyUnitsGridMapView({
                             padding: "2px 8px",
                             borderRadius: 6,
                             textTransform: "uppercase",
-                            background: isOccupied ? "#dcfce7" : isExpiring ? "#fef3c7" : "#f1f5f9",
-                            color: isOccupied ? "#15803d" : isExpiring ? "#b45309" : "#475569",
+                            background: isOccupied ? "var(--color-green-bg)" : isExpiring ? "var(--color-amber-bg)" : "var(--color-slate-100)",
+                            color: isOccupied ? "var(--color-success-strong)" : isExpiring ? "var(--color-amber-deep)" : "var(--color-slate-600)",
                           }}
                         >
                           {u.status}
                         </span>
                       </div>
 
-                      <div style={{ fontSize: 12, fontWeight: 750, color: "#0f172a" }}>
+                      <div style={{ fontSize: 12, fontWeight: 750, color: "var(--color-slate-900)" }}>
                         {u.tenantName ? (
                           <span style={{ fontWeight: 900, color: "#000000" }}>👤 {u.tenantName}</span>
                         ) : (
-                          <span style={{ color: "#64748b" }}>⚪ Unoccupied Unit</span>
+                          <span style={{ color: "var(--color-slate-500)" }}>⚪ Unoccupied Unit</span>
                         )}
                       </div>
 
@@ -184,7 +184,7 @@ export function PropertyUnitsGridMapView({
                               setSelectedUnit(u);
                               setShowWizard(true);
                             }}
-                            style={{ background: "#dc2626", color: "#fff", border: 0, padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+                            style={{ background: "var(--color-danger)", color: "#fff", border: 0, padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}
                           >
                             Assign Tenant
                           </button>
@@ -192,7 +192,7 @@ export function PropertyUnitsGridMapView({
                         {isExpiring && (
                           <button
                             onClick={() => onNavigate("leases")}
-                            style={{ background: "#d97706", color: "#fff", border: 0, padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+                            style={{ background: "var(--color-warning)", color: "#fff", border: 0, padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}
                           >
                             Renew Lease
                           </button>

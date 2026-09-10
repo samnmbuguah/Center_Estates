@@ -41,7 +41,7 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
       eyebrow="Operations center"
       title="Facility Management"
       subtitle="Assets, maintenance, compliance, services and utility performance."
-      accent="#e23b3b"
+      accent="var(--color-brand-red)"
       activeId={logic.tab}
       onSelect={logic.selectTab}
     >

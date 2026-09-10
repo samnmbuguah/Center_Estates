@@ -79,7 +79,7 @@ export default function NotificationsPage() {
         <h2 style={{ fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", gap: 8, margin: 0 }}>
           <Bell size={20} /> Notifications & Messages
           {unread > 0 && (
-            <span style={{ fontSize: 12, background: "#d92d2d", color: "#fff", borderRadius: 10, padding: "1px 8px" }}>
+            <span style={{ fontSize: 12, background: "var(--color-danger)", color: "#fff", borderRadius: 10, padding: "1px 8px" }}>
               {unread}
             </span>
           )}
@@ -116,7 +116,7 @@ export default function NotificationsPage() {
                 borderRadius: 8, cursor: n.link ? "pointer" : "default",
                 background: n.read_at ? "var(--surface-2)" : "var(--surface-1)",
                 border: "1px solid var(--border)",
-                borderLeft: n.read_at ? "3px solid transparent" : n.type === "message" ? "3px solid #00a3ff" : "3px solid var(--primary)",
+                borderLeft: n.read_at ? "3px solid transparent" : n.type === "message" ? "3px solid var(--color-brand-blue)" : "3px solid var(--primary)",
                 transition: "background 0.2s",
               }}
             >
@@ -125,7 +125,7 @@ export default function NotificationsPage() {
                   <span style={{
                     fontSize: 11, fontWeight: 600, padding: "1px 6px", borderRadius: 4,
                     background: n.type === "message" ? "rgba(0,163,255,0.15)" : "var(--primary)",
-                    color: n.type === "message" ? "#00a3ff" : "var(--primary-ink)",
+                    color: n.type === "message" ? "var(--color-brand-blue)" : "var(--primary-ink)",
                   }}>
                     {n.type === "message" ? "Chat Message" : TYPE_LABELS[n.type] || n.type}
                   </span>
@@ -140,7 +140,7 @@ export default function NotificationsPage() {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, color: "var(--muted)" }}>
                 {n.link && <ChevronRight size={16} />}
-                {!n.read_at && <div style={{ width: 8, height: 8, borderRadius: "50%", background: n.type === "message" ? "#00a3ff" : "var(--primary)" }} />}
+                {!n.read_at && <div style={{ width: 8, height: 8, borderRadius: "50%", background: n.type === "message" ? "var(--color-brand-blue)" : "var(--primary)" }} />}
               </div>
             </div>
           ))}

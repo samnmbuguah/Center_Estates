@@ -82,27 +82,27 @@ type GatewayConfig = {
 const SANDBOX_PASSKEY = "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919";
 
 const KENYAN_BANK_PAYBILLS = [
-  { bank: "NCBA Bank", paybill: "888880", icon: "💎", color: "#0284c7" },
-  { bank: "Co-operative Bank", paybill: "400200", icon: "🏛️", color: "#16a34a" },
-  { bank: "Equity Bank", paybill: "247247", icon: "🏦", color: "#991b1b" },
-  { bank: "KCB Bank", paybill: "522522", icon: "🦁", color: "#059669" },
-  { bank: "Stanbic Bank", paybill: "404040", icon: "💳", color: "#1e40af" },
-  { bank: "Absa Bank Kenya", paybill: "303030", icon: "🔴", color: "#dc2626" },
-  { bank: "DTB (Diamond Trust)", paybill: "516600", icon: "🔹", color: "#0891b2" },
-  { bank: "Family Bank", paybill: "222111", icon: "👨‍👩‍👧", color: "#ea580c" },
-  { bank: "I&M Bank", paybill: "542542", icon: "🌐", color: "#4f46e5" },
-  { bank: "Standard Chartered", paybill: "329329", icon: "🛡️", color: "#047857" },
-  { bank: "Safaricom Direct Paybill", paybill: "", icon: "📲", color: "#00a651" },
+  { bank: "NCBA Bank", paybill: "888880", icon: "💎", color: "var(--color-sky)" },
+  { bank: "Co-operative Bank", paybill: "400200", icon: "🏛️", color: "var(--color-success)" },
+  { bank: "Equity Bank", paybill: "247247", icon: "🏦", color: "var(--color-danger-deep)" },
+  { bank: "KCB Bank", paybill: "522522", icon: "🦁", color: "var(--color-emerald-strong)" },
+  { bank: "Stanbic Bank", paybill: "404040", icon: "💳", color: "var(--color-info-deep)" },
+  { bank: "Absa Bank Kenya", paybill: "303030", icon: "🔴", color: "var(--color-danger)" },
+  { bank: "DTB (Diamond Trust)", paybill: "516600", icon: "🔹", color: "var(--color-cyan)" },
+  { bank: "Family Bank", paybill: "222111", icon: "👨‍👩‍👧", color: "var(--color-orange)" },
+  { bank: "I&M Bank", paybill: "542542", icon: "🌐", color: "var(--color-indigo)" },
+  { bank: "Standard Chartered", paybill: "329329", icon: "🛡️", color: "var(--color-emerald-deep)" },
+  { bank: "Safaricom Direct Paybill", paybill: "", icon: "📲", color: "var(--color-green-brand)" },
 ];
 
 const MODULE_DEFINITIONS = [
-  { slug: "property", label: "Property Management", icon: "🏢", accent: "#0284c7", desc: "Properties, units, leases, rent collection & tenancy ledger" },
-  { slug: "facility", label: "Facility Management", icon: "🔧", accent: "#ea580c", desc: "Asset register, maintenance work orders & PPM schedules" },
-  { slug: "monitoring", label: "Construction & Monitoring", icon: "🏗️", accent: "#16a34a", desc: "Site diaries, IPC payment certificates & contractor tracking" },
-  { slug: "sales", label: "Sales & Marketing", icon: "💰", accent: "#8b5cf6", desc: "Property listings, buyer KYC, installments & reservation pipeline" },
-  { slug: "valuation", label: "Valuation & Advisory", icon: "📜", accent: "#0d9488", desc: "Valuation instructions, inspection schedules & appraisal reports" },
-  { slug: "tender", label: "Tenders & Procurement", icon: "📑", accent: "#d97706", desc: "Procurement invitations, contractor bids & tender evaluation board" },
-  { slug: "companion", label: "Operations Companion", icon: "🤖", accent: "#4f46e5", desc: "Team tasks, daily briefings, staff feedback & HR approvals" },
+  { slug: "property", label: "Property Management", icon: "🏢", accent: "var(--color-sky)", desc: "Properties, units, leases, rent collection & tenancy ledger" },
+  { slug: "facility", label: "Facility Management", icon: "🔧", accent: "var(--color-orange)", desc: "Asset register, maintenance work orders & PPM schedules" },
+  { slug: "monitoring", label: "Construction & Monitoring", icon: "🏗️", accent: "var(--color-success)", desc: "Site diaries, IPC payment certificates & contractor tracking" },
+  { slug: "sales", label: "Sales & Marketing", icon: "💰", accent: "var(--color-violet-strong)", desc: "Property listings, buyer KYC, installments & reservation pipeline" },
+  { slug: "valuation", label: "Valuation & Advisory", icon: "📜", accent: "var(--color-teal)", desc: "Valuation instructions, inspection schedules & appraisal reports" },
+  { slug: "tender", label: "Tenders & Procurement", icon: "📑", accent: "var(--color-warning)", desc: "Procurement invitations, contractor bids & tender evaluation board" },
+  { slug: "companion", label: "Operations Companion", icon: "🤖", accent: "var(--color-indigo)", desc: "Team tasks, daily briefings, staff feedback & HR approvals" },
 ];
 
 function getRoleModule(role: RoleItem): string {
@@ -957,7 +957,7 @@ function AdministrationContent() {
     return (
       <main style={{ padding: "48px 32px", maxWidth: 760, margin: "0 auto" }}>
         <div className="card" style={{ padding: 32, textAlign: "center" }}>
-          <Shield size={38} aria-hidden="true" style={{ margin: "0 auto 12px", color: "#dc2626" }} />
+          <Shield size={38} aria-hidden="true" style={{ margin: "0 auto 12px", color: "var(--color-danger)" }} />
           <h1 style={{ margin: "0 0 8px", fontSize: "1.5rem" }}>Super administrator access required</h1>
           <p style={{ margin: 0, color: "var(--muted)" }}>
             Organization administration, user accounts, and role permissions are restricted to the Center Estates super administrator.
@@ -972,10 +972,10 @@ function AdministrationContent() {
       {/* Header */}
       <div style={{ marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, color: "var(--text, #1e293b)", display: "flex", alignItems: "center", gap: 10 }}>
+          <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, color: "var(--text, var(--color-slate-800))", display: "flex", alignItems: "center", gap: 10 }}>
             <span>🛡️ Platform Administration & Access Control</span>
           </h1>
-          <p style={{ margin: "4px 0 0", color: "var(--muted, #64748b)", fontSize: "0.9rem" }}>
+          <p style={{ margin: "4px 0 0", color: "var(--muted, var(--color-slate-500))", fontSize: "0.9rem" }}>
             Create system users, configure role permissions across all modules, and manage M-Pesa payment gateways.
           </p>
         </div>
@@ -994,7 +994,7 @@ function AdministrationContent() {
               className="btn primary"
               type="button"
               onClick={() => setShowAddUserModal(true)}
-              style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, background: "#d92d2d", borderColor: "#d92d2d" }}
+              style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, background: "var(--color-danger)", borderColor: "var(--color-danger)" }}
             >
               <UserPlus size={16} />
               <span>Add System User</span>
@@ -1012,8 +1012,8 @@ function AdministrationContent() {
             display: "flex",
             alignItems: "center",
             gap: 10,
-            background: notice.type === "success" ? "#dcfce7" : "#fee2e2",
-            color: notice.type === "success" ? "#166534" : "#991b1b",
+            background: notice.type === "success" ? "var(--color-green-bg)" : "var(--color-red-bg)",
+            color: notice.type === "success" ? "var(--color-green-text)" : "var(--color-danger-deep)",
             fontSize: 14,
             fontWeight: 500,
           }}
@@ -1028,14 +1028,14 @@ function AdministrationContent() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* KPI Strip */}
           <KpiStrip cols={4}>
-            <KpiCard icon="👥" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total System Users" value={String(totalUsers)} sub="Organization members" />
-            <KpiCard icon="🛡️" iconBg="#fef3c7" iconColor="#92400e" label="Super Administrators" value={String(adminCount)} sub="Portfolio-wide access" />
-            <KpiCard icon="💼" iconBg="#e0f2fe" iconColor="#0284c7" label="Operational Staff" value={String(staffCount)} sub="Scoped to properties" />
-            <KpiCard icon="🔐" iconBg="#dcfce7" iconColor="#16a34a" label="Configured Roles" value={String(roles.length)} sub="Active RBAC roles" />
+            <KpiCard icon="👥" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total System Users" value={String(totalUsers)} sub="Organization members" />
+            <KpiCard icon="🛡️" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Super Administrators" value={String(adminCount)} sub="Portfolio-wide access" />
+            <KpiCard icon="💼" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky)" label="Operational Staff" value={String(staffCount)} sub="Scoped to properties" />
+            <KpiCard icon="🔐" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Configured Roles" value={String(roles.length)} sub="Active RBAC roles" />
           </KpiStrip>
 
           {/* User Table Card */}
-          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 20 }}>
+          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 20 }}>
             {/* Filter & Search Bar */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid var(--border)" }}>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", flex: 1 }}>
@@ -1133,7 +1133,7 @@ function AdministrationContent() {
                                 height: 36,
                                 minWidth: 36,
                                 borderRadius: "50%",
-                                background: m.is_organization_admin ? "linear-gradient(135deg, #d92d2d, #b91c1c)" : "linear-gradient(135deg, #4f46e5, #3730a3)",
+                                background: m.is_organization_admin ? "linear-gradient(135deg, var(--color-danger), var(--color-danger-strong))" : "linear-gradient(135deg, var(--color-indigo), #3730a3)",
                                 color: "#fff",
                                 display: "flex",
                                 alignItems: "center",
@@ -1154,14 +1154,14 @@ function AdministrationContent() {
                                   @{m.username}
                                 </span>
                                 {m.is_organization_admin && (
-                                  <span style={{ fontSize: 10, fontWeight: 700, background: "#fef3c7", color: "#92400e", padding: "1px 6px", borderRadius: 10 }}>
+                                  <span style={{ fontSize: 10, fontWeight: 700, background: "var(--color-amber-bg)", color: "var(--color-amber-strong)", padding: "1px 6px", borderRadius: 10 }}>
                                     Super Admin
                                   </span>
                                 )}
                               </div>
                               <div style={{ fontSize: 12, color: "var(--muted)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 2 }}>
                                 {m.email ? (
-                                  <a href={`mailto:${m.email}`} style={{ color: "var(--primary, #d92d2d)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                  <a href={`mailto:${m.email}`} style={{ color: "var(--primary, var(--color-danger))", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
                                     <span>✉️</span> {m.email}
                                   </a>
                                 ) : (
@@ -1194,7 +1194,7 @@ function AdministrationContent() {
                         <td style={{ padding: "12px 14px", verticalAlign: "top" }}>
                           <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                             {m.is_organization_admin ? (
-                              <span style={{ fontSize: 12, padding: "3px 8px", background: "#e0f2fe", color: "#0369a1", borderRadius: 6, fontWeight: 600, border: "1px solid #bae6fd" }}>
+                              <span style={{ fontSize: 12, padding: "3px 8px", background: "var(--color-sky-bg)", color: "var(--color-sky-deep)", borderRadius: 6, fontWeight: 600, border: "1px solid #bae6fd" }}>
                                 🌐 All Properties (Portfolio-wide)
                               </span>
                             ) : m.assigned_properties?.length > 0 ? (
@@ -1223,11 +1223,11 @@ function AdministrationContent() {
                                 style={{
                                   fontSize: 11,
                                   padding: "3px 8px",
-                                  background: "#fef3c7",
-                                  color: "#92400e",
+                                  background: "var(--color-amber-bg)",
+                                  color: "var(--color-amber-strong)",
                                   borderRadius: 6,
                                   fontWeight: 700,
-                                  border: "1px solid #fde68a",
+                                  border: "1px solid var(--color-amber-200)",
                                   display: "inline-flex",
                                   alignItems: "center",
                                   gap: 4,
@@ -1267,7 +1267,7 @@ function AdministrationContent() {
                               style={{
                                 padding: "6px 10px",
                                 fontSize: 12,
-                                color: "#dc2626",
+                                color: "var(--color-danger)",
                                 background: "rgba(220, 38, 38, 0.06)",
                                 border: "1px solid rgba(220, 38, 38, 0.2)",
                                 borderRadius: 6,
@@ -1280,7 +1280,7 @@ function AdministrationContent() {
                               onClick={() => handleDeleteUser(m)}
                               title="Remove user from organization"
                             >
-                              <Trash2 size={13} color="#dc2626" />
+                              <Trash2 size={13} color="var(--color-danger)" />
                               <span>Delete</span>
                             </button>
                           </div>
@@ -1297,12 +1297,12 @@ function AdministrationContent() {
 
       {/* TAB 2: ROLES & MODULE PERMISSIONS */}
       {tab === "roles" && (
-        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
+        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 24 }}>
           <div style={{ marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--text, #1e293b)" }}>
+            <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--text, var(--color-slate-800))" }}>
               🔐 Role-Based Access Control & Feature Permissions Matrix
             </h2>
-            <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "var(--muted, #64748b)" }}>
+            <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "var(--muted, var(--color-slate-500))" }}>
               Create and manage roles, then select which module features (Property, Facility, Sales, Companion, Valuation, Monitoring) are active for each role.
             </p>
           </div>
@@ -1327,7 +1327,7 @@ function AdministrationContent() {
                 onClick={openAddGateway}
                 style={{
                   padding: "9px 18px", borderRadius: 8, border: "none", cursor: "pointer",
-                  background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
+                  background: "linear-gradient(135deg, var(--color-green-brand) 0%, var(--color-green-deep) 100%)",
                   color: "#fff", fontWeight: 700, fontSize: 13, display: "flex", alignItems: "center", gap: 6,
                 }}
               >
@@ -1362,7 +1362,7 @@ function AdministrationContent() {
                 onClick={openAddGateway}
                 style={{
                   padding: "10px 22px", borderRadius: 8, border: "none", cursor: "pointer",
-                  background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
+                  background: "linear-gradient(135deg, var(--color-green-brand) 0%, var(--color-green-deep) 100%)",
                   color: "#fff", fontWeight: 700, fontSize: 14,
                 }}
               >
@@ -1375,7 +1375,7 @@ function AdministrationContent() {
                 <div
                   key={g.id}
                   style={{
-                    background: "var(--surface)", border: `1.5px solid ${g.is_enabled ? "#86efac" : "var(--border)"}`,
+                    background: "var(--surface)", border: `1.5px solid ${g.is_enabled ? "var(--color-green-300)" : "var(--border)"}`,
                     borderRadius: 12, padding: "16px 20px",
                     display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "center",
                   }}
@@ -1383,7 +1383,7 @@ function AdministrationContent() {
                   <div
                     style={{
                       width: 44, height: 44, borderRadius: 10,
-                      background: g.is_enabled ? "linear-gradient(135deg,#00a651,#007a3d)" : "var(--surface-2)",
+                      background: g.is_enabled ? "linear-gradient(135deg,var(--color-green-brand),var(--color-green-deep))" : "var(--surface-2)",
                       display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
                     }}
                   >
@@ -1398,21 +1398,21 @@ function AdministrationContent() {
                       <span
                         style={{
                           padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                          background: g.settings?.environment === "production" ? "#dcfce7" : "#fef9c3",
-                          color: g.settings?.environment === "production" ? "#166534" : "#92400e",
+                          background: g.settings?.environment === "production" ? "var(--color-green-bg)" : "#fef9c3",
+                          color: g.settings?.environment === "production" ? "var(--color-green-text)" : "var(--color-amber-strong)",
                         }}
                       >
                         {g.settings?.environment === "production" ? "LIVE" : "SANDBOX"}
                       </span>
-                      {!g.is_enabled && <span style={{ color: "#dc2626", fontWeight: 700 }}>DISABLED</span>}
+                      {!g.is_enabled && <span style={{ color: "var(--color-danger)", fontWeight: 700 }}>DISABLED</span>}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <button
                       onClick={() => openTestStk(g)}
                       style={{
-                        padding: "7px 14px", borderRadius: 7, border: "1.5px solid #00a651",
-                        background: "#f0fdf4", color: "#166534", cursor: "pointer", fontWeight: 700, fontSize: 12,
+                        padding: "7px 14px", borderRadius: 7, border: "1.5px solid var(--color-green-brand)",
+                        background: "var(--color-green-soft)", color: "var(--color-green-text)", cursor: "pointer", fontWeight: 700, fontSize: 12,
                         display: "flex", alignItems: "center", gap: 5,
                       }}
                       title="Send a real-time STK Push prompt to your phone to test integration"
@@ -1431,8 +1431,8 @@ function AdministrationContent() {
                     <button
                       onClick={() => void handleDeleteGateway(g)}
                       style={{
-                        padding: "7px 14px", borderRadius: 7, border: "1px solid #fecaca",
-                        background: "#fef2f2", color: "#dc2626", cursor: "pointer", fontWeight: 600, fontSize: 12,
+                        padding: "7px 14px", borderRadius: 7, border: "1px solid var(--color-red-200)",
+                        background: "var(--color-red-soft)", color: "var(--color-danger)", cursor: "pointer", fontWeight: 600, fontSize: 12,
                       }}
                     >
                       Remove
@@ -1445,7 +1445,7 @@ function AdministrationContent() {
 
           {/* Add / Edit form */}
           {showGatewayForm && (
-            <div style={{ background: "var(--surface)", border: "1.5px solid #86efac", borderRadius: 12, padding: 24, boxShadow: "0 4px 24px rgba(0,166,81,0.08)" }}>
+            <div style={{ background: "var(--surface)", border: "1.5px solid var(--color-green-300)", borderRadius: 12, padding: 24, boxShadow: "0 4px 24px rgba(0,166,81,0.08)" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
                 <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 700 }}>
                   {editingGateway?.id ? `✏️ Edit: ${editingGateway.display_name}` : "➕ Add New Payment Method"}
@@ -1461,7 +1461,7 @@ function AdministrationContent() {
               <form onSubmit={(e) => void handleSaveMpesa(e)} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {/* 1-Click Bank Presets Directory */}
                 <div style={{ background: "rgba(0,166,81,0.05)", border: "1px solid rgba(0,166,81,0.25)", borderRadius: 10, padding: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: "#166534", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "var(--color-green-text)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 6 }}>
                     <span>⚡</span> 1-Click Bank Paybill Presets (Auto-fills Paybill Shortcode):
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -1474,9 +1474,9 @@ function AdministrationContent() {
                           if (b.paybill) setShortcode(b.paybill);
                         }}
                         style={{
-                          background: bankName === b.bank ? "#00a651" : "#ffffff",
-                          color: bankName === b.bank ? "#ffffff" : "#1e293b",
-                          border: "1px solid " + (bankName === b.bank ? "#00a651" : "#e2e8f0"),
+                          background: bankName === b.bank ? "var(--color-green-brand)" : "#ffffff",
+                          color: bankName === b.bank ? "#ffffff" : "var(--color-slate-800)",
+                          border: "1px solid " + (bankName === b.bank ? "var(--color-green-brand)" : "var(--color-slate-200)"),
                           borderRadius: 6,
                           padding: "5px 11px",
                           fontSize: 12,
@@ -1565,7 +1565,7 @@ function AdministrationContent() {
                     <button
                       type="button"
                       onClick={() => setPasskey(SANDBOX_PASSKEY)}
-                      style={{ fontSize: 11, color: "#16a34a", background: "none", border: "none", cursor: "pointer", padding: "4px 0" }}
+                      style={{ fontSize: 11, color: "var(--color-success)", background: "none", border: "none", cursor: "pointer", padding: "4px 0" }}
                     >
                       ↙ Auto-fill sandbox passkey
                     </button>
@@ -1607,7 +1607,7 @@ function AdministrationContent() {
                     id="save-gateway-btn"
                     style={{
                       display: "flex", alignItems: "center", gap: 8,
-                      background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
+                      background: "linear-gradient(135deg, var(--color-green-brand) 0%, var(--color-green-deep) 100%)",
                       color: "#fff", padding: "10px 24px", borderRadius: 8, border: 0, fontWeight: 700, cursor: "pointer",
                     }}
                   >
@@ -1641,38 +1641,38 @@ function AdministrationContent() {
                   width: "100%",
                   padding: 24,
                   boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-                  border: "1px solid #e2e8f0",
+                  border: "1px solid var(--color-slate-200)",
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#fef2f2", color: "#dc2626", display: "grid", placeItems: "center", fontSize: 22 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--color-red-soft)", color: "var(--color-danger)", display: "grid", placeItems: "center", fontSize: 22 }}>
                     🛡️
                   </div>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "#0f172a" }}>
+                    <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--color-slate-900)" }}>
                       Security Verification Required
                     </h3>
-                    <p style={{ margin: 0, fontSize: "0.8rem", color: "#64748b" }}>
+                    <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--color-slate-500)" }}>
                       Confirming changes to payment gateway & payout accounts
                     </p>
                   </div>
                 </div>
 
-                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                  <p style={{ margin: 0, fontSize: "0.83rem", color: "#334155", lineHeight: 1.45 }}>
+                <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
+                  <p style={{ margin: 0, fontSize: "0.83rem", color: "var(--color-slate-700)", lineHeight: 1.45 }}>
                     {otpSentNotice} Enter the 6-digit OTP below to authenticate this change.
                   </p>
                 </div>
 
                 {otpError && (
-                  <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#b91c1c", borderRadius: 8, padding: 10, fontSize: 13, marginBottom: 14 }}>
+                  <div style={{ background: "var(--color-red-soft)", border: "1px solid var(--color-red-200)", color: "var(--color-danger-strong)", borderRadius: 8, padding: 10, fontSize: 13, marginBottom: 14 }}>
                     {otpError}
                   </div>
                 )}
 
                 <form onSubmit={handleVerifyOtpAndSave} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   <div>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6, color: "#0f172a" }}>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6, color: "var(--color-slate-900)" }}>
                       Enter 6-Digit Email OTP:
                     </label>
                     <input
@@ -1686,7 +1686,7 @@ function AdministrationContent() {
                         width: "100%",
                         padding: "10px 14px",
                         borderRadius: 8,
-                        border: "2px solid #00a651",
+                        border: "2px solid var(--color-green-brand)",
                         fontSize: "1.25rem",
                         fontFamily: "monospace",
                         letterSpacing: "0.25em",
@@ -1695,11 +1695,11 @@ function AdministrationContent() {
                       }}
                     />
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                      <span style={{ fontSize: 11, color: "#64748b" }}>Demo code: <strong>123456</strong> or any 6 digits</span>
+                      <span style={{ fontSize: 11, color: "var(--color-slate-500)" }}>Demo code: <strong>123456</strong> or any 6 digits</span>
                       <button
                         type="button"
                         onClick={() => setOtpCode("123456")}
-                        style={{ background: "none", border: "none", color: "#00a651", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+                        style={{ background: "none", border: "none", color: "var(--color-green-brand)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
                       >
                         Auto-fill code
                       </button>
@@ -1710,7 +1710,7 @@ function AdministrationContent() {
                     <button
                       type="button"
                       onClick={() => { setShowOtpModal(false); setPendingGatewayPayload(null); }}
-                      style={{ flex: 1, padding: "10px 16px", borderRadius: 8, border: "1px solid #cbd5e1", background: "#f8fafc", color: "#334155", fontWeight: 700, cursor: "pointer" }}
+                      style={{ flex: 1, padding: "10px 16px", borderRadius: 8, border: "1px solid var(--color-slate-300)", background: "var(--color-slate-50)", color: "var(--color-slate-700)", fontWeight: 700, cursor: "pointer" }}
                     >
                       Cancel
                     </button>
@@ -1722,7 +1722,7 @@ function AdministrationContent() {
                         padding: "10px 16px",
                         borderRadius: 8,
                         border: "none",
-                        background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
+                        background: "linear-gradient(135deg, var(--color-green-brand) 0%, var(--color-green-deep) 100%)",
                         color: "#ffffff",
                         fontWeight: 800,
                         cursor: "pointer",
@@ -1740,7 +1740,7 @@ function AdministrationContent() {
 
       {/* TAB: EMAIL SMTP GATEWAY */}
       {tab === "smtp" && (
-        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
           <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
             <h2 style={{ margin: "0 0 4px", fontSize: "1.25rem", fontWeight: 800, display: "flex", alignItems: "center", gap: 10, color: "var(--text)" }}>
               <span>✉️ Organizational Email SMTP Gateway</span>
@@ -1752,7 +1752,7 @@ function AdministrationContent() {
 
           {/* Quick Setup Presets */}
           <div style={{ marginBottom: 18, background: "rgba(59, 130, 246, 0.05)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: 10, padding: 14 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "#1e40af", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--color-info-deep)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>
               ⚡ 1-Click Mail Server Presets:
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1760,7 +1760,7 @@ function AdministrationContent() {
                 type="button"
                 onClick={() => applySmtpPreset("cpanel")}
                 className="btn ghost sm"
-                style={{ background: "#ffffff", border: "1px solid #bfdbfe", color: "#1e40af", fontWeight: 700, fontSize: 12, borderRadius: 6 }}
+                style={{ background: "#ffffff", border: "1px solid var(--color-blue-200)", color: "var(--color-info-deep)", fontWeight: 700, fontSize: 12, borderRadius: 6 }}
               >
                 🚀 Center Estates Webmail (mail.centerestates.com : 465 SSL)
               </button>
@@ -1768,7 +1768,7 @@ function AdministrationContent() {
                 type="button"
                 onClick={() => applySmtpPreset("gmail")}
                 className="btn ghost sm"
-                style={{ background: "#ffffff", border: "1px solid #e2e8f0", color: "#334155", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
+                style={{ background: "#ffffff", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-700)", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
               >
                 🌐 Google Workspace (smtp.gmail.com : 587 TLS)
               </button>
@@ -1776,7 +1776,7 @@ function AdministrationContent() {
                 type="button"
                 onClick={() => applySmtpPreset("m365")}
                 className="btn ghost sm"
-                style={{ background: "#ffffff", border: "1px solid #e2e8f0", color: "#334155", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
+                style={{ background: "#ffffff", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-700)", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
               >
                 💼 Microsoft 365 (smtp.office365.com : 587 TLS)
               </button>
@@ -1784,8 +1784,8 @@ function AdministrationContent() {
           </div>
 
           <form onSubmit={handleSaveSmtp} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            <div style={{ background: smtpDeliveryMode === "test" ? "#fff7ed" : "#fef2f2", border: `2px solid ${smtpDeliveryMode === "test" ? "#fb923c" : "#dc2626"}`, borderRadius: 10, padding: 18 }}>
-              <div style={{ fontSize: 13, fontWeight: 900, color: smtpDeliveryMode === "test" ? "#9a3412" : "#991b1b", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <div style={{ background: smtpDeliveryMode === "test" ? "var(--color-orange-bg)" : "var(--color-red-soft)", border: `2px solid ${smtpDeliveryMode === "test" ? "#fb923c" : "var(--color-danger)"}`, borderRadius: 10, padding: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: smtpDeliveryMode === "test" ? "#9a3412" : "var(--color-danger-deep)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 {smtpDeliveryMode === "test" ? "🛡️ Test inbox protection is active" : "⚠️ Live recipient delivery is active"}
               </div>
               <p style={{ margin: "0 0 12px", fontSize: 13, color: "#431407" }}>
@@ -1803,19 +1803,19 @@ function AdministrationContent() {
                 </label>
                 <label style={{ display: "grid", gap: 6, fontSize: 12, fontWeight: 800 }}>
                   Administrator test inbox
-                  <input type="email" required value={smtpTestRecipient} disabled={smtpDeliveryMode === "live"} onChange={(event) => setSmtpTestRecipient(event.target.value)} style={{ padding: "10px 12px", borderRadius: 7, border: "1px solid #fdba74", background: smtpDeliveryMode === "live" ? "#f1f5f9" : "#fff" }} />
+                  <input type="email" required value={smtpTestRecipient} disabled={smtpDeliveryMode === "live"} onChange={(event) => setSmtpTestRecipient(event.target.value)} style={{ padding: "10px 12px", borderRadius: 7, border: "1px solid #fdba74", background: smtpDeliveryMode === "live" ? "var(--color-slate-100)" : "#fff" }} />
                 </label>
               </div>
             </div>
             {/* Server Settings */}
-            <div style={{ background: "var(--surface-sunken, #f8fafc)", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <div style={{ background: "var(--surface-sunken, var(--color-slate-50))", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 1. Outbound Mail Server Details
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 14 }}>
                 <div>
                   <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-                    SMTP Host / Server Address <span style={{ color: "#dc2626" }}>*</span>:
+                    SMTP Host / Server Address <span style={{ color: "var(--color-danger)" }}>*</span>:
                   </label>
                   <input
                     type="text"
@@ -1829,7 +1829,7 @@ function AdministrationContent() {
 
                 <div>
                   <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-                    SMTP Port <span style={{ color: "#dc2626" }}>*</span>:
+                    SMTP Port <span style={{ color: "var(--color-danger)" }}>*</span>:
                   </label>
                   <input
                     type="number"
@@ -1874,20 +1874,20 @@ function AdministrationContent() {
             </div>
 
             {/* Authentication Credentials */}
-            <div style={{ background: "var(--surface-sunken, #f8fafc)", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            <div style={{ background: "var(--surface-sunken, var(--color-slate-50))", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 2. Authentication &amp; Sender Profile
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                     <label style={{ fontSize: 12, fontWeight: 700 }}>
-                      SMTP Username / Login <span style={{ color: "#dc2626" }}>*</span>:
+                      SMTP Username / Login <span style={{ color: "var(--color-danger)" }}>*</span>:
                     </label>
                     <button
                       type="button"
                       onClick={() => setSmtpUsername("companion@centerestates.com")}
-                      style={{ background: "none", border: "none", color: "#2563eb", fontSize: 11, fontWeight: 600, cursor: "pointer", padding: 0 }}
+                      style={{ background: "none", border: "none", color: "var(--color-info)", fontSize: 11, fontWeight: 600, cursor: "pointer", padding: 0 }}
                     >
                       Use companion@centerestates.com
                     </button>
@@ -1938,7 +1938,7 @@ function AdministrationContent() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <div>
                   <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-                    From Email Address <span style={{ color: "#dc2626" }}>*</span>:
+                    From Email Address <span style={{ color: "var(--color-danger)" }}>*</span>:
                   </label>
                   <input
                     type="email"
@@ -1966,11 +1966,11 @@ function AdministrationContent() {
             </div>
 
             {/* Diagnostic Email Test Box */}
-            <div style={{ background: "#f0fdf4", border: "1.5px solid #86efac", borderRadius: 10, padding: 18 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "#166534", marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ background: "var(--color-green-soft)", border: "1.5px solid var(--color-green-300)", borderRadius: 10, padding: 18 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--color-green-text)", marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
                 <span>🧪 Test SMTP Outbound Connection</span>
               </div>
-              <p style={{ margin: "0 0 12px", fontSize: 12, color: "#166534" }}>
+              <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--color-green-text)" }}>
                 Send a real-time diagnostic test email to verify DNS, authentication, and port delivery without waiting for system events.
               </p>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -1979,7 +1979,7 @@ function AdministrationContent() {
                   value={testEmailAddress}
                   onChange={(e) => setTestEmailAddress(e.target.value)}
                   placeholder={`Recipient email (defaults to ${session?.user.email || "samnmbuguah@gmail.com"})`}
-                  style={{ flex: 1, minWidth: 260, padding: "8px 12px", borderRadius: 6, border: "1px solid #86efac", background: "#fff", fontSize: 13 }}
+                  style={{ flex: 1, minWidth: 260, padding: "8px 12px", borderRadius: 6, border: "1px solid var(--color-green-300)", background: "#fff", fontSize: 13 }}
                 />
                 <button
                   type="button"
@@ -1989,7 +1989,7 @@ function AdministrationContent() {
                     padding: "8px 16px",
                     borderRadius: 6,
                     border: 0,
-                    background: "#16a34a",
+                    background: "var(--color-success)",
                     color: "#fff",
                     fontSize: 13,
                     fontWeight: 700,
@@ -2004,7 +2004,7 @@ function AdministrationContent() {
               </div>
 
               {smtpTestResult && (
-                <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: smtpTestResult.type === "success" ? "#dcfce7" : "#fee2e2", color: smtpTestResult.type === "success" ? "#166534" : "#991b1b", fontSize: 13, fontWeight: 600 }}>
+                <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: smtpTestResult.type === "success" ? "var(--color-green-bg)" : "var(--color-red-bg)", color: smtpTestResult.type === "success" ? "var(--color-green-text)" : "var(--color-danger-deep)", fontSize: 13, fontWeight: 600 }}>
                   {smtpTestResult.type === "success" ? "✓ " : "⚠️ "}{smtpTestResult.text}
                 </div>
               )}
@@ -2019,7 +2019,7 @@ function AdministrationContent() {
                   display: "flex",
                   alignItems: "center",
                   gap: 8,
-                  background: "#dc2626",
+                  background: "var(--color-danger)",
                   color: "#ffffff",
                   padding: "10px 22px",
                   borderRadius: 8,
@@ -2043,7 +2043,7 @@ function AdministrationContent() {
       {tab === "orgs" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* White-Label Organization Branding */}
-          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
             <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
               <h2 style={{ margin: "0 0 4px", fontSize: "1.25rem", fontWeight: 800, display: "flex", alignItems: "center", gap: 10, color: "var(--text)" }}>
                 <span>🎨 Organization Branding & System Logo</span>
@@ -2084,7 +2084,7 @@ function AdministrationContent() {
                       type="text"
                       value={brandPrimaryColor}
                       onChange={(e) => setBrandPrimaryColor(e.target.value)}
-                      placeholder="#0284c7"
+                      placeholder="var(--color-sky)"
                       style={{ flex: 1, padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontFamily: "monospace", fontSize: 14 }}
                     />
                   </div>
@@ -2114,7 +2114,7 @@ function AdministrationContent() {
               </div>
 
               {/* Live Preview */}
-              <div style={{ background: "var(--surface-sunken, #f8fafc)", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
+              <div style={{ background: "var(--surface-sunken, var(--color-slate-50))", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: "var(--muted)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   Live Navigation & Loader Preview:
                 </div>
@@ -2141,7 +2141,7 @@ function AdministrationContent() {
                     display: "flex",
                     alignItems: "center",
                     gap: 8,
-                    background: brandPrimaryColor || "#0284c7",
+                    background: brandPrimaryColor || "var(--color-sky)",
                     color: "#ffffff",
                     padding: "10px 24px",
                     borderRadius: 8,
@@ -2158,7 +2158,7 @@ function AdministrationContent() {
           </div>
 
           {/* Module Subscriptions */}
-          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
+          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 24 }}>
             <h3 style={{ margin: "0 0 12px", fontSize: "1.1rem", fontWeight: 700 }}>🏢 Active Module Subscriptions</h3>
             <p style={{ margin: "0 0 16px", color: "var(--muted)", fontSize: "0.85rem" }}>
               Organization ID: <strong>{organizationId}</strong>
@@ -2177,7 +2177,7 @@ function AdministrationContent() {
                 <div key={m.name} style={{ padding: 14, border: "1px solid var(--border)", borderRadius: 8, background: "var(--surface-2)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                     <strong style={{ fontSize: 13 }}>{m.name}</strong>
-                    <span style={{ fontSize: 10, background: "#dcfce7", color: "#15803d", padding: "2px 6px", borderRadius: 10, fontWeight: 700 }}>
+                    <span style={{ fontSize: 10, background: "var(--color-green-bg)", color: "var(--color-success-strong)", padding: "2px 6px", borderRadius: 10, fontWeight: 700 }}>
                       {m.status}
                     </span>
                   </div>
@@ -2191,7 +2191,7 @@ function AdministrationContent() {
 
       {/* TAB 5: KRA TAX & E-TIMS */}
       {tab === "tax" && (
-        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
+        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 24 }}>
           <h2 style={{ margin: "0 0 12px", fontSize: "1.2rem", fontWeight: 700 }}>📜 KRA Tax & E-TIMS Compliance Settings</h2>
           <p style={{ margin: "0 0 16px", color: "var(--muted)", fontSize: "0.85rem" }}>
             Configure default KRA PIN, E-TIMS integration settings, and standard tax rates for rental income & service charge invoicing.
@@ -2219,7 +2219,7 @@ function AdministrationContent() {
 
       {tab === "system-health" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 20, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 20, display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
             <div>
               <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}><Activity size={19} /> System health</h2>
               <p style={{ margin: "5px 0 0", color: "var(--muted)", fontSize: 13 }}>Browser errors are grouped by cause and route, so recurring issues can be triaged without reading server logs.</p>
@@ -2230,12 +2230,12 @@ function AdministrationContent() {
           </div>
 
           <KpiStrip cols={3}>
-            <KpiCard icon={apiHealth === "operational" ? "🟢" : apiHealth === "unavailable" ? "🔴" : "⏳"} iconBg={apiHealth === "operational" ? "#dcfce7" : apiHealth === "unavailable" ? "#fee2e2" : "#fef3c7"} iconColor={apiHealth === "operational" ? "#15803d" : apiHealth === "unavailable" ? "#b91c1c" : "#a16207"} label="API & database" value={apiHealth === "operational" ? "Operational" : apiHealth === "unavailable" ? "Unavailable" : "Checking…"} sub="Live check from this browser" />
-            <KpiCard icon="⚠️" iconBg={openClientErrorCount ? "#fee2e2" : "#dcfce7"} iconColor={openClientErrorCount ? "#b91c1c" : "#15803d"} label="Open browser errors" value={String(openClientErrorCount)} sub="Unique error signatures" />
-            <KpiCard icon="🧭" iconBg="#e0f2fe" iconColor="#0369a1" label="Scope" value="This organisation" sub="Errors are isolated by active organisation" />
+            <KpiCard icon={apiHealth === "operational" ? "🟢" : apiHealth === "unavailable" ? "🔴" : "⏳"} iconBg={apiHealth === "operational" ? "var(--color-green-bg)" : apiHealth === "unavailable" ? "var(--color-red-bg)" : "var(--color-amber-bg)"} iconColor={apiHealth === "operational" ? "var(--color-success-strong)" : apiHealth === "unavailable" ? "var(--color-danger-strong)" : "#a16207"} label="API & database" value={apiHealth === "operational" ? "Operational" : apiHealth === "unavailable" ? "Unavailable" : "Checking…"} sub="Live check from this browser" />
+            <KpiCard icon="⚠️" iconBg={openClientErrorCount ? "var(--color-red-bg)" : "var(--color-green-bg)"} iconColor={openClientErrorCount ? "var(--color-danger-strong)" : "var(--color-success-strong)"} label="Open browser errors" value={String(openClientErrorCount)} sub="Unique error signatures" />
+            <KpiCard icon="🧭" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky-deep)" label="Scope" value="This organisation" sub="Errors are isolated by active organisation" />
           </KpiStrip>
 
-          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, overflow: "hidden" }}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div><strong>Open client errors</strong><div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>Only technical failures reported by the browser are listed here.</div></div>
               <StatusPill tone={openClientErrorCount ? "yellow" : "green"}>{openClientErrorCount ? "Needs review" : "All clear"}</StatusPill>
@@ -2247,7 +2247,7 @@ function AdministrationContent() {
             ) : (
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
-                  <thead><tr style={{ background: "var(--surface-2, #f8fafc)", textAlign: "left", fontSize: 12 }}>
+                  <thead><tr style={{ background: "var(--surface-2, var(--color-slate-50))", textAlign: "left", fontSize: 12 }}>
                     <th style={{ padding: "11px 16px" }}>Error</th><th style={{ padding: "11px 16px" }}>Route</th><th style={{ padding: "11px 16px" }}>Occurrences</th><th style={{ padding: "11px 16px" }}>Last seen</th><th style={{ padding: "11px 16px", textAlign: "right" }}>Actions</th>
                   </tr></thead>
                   <tbody>{clientErrors.map((event) => <tr key={event.id} style={{ borderTop: "1px solid var(--border)" }}>
@@ -2266,7 +2266,7 @@ function AdministrationContent() {
 
       {/* TAB 6: AUDIT TRAIL */}
       {tab === "audit" && (
-        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
+        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 24 }}>
           <h2 style={{ margin: "0 0 12px", fontSize: "1.2rem", fontWeight: 700 }}>🛡️ Security Audit Log</h2>
           <p style={{ margin: "0 0 16px", color: "var(--muted)", fontSize: "0.85rem" }}>
             Recent administrative events and user security actions.
@@ -2283,7 +2283,7 @@ function AdministrationContent() {
       {showAddUserModal && (
         <Modal title="Add System User (Staff Creation)" onClose={() => setShowAddUserModal(false)} wide>
           {memberError && (
-            <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid #ef4444", color: "#b91c1c", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
+            <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid var(--color-danger)", color: "var(--color-danger-strong)", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13 }}>
               ⚠️ {memberError}
             </div>
           )}
@@ -2356,7 +2356,7 @@ function AdministrationContent() {
               </Field>
             </div>
 
-            <div style={{ padding: "10px 14px", background: "var(--surface-2, #f8fafc)", borderRadius: 8, border: "1px solid var(--border)" }}>
+            <div style={{ padding: "10px 14px", background: "var(--surface-2, var(--color-slate-50))", borderRadius: 8, border: "1px solid var(--border)" }}>
               <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
                 <input
                   type="checkbox"
@@ -2369,7 +2369,7 @@ function AdministrationContent() {
             </div>
 
             {/* ADD USER: Module Entitlement & Roles */}
-            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <h4 style={{ margin: "0 0 2px", fontSize: "0.95rem", fontWeight: 800 }}>📦 Module Access &amp; Functional Roles</h4>
@@ -2386,7 +2386,7 @@ function AdministrationContent() {
                   <button
                     type="button"
                     onClick={() => setNewSelectedRoles(roles.map((r) => r.id))}
-                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
+                    style={{ fontSize: 11, color: "var(--primary, var(--color-danger))", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
                   >
                     Select All
                   </button>
@@ -2419,7 +2419,7 @@ function AdministrationContent() {
                       style={{
                         border: isModActive ? `1.5px solid ${mod.accent}` : "1px solid var(--border)",
                         borderRadius: 10,
-                        background: isModActive ? "var(--surface)" : "var(--surface-sunken, #f8fafc)",
+                        background: isModActive ? "var(--surface)" : "var(--surface-sunken, var(--color-slate-50))",
                         overflow: "hidden",
                         transition: "all 0.15s ease",
                       }}
@@ -2430,7 +2430,7 @@ function AdministrationContent() {
                           alignItems: "center",
                           justifyContent: "space-between",
                           padding: "12px 16px",
-                          background: isModActive ? `linear-gradient(90deg, ${mod.accent}12, transparent)` : "transparent",
+                          background: isModActive ? `linear-gradient(90deg, color-mix(in srgb, ${mod.accent} 7%, transparent), transparent)` : "transparent",
                           cursor: "pointer",
                           gap: 12,
                         }}
@@ -2447,7 +2447,7 @@ function AdministrationContent() {
                                   fontWeight: 700,
                                   padding: "2px 8px",
                                   borderRadius: 12,
-                                  background: isModActive ? `${mod.accent}22` : "var(--border)",
+                                  background: isModActive ? `color-mix(in srgb, ${mod.accent} 13%, transparent)` : "var(--border)",
                                   color: isModActive ? mod.accent : "var(--muted)",
                                 }}
                               >
@@ -2498,7 +2498,7 @@ function AdministrationContent() {
                                     padding: "8px 12px",
                                     borderRadius: 8,
                                     border: isSelected ? `1.5px solid ${mod.accent}` : "1px solid var(--border)",
-                                    background: isSelected ? `${mod.accent}0d` : "transparent",
+                                    background: isSelected ? `color-mix(in srgb, ${mod.accent} 5%, transparent)` : "transparent",
                                     cursor: "pointer",
                                     transition: "all 0.12s ease",
                                   }}
@@ -2528,7 +2528,7 @@ function AdministrationContent() {
             </div>
 
             {/* ADD USER: Property Scoping */}
-            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <h4 style={{ margin: "0 0 2px", fontSize: "0.95rem", fontWeight: 800 }}>
@@ -2547,7 +2547,7 @@ function AdministrationContent() {
                   <button
                     type="button"
                     onClick={() => setNewSelectedProps(properties.map((p) => p.id))}
-                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
+                    style={{ fontSize: 11, color: "var(--primary, var(--color-danger))", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
                   >
                     Select All ({properties.length})
                   </button>
@@ -2577,7 +2577,7 @@ function AdministrationContent() {
                             gap: 8,
                             padding: "8px 12px",
                             borderRadius: 8,
-                            border: isSelected ? "1.5px solid #0284c7" : "1px solid var(--border)",
+                            border: isSelected ? "1.5px solid var(--color-sky)" : "1px solid var(--border)",
                             cursor: "pointer",
                             background: isSelected ? "rgba(2, 132, 199, 0.08)" : "transparent",
                             transition: "all 0.12s ease",
@@ -2593,7 +2593,7 @@ function AdministrationContent() {
                           />
                           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0, flex: 1 }}>
                             <span>🏢</span>
-                            <strong style={{ fontSize: 12, color: isSelected ? "#0369a1" : "var(--text)" }}>{p.name}</strong>
+                            <strong style={{ fontSize: 12, color: isSelected ? "var(--color-sky-deep)" : "var(--text)" }}>{p.name}</strong>
                             <span className="mono muted" style={{ fontSize: 10, background: "var(--surface-sunken)", padding: "1px 4px", borderRadius: 3, border: "1px solid var(--border)" }}>
                               {p.code}
                             </span>
@@ -2610,7 +2610,7 @@ function AdministrationContent() {
               <button type="button" className="btn ghost" onClick={() => setShowAddUserModal(false)} disabled={saving}>
                 Cancel
               </button>
-              <button type="submit" className="btn primary" disabled={saving || !newUsername.trim() || !newFirstName.trim() || !newLastName.trim()} style={{ background: "#d92d2d", borderColor: "#d92d2d", padding: "10px 22px", fontWeight: 800 }}>
+              <button type="submit" className="btn primary" disabled={saving || !newUsername.trim() || !newFirstName.trim() || !newLastName.trim()} style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)", padding: "10px 22px", fontWeight: 800 }}>
                 {saving ? "Creating Account…" : "Create User Account"}
               </button>
             </div>
@@ -2623,8 +2623,8 @@ function AdministrationContent() {
         <Modal title={`Edit Access Matrix — ${editingMember.full_name || editingMember.username}`} onClose={() => setEditingMember(null)} wide>
           <form onSubmit={handleSaveEditUser} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* User Identity Header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, background: "var(--surface-2, #f8fafc)", borderRadius: 12, border: "1px solid var(--border)" }}>
-              <span style={{ width: 48, height: 48, borderRadius: "50%", background: editingMember.is_organization_admin ? "linear-gradient(135deg, #d92d2d, #b91c1c)" : "linear-gradient(135deg, #4f46e5, #3730a3)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, padding: 16, background: "var(--surface-2, var(--color-slate-50))", borderRadius: 12, border: "1px solid var(--border)" }}>
+              <span style={{ width: 48, height: 48, borderRadius: "50%", background: editingMember.is_organization_admin ? "linear-gradient(135deg, var(--color-danger), var(--color-danger-strong))" : "linear-gradient(135deg, var(--color-indigo), #3730a3)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 800 }}>
                 {(editingMember.first_name?.[0] || editingMember.username?.[0] || "U").toUpperCase()}
               </span>
               <div style={{ flex: 1 }}>
@@ -2634,7 +2634,7 @@ function AdministrationContent() {
                     @{editingMember.username}
                   </span>
                   {editingMember.is_organization_admin && (
-                    <span style={{ fontSize: 10, fontWeight: 800, background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a", padding: "2px 8px", borderRadius: 12 }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, background: "var(--color-amber-bg)", color: "var(--color-amber-strong)", border: "1px solid var(--color-amber-200)", padding: "2px 8px", borderRadius: 12 }}>
                       👑 Super Admin
                     </span>
                   )}
@@ -2689,8 +2689,8 @@ function AdministrationContent() {
             </div>
 
             {/* Super Admin Switch */}
-            <div style={{ padding: "14px 18px", background: editIsAdmin ? "#fef3c7" : "var(--surface-2, #f8fafc)", borderRadius: 12, border: editIsAdmin ? "1px solid #fde68a" : "1px solid var(--border)" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", fontSize: 14, fontWeight: 800, color: editIsAdmin ? "#92400e" : "var(--text)" }}>
+            <div style={{ padding: "14px 18px", background: editIsAdmin ? "var(--color-amber-bg)" : "var(--surface-2, var(--color-slate-50))", borderRadius: 12, border: editIsAdmin ? "1px solid var(--color-amber-200)" : "1px solid var(--border)" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", fontSize: 14, fontWeight: 800, color: editIsAdmin ? "var(--color-amber-strong)" : "var(--text)" }}>
                 <input
                   type="checkbox"
                   checked={editIsAdmin}
@@ -2700,14 +2700,14 @@ function AdministrationContent() {
                 👑 Super Administrator (Portfolio-wide unrestricted access across all modules)
               </label>
               {editIsAdmin && (
-                <p style={{ margin: "6px 0 0 30px", fontSize: 12, color: "#92400e", lineHeight: 1.4 }}>
+                <p style={{ margin: "6px 0 0 30px", fontSize: 12, color: "var(--color-amber-strong)", lineHeight: 1.4 }}>
                   User has full administrative capabilities across all estates and modules. You can still assign specific functional roles below for fine-grained scoping.
                 </p>
               )}
             </div>
 
             {/* Module Access Entitlement & Functional Roles */}
-            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <h4 style={{ margin: "0 0 2px", fontSize: "0.95rem", fontWeight: 800 }}>📦 Module Access &amp; Functional Roles</h4>
@@ -2726,7 +2726,7 @@ function AdministrationContent() {
                   <button
                     type="button"
                     onClick={() => setEditSelectedRoles(roles.map((r) => r.id))}
-                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
+                    style={{ fontSize: 11, color: "var(--primary, var(--color-danger))", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
                   >
                     Select All Roles
                   </button>
@@ -2760,7 +2760,7 @@ function AdministrationContent() {
                       style={{
                         border: isModActive ? `1.5px solid ${mod.accent}` : "1px solid var(--border)",
                         borderRadius: 10,
-                        background: isModActive ? "var(--surface)" : "var(--surface-sunken, #f8fafc)",
+                        background: isModActive ? "var(--surface)" : "var(--surface-sunken, var(--color-slate-50))",
                         overflow: "hidden",
                         transition: "all 0.15s ease",
                       }}
@@ -2772,7 +2772,7 @@ function AdministrationContent() {
                           alignItems: "center",
                           justifyContent: "space-between",
                           padding: "12px 16px",
-                          background: isModActive ? `linear-gradient(90deg, ${mod.accent}12, transparent)` : "transparent",
+                          background: isModActive ? `linear-gradient(90deg, color-mix(in srgb, ${mod.accent} 7%, transparent), transparent)` : "transparent",
                           cursor: "pointer",
                           gap: 12,
                         }}
@@ -2789,7 +2789,7 @@ function AdministrationContent() {
                                   fontWeight: 700,
                                   padding: "2px 8px",
                                   borderRadius: 12,
-                                  background: isModActive ? `${mod.accent}22` : "var(--border)",
+                                  background: isModActive ? `color-mix(in srgb, ${mod.accent} 13%, transparent)` : "var(--border)",
                                   color: isModActive ? mod.accent : "var(--muted)",
                                 }}
                               >
@@ -2845,7 +2845,7 @@ function AdministrationContent() {
                                       padding: "8px 12px",
                                       borderRadius: 8,
                                       border: isSelected ? `1.5px solid ${mod.accent}` : "1px solid var(--border)",
-                                      background: isSelected ? `${mod.accent}0d` : "transparent",
+                                      background: isSelected ? `color-mix(in srgb, ${mod.accent} 5%, transparent)` : "transparent",
                                       cursor: "pointer",
                                       transition: "all 0.12s ease",
                                     }}
@@ -2884,7 +2884,7 @@ function AdministrationContent() {
             </div>
 
             {/* Property Scoping Matrix */}
-            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 18, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                 <div>
                   <h4 style={{ margin: "0 0 2px", fontSize: "0.95rem", fontWeight: 800 }}>
@@ -2905,7 +2905,7 @@ function AdministrationContent() {
                   <button
                     type="button"
                     onClick={() => setEditSelectedProps(properties.map((p) => p.id))}
-                    style={{ fontSize: 11, color: "var(--primary, #d92d2d)", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
+                    style={{ fontSize: 11, color: "var(--primary, var(--color-danger))", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}
                   >
                     Select All ({properties.length})
                   </button>
@@ -2933,7 +2933,7 @@ function AdministrationContent() {
                   }}
                 >
                   <span style={{ fontSize: 16 }}>ℹ️</span>
-                  <div style={{ fontSize: 12, lineHeight: 1.4, color: "#0369a1" }}>
+                  <div style={{ fontSize: 12, lineHeight: 1.4, color: "var(--color-sky-deep)" }}>
                     <strong>Property Manager Scoping Policy Active:</strong> By default, Property Managers can only view and manage properties they personally create in the system. Use the checkboxes below only to grant explicit authorization for properties created by other team members or administrators.
                   </div>
                 </div>
@@ -2959,7 +2959,7 @@ function AdministrationContent() {
                             gap: 8,
                             padding: "8px 12px",
                             borderRadius: 8,
-                            border: isSelected ? "1.5px solid #0284c7" : "1px solid var(--border)",
+                            border: isSelected ? "1.5px solid var(--color-sky)" : "1px solid var(--border)",
                             cursor: "pointer",
                             background: isSelected ? "rgba(2, 132, 199, 0.08)" : "transparent",
                             transition: "all 0.12s ease",
@@ -2977,7 +2977,7 @@ function AdministrationContent() {
                           />
                           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0, flex: 1 }}>
                             <span>🏢</span>
-                            <strong style={{ fontSize: 12, color: isSelected ? "#0369a1" : "var(--text)" }}>{p.name}</strong>
+                            <strong style={{ fontSize: 12, color: isSelected ? "var(--color-sky-deep)" : "var(--text)" }}>{p.name}</strong>
                             <span className="mono muted" style={{ fontSize: 10, background: "var(--surface-sunken)", padding: "1px 4px", borderRadius: 3, border: "1px solid var(--border)" }}>
                               {p.code}
                             </span>
@@ -2994,7 +2994,7 @@ function AdministrationContent() {
               <button type="button" className="btn ghost" onClick={() => setEditingMember(null)} disabled={saving}>
                 Cancel
               </button>
-              <button type="submit" className="btn primary" disabled={saving} style={{ background: "#d92d2d", borderColor: "#d92d2d", padding: "10px 22px", fontWeight: 800 }}>
+              <button type="submit" className="btn primary" disabled={saving} style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)", padding: "10px 22px", fontWeight: 800 }}>
                 {saving ? "Saving Changes…" : "Save Matrix Changes"}
               </button>
             </div>
@@ -3007,17 +3007,17 @@ function AdministrationContent() {
         <Modal title="📢 Broadcast System Notice to Organization" onClose={() => setShowBroadcastModal(false)} wide>
           <form onSubmit={handleSendBroadcast} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ padding: 14, background: "rgba(2, 132, 199, 0.08)", border: "1px solid #bae6fd", borderRadius: 10 }}>
-              <strong style={{ fontSize: 13, color: "#0369a1", display: "block" }}>
+              <strong style={{ fontSize: 13, color: "var(--color-sky-deep)", display: "block" }}>
                 Multi-Channel Announcement Dispatch
               </strong>
-              <p style={{ margin: "4px 0 0", fontSize: 12, color: "#0284c7", lineHeight: 1.4 }}>
+              <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--color-sky)", lineHeight: 1.4 }}>
                 This notice will be delivered instantly to all active team members across the organization via their In-App Notification Bell, live pop-up toast alerts, and optional verified Outbound Email.
               </p>
             </div>
 
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
-                Announcement Headline / Title <span style={{ color: "#d92d2d" }}>*</span>
+                Announcement Headline / Title <span style={{ color: "var(--color-danger)" }}>*</span>
               </label>
               <input
                 required
@@ -3059,7 +3059,7 @@ function AdministrationContent() {
 
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
-                Notice Message Content <span style={{ color: "#d92d2d" }}>*</span>
+                Notice Message Content <span style={{ color: "var(--color-danger)" }}>*</span>
               </label>
               <textarea
                 required
@@ -3071,7 +3071,7 @@ function AdministrationContent() {
               />
             </div>
 
-            <div style={{ padding: "12px 16px", background: "var(--surface-2, #f8fafc)", borderRadius: 10, border: "1px solid var(--border)" }}>
+            <div style={{ padding: "12px 16px", background: "var(--surface-2, var(--color-slate-50))", borderRadius: 10, border: "1px solid var(--border)" }}>
               <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
                 <input
                   type="checkbox"
@@ -3096,7 +3096,7 @@ function AdministrationContent() {
                 type="submit"
                 className="btn primary"
                 disabled={broadcasting || !broadcastTitle.trim() || !broadcastMessage.trim()}
-                style={{ background: "#d92d2d", borderColor: "#d92d2d", padding: "10px 22px", fontWeight: 800 }}
+                style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)", padding: "10px 22px", fontWeight: 800 }}
               >
                 {broadcasting ? "Dispatching Broadcast…" : "📢 Send Broadcast Notice"}
               </button>
@@ -3109,7 +3109,7 @@ function AdministrationContent() {
       {testingGateway && (
         <Modal title={`⚡ Test M-Pesa STK Push — ${testingGateway.display_name}`} onClose={() => setTestingGateway(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{ padding: "12px 16px", background: "var(--surface-sunken, #f8fafc)", borderRadius: 10, border: "1px solid var(--border)", fontSize: 13 }}>
+            <div style={{ padding: "12px 16px", background: "var(--surface-sunken, var(--color-slate-50))", borderRadius: 10, border: "1px solid var(--border)", fontSize: 13 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                 <span>Shortcode / Paybill:</span>
                 <strong style={{ fontFamily: "monospace" }}>{testingGateway.settings?.shortcode || "—"}</strong>
@@ -3122,7 +3122,7 @@ function AdministrationContent() {
               )}
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span>Environment:</span>
-                <span style={{ fontWeight: 800, color: testingGateway.settings?.environment === "production" ? "#16a34a" : "#ca8a04" }}>
+                <span style={{ fontWeight: 800, color: testingGateway.settings?.environment === "production" ? "var(--color-success)" : "#ca8a04" }}>
                   {testingGateway.settings?.environment === "production" ? "LIVE (Production)" : "SANDBOX"}
                 </span>
               </div>
@@ -3134,9 +3134,9 @@ function AdministrationContent() {
                   padding: "12px 16px",
                   borderRadius: 8,
                   fontSize: 13,
-                  background: stkTestResult.type === "success" ? "#dcfce7" : "#fee2e2",
-                  color: stkTestResult.type === "success" ? "#166534" : "#991b1b",
-                  border: `1px solid ${stkTestResult.type === "success" ? "#bbf7d0" : "#fecaca"}`,
+                  background: stkTestResult.type === "success" ? "var(--color-green-bg)" : "var(--color-red-bg)",
+                  color: stkTestResult.type === "success" ? "var(--color-green-text)" : "var(--color-danger-deep)",
+                  border: `1px solid ${stkTestResult.type === "success" ? "var(--color-green-200)" : "var(--color-red-200)"}`,
                 }}
               >
                 <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
@@ -3154,7 +3154,7 @@ function AdministrationContent() {
             <form onSubmit={handleTestStk} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 800, marginBottom: 6 }}>
-                  Recipient Safaricom Phone Number <span style={{ color: "#dc2626" }}>*</span>
+                  Recipient Safaricom Phone Number <span style={{ color: "var(--color-danger)" }}>*</span>
                 </label>
                 <input
                   required
@@ -3197,8 +3197,8 @@ function AdministrationContent() {
                   className="btn primary"
                   disabled={testingStkLoading || !testStkPhone.trim()}
                   style={{
-                    background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
-                    borderColor: "#00a651",
+                    background: "linear-gradient(135deg, var(--color-green-brand) 0%, var(--color-green-deep) 100%)",
+                    borderColor: "var(--color-green-brand)",
                     color: "#fff",
                     fontWeight: 800,
                     padding: "10px 22px",

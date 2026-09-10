@@ -419,7 +419,7 @@ export function SectionalTitleOnboardingModal({
       title={
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
-            background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+            background: "linear-gradient(135deg, var(--color-indigo-strong) 0%, var(--color-indigo) 100%)",
             color: "#fff",
             borderRadius: 8,
             width: 34,
@@ -467,9 +467,9 @@ export function SectionalTitleOnboardingModal({
                   borderRadius: 20,
                   fontSize: 12,
                   fontWeight: isCurrent ? 600 : 500,
-                  border: isCurrent ? "1px solid #6366f1" : "1px solid transparent",
+                  border: isCurrent ? "1px solid var(--color-indigo-strong)" : "1px solid transparent",
                   background: isCurrent ? "rgba(99, 102, 241, 0.12)" : (isCompleted ? "var(--surface-active, rgba(255,255,255,0.05))" : "transparent"),
-                  color: isCurrent ? "#818cf8" : (isCompleted ? "var(--text-main)" : "var(--muted)"),
+                  color: isCurrent ? "var(--color-indigo-300)" : (isCompleted ? "var(--text-main)" : "var(--muted)"),
                   cursor: "pointer",
                   whiteSpace: "nowrap",
                   transition: "all 0.15s ease",
@@ -483,7 +483,7 @@ export function SectionalTitleOnboardingModal({
                   alignItems: "center",
                   justifyContent: "center",
                   fontSize: 11,
-                  background: isCurrent ? "#6366f1" : (isCompleted ? "#10b981" : "var(--border)"),
+                  background: isCurrent ? "var(--color-indigo-strong)" : (isCompleted ? "var(--color-emerald)" : "var(--border)"),
                   color: "#fff",
                 }}>
                   {isCompleted ? <Check size={12} /> : s.id}
@@ -605,7 +605,7 @@ export function SectionalTitleOnboardingModal({
                     background: "var(--surface)",
                     border: "1px solid var(--border)",
                   }}>
-                    <Layers size={16} color="#818cf8" />
+                    <Layers size={16} color="var(--color-indigo-300)" />
                     <input
                       value={b.name}
                       onChange={(e) => {
@@ -656,7 +656,7 @@ export function SectionalTitleOnboardingModal({
               flexDirection: "column",
               gap: 10,
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: 13, color: "#818cf8" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: 13, color: "var(--color-indigo-300)" }}>
                 <Sparkles size={16} /> Quick Bulk Unit Generator
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
@@ -823,7 +823,7 @@ export function SectionalTitleOnboardingModal({
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
-                      <Users size={16} color="#818cf8" />
+                      <Users size={16} color="var(--color-indigo-300)" />
                       <span>{o.name || `Owner ${i + 1}`}</span>
                     </div>
                     {owners.length > 1 && (
@@ -902,7 +902,7 @@ export function SectionalTitleOnboardingModal({
                     background: "rgba(255,255,255,0.02)",
                     border: "1px dashed var(--border)",
                   }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#818cf8", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-indigo-300)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
                       <Landmark size={14} /> Settlement / Payout Destination
                     </div>
                     <div className="grid-3">
@@ -1132,7 +1132,7 @@ export function SectionalTitleOnboardingModal({
                       padding: "12px 14px",
                       borderRadius: 8,
                       background: isSelected ? "rgba(99, 102, 241, 0.12)" : "var(--surface)",
-                      border: isSelected ? "1px solid #6366f1" : "1px solid var(--border)",
+                      border: isSelected ? "1px solid var(--color-indigo-strong)" : "1px solid var(--border)",
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
@@ -1172,7 +1172,7 @@ export function SectionalTitleOnboardingModal({
                   flexDirection: "column",
                   gap: 10,
                 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: "#818cf8" }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: "var(--color-indigo-300)" }}>
                     {fp.fee_type === "common_area_fee" ? "Common Area Management Fee" : "Rental Management Commission"}
                   </div>
                   <div className="grid-3">
@@ -1241,7 +1241,7 @@ export function SectionalTitleOnboardingModal({
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600 }}>
-                      <Landmark size={16} color="#818cf8" />
+                      <Landmark size={16} color="var(--color-indigo-300)" />
                       <span style={{ textTransform: "capitalize" }}>{ca.charge_type.replace("_", " ")} Collection Stream</span>
                     </div>
                     <span className="badge badge-purple">{ca.charge_type.toUpperCase()}</span>
@@ -1391,7 +1391,7 @@ export function SectionalTitleOnboardingModal({
                   border: "1px solid var(--border)",
                   fontSize: 12,
                 }}>
-                  <div style={{ fontWeight: 600, color: "#fbbf24", marginBottom: 6 }}>3. Water Utility Flow</div>
+                  <div style={{ fontWeight: 600, color: "var(--color-amber-400)", marginBottom: 6 }}>3. Water Utility Flow</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--muted)" }}>
                     <span>Tenant Meter</span> <ArrowRight size={12} /> <span>Water Collection A/C</span>
                   </div>
@@ -1414,7 +1414,7 @@ export function SectionalTitleOnboardingModal({
                 {readiness.checks.map((chk, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      {chk.passed ? <CheckCircle2 size={16} color="#10b981" /> : <AlertCircle size={16} color="#f87171" />}
+                      {chk.passed ? <CheckCircle2 size={16} color="var(--color-emerald)" /> : <AlertCircle size={16} color="#f87171" />}
                       <span>{chk.title}</span>
                     </div>
                     <span style={{ color: "var(--muted)" }}>{chk.detail}</span>
@@ -1460,7 +1460,7 @@ export function SectionalTitleOnboardingModal({
                 disabled={loading || !readiness.isReady}
                 onClick={handleSubmitOnboarding}
                 style={{
-                  background: readiness.isReady ? "linear-gradient(135deg, #10b981 0%, #059669 100%)" : undefined,
+                  background: readiness.isReady ? "linear-gradient(135deg, var(--color-emerald) 0%, var(--color-emerald-strong) 100%)" : undefined,
                   boxShadow: readiness.isReady ? "0 4px 12px rgba(16, 185, 129, 0.3)" : undefined,
                 }}
               >

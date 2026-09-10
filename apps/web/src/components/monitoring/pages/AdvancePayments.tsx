@@ -11,9 +11,9 @@ function money(v: number | string) {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  active: "#3b82f6",
-  fully_recovered: "#10b981",
-  defaulted: "#ef4444",
+  active: "var(--color-blue)",
+  fully_recovered: "var(--color-emerald)",
+  defaulted: "var(--color-danger)",
 };
 
 export function AdvancePayments() {
@@ -82,10 +82,10 @@ export function AdvancePayments() {
       {/* KPI Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
         {[
-          { icon: HandCoins, label: "Total Advanced", value: money(totalAdvanced), sub: `${items.length} advances`, color: "#3b82f6" },
-          { icon: ArrowDownRight, label: "Total Recovered", value: money(totalRecovered), sub: "Via IPC deductions", color: "#10b981" },
-          { icon: AlertCircle, label: "Outstanding Balance", value: money(totalOutstanding), sub: `${activeCount} active advances`, color: totalOutstanding > 0 ? "#f59e0b" : "#10b981" },
-          { icon: CheckCircle2, label: "Recovery Rate", value: totalAdvanced > 0 ? `${((totalRecovered / totalAdvanced) * 100).toFixed(0)}%` : "0%", sub: "Overall recovery", color: "#8b5cf6" },
+          { icon: HandCoins, label: "Total Advanced", value: money(totalAdvanced), sub: `${items.length} advances`, color: "var(--color-blue)" },
+          { icon: ArrowDownRight, label: "Total Recovered", value: money(totalRecovered), sub: "Via IPC deductions", color: "var(--color-emerald)" },
+          { icon: AlertCircle, label: "Outstanding Balance", value: money(totalOutstanding), sub: `${activeCount} active advances`, color: totalOutstanding > 0 ? "var(--color-amber)" : "var(--color-emerald)" },
+          { icon: CheckCircle2, label: "Recovery Rate", value: totalAdvanced > 0 ? `${((totalRecovered / totalAdvanced) * 100).toFixed(0)}%` : "0%", sub: "Overall recovery", color: "var(--color-violet-strong)" },
         ].map(k => (
           <div key={k.label} style={{
             padding: "16px 20px", borderRadius: 12, background: "var(--surface)",
@@ -156,16 +156,16 @@ export function AdvancePayments() {
                   <td style={{ padding: "12px 16px", fontWeight: 600, fontSize: 14 }}>{ap.contractor_name}</td>
                   <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: 14, fontWeight: 700 }}>{money(ap.amount)}</td>
                   <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--muted)" }}>{ap.recovery_rate}%</td>
-                  <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: 14, color: "#10b981", fontWeight: 700 }}>{money(ap.recovered_amount)}</td>
-                  <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: 14, fontWeight: 800, color: outstanding > 0 ? "#f59e0b" : "#10b981" }}>{money(outstanding)}</td>
+                  <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: 14, color: "var(--color-emerald)", fontWeight: 700 }}>{money(ap.recovered_amount)}</td>
+                  <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: 14, fontWeight: 800, color: outstanding > 0 ? "var(--color-amber)" : "var(--color-emerald)" }}>{money(outstanding)}</td>
                   <td style={{ padding: "12px 16px", minWidth: 100 }}>
                     <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{recoveredPct.toFixed(0)}%</div>
                     <div style={{ height: 5, borderRadius: 3, background: "var(--surface-3)", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${recoveredPct}%`, background: recoveredPct >= 100 ? "#10b981" : "#3b82f6", borderRadius: 3, transition: "width 0.3s" }} />
+                      <div style={{ height: "100%", width: `${recoveredPct}%`, background: recoveredPct >= 100 ? "var(--color-emerald)" : "var(--color-blue)", borderRadius: 3, transition: "width 0.3s" }} />
                     </div>
                   </td>
                   <td style={{ padding: "12px 16px" }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 12, background: `${color}18`, color }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 12, background: `color-mix(in srgb, ${color} 9%, transparent)`, color }}>
                       {ap.status === "fully_recovered" ? "Recovered" : ap.status.charAt(0).toUpperCase() + ap.status.slice(1)}
                     </span>
                   </td>

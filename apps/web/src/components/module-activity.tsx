@@ -213,21 +213,21 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
     <section aria-labelledby="module-tickets-heading" style={{ width: "100%", maxWidth: "100%" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
         <div>
-          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--primary, #0284c7)" }}>
+          <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--primary, var(--color-sky))" }}>
             {moduleName} OPERATIONS
           </span>
-          <h2 id="module-tickets-heading" style={{ margin: "4px 0 2px", fontSize: 22, fontWeight: 800, color: "var(--text-primary, #0f172a)" }}>
+          <h2 id="module-tickets-heading" style={{ margin: "4px 0 2px", fontSize: 22, fontWeight: 800, color: "var(--text-primary, var(--color-slate-900))" }}>
             Tickets & issues
           </h2>
-          <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary, #64748b)" }}>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary, var(--color-slate-500))" }}>
             {portfolio ? "Issues and requests across your accessible properties." : `Issues scoped to ${activeProperty?.name ?? "the current property"}.`}
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span className="status-pill" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 999, background: "var(--surface-2, #f1f5f9)", border: "1px solid var(--border, #e2e8f0)", fontSize: 12, fontWeight: 700, color: "var(--text-primary, #0f172a)" }}>
-            <CircleAlert size={14} color="var(--primary, #0284c7)" /> {relevantRows.length} visible
+          <span className="status-pill" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 999, background: "var(--surface-2, var(--color-slate-100))", border: "1px solid var(--border, var(--color-slate-200))", fontSize: 12, fontWeight: 700, color: "var(--text-primary, var(--color-slate-900))" }}>
+            <CircleAlert size={14} color="var(--primary, var(--color-sky))" /> {relevantRows.length} visible
           </span>
-          <button type="button" className="btn ghost sm" onClick={load} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid var(--border, #e2e8f0)", borderRadius: 8, padding: "6px 12px", background: "var(--surface, #ffffff)", cursor: "pointer", fontSize: 12, fontWeight: 750 }}>
+          <button type="button" className="btn ghost sm" onClick={load} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 8, padding: "6px 12px", background: "var(--surface, #ffffff)", cursor: "pointer", fontSize: 12, fontWeight: 750 }}>
             <RefreshCw size={13} /> Refresh
           </button>
         </div>
@@ -238,49 +238,49 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
       ) : error ? (
         <ActivityState message={error} onRetry={load} />
       ) : relevantRows.length === 0 ? (
-        <div className="card" style={{ padding: 48, textAlign: "center", background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12 }}>
-          <CircleAlert size={36} color="var(--text-secondary, #94a3b8)" style={{ margin: "0 auto 12px" }} />
-          <h4 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 800, color: "var(--text-primary, #0f172a)" }}>No open tickets</h4>
-          <p style={{ margin: "0 auto", maxWidth: 420, fontSize: 13, color: "var(--text-secondary, #64748b)" }}>
+        <div className="card" style={{ padding: 48, textAlign: "center", background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12 }}>
+          <CircleAlert size={36} color="var(--text-secondary, var(--color-slate-400))" style={{ margin: "0 auto 12px" }} />
+          <h4 style={{ margin: "0 0 6px", fontSize: 16, fontWeight: 800, color: "var(--text-primary, var(--color-slate-900))" }}>No open tickets</h4>
+          <p style={{ margin: "0 auto", maxWidth: 420, fontSize: 13, color: "var(--text-secondary, var(--color-slate-500))" }}>
             {activeProperty ? `No open tickets or issues are recorded for ${activeProperty.name}.` : "No open tickets or issues recorded in this organization."}
           </p>
         </div>
       ) : (
-        <div className="data-panel table-scroll" style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, overflow: "hidden" }}>
+        <div className="data-panel table-scroll" style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, overflow: "hidden" }}>
           <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ background: "var(--surface-2, #f8fafc)", borderBottom: "1px solid var(--border, #e2e8f0)" }}>
-                <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, #64748b)" }}>Reference</th>
-                <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, #64748b)" }}>Title</th>
-                <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, #64748b)" }}>Raised by</th>
-                <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, #64748b)" }}>Priority</th>
-                <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, #64748b)" }}>Status</th>
-                <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, #64748b)" }}>Updated</th>
-                <th style={{ padding: "12px 16px", textAlign: "right", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, #64748b)" }}>Action</th>
+              <tr style={{ background: "var(--surface-2, var(--color-slate-50))", borderBottom: "1px solid var(--border, var(--color-slate-200))" }}>
+                <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, var(--color-slate-500))" }}>Reference</th>
+                <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, var(--color-slate-500))" }}>Title</th>
+                <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, var(--color-slate-500))" }}>Raised by</th>
+                <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, var(--color-slate-500))" }}>Priority</th>
+                <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, var(--color-slate-500))" }}>Status</th>
+                <th style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, var(--color-slate-500))" }}>Updated</th>
+                <th style={{ padding: "12px 16px", textAlign: "right", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, var(--color-slate-500))" }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {relevantRows.map((row, index) => (
                 <tr
                   key={String(row.id ?? index)}
-                  style={{ cursor: "pointer", borderBottom: "1px solid var(--border, #f1f5f9)", transition: "background 0.15s ease" }}
+                  style={{ cursor: "pointer", borderBottom: "1px solid var(--border, var(--color-slate-100))", transition: "background 0.15s ease" }}
                   onClick={() => void openTicket(row)}
                   className="ticket-row-hover"
                 >
-                  <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono, monospace)", fontSize: 12, fontWeight: 750, color: "var(--primary, #0284c7)" }}>
+                  <td style={{ padding: "12px 16px", fontFamily: "var(--font-mono, monospace)", fontSize: 12, fontWeight: 750, color: "var(--primary, var(--color-sky))" }}>
                     {String(row.reference ?? row.code ?? `TICKET-${index + 1}`)}
                   </td>
                   <td style={{ padding: "12px 16px" }}>
-                    <div style={{ fontWeight: 750, fontSize: 13, color: "var(--text-primary, #0f172a)" }}>
+                    <div style={{ fontWeight: 750, fontSize: 13, color: "var(--text-primary, var(--color-slate-900))" }}>
                       {String(row.title ?? row.subject ?? row.description ?? "—")}
                     </div>
                     {Boolean(row.property_name && portfolio) && (
-                      <div style={{ fontSize: 11, color: "var(--text-secondary, #64748b)", marginTop: 2 }}>
+                      <div style={{ fontSize: 11, color: "var(--text-secondary, var(--color-slate-500))", marginTop: 2 }}>
                         {String(row.property_name)}
                       </div>
                     )}
                   </td>
-                  <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--text-secondary, #334155)", fontWeight: 600 }}>
+                  <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--text-secondary, var(--color-slate-700))", fontWeight: 600 }}>
                     {String(row.raised_by ?? "—")}
                   </td>
                   <td style={{ padding: "12px 16px" }}>
@@ -289,7 +289,7 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
                   <td style={{ padding: "12px 16px" }}>
                     <StatusPill value={String(row.status ?? "open")} />
                   </td>
-                  <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-secondary, #64748b)" }}>
+                  <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-secondary, var(--color-slate-500))" }}>
                     {formatDate(row.updated_at ?? row.created_at)}
                   </td>
                   <td style={{ padding: "12px 16px", textAlign: "right" }}>
@@ -300,7 +300,7 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
                         e.stopPropagation();
                         void openTicket(row);
                       }}
-                      style={{ padding: "4px 10px", fontSize: 12, fontWeight: 700, borderRadius: 6, border: "1px solid var(--border, #e2e8f0)", background: "var(--surface, #ffffff)", cursor: "pointer" }}
+                      style={{ padding: "4px 10px", fontSize: 12, fontWeight: 700, borderRadius: 6, border: "1px solid var(--border, var(--color-slate-200))", background: "var(--surface, #ffffff)", cursor: "pointer" }}
                     >
                       View
                     </button>
@@ -316,10 +316,10 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
         <DetailDrawer
           title={
             <div style={{ display: "flex", alignItems: "center", gap: 10, overflow: "hidden" }}>
-              <span style={{ fontFamily: "var(--font-mono, monospace)", color: "var(--primary, #0284c7)", fontWeight: 800 }}>
+              <span style={{ fontFamily: "var(--font-mono, monospace)", color: "var(--primary, var(--color-sky))", fontWeight: 800 }}>
                 {String(detail?.reference ?? selected.reference ?? "Ticket")}
               </span>
-              <span style={{ color: "var(--text-secondary, #94a3b8)" }}>·</span>
+              <span style={{ color: "var(--text-secondary, var(--color-slate-400))" }}>·</span>
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {String(detail?.title ?? detail?.subject ?? selected.title ?? "Issue Details")}
               </span>
@@ -340,17 +340,17 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
               {detail && (
                 <>
                   {/* Status & Categorization Bar */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "12px 16px", background: "var(--surface-2, #f8fafc)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "12px 16px", background: "var(--surface-2, var(--color-slate-50))", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 10 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 11, fontWeight: 750, textTransform: "uppercase", color: "var(--text-secondary, #64748b)" }}>Status:</span>
+                      <span style={{ fontSize: 11, fontWeight: 750, textTransform: "uppercase", color: "var(--text-secondary, var(--color-slate-500))" }}>Status:</span>
                       <StatusPill value={String(detail.status ?? selected.status ?? "open")} />
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 8 }}>
-                      <span style={{ fontSize: 11, fontWeight: 750, textTransform: "uppercase", color: "var(--text-secondary, #64748b)" }}>Priority:</span>
+                      <span style={{ fontSize: 11, fontWeight: 750, textTransform: "uppercase", color: "var(--text-secondary, var(--color-slate-500))" }}>Priority:</span>
                       <StatusPill value={String(detail.priority ?? selected.priority ?? "normal")} />
                     </div>
                     {Boolean(detail.module || selected.module) ? (
-                      <Chip size="small" label={String(detail.module ?? selected.module).toUpperCase()} sx={{ fontWeight: 800, fontSize: 11, height: 24, bgcolor: "var(--primary-subtle, #e0f2fe)", color: "var(--primary, #0369a1)" }} />
+                      <Chip size="small" label={String(detail.module ?? selected.module).toUpperCase()} sx={{ fontWeight: 800, fontSize: 11, height: 24, bgcolor: "var(--primary-subtle, var(--color-sky-bg))", color: "var(--primary, var(--color-sky-deep))" }} />
                     ) : null}
                     {Boolean(detail.category || detail.issue_category) ? (
                       <Chip size="small" variant="outlined" label={String(detail.category || detail.issue_category)} sx={{ fontWeight: 700, fontSize: 11, height: 24 }} />
@@ -359,18 +359,18 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
 
                   {/* Issue Description Card */}
                   {(detail.description || detail.subject || detail.title || detail.body) && (
-                    <Paper variant="outlined" sx={{ p: 2.5, bgcolor: "var(--surface, #ffffff)", borderColor: "var(--border, #e2e8f0)", borderRadius: 2 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, #64748b)", display: "block", mb: 1 }}>
+                    <Paper variant="outlined" sx={{ p: 2.5, bgcolor: "var(--surface, #ffffff)", borderColor: "var(--border, var(--color-slate-200))", borderRadius: 2 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, var(--color-slate-500))", display: "block", mb: 1 }}>
                         Issue Description
                       </Typography>
-                      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", color: "var(--text-primary, #0f172a)", lineHeight: 1.6, fontSize: 14 }}>
+                      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", color: "var(--text-primary, var(--color-slate-900))", lineHeight: 1.6, fontSize: 14 }}>
                         {String(detail.description || detail.body || detail.title || detail.subject || "")}
                       </Typography>
                     </Paper>
                   )}
 
                   {/* Key Facts Grid */}
-                  <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2, p: 2.5, bgcolor: "var(--surface-2, #f8fafc)", borderRadius: 2, border: "1px solid var(--border, #e2e8f0)" }}>
+                  <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 2, p: 2.5, bgcolor: "var(--surface-2, var(--color-slate-50))", borderRadius: 2, border: "1px solid var(--border, var(--color-slate-200))" }}>
                     <TicketFact label="Property" value={detail.property_name || selected.property_name} />
                     <TicketFact label="Location / Unit" value={detail.location_detail || detail.location || detail.unit_code} />
                     <TicketFact label="Raised by" value={detail.raised_by || detail.requester_name || detail.tenant_name || detail.created_by_name || selected.raised_by} />
@@ -382,7 +382,7 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
                   {/* Evidence / Attachments */}
                   {(Boolean(detail.photo_url) || (Array.isArray(detail.photos) && detail.photos.length > 0)) && (
                     <Box>
-                      <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", color: "var(--text-secondary, #64748b)", display: "block", mb: 1 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", color: "var(--text-secondary, var(--color-slate-500))", display: "block", mb: 1 }}>
                         Attached Evidence & Media
                       </Typography>
                       <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
@@ -404,16 +404,16 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
                   {Array.isArray(detail.messages) && (
                     <Box>
                       <Divider sx={{ my: 2 }} />
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--text-primary, #0f172a)", mb: 1.5 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--text-primary, var(--color-slate-900))", mb: 1.5 }}>
                         Conversation & Activity
                       </Typography>
                       <Stack spacing={1.5} sx={{ mb: 2 }}>
                         {detail.messages.map((message: ActivityRecord, index: number) => (
-                          <Paper key={String(message.id ?? index)} variant="outlined" sx={{ p: 2, bgcolor: "var(--surface, #ffffff)", borderColor: "var(--border, #e2e8f0)", borderRadius: 2 }}>
-                            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", color: "var(--text-primary, #0f172a)", lineHeight: 1.5 }}>
+                          <Paper key={String(message.id ?? index)} variant="outlined" sx={{ p: 2, bgcolor: "var(--surface, #ffffff)", borderColor: "var(--border, var(--color-slate-200))", borderRadius: 2 }}>
+                            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", color: "var(--text-primary, var(--color-slate-900))", lineHeight: 1.5 }}>
                               {String(message.message ?? "")}
                             </Typography>
-                            <Typography variant="caption" sx={{ color: "var(--text-secondary, #64748b)", display: "block", mt: 1, fontWeight: 600 }}>
+                            <Typography variant="caption" sx={{ color: "var(--text-secondary, var(--color-slate-500))", display: "block", mt: 1, fontWeight: 600 }}>
                               {String(message.sender_name ?? "System")} · {formatDate(message.created_at)}
                             </Typography>
                           </Paper>
@@ -443,7 +443,7 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
                   {/* Direct Jump & Workflow Action Center */}
                   <Box>
                     <Divider sx={{ my: 2 }} />
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--text-primary, #0f172a)", mb: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--text-primary, var(--color-slate-900))", mb: 1.5 }}>
                       Workflow & Resolution Actions
                     </Typography>
 
@@ -560,10 +560,10 @@ export function ModuleTicketsView({ moduleName, portfolio = false }: { moduleNam
 function TicketFact({ label, value }: { label: string; value: unknown }) {
   return (
     <Box>
-      <Typography variant="caption" sx={{ color: "var(--text-secondary, #64748b)", fontWeight: 750, textTransform: "uppercase", fontSize: 11, display: "block", mb: 0.25 }}>
+      <Typography variant="caption" sx={{ color: "var(--text-secondary, var(--color-slate-500))", fontWeight: 750, textTransform: "uppercase", fontSize: 11, display: "block", mb: 0.25 }}>
         {label}
       </Typography>
-      <Typography variant="body2" sx={{ fontWeight: 750, color: "var(--text-primary, #0f172a)", fontSize: 13 }}>
+      <Typography variant="body2" sx={{ fontWeight: 750, color: "var(--text-primary, var(--color-slate-900))", fontSize: 13 }}>
         {value ? String(value) : "—"}
       </Typography>
     </Box>
@@ -602,13 +602,13 @@ export function ModuleCalendarView({ moduleName, portfolio = false }: { moduleNa
   )), [rows, portfolio, moduleKey, moduleFilter, typeFilter]);
   const modules = [...new Set(rows.map(row => String(row.module ?? "operations")))].sort();
   const types = [...new Set(rows.map(row => String(row.event_type ?? "event")))].sort();
-  const borderColors: Record<string, string> = { property: "#e23b3b", facility: "#0284c7", companion: "#16a34a", monitoring: "#d97706" };
+  const borderColors: Record<string, string> = { property: "var(--color-brand-red)", facility: "var(--color-sky)", companion: "var(--color-success)", monitoring: "var(--color-warning)" };
   const calendarEvents = relevantRows.map((row, index) => ({
     id: String(row.id ?? index), title: String(row.title ?? "Untitled event"),
     start: String(row.starts_at), end: row.ends_at ? String(row.ends_at) : undefined,
     allDay: Boolean(row.all_day), url: String(row.source_url ?? ""),
-    backgroundColor: String(row.status) === "overdue" ? "#dc2626" : borderColors[String(row.module)] ?? "#64748b",
-    borderColor: String(row.status) === "overdue" ? "#dc2626" : borderColors[String(row.module)] ?? "#64748b",
+    backgroundColor: String(row.status) === "overdue" ? "var(--color-danger)" : borderColors[String(row.module)] ?? "var(--color-slate-500)",
+    borderColor: String(row.status) === "overdue" ? "var(--color-danger)" : borderColors[String(row.module)] ?? "var(--color-slate-500)",
     extendedProps: { subtitle: row.subtitle, propertyName: row.property_name, module: row.module },
   }));
 

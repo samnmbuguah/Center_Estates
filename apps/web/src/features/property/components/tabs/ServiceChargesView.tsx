@@ -82,7 +82,7 @@ export function ServiceChargesView({
             <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>Auto-inject onto tenant bills</span>
           </div>
           <div style={{ padding: "12px 14px", borderRadius: 8, background: "var(--surface-sunken)", border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: "#0d9488" }}>Step 5 · Reconciliation</span>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "var(--color-teal)" }}>Step 5 · Reconciliation</span>
             <span style={{ fontSize: 13, color: "var(--text)", fontWeight: 700 }}>Audit vs. Actual OPEX</span>
             <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>Prorated variance & certificates</span>
           </div>

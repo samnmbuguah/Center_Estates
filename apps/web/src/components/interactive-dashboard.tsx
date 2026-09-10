@@ -82,11 +82,11 @@ export function InteractiveDashboard({
         sx={{ 
           height: "100%", 
           borderRadius: 2, 
-          border: `1px solid ${kpi.color}20`,
+          border: `1px solid color-mix(in srgb, ${kpi.color} 13%, transparent)`,
           transition: "all 0.3s ease",
           cursor: kpi.drillDown ? "pointer" : "default",
           "&:hover": { 
-            boxShadow: `0 4px 20px ${kpi.color}30`,
+            boxShadow: `0 4px 20px color-mix(in srgb, ${kpi.color} 19%, transparent)`,
             transform: "translateY(-2px)"
           }
         }}
@@ -96,7 +96,7 @@ export function InteractiveDashboard({
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
             <Box sx={{ 
               width: 48, height: 48, borderRadius: 2, 
-              bgcolor: `${kpi.color}15`, 
+              bgcolor: `color-mix(in srgb, ${kpi.color} 8%, transparent)`, 
               color: kpi.color,
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 24
@@ -114,7 +114,7 @@ export function InteractiveDashboard({
             )}
           </Box>
           
-          <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, mb: 0.5 }}>
+          <Typography variant="caption" sx={{ color: "var(--color-slate-500)", fontWeight: 600, mb: 0.5 }}>
             {kpi.title}
           </Typography>
           
@@ -123,7 +123,7 @@ export function InteractiveDashboard({
           </Typography>
           
           {kpi.previousValue && (
-            <Typography variant="caption" sx={{ color: "#94a3b8" }}>
+            <Typography variant="caption" sx={{ color: "var(--color-slate-400)" }}>
               vs {kpi.previousValue.toLocaleString()} {kpi.suffix || ""} previous period
             </Typography>
           )}
@@ -139,7 +139,7 @@ export function InteractiveDashboard({
     if (data.length === 0) return null;
 
     return (
-      <Card sx={{ borderRadius: 2, border: "1px solid #e2e8f0" }}>
+      <Card sx={{ borderRadius: 2, border: "1px solid var(--color-slate-200)" }}>
         <CardContent sx={{ p: 3 }}>
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 700 }}>
@@ -175,7 +175,7 @@ export function InteractiveDashboard({
                     sx={{ 
                       width: "80%", 
                       height: `${(item.value / Math.max(...data.map(d => d.value))) * 80}%`,
-                      bgcolor: item.color || "#4f46e5",
+                      bgcolor: item.color || "var(--color-indigo)",
                       borderRadius: 1,
                       transition: "height 0.3s ease",
                       position: "relative",
@@ -231,7 +231,7 @@ export function InteractiveDashboard({
                       cy="100"
                       r="80"
                       fill="transparent"
-                      stroke={item.color || "#4f46e5"}
+                      stroke={item.color || "var(--color-indigo)"}
                       strokeWidth="30"
                       strokeDasharray={`${percentage * circumference} ${circumference}`}
                       strokeDashoffset={-offset}
@@ -246,7 +246,7 @@ export function InteractiveDashboard({
                     <Box 
                       sx={{ 
                         width: 12, height: 12, borderRadius: "50%", 
-                        bgcolor: item.color || "#4f46e5" 
+                        bgcolor: item.color || "var(--color-indigo)" 
                       }} 
                     />
                     <Typography variant="caption" sx={{ fontSize: 10 }}>
@@ -336,7 +336,7 @@ export function InteractiveDashboard({
 
           {/* Detailed View */}
           {viewMode === "detailed" && (
-            <Card sx={{ borderRadius: 2, border: "1px solid #e2e8f0", mt: 4 }}>
+            <Card sx={{ borderRadius: 2, border: "1px solid var(--color-slate-200)", mt: 4 }}>
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700, mb: 3 }}>
                   Detailed Analysis
@@ -367,7 +367,7 @@ export function InteractiveDashboard({
                   <> This represents a {selectedKPI.trend === "up" ? "increase" : "decrease"} of {selectedKPI.trendPercentage?.toFixed(1)}% compared to the previous period ({selectedKPI.previousValue.toLocaleString()}{selectedKPI.suffix || ""}).</>
                 )}
               </Typography>
-              <Box sx={{ p: 2, bgcolor: `${selectedKPI.color}10`, borderRadius: 2 }}>
+              <Box sx={{ p: 2, bgcolor: `color-mix(in srgb, ${selectedKPI.color} 6%, transparent)`, borderRadius: 2 }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                   <Info size={16} style={{ color: selectedKPI.color }} />
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, color: selectedKPI.color }}>

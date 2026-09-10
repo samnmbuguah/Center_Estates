@@ -43,7 +43,7 @@ export default function SinglePropertyWorkspacePage({ params }: { params: Promis
       eyebrow="Property Workspace"
       title={propName}
       subtitle="Unified control center for buildings, units occupancy, lease contracts, arrears, and maintenance."
-      accent="#00a3ff"
+      accent="var(--color-brand-blue)"
       groups={propertyNav}
       activeId="properties"
       onSelect={(tabId) => {
@@ -53,7 +53,7 @@ export default function SinglePropertyWorkspacePage({ params }: { params: Promis
     >
       <div className="property-app">
         <div style={{ marginBottom: 14 }}>
-          <Link href="/property/properties" style={{ color: "#00a3ff", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
+          <Link href="/property/properties" style={{ color: "var(--color-brand-blue)", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
             $\leftarrow$ Back to Property Register
           </Link>
         </div>
@@ -64,19 +64,19 @@ export default function SinglePropertyWorkspacePage({ params }: { params: Promis
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "#64748b" }}>Property Code</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#00a3ff", fontFamily: "monospace" }}>{String(property?.code)}</h3>
+                <small style={{ color: "var(--color-slate-500)" }}>Property Code</small>
+                <h3 style={{ margin: "4px 0 0 0", color: "var(--color-brand-blue)", fontFamily: "monospace" }}>{String(property?.code)}</h3>
               </div>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "#64748b" }}>Total Units</small>
+                <small style={{ color: "var(--color-slate-500)" }}>Total Units</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--text)" }}>{String(property?.units_count || 48)} Units</h3>
               </div>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "#64748b" }}>Occupancy Rate</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#16a34a" }}>94.2%</h3>
+                <small style={{ color: "var(--color-slate-500)" }}>Occupancy Rate</small>
+                <h3 style={{ margin: "4px 0 0 0", color: "var(--color-success)" }}>94.2%</h3>
               </div>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "#64748b" }}>City / Location</small>
+                <small style={{ color: "var(--color-slate-500)" }}>City / Location</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--text)" }}>{String(property?.city || "Nairobi")}</h3>
               </div>
             </div>
@@ -84,23 +84,23 @@ export default function SinglePropertyWorkspacePage({ params }: { params: Promis
             <h3 style={{ fontSize: "1.1rem", margin: "0 0 12px 0", color: "var(--text)" }}>Property Sub-Workspaces & Management Areas</h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
               <Link href={`/property/tenants`} style={{ textDecoration: "none" }}>
-                <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 8, padding: 16, cursor: "pointer" }}>
-                  <h4 style={{ margin: "0 0 4px 0", color: "#00a3ff" }}>👥 Tenant Directory & Profiles</h4>
-                  <p style={{ margin: 0, fontSize: "0.85rem", color: "#64748b" }}>Active tenants, contact details, lease agreements, and arrears ledgers.</p>
+                <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 16, cursor: "pointer" }}>
+                  <h4 style={{ margin: "0 0 4px 0", color: "var(--color-brand-blue)" }}>👥 Tenant Directory & Profiles</h4>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-slate-500)" }}>Active tenants, contact details, lease agreements, and arrears ledgers.</p>
                 </div>
               </Link>
 
               <Link href={`/property/leases`} style={{ textDecoration: "none" }}>
-                <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 8, padding: 16, cursor: "pointer" }}>
-                  <h4 style={{ margin: "0 0 4px 0", color: "#16a34a" }}>📜 Lease Contracts & Escalations</h4>
-                  <p style={{ margin: 0, fontSize: "0.85rem", color: "#64748b" }}>Active leases, rent escalation dates, security deposits, and contract expiry tracking.</p>
+                <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 16, cursor: "pointer" }}>
+                  <h4 style={{ margin: "0 0 4px 0", color: "var(--color-success)" }}>📜 Lease Contracts & Escalations</h4>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-slate-500)" }}>Active leases, rent escalation dates, security deposits, and contract expiry tracking.</p>
                 </div>
               </Link>
 
               <Link href={`/property/collections`} style={{ textDecoration: "none" }}>
-                <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 8, padding: 16, cursor: "pointer" }}>
-                  <h4 style={{ margin: "0 0 4px 0", color: "#7c3aed" }}>💳 Rent Collections & Arrears</h4>
-                  <p style={{ margin: 0, fontSize: "0.85rem", color: "#64748b" }}>Monthly rent invoicing, receipt allocations, bank reconciliation, and automated reminders.</p>
+                <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 16, cursor: "pointer" }}>
+                  <h4 style={{ margin: "0 0 4px 0", color: "var(--color-violet)" }}>💳 Rent Collections & Arrears</h4>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-slate-500)" }}>Monthly rent invoicing, receipt allocations, bank reconciliation, and automated reminders.</p>
                 </div>
               </Link>
             </div>

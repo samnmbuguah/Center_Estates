@@ -49,7 +49,7 @@ export function QmChatLauncher({ enabled, organizationId }: { enabled: boolean; 
           color="primary"
           aria-label="Open Quartermaster AI companion"
           onClick={() => { setInitialPrompt(undefined); setLoaded(true); setOpen(true); }}
-          sx={{ position: "fixed", right: { xs: 12, sm: 18 }, bottom: { xs: "max(12px, env(safe-area-inset-bottom))", sm: 18 }, zIndex: 1250, background: "linear-gradient(135deg, #0d9488, #0f172a)", boxShadow: 8 }}
+          sx={{ position: "fixed", right: { xs: 12, sm: 18 }, bottom: { xs: "max(12px, env(safe-area-inset-bottom))", sm: 18 }, zIndex: 1250, background: "linear-gradient(135deg, var(--color-teal), var(--color-slate-900))", boxShadow: 8 }}
         >
           <Badge color="success" variant="dot" overlap="circular"><Sparkles size={23} /></Badge>
         </Fab>

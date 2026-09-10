@@ -233,7 +233,7 @@ export function ProjectDocuments() {
         </div>
         <button
           className="btn btn-primary"
-          style={{ background: "#d92d2d", borderColor: "#d92d2d" }}
+          style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }}
           onClick={() => setShowForm((v) => !v)}
         >
           {showForm ? <X size={15} style={{ marginRight: 4 }} /> : <Upload size={15} style={{ marginRight: 4 }} />}
@@ -323,9 +323,9 @@ export function ProjectDocuments() {
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
             <KpiCard label="Total Documents" value={docs.length} color="var(--text)" icon={<FileText size={18} />} />
-            <KpiCard label="Drawings" value={typeCount("drawing")} color="#00a3ff" icon={<Folder size={18} />} />
-            <KpiCard label="Contracts" value={typeCount("contract")} color="#10b981" icon={<FileText size={18} />} />
-            <KpiCard label="With URL" value={withUrl} color="#f59e0b" sub={`${docs.length - withUrl} without link`} />
+            <KpiCard label="Drawings" value={typeCount("drawing")} color="var(--color-brand-blue)" icon={<Folder size={18} />} />
+            <KpiCard label="Contracts" value={typeCount("contract")} color="var(--color-emerald)" icon={<FileText size={18} />} />
+            <KpiCard label="With URL" value={withUrl} color="var(--color-amber)" sub={`${docs.length - withUrl} without link`} />
           </div>
 
           {docs.length === 0 ? (
@@ -413,7 +413,7 @@ export function ProjectDocuments() {
                             <td style={{ padding: 8, fontWeight: 700, color: "var(--text)", fontFamily: "IBM Plex Mono, monospace" }}>
                               {doc.id}
                             </td>
-                            <td style={{ padding: 8, fontWeight: 600, color: url ? "#00a3ff" : "var(--text)" }}>
+                            <td style={{ padding: 8, fontWeight: 600, color: url ? "var(--color-brand-blue)" : "var(--text)" }}>
                               {url ? (
                                 <a href={url} target="_blank" rel="noreferrer" style={{ color: "inherit" }}>{doc.title}</a>
                               ) : (
@@ -431,7 +431,7 @@ export function ProjectDocuments() {
                             <td style={{ padding: 8, textAlign: "right" }}>
                               <button
                                 className="btn sm ghost"
-                                style={{ color: "#00a3ff", marginRight: 4 }}
+                                style={{ color: "var(--color-brand-blue)", marginRight: 4 }}
                                 disabled={!url}
                                 title={url ? "Open" : "No URL"}
                                 onClick={() => openUrl(url)}
@@ -449,7 +449,7 @@ export function ProjectDocuments() {
                               </button>
                               <button
                                 className="btn sm ghost"
-                                style={{ color: "#ef4444" }}
+                                style={{ color: "var(--color-danger)" }}
                                 title="Delete"
                                 onClick={() => handleDelete(doc)}
                               >
@@ -496,7 +496,7 @@ function FolderBtn({
         borderRadius: 6,
         border: "none",
         background: active ? "rgba(0,163,255,0.15)" : "transparent",
-        color: active ? "#00a3ff" : "var(--text)",
+        color: active ? "var(--color-brand-blue)" : "var(--text)",
         fontWeight: active ? 700 : 400,
         fontSize: 12,
         cursor: "pointer",
@@ -504,7 +504,7 @@ function FolderBtn({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <Folder size={16} style={{ color: active ? "#00a3ff" : "var(--muted)" }} />
+        <Folder size={16} style={{ color: active ? "var(--color-brand-blue)" : "var(--muted)" }} />
         <span>{label}</span>
       </div>
       <span style={{ fontSize: 11, color: "var(--muted)" }}>{count}</span>

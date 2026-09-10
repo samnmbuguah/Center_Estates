@@ -623,7 +623,7 @@ export function PropertyModals(props: PropertyModalsProps) {
               </Field>
 
               {selectedReceiptPayerKey && (
-                <div style={{ background: "var(--surface-1, #f8fafc)", border: "1px solid var(--border-color, #e2e8f0)", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ background: "var(--surface-1, var(--color-slate-50))", border: "1px solid var(--border-color, var(--color-slate-200))", borderRadius: 8, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                     <div>
                       <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, color: "var(--text-secondary)", fontWeight: 700 }}>
@@ -632,11 +632,11 @@ export function PropertyModals(props: PropertyModalsProps) {
 
                       <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 2 }}>
                         <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>Total Outstanding:</span>
-                        <strong style={{ fontSize: 16, color: totalOutstanding > 0 ? "#e11d48" : "#16a34a" }}>
+                        <strong style={{ fontSize: 16, color: totalOutstanding > 0 ? "#e11d48" : "var(--color-success)" }}>
                           {kM(totalOutstanding)}
                         </strong>
                         {payerWalletCredit > 0 && (
-                          <span style={{ fontSize: 12, background: "rgba(16, 185, 129, 0.15)", color: "#047857", padding: "2px 8px", borderRadius: 4, fontWeight: 600 }}>
+                          <span style={{ fontSize: 12, background: "rgba(16, 185, 129, 0.15)", color: "var(--color-emerald-deep)", padding: "2px 8px", borderRadius: 4, fontWeight: 600 }}>
                             Wallet Credit: {kM(payerWalletCredit)}
                           </span>
                         )}
@@ -646,7 +646,7 @@ export function PropertyModals(props: PropertyModalsProps) {
                       <button
                         type="button"
                         className="btn ghost sm"
-                        style={{ background: "rgba(37, 99, 235, 0.08)", borderColor: "rgba(37, 99, 235, 0.3)", color: "#1d4ed8", fontWeight: 700 }}
+                        style={{ background: "rgba(37, 99, 235, 0.08)", borderColor: "rgba(37, 99, 235, 0.3)", color: "var(--color-info-strong)", fontWeight: 700 }}
                         onClick={() => setReceiptAmountInput(String(totalOutstanding))}
                       >
                         ⚡ Auto-fill Full Balance ({kM(totalOutstanding)})
@@ -659,9 +659,9 @@ export function PropertyModals(props: PropertyModalsProps) {
                       <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 4 }}>
                         Pending Invoices ({openPayerInvoices.length})
                       </div>
-                      <div style={{ maxHeight: 110, overflowY: "auto", border: "1px solid var(--border-color, #e2e8f0)", borderRadius: 6 }}>
+                      <div style={{ maxHeight: 110, overflowY: "auto", border: "1px solid var(--border-color, var(--color-slate-200))", borderRadius: 6 }}>
                         <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse", textAlign: "left" }}>
-                          <thead style={{ background: "var(--surface-2, #f1f5f9)", position: "sticky", top: 0 }}>
+                          <thead style={{ background: "var(--surface-2, var(--color-slate-100))", position: "sticky", top: 0 }}>
                             <tr>
                               <th style={{ padding: "4px 8px" }}>Invoice #</th>
                               <th style={{ padding: "4px 8px" }}>Due Date</th>
@@ -683,7 +683,7 @@ export function PropertyModals(props: PropertyModalsProps) {
                       </div>
                     </div>
                   ) : (
-                    <div style={{ fontSize: 12, color: "#16a34a", fontStyle: "italic", background: "rgba(22, 163, 74, 0.08)", padding: "6px 10px", borderRadius: 4 }}>
+                    <div style={{ fontSize: 12, color: "var(--color-success)", fontStyle: "italic", background: "rgba(22, 163, 74, 0.08)", padding: "6px 10px", borderRadius: 4 }}>
                       ✓ All invoices paid up to date. Any new payment will be credited to available wallet advance.
                     </div>
                   )}
@@ -839,7 +839,7 @@ export function PropertyModals(props: PropertyModalsProps) {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div style={{ fontSize: 12, fontWeight: 700 }}>Estimated Invoice Breakdown</div>
                     {billingContext && billingContext.months_count > 1 && (
-                      <span style={{ fontSize: 11, background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", padding: "2px 8px", borderRadius: 12, fontWeight: 600 }}>
+                      <span style={{ fontSize: 11, background: "rgba(59, 130, 246, 0.12)", color: "var(--color-info)", padding: "2px 8px", borderRadius: 12, fontWeight: 600 }}>
                         {billingContext.label} · {billingContext.months_count} Months
                       </span>
                     )}
@@ -861,11 +861,11 @@ export function PropertyModals(props: PropertyModalsProps) {
                     </div>
                     <div>
                       <span className="muted" style={{ fontSize: 11 }}>Total Payable by Tenant</span>
-                      <div className="mono" style={{ fontSize: 15, fontWeight: 800, color: "#16a34a" }}>
+                      <div className="mono" style={{ fontSize: 15, fontWeight: 800, color: "var(--color-success)" }}>
                         {kM(Number(invoiceDraft.subtotal) * (1 + Number(invoiceDraft.tax_rate) / 100))}
                       </div>
                       {billingContext && billingContext.months_count > 1 && (
-                        <div className="muted" style={{ fontSize: 10, marginTop: 2, color: "#16a34a" }}>{kM((Number(invoiceDraft.subtotal) * (1 + Number(invoiceDraft.tax_rate) / 100)) / billingContext.months_count)} / month</div>
+                        <div className="muted" style={{ fontSize: 10, marginTop: 2, color: "var(--color-success)" }}>{kM((Number(invoiceDraft.subtotal) * (1 + Number(invoiceDraft.tax_rate) / 100)) / billingContext.months_count)} / month</div>
                       )}
                     </div>
                   </div>
@@ -906,7 +906,7 @@ export function PropertyModals(props: PropertyModalsProps) {
                                     <td style={{ padding: "6px 8px", fontWeight: 600 }}>{monthLabel}</td>
                                     <td style={{ padding: "6px 8px", textAlign: "right" }} className="mono">{kM(basePerMonth)}</td>
                                     <td style={{ padding: "6px 8px", textAlign: "right" }} className="mono">{kM(vatPerMonth)}</td>
-                                    <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600, color: "#16a34a" }} className="mono">{kM(totalPerMonth)}</td>
+                                    <td style={{ padding: "6px 8px", textAlign: "right", fontWeight: 600, color: "var(--color-success)" }} className="mono">{kM(totalPerMonth)}</td>
                                   </tr>
                                 );
                               }
@@ -918,7 +918,7 @@ export function PropertyModals(props: PropertyModalsProps) {
                               <td colSpan={2} style={{ padding: "6px 8px" }}>Total ({billingContext.months_count} Months)</td>
                               <td style={{ padding: "6px 8px", textAlign: "right" }} className="mono">{kM(Number(invoiceDraft.subtotal))}</td>
                               <td style={{ padding: "6px 8px", textAlign: "right" }} className="mono">{kM(Number(invoiceDraft.subtotal) * (Number(invoiceDraft.tax_rate) / 100))}</td>
-                              <td style={{ padding: "6px 8px", textAlign: "right", color: "#16a34a" }} className="mono">{kM(Number(invoiceDraft.subtotal) * (1 + Number(invoiceDraft.tax_rate) / 100))}</td>
+                              <td style={{ padding: "6px 8px", textAlign: "right", color: "var(--color-success)" }} className="mono">{kM(Number(invoiceDraft.subtotal) * (1 + Number(invoiceDraft.tax_rate) / 100))}</td>
                             </tr>
                           </tfoot>
                         </table>

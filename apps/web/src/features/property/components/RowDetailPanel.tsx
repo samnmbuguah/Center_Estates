@@ -43,15 +43,15 @@ export function RowDetailPanel({
           {/* Health & Status Badges */}
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             {isProspect ? (
-              <span style={{ background: "#fef3c7", color: "#92400e", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
+              <span style={{ background: "var(--color-amber-bg)", color: "var(--color-amber-strong)", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
                 ◌ Pending Activation
               </span>
             ) : (
-              <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
+              <span style={{ background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
                 ● Lease Active
               </span>
             )}
-            <span style={{ background: "#dbeafe", color: "#1e40af", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
+            <span style={{ background: "var(--color-blue-bg)", color: "var(--color-info-deep)", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
               ✓ Rent Current (0 Arrears)
             </span>
             <span style={{ background: "var(--surface-2)", border: "1px solid var(--border)", padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 700 }}>
@@ -76,7 +76,7 @@ export function RowDetailPanel({
                 className="btn primary sm"
                 onClick={() => void handleActivate()}
                 disabled={activating}
-                style={{ background: "#16a34a", borderColor: "#15803d", fontWeight: 800 }}
+                style={{ background: "var(--color-success)", borderColor: "var(--color-success-strong)", fontWeight: 800 }}
               >
                 {activating ? "Activating…" : "⚡ Activate Tenancy & Leases"}
               </button>
@@ -130,7 +130,7 @@ export function RowDetailPanel({
                 className="btn ghost sm"
                 onClick={() => setConfirmDelete(true)}
                 style={{
-                  color: "#dc2626",
+                  color: "var(--color-danger)",
                   borderColor: "rgba(220, 38, 38, 0.3)",
                   fontWeight: 800,
                   marginLeft: "auto",
@@ -149,14 +149,14 @@ export function RowDetailPanel({
           style={{
             padding: 12,
             borderRadius: 8,
-            background: "#fee2e2",
+            background: "var(--color-red-bg)",
             border: "1px solid #f87171",
             display: "flex",
             flexDirection: "column",
             gap: 8,
           }}
         >
-          <strong style={{ color: "#991b1b", fontSize: 13 }}>
+          <strong style={{ color: "var(--color-danger-deep)", fontSize: 13 }}>
             Are you sure you want to delete this tenant?
           </strong>
           <p style={{ margin: 0, fontSize: 11, color: "#7f1d1d" }}>
@@ -176,7 +176,7 @@ export function RowDetailPanel({
                 onDelete(row);
                 setConfirmDelete(false);
               }}
-              style={{ background: "#dc2626", color: "#fff", fontWeight: 800 }}
+              style={{ background: "var(--color-danger)", color: "#fff", fontWeight: 800 }}
             >
               Confirm Delete
             </button>
@@ -202,7 +202,7 @@ export function RowDetailPanel({
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span className="mono" style={{ fontWeight: 800, fontSize: 12 }}>{u.code}</span>
                     {u.floor && (
-                      <span style={{ fontSize: 10, background: "#e0e7ff", color: "#4338ca", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>
+                      <span style={{ fontSize: 10, background: "var(--color-indigo-bg)", color: "#4338ca", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>
                         Floor {u.floor}
                       </span>
                     )}
@@ -235,7 +235,7 @@ export function RowDetailPanel({
         <div style={{ padding: "12px", background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-primary)", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>🛠️ Service Providers &amp; Service Lines</span>
-            <span style={{ fontSize: 11, background: "rgba(37, 99, 235, 0.1)", color: "#2563eb", padding: "1px 6px", borderRadius: 4 }}>
+            <span style={{ fontSize: 11, background: "rgba(37, 99, 235, 0.1)", color: "var(--color-info)", padding: "1px 6px", borderRadius: 4 }}>
               {(row as any).metadata.service_providers.length} registered
             </span>
           </div>
@@ -245,7 +245,7 @@ export function RowDetailPanel({
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ fontWeight: 800, fontSize: 12 }}>{sp.service || sp.name || "Service Line"}</span>
-                    <span style={{ fontSize: 10, background: "#e0e7ff", color: "#4338ca", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>
+                    <span style={{ fontSize: 10, background: "var(--color-indigo-bg)", color: "#4338ca", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>
                       {sp.category || "General Maintenance"}
                     </span>
                   </div>
@@ -274,7 +274,7 @@ export function RowDetailPanel({
         <div style={{ padding: "12px", background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--border)" }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-primary)", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>⚡ Utility Accounts &amp; Meters</span>
-            <span style={{ fontSize: 11, background: "rgba(22, 163, 74, 0.1)", color: "#16a34a", padding: "1px 6px", borderRadius: 4 }}>
+            <span style={{ fontSize: 11, background: "rgba(22, 163, 74, 0.1)", color: "var(--color-success)", padding: "1px 6px", borderRadius: 4 }}>
               {(row as any).metadata.utilities.length} accounts
             </span>
           </div>
@@ -285,12 +285,12 @@ export function RowDetailPanel({
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 800, fontSize: 12, textTransform: "capitalize" }}>{u.type || "Utility"}</span>
                     {u.unit_code && (
-                      <span style={{ fontSize: 10, background: "rgba(79, 70, 229, 0.1)", color: "#4f46e5", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>
+                      <span style={{ fontSize: 10, background: "rgba(79, 70, 229, 0.1)", color: "var(--color-indigo)", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>
                         Unit {u.unit_code}
                       </span>
                     )}
                     {u.meter_code && (
-                      <span className="mono" style={{ fontSize: 10, background: "#fef3c7", color: "#92400e", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>
+                      <span className="mono" style={{ fontSize: 10, background: "var(--color-amber-bg)", color: "var(--color-amber-strong)", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>
                         Meter: {u.meter_code}
                       </span>
                     )}
@@ -328,7 +328,7 @@ export function RowDetailPanel({
                   <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{c.role || "Contact"}</div>
                 </div>
                 <div style={{ textAlign: "right", fontSize: 11 }}>
-                  {c.phone && <div><a href={`tel:${c.phone}`} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 600 }}>{c.phone}</a></div>}
+                  {c.phone && <div><a href={`tel:${c.phone}`} style={{ color: "var(--color-info)", textDecoration: "none", fontWeight: 600 }}>{c.phone}</a></div>}
                   {c.email && <div><a href={`mailto:${c.email}`} style={{ color: "var(--muted)", textDecoration: "none", fontSize: 10 }}>{c.email}</a></div>}
                 </div>
               </div>

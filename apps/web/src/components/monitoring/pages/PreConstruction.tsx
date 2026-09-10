@@ -17,7 +17,7 @@ const PRE_CONSTRUCTION_MODULES = [
     title: "1. Project Planning & Feasibility",
     desc: "Land & title info, site feasibility studies, and initial scope definition.",
     icon: Compass,
-    color: "#3b82f6",
+    color: "var(--color-blue)",
     links: [
       { label: "Onboard New Project", path: "/app/onboarding" },
       { label: "View Portfolio Planning", path: "/app/projects" },
@@ -27,7 +27,7 @@ const PRE_CONSTRUCTION_MODULES = [
     title: "2. Design & Documentation",
     desc: "Architectural, structural, and MEP drawings, specs, and BIM models.",
     icon: Ruler,
-    color: "#10b981",
+    color: "var(--color-emerald)",
     links: [
       { label: "Project Documents & Drawings", path: "/app/project-documents" },
       { label: "BIM Models & Discrepancies", path: "/app/projects" },
@@ -37,7 +37,7 @@ const PRE_CONSTRUCTION_MODULES = [
     title: "3. Budgeting & Bills of Quantities",
     desc: "Baseline BoQs, material reconciliation, cost estimation, and rate review.",
     icon: Calculator,
-    color: "#f59e0b",
+    color: "var(--color-amber)",
     links: [
       { label: "BoQ Review & Rates", path: "/app/projects" },
       { label: "Cost Dashboard", path: "/app/finance" },
@@ -47,7 +47,7 @@ const PRE_CONSTRUCTION_MODULES = [
     title: "4. Statutory Approvals & Permits",
     desc: "NEMA EIA licenses, County building permits, safeguards, and compliance.",
     icon: FileCheck,
-    color: "#8b5cf6",
+    color: "var(--color-violet-strong)",
     links: [
       { label: "Approvals & Permits Register", path: "/app/approvals" },
       { label: "Environmental & Safeguards", path: "/app/projects" },
@@ -95,10 +95,10 @@ export function PreConstruction() {
       {/* 4 KPI Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {[
-          { label: "Projects in Pre-Construction", value: "3", sub: "1 Ready, 2 In Progress", color: "#3b82f6" },
-          { label: "Pending Permits & Approvals", value: "7", sub: "NEMA & County Permits", color: "#f59e0b" },
-          { label: "BoQs & Designs Uploaded", value: "5", sub: "Baseline costed", color: "#10b981" },
-          { label: "Consultant Contracts Signed", value: "4", sub: "Architects, Engineers, QS", color: "#8b5cf6" },
+          { label: "Projects in Pre-Construction", value: "3", sub: "1 Ready, 2 In Progress", color: "var(--color-blue)" },
+          { label: "Pending Permits & Approvals", value: "7", sub: "NEMA & County Permits", color: "var(--color-amber)" },
+          { label: "BoQs & Designs Uploaded", value: "5", sub: "Baseline costed", color: "var(--color-emerald)" },
+          { label: "Consultant Contracts Signed", value: "4", sub: "Architects, Engineers, QS", color: "var(--color-violet-strong)" },
         ].map(k => (
           <div key={k.label} style={{
             padding: "16px 18px", borderRadius: 12, background: "var(--surface)",
@@ -115,7 +115,7 @@ export function PreConstruction() {
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "14px 20px", background: "var(--surface-2)", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontWeight: 800, fontSize: 14 }}>PROJECTS IN PRE-CONSTRUCTION STAGE</span>
-          <button className="btn ghost sm" onClick={() => navigate("/app/projects")} style={{ fontSize: 12, color: "#e53e3e" }}>
+          <button className="btn ghost sm" onClick={() => navigate("/app/projects")} style={{ fontSize: 12, color: "var(--color-danger)" }}>
             View Full Portfolio →
           </button>
         </div>
@@ -136,13 +136,13 @@ export function PreConstruction() {
                 <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 700 }}>{p.budget}</td>
                 <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--muted)" }}>{p.approvals}</td>
                 <td style={{ padding: "12px 16px", minWidth: 100 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 2, color: p.readiness === 100 ? "#10b981" : "#f59e0b" }}>{p.readiness}%</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 2, color: p.readiness === 100 ? "var(--color-emerald)" : "var(--color-amber)" }}>{p.readiness}%</div>
                   <div style={{ height: 5, borderRadius: 3, background: "var(--surface-3)", overflow: "hidden" }}>
-                    <div style={{ width: `${p.readiness}%`, height: "100%", background: p.readiness === 100 ? "#10b981" : "#f59e0b", borderRadius: 3 }} />
+                    <div style={{ width: `${p.readiness}%`, height: "100%", background: p.readiness === 100 ? "var(--color-emerald)" : "var(--color-amber)", borderRadius: 3 }} />
                   </div>
                 </td>
                 <td style={{ padding: "12px 16px" }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 10, background: p.readiness === 100 ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)", color: p.readiness === 100 ? "#10b981" : "#f59e0b" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 10, background: p.readiness === 100 ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)", color: p.readiness === 100 ? "var(--color-emerald)" : "var(--color-amber)" }}>
                     {p.status}
                   </span>
                 </td>
@@ -170,7 +170,7 @@ export function PreConstruction() {
               }}>
                 <div>
                   <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: `${m.color}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 8, background: `color-mix(in srgb, ${m.color} 9%, transparent)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <Icon size={18} style={{ color: m.color }} />
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)" }}>{m.title}</div>

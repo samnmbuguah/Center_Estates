@@ -163,10 +163,10 @@ export function NotificationCenter() {
 
   const getLevelIcon = (level: string) => {
     switch (level) {
-      case "success": return <CheckCircle size={18} style={{ color: "#22c55e" }} />;
+      case "success": return <CheckCircle size={18} style={{ color: "var(--color-green)" }} />;
       case "urgent":
-      case "warning": return <AlertTriangle size={18} style={{ color: "#ef4444" }} />;
-      case "info": default: return <Info size={18} style={{ color: "#3b82f6" }} />;
+      case "warning": return <AlertTriangle size={18} style={{ color: "var(--color-danger)" }} />;
+      case "info": default: return <Info size={18} style={{ color: "var(--color-blue)" }} />;
     }
   };
 
@@ -198,7 +198,7 @@ export function NotificationCenter() {
             height: 40,
             borderRadius: "10px",
             border: "1px solid var(--border, rgba(255,255,255,0.1))",
-            color: unreadCount > 0 ? "var(--primary, #3b82f6)" : "var(--muted, #94a3b8)",
+            color: unreadCount > 0 ? "var(--primary, var(--color-blue))" : "var(--muted, var(--color-slate-400))",
             background: unreadCount > 0 ? "rgba(59, 130, 246, 0.08)" : "transparent",
             "&:hover": {
               background: "rgba(59, 130, 246, 0.15)",
@@ -238,7 +238,7 @@ export function NotificationCenter() {
               maxHeight: 520,
               borderRadius: "14px",
               boxShadow: "0 18px 48px rgba(15, 23, 42, 0.25)",
-              border: "1px solid var(--border, #e2e8f0)",
+              border: "1px solid var(--border, var(--color-slate-200))",
               background: "var(--surface, #ffffff)",
               overflow: "hidden",
               display: "flex",
@@ -248,9 +248,9 @@ export function NotificationCenter() {
         }}
       >
         {/* Header */}
-        <Box sx={{ p: 2, pb: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border, #e2e8f0)" }}>
+        <Box sx={{ p: 2, pb: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--border, var(--color-slate-200))" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: 15, color: "var(--text, #0f172a)" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, fontSize: 15, color: "var(--text, var(--color-slate-900))" }}>
               🔔 Notifications
             </Typography>
             {unreadCount > 0 && (
@@ -270,7 +270,7 @@ export function NotificationCenter() {
         </Box>
 
         {/* Filter Pills */}
-        <Box sx={{ px: 2, py: 1, display: "flex", gap: 1, borderBottom: "1px solid var(--border, #e2e8f0)", background: "var(--surface-sunken, #f8fafc)" }}>
+        <Box sx={{ px: 2, py: 1, display: "flex", gap: 1, borderBottom: "1px solid var(--border, var(--color-slate-200))", background: "var(--surface-sunken, var(--color-slate-50))" }}>
           {(["all", "unread", "urgent"] as const).map((f) => (
             <Chip
               key={f}
@@ -281,10 +281,10 @@ export function NotificationCenter() {
                 fontWeight: 700,
                 fontSize: 11,
                 cursor: "pointer",
-                background: filter === f ? "#0f172a" : "transparent",
-                color: filter === f ? "#ffffff" : "var(--text-secondary, #64748b)",
+                background: filter === f ? "var(--color-slate-900)" : "transparent",
+                color: filter === f ? "#ffffff" : "var(--text-secondary, var(--color-slate-500))",
                 border: "1px solid",
-                borderColor: filter === f ? "#0f172a" : "var(--border, #e2e8f0)",
+                borderColor: filter === f ? "var(--color-slate-900)" : "var(--border, var(--color-slate-200))",
               }}
             />
           ))}
@@ -293,12 +293,12 @@ export function NotificationCenter() {
         {/* Notifications List */}
         <Box sx={{ flex: 1, overflowY: "auto", maxHeight: 380 }}>
           {filteredNotifications.length === 0 ? (
-            <Box sx={{ p: 4, textAlign: "center", color: "var(--muted, #94a3b8)" }}>
-              <CheckCircle size={32} style={{ margin: "0 auto 8px", opacity: 0.4, color: "#22c55e" }} />
-              <Typography variant="body2" sx={{ fontWeight: 700, color: "var(--text, #1e293b)" }}>
+            <Box sx={{ p: 4, textAlign: "center", color: "var(--muted, var(--color-slate-400))" }}>
+              <CheckCircle size={32} style={{ margin: "0 auto 8px", opacity: 0.4, color: "var(--color-green)" }} />
+              <Typography variant="body2" sx={{ fontWeight: 700, color: "var(--text, var(--color-slate-800))" }}>
                 You&apos;re all caught up!
               </Typography>
-              <Typography variant="caption" sx={{ color: "var(--muted, #64748b)" }}>
+              <Typography variant="caption" sx={{ color: "var(--muted, var(--color-slate-500))" }}>
                 No active notifications in this view.
               </Typography>
             </Box>
@@ -310,10 +310,10 @@ export function NotificationCenter() {
                   onClick={() => handleNotificationClick(n)}
                   sx={{
                     p: 1.8,
-                    borderBottom: "1px solid var(--border, #f1f5f9)",
+                    borderBottom: "1px solid var(--border, var(--color-slate-100))",
                     cursor: "pointer",
                     background: n.read_at ? "transparent" : "rgba(59, 130, 246, 0.04)",
-                    borderLeft: n.read_at ? "3px solid transparent" : n.level === "urgent" ? "3px solid #ef4444" : "3px solid #3b82f6",
+                    borderLeft: n.read_at ? "3px solid transparent" : n.level === "urgent" ? "3px solid var(--color-danger)" : "3px solid var(--color-blue)",
                     transition: "background 0.15s ease",
                     "&:hover": {
                       background: "rgba(59, 130, 246, 0.08)",
@@ -326,16 +326,16 @@ export function NotificationCenter() {
                   <ListItemText
                     primary={
                       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mb: 0.4 }}>
-                        <Typography variant="body2" sx={{ fontWeight: n.read_at ? 600 : 800, fontSize: 13, color: "var(--text, #0f172a)" }}>
+                        <Typography variant="body2" sx={{ fontWeight: n.read_at ? 600 : 800, fontSize: 13, color: "var(--text, var(--color-slate-900))" }}>
                           {n.title}
                         </Typography>
-                        <Typography variant="caption" sx={{ fontSize: 10, color: "var(--muted, #94a3b8)", ml: 1, whiteSpace: "nowrap" }}>
+                        <Typography variant="caption" sx={{ fontSize: 10, color: "var(--muted, var(--color-slate-400))", ml: 1, whiteSpace: "nowrap" }}>
                           {formatTime(n.created_at)}
                         </Typography>
                       </Box>
                     }
                     secondary={
-                      <Typography variant="caption" sx={{ color: "var(--text-secondary, #475569)", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.35 }}>
+                      <Typography variant="caption" sx={{ color: "var(--text-secondary, var(--color-slate-600))", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.35 }}>
                         {n.message}
                       </Typography>
                     }
@@ -354,11 +354,11 @@ export function NotificationCenter() {
         </Box>
 
         {/* Footer */}
-        <Box sx={{ p: 1.2, borderTop: "1px solid var(--border, #e2e8f0)", background: "var(--surface-sunken, #f8fafc)", textAlign: "center" }}>
+        <Box sx={{ p: 1.2, borderTop: "1px solid var(--border, var(--color-slate-200))", background: "var(--surface-sunken, var(--color-slate-50))", textAlign: "center" }}>
           <Button
             size="small"
             onClick={() => { setAnchorEl(null); router.push("/settings?tab=notifications"); }}
-            sx={{ fontSize: 12, fontWeight: 700, textTransform: "none", color: "var(--primary, #0284c7)" }}
+            sx={{ fontSize: 12, fontWeight: 700, textTransform: "none", color: "var(--primary, var(--color-sky))" }}
           >
             Manage Channels &amp; Preferences →
           </Button>
@@ -374,7 +374,7 @@ export function NotificationCenter() {
             left: 24,
             zIndex: 9999,
             maxWidth: 380,
-            background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+            background: "linear-gradient(135deg, var(--color-slate-900) 0%, var(--color-slate-800) 100%)",
             color: "#ffffff",
             p: 2.2,
             borderRadius: "14px",
@@ -391,20 +391,20 @@ export function NotificationCenter() {
               <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "#ffffff", mb: 0.3 }}>
                 Enable Desktop Notifications
               </Typography>
-              <Typography variant="caption" sx={{ color: "#94a3b8", lineHeight: 1.4, display: "block" }}>
+              <Typography variant="caption" sx={{ color: "var(--color-slate-400)", lineHeight: 1.4, display: "block" }}>
                 Get immediate alerts for incoming M-Pesa payments, task SLA escalations, and urgent facility tickets.
               </Typography>
             </Box>
           </Box>
           <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
-            <Button size="small" onClick={dismissPermissionBanner} sx={{ color: "#94a3b8", fontSize: 11, textTransform: "none" }}>
+            <Button size="small" onClick={dismissPermissionBanner} sx={{ color: "var(--color-slate-400)", fontSize: 11, textTransform: "none" }}>
               Maybe Later
             </Button>
             <Button
               size="small"
               variant="contained"
               onClick={requestBrowserPermission}
-              sx={{ background: "#2563eb", fontWeight: 700, fontSize: 11, textTransform: "none", "&:hover": { background: "#1d4ed8" } }}
+              sx={{ background: "var(--color-info)", fontWeight: 700, fontSize: 11, textTransform: "none", "&:hover": { background: "var(--color-info-strong)" } }}
             >
               Allow Notifications
             </Button>
@@ -421,7 +421,7 @@ export function NotificationCenter() {
             right: 24,
             zIndex: 9999,
             maxWidth: 360,
-            background: toastAlert.level === "urgent" ? "#ef4444" : "#0f172a",
+            background: toastAlert.level === "urgent" ? "var(--color-danger)" : "var(--color-slate-900)",
             color: "#ffffff",
             p: 2,
             borderRadius: "12px",

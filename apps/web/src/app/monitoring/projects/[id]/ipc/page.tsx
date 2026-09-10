@@ -15,7 +15,7 @@ export default function IpcPage({ params }: { params: Promise<{ id: string }> })
       eyebrow="Commercial & Finance"
       title="Interim Payment Certificate (IPC) Builder"
       subtitle="Valuation breakdown, retention fund deductions, advance recoveries, and certificate export."
-      accent="#dc2626"
+      accent="var(--color-danger)"
       groups={constructionNav}
       activeId="certificates"
       onSelect={(tabId) => {
@@ -25,7 +25,7 @@ export default function IpcPage({ params }: { params: Promise<{ id: string }> })
     >
       <div className="property-app monitoring-app">
         <div style={{ marginBottom: 14 }}>
-          <Link href={`/monitoring/projects/${id}`} style={{ color: "#2563eb", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
+          <Link href={`/monitoring/projects/${id}`} style={{ color: "var(--color-info)", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
             $\leftarrow$ Back to Project Workspace
           </Link>
         </div>

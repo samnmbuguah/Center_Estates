@@ -240,14 +240,14 @@ export function CandidateTable({
                           <Tooltip title="Metered water is required for this tenancy. Reading must be recorded before generating the consolidated bill.">
                             <Chip
                               size="small"
-                              icon={<Droplets size={11} color="#d97706" />}
+                              icon={<Droplets size={11} color="var(--color-warning)" />}
                               label="WATER: Reading Req."
                               variant="outlined"
                               sx={{
                                 fontSize: 9.5,
                                 height: 20,
                                 fontWeight: 700,
-                                color: "#b45309",
+                                color: "var(--color-amber-deep)",
                                 borderColor: "rgba(245, 158, 11, 0.4)",
                                 bgcolor: "rgba(245, 158, 11, 0.08)",
                                 "& .MuiChip-icon": { ml: 0.5 },
@@ -269,7 +269,7 @@ export function CandidateTable({
                             </div>
                           )}
                           {isMissingWater && (
-                            <div style={{ fontSize: 9.5, color: "#b45309", fontWeight: 600, marginTop: 1 }}>
+                            <div style={{ fontSize: 9.5, color: "var(--color-amber-deep)", fontWeight: 600, marginTop: 1 }}>
                               + pending water consumption
                             </div>
                           )}
@@ -286,14 +286,14 @@ export function CandidateTable({
                           <span>
                             <Chip
                               size="small"
-                              icon={<Droplets size={12} color="#b45309" />}
+                              icon={<Droplets size={12} color="var(--color-amber-deep)" />}
                               label="Needs Water Reading"
                               sx={{
                                 fontSize: 10.5,
                                 fontWeight: 700,
                                 height: 24,
                                 background: "rgba(245, 158, 11, 0.12)",
-                                color: "#b45309",
+                                color: "var(--color-amber-deep)",
                                 border: "1px solid rgba(245, 158, 11, 0.3)",
                                 "& .MuiChip-icon": { ml: 0.8 },
                               }}
@@ -319,10 +319,10 @@ export function CandidateTable({
                               py: 0.35,
                               px: 1.2,
                               fontWeight: 700,
-                              background: "linear-gradient(135deg, #0284c7 0%, #2563eb 100%)",
+                              background: "linear-gradient(135deg, var(--color-sky) 0%, var(--color-info) 100%)",
                               color: "#fff",
                               boxShadow: "0 2px 4px rgba(37,99,235,0.2)",
-                              "&:hover": { background: "#1d4ed8" },
+                              "&:hover": { background: "var(--color-info-strong)" },
                             }}
                           >
                             Record Reading
@@ -349,7 +349,7 @@ export function CandidateTable({
                                 onPreview(c);
                               }
                             }}
-                            sx={{ fontSize: 11, fontWeight: 750, borderColor: "#2563eb", color: "#1d4ed8" }}
+                            sx={{ fontSize: 11, fontWeight: 750, borderColor: "var(--color-info)", color: "var(--color-info-strong)" }}
                           >
                             Tax Invoice
                           </Button>

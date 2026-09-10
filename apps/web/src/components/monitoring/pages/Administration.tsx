@@ -92,7 +92,7 @@ export function Administration() {
           </button>
           <button
             className="btn btn-primary"
-            style={{ background: "#d92d2d", borderColor: "#d92d2d" }}
+            style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }}
             onClick={() => navigate("/app/users")}
           >
             <Plus size={15} style={{ marginRight: 4 }} /> Add System User
@@ -118,7 +118,7 @@ export function Administration() {
             <KpiCard
               label="Configured Roles"
               value={roleCount}
-              color="#00a3ff"
+              color="var(--color-brand-blue)"
               icon={<Key size={18} />}
               to="/app/roles"
             />
@@ -126,7 +126,7 @@ export function Administration() {
               label="Access Control"
               value={roleCount > 0 ? "RBAC" : "—"}
               sub={roleCount > 0 ? `${roleCount} role${roleCount === 1 ? "" : "s"} defined` : "No roles returned"}
-              color="#10b981"
+              color="var(--color-emerald)"
               icon={<ShieldCheck size={18} />}
               to="/app/roles"
             />
@@ -188,7 +188,7 @@ export function Administration() {
                             </div>
                             <div style={{ fontSize: 11, color: "var(--muted)" }}>{usr.email || "—"}</div>
                           </td>
-                          <td style={{ padding: 8, color: "#00a3ff", fontWeight: 600 }}>
+                          <td style={{ padding: 8, color: "var(--color-brand-blue)", fontWeight: 600 }}>
                             {(usr.roles || []).length ? usr.roles.join(", ") : "—"}
                           </td>
                           <td style={{ padding: 8, color: "var(--muted)" }}>
@@ -221,7 +221,7 @@ export function Administration() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <h3 style={{ margin: 0, fontSize: 16, color: "var(--text)" }}>SYSTEM SECURITY AUDIT TRAIL</h3>
                 <span
-                  style={{ fontSize: 12, color: "#00a3ff", cursor: "pointer" }}
+                  style={{ fontSize: 12, color: "var(--color-brand-blue)", cursor: "pointer" }}
                   onClick={() => navigate("/app/audit-log")}
                 >
                   View Complete Audit Log →
@@ -247,7 +247,7 @@ export function Administration() {
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4, gap: 8 }}>
-                        <strong style={{ color: "#00a3ff" }}>{log.action || log.category || "EVENT"}</strong>
+                        <strong style={{ color: "var(--color-brand-blue)" }}>{log.action || log.category || "EVENT"}</strong>
                         <span style={{ color: "var(--muted)", whiteSpace: "nowrap" }}>
                           {formatDateTime(log.timestamp)}
                         </span>

@@ -118,7 +118,7 @@ export function EvidenceAttachmentUploader({
               fontSize: 12,
             }}
           >
-            {isImage ? <ImageIcon size={14} style={{ color: "#3b82f6" }} /> : isVideo ? <span style={{ fontSize: 13 }}>📹</span> : <FileText size={14} style={{ color: "#64748b" }} />}
+            {isImage ? <ImageIcon size={14} style={{ color: "var(--color-blue)" }} /> : isVideo ? <span style={{ fontSize: 13 }}>📹</span> : <FileText size={14} style={{ color: "var(--color-slate-500)" }} />}
             <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>
               {attachment.name}
             </span>
@@ -205,7 +205,7 @@ export function EvidenceAttachmentUploader({
                   height: 48,
                   borderRadius: 6,
                   overflow: "hidden",
-                  background: "#0f172a",
+                  background: "var(--color-slate-900)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -230,7 +230,7 @@ export function EvidenceAttachmentUploader({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  color: "#3b82f6",
+                  color: "var(--color-blue)",
                   flexShrink: 0,
                 }}
               >
@@ -244,7 +244,7 @@ export function EvidenceAttachmentUploader({
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
                 {attachment.size && <span>{formatBytes(attachment.size)}</span>}
-                <span style={{ color: "#16a34a", display: "flex", alignItems: "center", gap: 2 }}>
+                <span style={{ color: "var(--color-success)", display: "flex", alignItems: "center", gap: 2 }}>
                   <Check size={11} /> Ready to submit
                 </span>
                 <a
@@ -263,7 +263,7 @@ export function EvidenceAttachmentUploader({
             type="button"
             className="btn ghost sm"
             onClick={() => onChange(null)}
-            style={{ color: "#ef4444", padding: "4px 8px" }}
+            style={{ color: "var(--color-danger)", padding: "4px 8px" }}
             title="Remove attachment"
           >
             <X size={16} />

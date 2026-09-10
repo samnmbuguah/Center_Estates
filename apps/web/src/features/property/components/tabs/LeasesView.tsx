@@ -249,12 +249,12 @@ export function LeasesView({
   return (
     <>
       <KpiStrip>
-        <KpiCard icon="📑" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Leases" value={kN(leases.length)} sub="Registered agreements" link="View leases" onClick={() => setTab("leases")} />
-        <KpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Active" value={kN(active)} sub="Current tenancies" link="View leases" onClick={() => setTab("leases")} />
-        <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#d97706" label="Expiring in 30 Days" value={kN(expiring30)} sub="Upcoming renewals" link="View leases" onClick={() => setTab("leases")} />
-        <KpiCard icon="🚪" iconBg="#fee2e2" iconColor="#dc2626" label="Expired" value={kN(expired)} sub="Closed agreements" link="View leases" onClick={() => setTab("leases")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Monthly Rent" value={kM(monthlyRent)} sub="Active leases" link="View rent" onClick={() => setTab("rent")} />
-        <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Unpaid lease balances" link="View arrears" onClick={() => setTab("arrears")} />
+        <KpiCard icon="📑" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Leases" value={kN(leases.length)} sub="Registered agreements" link="View leases" onClick={() => setTab("leases")} />
+        <KpiCard icon="✓" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Active" value={kN(active)} sub="Current tenancies" link="View leases" onClick={() => setTab("leases")} />
+        <KpiCard icon="⏳" iconBg="var(--color-amber-bg)" iconColor="var(--color-warning)" label="Expiring in 30 Days" value={kN(expiring30)} sub="Upcoming renewals" link="View leases" onClick={() => setTab("leases")} />
+        <KpiCard icon="🚪" iconBg="var(--color-red-bg)" iconColor="var(--color-danger)" label="Expired" value={kN(expired)} sub="Closed agreements" link="View leases" onClick={() => setTab("leases")} />
+        <KpiCard icon="💰" iconBg="var(--color-orange-bg)" iconColor="var(--color-orange)" label="Monthly Rent" value={kM(monthlyRent)} sub="Active leases" link="View rent" onClick={() => setTab("rent")} />
+        <KpiCard icon="⚠️" iconBg="var(--color-red-bg)" iconColor="var(--color-danger)" label="Outstanding" value={kM(outstanding)} sub="Unpaid lease balances" link="View arrears" onClick={() => setTab("arrears")} />
       </KpiStrip>
 
       <ViewToolbar title="Lease Register" subtitle="Lease agreements for the selected property" search={search} onSearch={setSearch} placeholder="Search lease no, tenant or unit…">
@@ -287,7 +287,7 @@ export function LeasesView({
             <button
               className="btn primary sm"
               style={{
-                background: "#0284c7",
+                background: "var(--color-sky)",
                 color: "#ffffff",
                 fontWeight: 800,
                 padding: "6px 14px",
@@ -302,7 +302,7 @@ export function LeasesView({
             type="button"
             className="fc-toolbar-btn"
             style={{
-              background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+              background: "linear-gradient(135deg, var(--color-violet) 0%, var(--color-indigo) 100%)",
               color: "#ffffff",
               border: "none",
               fontWeight: 700,
@@ -418,8 +418,8 @@ export function LeasesView({
                   alignItems: "center",
                   gap: 10,
                   background: bulkNotice.type === "success" ? "rgba(22, 163, 74, 0.1)" : "rgba(220, 38, 38, 0.1)",
-                  color: bulkNotice.type === "success" ? "#16a34a" : "#dc2626",
-                  border: `1px solid ${bulkNotice.type === "success" ? "#86efac" : "#fca5a5"}`,
+                  color: bulkNotice.type === "success" ? "var(--color-success)" : "var(--color-danger)",
+                  border: `1px solid ${bulkNotice.type === "success" ? "var(--color-green-300)" : "var(--color-red-300)"}`,
                   fontSize: 13,
                 }}
               >
@@ -511,7 +511,7 @@ export function LeasesView({
                 className="btn primary sm"
                 disabled={bulkBusy}
                 style={{
-                  background: "#0284c7",
+                  background: "var(--color-sky)",
                   color: "#ffffff",
                   fontWeight: 800,
                   padding: "8px 18px",
@@ -545,8 +545,8 @@ export function LeasesView({
                   alignItems: "center",
                   gap: 10,
                   background: "rgba(220, 38, 38, 0.1)",
-                  color: "#dc2626",
-                  border: "1px solid #fca5a5",
+                  color: "var(--color-danger)",
+                  border: "1px solid var(--color-red-300)",
                   fontSize: 13,
                 }}
               >
@@ -679,7 +679,7 @@ export function LeasesView({
             </div>
 
             {ocrError && (
-              <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(220, 38, 38, 0.1)", color: "#dc2626", border: "1px solid #fca5a5", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(220, 38, 38, 0.1)", color: "var(--color-danger)", border: "1px solid var(--color-red-300)", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
                 <AlertCircle size={16} />
                 <span>{ocrError}</span>
               </div>
@@ -703,7 +703,7 @@ export function LeasesView({
                   className="btn sm"
                   disabled={ocrLoading || !ocrText.trim()}
                   style={{
-                    background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+                    background: "linear-gradient(135deg, var(--color-violet) 0%, var(--color-indigo) 100%)",
                     color: "#ffffff",
                     border: "none",
                     fontWeight: 700,
@@ -719,10 +719,10 @@ export function LeasesView({
             {extractedLease && (
               <div style={{ padding: 16, borderRadius: 10, background: "var(--surface-2)", border: "1px solid rgba(16, 185, 129, 0.4)", display: "flex", flexDirection: "column", gap: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontWeight: 800, fontSize: 14, color: "#10b981", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontWeight: 800, fontSize: 14, color: "var(--color-emerald)", display: "flex", alignItems: "center", gap: 6 }}>
                     <CheckCircle2 size={16} /> Extracted Lease Summary
                   </span>
-                  <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, background: "rgba(16,185,129,0.15)", color: "#10b981", fontWeight: 700 }}>
+                  <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, background: "rgba(16,185,129,0.15)", color: "var(--color-emerald)", fontWeight: 700 }}>
                     95% Confidence
                   </span>
                 </div>

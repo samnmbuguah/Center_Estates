@@ -10,14 +10,14 @@ import { useAuth } from "../auth";
 import { ErrorBanner } from "../components";
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "#6b7280", open: "#d97706", answered: "#16a34a", closed: "#374151", void: "#9ca3af",
+  draft: "#6b7280", open: "var(--color-warning)", answered: "var(--color-success)", closed: "#374151", void: "#9ca3af",
 };
 const STATUS_ICONS: Record<string, any> = {
   draft: FileText, open: AlertTriangle, answered: CheckCircle2, closed: Archive, void: Clock,
 };
 const PRIORITY_ORDER = ["urgent", "high", "normal", "low"];
 const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "#ef4444", high: "#f97316", normal: "#3b82f6", low: "#6b7280",
+  urgent: "var(--color-danger)", high: "#f97316", normal: "var(--color-blue)", low: "#6b7280",
 };
 
 export function RfiList() {
@@ -131,17 +131,17 @@ export function RfiList() {
           <div className="fw-700 fs-24">{stats.total}</div>
         </div>
         
-        <div className="card card-compact" style={{ borderLeft: "4px solid #22c55e" }}>
+        <div className="card card-compact" style={{ borderLeft: "4px solid var(--color-green)" }}>
           <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
-            <CheckCircle2 size={18} style={{ color: "#22c55e" }} />
+            <CheckCircle2 size={18} style={{ color: "var(--color-green)" }} />
             <span className="muted fs-xs">Answered</span>
           </div>
           <div className="fw-700 fs-24">{stats.answered}</div>
         </div>
         
-        <div className="card card-compact" style={{ borderLeft: "4px solid #ef4444" }}>
+        <div className="card card-compact" style={{ borderLeft: "4px solid var(--color-danger)" }}>
           <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
-            <AlertTriangle size={18} style={{ color: "#ef4444" }} />
+            <AlertTriangle size={18} style={{ color: "var(--color-danger)" }} />
             <span className="muted fs-xs">Overdue</span>
           </div>
           <div className="fw-700 fs-24">{stats.overdue}</div>
@@ -271,7 +271,7 @@ export function RfiList() {
                       <td><span className="badge" style={{ background: STATUS_COLORS[r.status] || "var(--muted)" }}>{r.status}</span></td>
                       <td className="muted">{r.category || "—"}</td>
                       <td>{r.raised_by}</td>
-                      <td style={{ color: r.due_date && new Date(r.due_date) < new Date() && r.status !== "closed" ? "#ef4444" : "inherit" }}>{r.due_date || "—"}</td>
+                      <td style={{ color: r.due_date && new Date(r.due_date) < new Date() && r.status !== "closed" ? "var(--color-danger)" : "inherit" }}>{r.due_date || "—"}</td>
                       <td>
                         <button className="btn ghost sm" onClick={() => setDetail(detail?.id === r.id ? null : r)}>
                           {detail?.id === r.id ? "Close" : "View"}
@@ -320,7 +320,7 @@ export function RfiList() {
                     <div className="row" style={{ justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--border)" }}>
                       <div className="row" style={{ gap: 8, fontSize: 11 }}>
                         {r.due_date && (
-                          <div className="row" style={{ gap: 4, alignItems: "center", color: isOverdue ? "#ef4444" : "var(--muted)" }}>
+                          <div className="row" style={{ gap: 4, alignItems: "center", color: isOverdue ? "var(--color-danger)" : "var(--muted)" }}>
                             <Calendar size={12} />
                             <span>{r.due_date}</span>
                           </div>

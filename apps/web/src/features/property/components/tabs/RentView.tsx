@@ -221,25 +221,25 @@ export function RentView({
     const norm = normalizeType(rawType);
     switch (norm) {
       case "rent":
-        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", fontWeight: 700, fontSize: 11 }}>Rent</span>;
+        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(59, 130, 246, 0.12)", color: "var(--color-info)", fontWeight: 700, fontSize: 11 }}>Rent</span>;
       case "service_charge":
-        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(139, 92, 246, 0.12)", color: "#7c3aed", fontWeight: 700, fontSize: 11 }}>Service Charge</span>;
+        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(139, 92, 246, 0.12)", color: "var(--color-violet)", fontWeight: 700, fontSize: 11 }}>Service Charge</span>;
       case "utility":
-        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(20, 184, 166, 0.12)", color: "#0d9488", fontWeight: 700, fontSize: 11 }}>Utility</span>;
+        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(20, 184, 166, 0.12)", color: "var(--color-teal)", fontWeight: 700, fontSize: 11 }}>Utility</span>;
       case "management_fee":
-        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(245, 158, 11, 0.12)", color: "#d97706", fontWeight: 700, fontSize: 11 }}>Mgmt Fee</span>;
+        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(245, 158, 11, 0.12)", color: "var(--color-warning)", fontWeight: 700, fontSize: 11 }}>Mgmt Fee</span>;
       default:
-        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(100, 116, 139, 0.12)", color: "#475569", fontWeight: 700, fontSize: 11 }}>{rawType || "Invoice"}</span>;
+        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(100, 116, 139, 0.12)", color: "var(--color-slate-600)", fontWeight: 700, fontSize: 11 }}>{rawType || "Invoice"}</span>;
     }
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
       <KpiStrip>
-        <KpiCard icon="🧾" iconBg="rgba(79,70,229,0.12)" iconColor="#4f46e5" label="Total Billed" value={kM(totalBilled)} sub={`${kN(dueThisMonth)} due this month`} />
-        <KpiCard icon="✓" iconBg="rgba(22,163,74,0.12)" iconColor="#16a34a" label="Collected" value={kM(collected)} sub={`${collectionRate}% collection rate`} />
-        <KpiCard icon="⚠️" iconBg="rgba(220,38,38,0.12)" iconColor="#dc2626" label="Outstanding" value={kM(outstanding)} sub="Unpaid balances" link="View arrears" onClick={() => setTab("arrears")} />
-        <KpiCard icon="📅" iconBg="rgba(234,88,12,0.12)" iconColor="#ea580c" label="Due This Month" value={kN(dueThisMonth)} sub="Open invoices" />
+        <KpiCard icon="🧾" iconBg="rgba(79,70,229,0.12)" iconColor="var(--color-indigo)" label="Total Billed" value={kM(totalBilled)} sub={`${kN(dueThisMonth)} due this month`} />
+        <KpiCard icon="✓" iconBg="rgba(22,163,74,0.12)" iconColor="var(--color-success)" label="Collected" value={kM(collected)} sub={`${collectionRate}% collection rate`} />
+        <KpiCard icon="⚠️" iconBg="rgba(220,38,38,0.12)" iconColor="var(--color-danger)" label="Outstanding" value={kM(outstanding)} sub="Unpaid balances" link="View arrears" onClick={() => setTab("arrears")} />
+        <KpiCard icon="📅" iconBg="rgba(234,88,12,0.12)" iconColor="var(--color-orange)" label="Due This Month" value={kN(dueThisMonth)} sub="Open invoices" />
       </KpiStrip>
 
       <ViewToolbar
@@ -509,7 +509,7 @@ export function RentView({
                         )}
                       </td>
                       <td className="mono">{kM(inv.amount)}</td>
-                      <td className="mono" style={{ color: bal > 0 ? "var(--danger)" : "#16a34a", fontWeight: 700 }}>
+                      <td className="mono" style={{ color: bal > 0 ? "var(--danger)" : "var(--color-success)", fontWeight: 700 }}>
                         {kM(inv.balance)}
                         {isPartial && (
                           <span style={{ display: "block", fontSize: 10, color: "var(--muted)", fontWeight: 400 }}>

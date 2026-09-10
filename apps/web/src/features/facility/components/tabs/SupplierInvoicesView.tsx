@@ -126,10 +126,10 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2, width: "100%" }}>
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(4, 1fr)" }, gap: 1.5 }}>
         {[
-          { label: "Awaiting Review", value: kpis.pending, color: kpis.pending > 0 ? "#d97706" : "#94a3b8", icon: "⏳" },
-          { label: "Approved / Paying", value: kpis.approved, color: "#2563eb", icon: "✓" },
-          { label: "Paid (total)", value: money.format(kpis.paidTotal), color: "#16a34a", icon: "💰" },
-          { label: "Exception Approvals", value: kpis.exceptions, color: kpis.exceptions > 0 ? "#dc2626" : "#94a3b8", icon: "⚠️" },
+          { label: "Awaiting Review", value: kpis.pending, color: kpis.pending > 0 ? "var(--color-warning)" : "var(--color-slate-400)", icon: "⏳" },
+          { label: "Approved / Paying", value: kpis.approved, color: "var(--color-info)", icon: "✓" },
+          { label: "Paid (total)", value: money.format(kpis.paidTotal), color: "var(--color-success)", icon: "💰" },
+          { label: "Exception Approvals", value: kpis.exceptions, color: kpis.exceptions > 0 ? "var(--color-danger)" : "var(--color-slate-400)", icon: "⚠️" },
         ].map((k, i) => (
           <Paper key={i} variant="outlined" sx={{ p: 1.75, borderRadius: 2.5, borderTop: "3px solid", borderTopColor: k.color }}>
             <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
@@ -177,7 +177,7 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
                 {invoices.map((inv) => (
                   <tr key={inv.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "12px 14px" }}>
-                      <div className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, #dc2626)" }}>{inv.code}</div>
+                      <div className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, var(--color-danger))" }}>{inv.code}</div>
                       <div className="mono" style={{ fontSize: 11, color: "text.secondary" }}>{inv.supplier_invoice_number}</div>
                     </td>
                     <td style={{ padding: "12px 14px" }}>
@@ -197,7 +197,7 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
                     </td>
                     <td style={{ padding: "12px 14px" }}>
                       {inv.variance === null || inv.variance === undefined ? "—" : (
-                        <span className="mono" style={{ color: Number(inv.variance) > 0 ? "var(--error, #dc2626)" : "#16a34a", fontWeight: 700 }}>
+                        <span className="mono" style={{ color: Number(inv.variance) > 0 ? "var(--error, var(--color-danger))" : "var(--color-success)", fontWeight: 700 }}>
                           {Number(inv.variance) > 0 ? "+" : ""}{money.format(Number(inv.variance))}
                         </span>
                       )}
@@ -205,7 +205,7 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
                     <td style={{ padding: "12px 14px" }}>
                       <StatusPill value={inv.status} />
                       {inv.exception_approved && <Chip size="small" label="Exception" color="warning" sx={{ fontSize: 9, height: 16, ml: 0.5 }} />}
-                      {inv.rejected_reason && <div style={{ fontSize: 11, color: "var(--error, #dc2626)", marginTop: 2 }}>{inv.rejected_reason}</div>}
+                      {inv.rejected_reason && <div style={{ fontSize: 11, color: "var(--error, var(--color-danger))", marginTop: 2 }}>{inv.rejected_reason}</div>}
                     </td>
                     <td style={{ padding: "12px 14px", textAlign: "right" }}>
                       <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>

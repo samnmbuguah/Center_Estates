@@ -48,27 +48,27 @@ export function IpcBuilder({ initialData }: IpcBuilderProps) {
   const [data] = useState<IpcCertificate>({ ...DEFAULT_IPC, ...initialData });
 
   return (
-    <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0", padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+    <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid var(--color-slate-200)", padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
       {/* Header Actions */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, borderBottom: "1px solid #e2e8f0", paddingBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, borderBottom: "1px solid var(--color-slate-200)", paddingBottom: 12 }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: "1.2rem", color: "#0f172a", display: "flex", alignItems: "center", gap: 8 }}>
+          <h3 style={{ margin: 0, fontSize: "1.2rem", color: "var(--color-slate-900)", display: "flex", alignItems: "center", gap: 8 }}>
             <span>📄 Interim Payment Certificate (IPC)</span>
             <span style={{
               fontSize: "0.75rem", padding: "2px 10px", borderRadius: 12, fontWeight: "bold",
-              background: data.status === "certified" ? "#dcfce7" : "#dbeafe",
-              color: data.status === "certified" ? "#166534" : "#1e40af"
+              background: data.status === "certified" ? "var(--color-green-bg)" : "var(--color-blue-bg)",
+              color: data.status === "certified" ? "var(--color-green-text)" : "var(--color-info-deep)"
             }}>
               {data.status.toUpperCase()}
             </span>
           </h3>
-          <small style={{ color: "#64748b" }}>Certificate #{data.certificateNumber} — Valuation Period Ending {data.periodEnding}</small>
+          <small style={{ color: "var(--color-slate-500)" }}>Certificate #{data.certificateNumber} — Valuation Period Ending {data.periodEnding}</small>
         </div>
 
         <div style={{ display: "flex", gap: 8 }}>
           <button
             onClick={() => window.print()}
-            style={{ background: "#2563eb", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: 6, fontWeight: 600, fontSize: "0.85rem", cursor: "pointer" }}
+            style={{ background: "var(--color-info)", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: 6, fontWeight: 600, fontSize: "0.85rem", cursor: "pointer" }}
           >
             🖨️ Export PDF / Print
           </button>
@@ -77,70 +77,70 @@ export function IpcBuilder({ initialData }: IpcBuilderProps) {
 
       {/* Contract & Party Summary Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
-        <div style={{ background: "#f8fafc", padding: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-          <small style={{ color: "#64748b", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: "bold" }}>Project Name</small>
-          <div style={{ fontWeight: "bold", color: "#0f172a", marginTop: 2, fontSize: "0.9rem" }}>{data.projectName}</div>
+        <div style={{ background: "var(--color-slate-50)", padding: 12, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
+          <small style={{ color: "var(--color-slate-500)", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: "bold" }}>Project Name</small>
+          <div style={{ fontWeight: "bold", color: "var(--color-slate-900)", marginTop: 2, fontSize: "0.9rem" }}>{data.projectName}</div>
         </div>
 
-        <div style={{ background: "#f8fafc", padding: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-          <small style={{ color: "#64748b", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: "bold" }}>Main Contractor</small>
-          <div style={{ fontWeight: "bold", color: "#0f172a", marginTop: 2, fontSize: "0.9rem" }}>{data.contractorName}</div>
+        <div style={{ background: "var(--color-slate-50)", padding: 12, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
+          <small style={{ color: "var(--color-slate-500)", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: "bold" }}>Main Contractor</small>
+          <div style={{ fontWeight: "bold", color: "var(--color-slate-900)", marginTop: 2, fontSize: "0.9rem" }}>{data.contractorName}</div>
         </div>
 
-        <div style={{ background: "#f8fafc", padding: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-          <small style={{ color: "#64748b", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: "bold" }}>Revised Contract Sum</small>
-          <div style={{ fontWeight: "bold", color: "#2563eb", marginTop: 2, fontSize: "0.95rem" }}>{cash.format(data.revisedContractSum)}</div>
+        <div style={{ background: "var(--color-slate-50)", padding: 12, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
+          <small style={{ color: "var(--color-slate-500)", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: "bold" }}>Revised Contract Sum</small>
+          <div style={{ fontWeight: "bold", color: "var(--color-info)", marginTop: 2, fontSize: "0.95rem" }}>{cash.format(data.revisedContractSum)}</div>
         </div>
       </div>
 
       {/* Valuation Computation Statement */}
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem", marginBottom: 20 }}>
         <thead>
-          <tr style={{ background: "#0f172a", color: "#ffffff" }}>
+          <tr style={{ background: "var(--color-slate-900)", color: "#ffffff" }}>
             <th style={{ padding: 10, textAlign: "left" }}>Valuation & Deduction Item Breakdown</th>
             <th style={{ padding: 10, textAlign: "right", width: 180 }}>Cumulative Value</th>
             <th style={{ padding: 10, textAlign: "right", width: 180 }}>This Certificate</th>
           </tr>
         </thead>
         <tbody>
-          <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
+          <tr style={{ borderBottom: "1px solid var(--color-slate-200)" }}>
             <td style={{ padding: 10, fontWeight: 600 }}>1. Original Contract Sum</td>
             <td style={{ padding: 10, textAlign: "right" }}>{cash.format(data.originalContractSum)}</td>
-            <td style={{ padding: 10, textAlign: "right", color: "#94a3b8" }}>—</td>
+            <td style={{ padding: 10, textAlign: "right", color: "var(--color-slate-400)" }}>—</td>
           </tr>
-          <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
+          <tr style={{ borderBottom: "1px solid var(--color-slate-200)" }}>
             <td style={{ padding: 10, fontWeight: 600 }}>2. Approved Net Variations</td>
-            <td style={{ padding: 10, textAlign: "right", color: "#16a34a" }}>+{cash.format(data.approvedVariationsSum)}</td>
-            <td style={{ padding: 10, textAlign: "right", color: "#94a3b8" }}>—</td>
+            <td style={{ padding: 10, textAlign: "right", color: "var(--color-success)" }}>+{cash.format(data.approvedVariationsSum)}</td>
+            <td style={{ padding: 10, textAlign: "right", color: "var(--color-slate-400)" }}>—</td>
           </tr>
-          <tr style={{ borderBottom: "2px solid #0f172a", background: "#f8fafc" }}>
+          <tr style={{ borderBottom: "2px solid var(--color-slate-900)", background: "var(--color-slate-50)" }}>
             <td style={{ padding: 10, fontWeight: "bold" }}>REVISED CONTRACT VALUE</td>
             <td style={{ padding: 10, textAlign: "right", fontWeight: "bold" }}>{cash.format(data.revisedContractSum)}</td>
-            <td style={{ padding: 10, textAlign: "right", color: "#94a3b8" }}>—</td>
+            <td style={{ padding: 10, textAlign: "right", color: "var(--color-slate-400)" }}>—</td>
           </tr>
 
-          <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
+          <tr style={{ borderBottom: "1px solid var(--color-slate-200)" }}>
             <td style={{ padding: 10, fontWeight: 600 }}>3. Gross Measured Work & Material on Site</td>
             <td style={{ padding: 10, textAlign: "right", fontWeight: "bold" }}>{cash.format(data.grossValuationToDate)}</td>
-            <td style={{ padding: 10, textAlign: "right", fontWeight: "bold", color: "#2563eb" }}>{cash.format(data.currentGrossValuation)}</td>
+            <td style={{ padding: 10, textAlign: "right", fontWeight: "bold", color: "var(--color-info)" }}>{cash.format(data.currentGrossValuation)}</td>
           </tr>
-          <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
-            <td style={{ padding: 10, color: "#dc2626" }}>Less: Retention Fund ({data.retentionPct}%)</td>
-            <td style={{ padding: 10, textAlign: "right", color: "#dc2626" }}>-{cash.format(data.retentionDeductionToDate)}</td>
-            <td style={{ padding: 10, textAlign: "right", color: "#dc2626" }}>-{cash.format(data.currentGrossValuation * (data.retentionPct / 100))}</td>
+          <tr style={{ borderBottom: "1px solid var(--color-slate-200)" }}>
+            <td style={{ padding: 10, color: "var(--color-danger)" }}>Less: Retention Fund ({data.retentionPct}%)</td>
+            <td style={{ padding: 10, textAlign: "right", color: "var(--color-danger)" }}>-{cash.format(data.retentionDeductionToDate)}</td>
+            <td style={{ padding: 10, textAlign: "right", color: "var(--color-danger)" }}>-{cash.format(data.currentGrossValuation * (data.retentionPct / 100))}</td>
           </tr>
-          <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
-            <td style={{ padding: 10, color: "#dc2626" }}>Less: Advance Payment Recovery</td>
-            <td style={{ padding: 10, textAlign: "right", color: "#dc2626" }}>-{cash.format(data.advancePaymentRecovery)}</td>
-            <td style={{ padding: 10, textAlign: "right", color: "#dc2626" }}>-{cash.format(data.advancePaymentRecovery)}</td>
+          <tr style={{ borderBottom: "1px solid var(--color-slate-200)" }}>
+            <td style={{ padding: 10, color: "var(--color-danger)" }}>Less: Advance Payment Recovery</td>
+            <td style={{ padding: 10, textAlign: "right", color: "var(--color-danger)" }}>-{cash.format(data.advancePaymentRecovery)}</td>
+            <td style={{ padding: 10, textAlign: "right", color: "var(--color-danger)" }}>-{cash.format(data.advancePaymentRecovery)}</td>
           </tr>
 
-          <tr style={{ background: "#dcfce7", borderTop: "2px solid #16a34a" }}>
-            <td style={{ padding: 12, fontWeight: "bold", fontSize: "1rem", color: "#166534" }}>NET AMOUNT PAYABLE TO CONTRACTOR</td>
-            <td style={{ padding: 12, textAlign: "right", fontWeight: "bold", fontSize: "1rem", color: "#166534" }}>
+          <tr style={{ background: "var(--color-green-bg)", borderTop: "2px solid var(--color-success)" }}>
+            <td style={{ padding: 12, fontWeight: "bold", fontSize: "1rem", color: "var(--color-green-text)" }}>NET AMOUNT PAYABLE TO CONTRACTOR</td>
+            <td style={{ padding: 12, textAlign: "right", fontWeight: "bold", fontSize: "1rem", color: "var(--color-green-text)" }}>
               {cash.format(data.grossValuationToDate - data.retentionDeductionToDate - data.advancePaymentRecovery)}
             </td>
-            <td style={{ padding: 12, textAlign: "right", fontWeight: "bold", fontSize: "1.1rem", color: "#15803d" }}>
+            <td style={{ padding: 12, textAlign: "right", fontWeight: "bold", fontSize: "1.1rem", color: "var(--color-success-strong)" }}>
               {cash.format(data.netPayableThisCertificate)}
             </td>
           </tr>
@@ -148,20 +148,20 @@ export function IpcBuilder({ initialData }: IpcBuilderProps) {
       </table>
 
       {/* Signatures & Certification block */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginTop: 24, paddingTop: 16, borderTop: "1px dashed #cbd5e1" }}>
-        <div style={{ textAlign: "center", borderTop: "1px solid #94a3b8", paddingTop: 8 }}>
-          <small style={{ color: "#64748b" }}>Quantity Surveyor Certification</small>
-          <div style={{ fontWeight: "bold", color: "#0f172a", marginTop: 4 }}>Registered QS #QS-8821</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginTop: 24, paddingTop: 16, borderTop: "1px dashed var(--color-slate-300)" }}>
+        <div style={{ textAlign: "center", borderTop: "1px solid var(--color-slate-400)", paddingTop: 8 }}>
+          <small style={{ color: "var(--color-slate-500)" }}>Quantity Surveyor Certification</small>
+          <div style={{ fontWeight: "bold", color: "var(--color-slate-900)", marginTop: 4 }}>Registered QS #QS-8821</div>
         </div>
 
-        <div style={{ textAlign: "center", borderTop: "1px solid #94a3b8", paddingTop: 8 }}>
-          <small style={{ color: "#64748b" }}>Project Architect Approval</small>
-          <div style={{ fontWeight: "bold", color: "#0f172a", marginTop: 4 }}>Lead Architect #ARC-1092</div>
+        <div style={{ textAlign: "center", borderTop: "1px solid var(--color-slate-400)", paddingTop: 8 }}>
+          <small style={{ color: "var(--color-slate-500)" }}>Project Architect Approval</small>
+          <div style={{ fontWeight: "bold", color: "var(--color-slate-900)", marginTop: 4 }}>Lead Architect #ARC-1092</div>
         </div>
 
-        <div style={{ textAlign: "center", borderTop: "1px solid #94a3b8", paddingTop: 8 }}>
-          <small style={{ color: "#64748b" }}>Client Representative Authorization</small>
-          <div style={{ fontWeight: "bold", color: "#0f172a", marginTop: 4 }}>Center Estates Finance Dir</div>
+        <div style={{ textAlign: "center", borderTop: "1px solid var(--color-slate-400)", paddingTop: 8 }}>
+          <small style={{ color: "var(--color-slate-500)" }}>Client Representative Authorization</small>
+          <div style={{ fontWeight: "bold", color: "var(--color-slate-900)", marginTop: 4 }}>Center Estates Finance Dir</div>
         </div>
       </div>
     </div>

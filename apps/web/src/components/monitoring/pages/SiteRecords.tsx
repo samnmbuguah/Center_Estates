@@ -33,7 +33,7 @@ const PhotoThumb = React.memo(function PhotoThumb({ url, alt }: { url: string; a
         src={mediaUrl(url)}
         alt={alt}
         loading="lazy"
-        style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border, #334155)" }}
+        style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border, var(--color-slate-700))" }}
       />
     </a>
   );

@@ -50,8 +50,8 @@ export function PropertiesView({
           value={props.length}
           sub="Portfolio assets"
           iconBg="rgba(59, 130, 246, 0.12)"
-          iconColor="#3b82f6"
-          borderColor="#3b82f6"
+          iconColor="var(--color-blue)"
+          borderColor="var(--color-blue)"
         />
         <KpiCard
           icon={<Layers size={16} />}
@@ -59,8 +59,8 @@ export function PropertiesView({
           value={kN(totalUnits)}
           sub={`${totalOccupied} occupied`}
           iconBg="rgba(99, 102, 241, 0.12)"
-          iconColor="#6366f1"
-          borderColor="#6366f1"
+          iconColor="var(--color-indigo-strong)"
+          borderColor="var(--color-indigo-strong)"
         />
         <KpiCard
           icon={<Building2 size={16} />}
@@ -68,8 +68,8 @@ export function PropertiesView({
           value={kN(totalBuildings)}
           sub="Blocks / wings"
           iconBg="rgba(245, 158, 11, 0.12)"
-          iconColor="#f59e0b"
-          borderColor="#f59e0b"
+          iconColor="var(--color-amber)"
+          borderColor="var(--color-amber)"
         />
         <KpiCard
           icon={<Users size={16} />}
@@ -77,8 +77,8 @@ export function PropertiesView({
           value={`${occupancyRate}%`}
           sub={`${vacant} vacant unit${vacant === 1 ? "" : "s"}`}
           iconBg="rgba(16, 185, 129, 0.12)"
-          iconColor="#10b981"
-          borderColor="#10b981"
+          iconColor="var(--color-emerald)"
+          borderColor="var(--color-emerald)"
         />
         <KpiCard
           icon={<DollarSign size={16} />}
@@ -95,8 +95,8 @@ export function PropertiesView({
           value={active === props.length ? "Active" : `${active} / ${props.length}`}
           sub="All properties live"
           iconBg="rgba(34, 197, 94, 0.12)"
-          iconColor="#22c55e"
-          borderColor="#22c55e"
+          iconColor="var(--color-green)"
+          borderColor="var(--color-green)"
         />
       </KpiStrip>
 
@@ -114,9 +114,9 @@ export function PropertiesView({
                 sx={{
                   fontWeight: 700,
                   fontSize: 12,
-                  borderColor: "#6366f1",
-                  color: "#818cf8",
-                  "&:hover": { borderColor: "#4f46e5", background: "rgba(99, 102, 241, 0.08)" },
+                  borderColor: "var(--color-indigo-strong)",
+                  color: "var(--color-indigo-300)",
+                  "&:hover": { borderColor: "var(--color-indigo)", background: "rgba(99, 102, 241, 0.08)" },
                 }}
               >
                 Onboard Sectional Scheme
@@ -165,7 +165,7 @@ export function PropertiesView({
                         <span>{String(p.code ?? "—")}</span>
                         {p.scheme_registration_number ? <span>• {p.scheme_registration_number}</span> : null}
                         {p.created_by_username ? (
-                          <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 4, background: "rgba(37, 99, 235, 0.08)", color: "#1d4ed8", fontWeight: 700 }}>
+                          <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 4, background: "rgba(37, 99, 235, 0.08)", color: "var(--color-info-strong)", fontWeight: 700 }}>
                             @{p.created_by_username}
                           </span>
                         ) : null}

@@ -9,10 +9,10 @@ const money = (v: unknown) => Number(v ?? 0).toLocaleString(undefined, { minimum
 
 const STATE_COLORS: Record<string, string> = {
   budgeted: "var(--muted)",
-  ascertained: "#8b5cf6",
+  ascertained: "var(--color-violet-strong)",
   committed: "var(--accent)",
   certified: "var(--success)",
-  paid: "#059669",
+  paid: "var(--color-emerald-strong)",
 };
 
 const STATE_ORDER = ["budgeted", "ascertained", "committed", "certified", "paid"];

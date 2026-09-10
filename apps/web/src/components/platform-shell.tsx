@@ -501,7 +501,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                   <Divider />
                   <MenuItem onClick={() => setProfileOpen(false)}><ListItemIcon><HelpCircle size={18} /></ListItemIcon><ListItemText primary={<TourLauncher />} /></MenuItem>
                   <MenuItem onClick={() => { setProfileOpen(false); setDevReportOpen(true); }}>
-                    <ListItemIcon><Bug size={18} color="#ef4444" /></ListItemIcon>
+                    <ListItemIcon><Bug size={18} color="var(--color-danger)" /></ListItemIcon>
                     <ListItemText primary="Report System Bug" secondary="Direct to Developer (Samuel)" />
                   </MenuItem>
 

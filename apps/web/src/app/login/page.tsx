@@ -62,8 +62,8 @@ export default function LoginPage() {
             {[
               { icon: "🏢", name: "Property Management", desc: "Leases, collections & occupancy", color: "#c22e2a" },
               { icon: "🔧", name: "Facility Management", desc: "Work orders & compliance", color: "#1a7a4a" },
-              { icon: "📐", name: "Valuation", desc: "Instructions & reporting", color: "#1d4ed8" },
-              { icon: "🧭", name: "Companion", desc: "Team tasks & priorities", color: "#b45309" },
+              { icon: "📐", name: "Valuation", desc: "Instructions & reporting", color: "var(--color-info-strong)" },
+              { icon: "🧭", name: "Companion", desc: "Team tasks & priorities", color: "var(--color-amber-deep)" },
             ].map((m) => (
               <div key={m.name} className="login-module-card" style={{ background: "var(--login-module-bg)", backdropFilter: "blur(8px)", border: "1px solid var(--login-border)", borderRadius: 12, padding: 14, boxShadow: "var(--login-module-shadow)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>

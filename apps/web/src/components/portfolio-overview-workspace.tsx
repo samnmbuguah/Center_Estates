@@ -181,13 +181,13 @@ export function PortfolioOverviewWorkspace() {
       {/* Header & Quick Action */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, gap: 16, flexWrap: "wrap" }}>
         <div>
-          <p style={{ color: "#dc2626", fontSize: 12, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
+          <p style={{ color: "var(--color-danger)", fontSize: 12, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
             Portfolio Management
           </p>
           <h1 style={{ fontSize: 26, fontWeight: 900, color: "#000000", margin: "4px 0 0", letterSpacing: "-0.02em" }}>
             Real Estate Portfolio Overview
           </h1>
-          <span style={{ color: "#0f172a", fontSize: 13, fontWeight: 750, marginTop: 4, display: "block" }}>
+          <span style={{ color: "var(--color-slate-900)", fontSize: 13, fontWeight: 750, marginTop: 4, display: "block" }}>
             Real-time management dashboard of all registered properties, units, and active operations.
           </span>
         </div>
@@ -195,7 +195,7 @@ export function PortfolioOverviewWorkspace() {
         <Link
           href="/property-onboarding"
           style={{
-            background: "#dc2626",
+            background: "var(--color-danger)",
             color: "#ffffff",
             padding: "10px 18px",
             borderRadius: 8,
@@ -215,9 +215,9 @@ export function PortfolioOverviewWorkspace() {
 
       {/* Portfolio Glance Statistics Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
-        <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12 }}>
+        <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <span style={{ background: "#fee2e2", color: "#dc2626", padding: 8, borderRadius: 8, display: "flex" }}>
+            <span style={{ background: "var(--color-red-bg)", color: "var(--color-danger)", padding: 8, borderRadius: 8, display: "flex" }}>
               <Building2 size={20} />
             </span>
             <small style={{ fontSize: 12, fontWeight: 800, color: "#000000", textTransform: "uppercase" }}>Registered Properties</small>
@@ -225,25 +225,25 @@ export function PortfolioOverviewWorkspace() {
           <strong style={{ fontSize: 28, fontWeight: 900, color: "#000000", display: "block" }}>
             {pulse.property?.properties ?? propertiesList.length}
           </strong>
-          <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>Active real estate assets</span>
+          <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Active real estate assets</span>
         </article>
 
-        <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12 }}>
+        <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <span style={{ background: "#dcfce7", color: "#16a34a", padding: 8, borderRadius: 8, display: "flex" }}>
+            <span style={{ background: "var(--color-green-bg)", color: "var(--color-success)", padding: 8, borderRadius: 8, display: "flex" }}>
               <Users size={20} />
             </span>
             <small style={{ fontSize: 12, fontWeight: 800, color: "#000000", textTransform: "uppercase" }}>Tenants & Occupancy</small>
           </div>
           <strong style={{ fontSize: 28, fontWeight: 900, color: "#000000", display: "block" }}>
-            {pulse.property?.tenants ?? totalOccupied} <span style={{ fontSize: 16, color: "#16a34a" }}>({overallOccupancy}%)</span>
+            {pulse.property?.tenants ?? totalOccupied} <span style={{ fontSize: 16, color: "var(--color-success)" }}>({overallOccupancy}%)</span>
           </strong>
-          <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>Total units: {totalUnits}</span>
+          <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Total units: {totalUnits}</span>
         </article>
 
-        <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12 }}>
+        <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <span style={{ background: "#fef3c7", color: "#d97706", padding: 8, borderRadius: 8, display: "flex" }}>
+            <span style={{ background: "var(--color-amber-bg)", color: "var(--color-warning)", padding: 8, borderRadius: 8, display: "flex" }}>
               <DollarSign size={20} />
             </span>
             <small style={{ fontSize: 12, fontWeight: 800, color: "#000000", textTransform: "uppercase" }}>Rent Outstanding</small>
@@ -251,12 +251,12 @@ export function PortfolioOverviewWorkspace() {
           <strong style={{ fontSize: 24, fontWeight: 900, color: "#000000", display: "block" }}>
             KES {Number(pulse.property?.outstanding ?? propertiesList.reduce((sum, property) => sum + Number(property.outstanding ?? 0), 0)).toLocaleString()}
           </strong>
-          <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>Current billing period</span>
+          <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Current billing period</span>
         </article>
 
-        <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12 }}>
+        <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <span style={{ background: "#dbeafe", color: "#2563eb", padding: 8, borderRadius: 8, display: "flex" }}>
+            <span style={{ background: "var(--color-blue-bg)", color: "var(--color-info)", padding: 8, borderRadius: 8, display: "flex" }}>
               <Wrench size={20} />
             </span>
             <small style={{ fontSize: 12, fontWeight: 800, color: "#000000", textTransform: "uppercase" }}>Open Maintenance</small>
@@ -264,30 +264,30 @@ export function PortfolioOverviewWorkspace() {
           <strong style={{ fontSize: 28, fontWeight: 900, color: "#000000", display: "block" }}>
             {pulse.facility?.openWorkOrders ?? 0}
           </strong>
-          <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>PPM Compliance: {pulse.facility?.compliance ?? 0}%</span>
+          <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>PPM Compliance: {pulse.facility?.compliance ?? 0}%</span>
         </article>
       </div>
 
       {/* PRIMARY SECTION: Properties Register (Placed at the top as requested) */}
-      <article className="data-panel" style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, overflow: "hidden", marginBottom: 28, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-        <div style={{ padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, background: "#fafafa" }}>
+      <article className="data-panel" style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, overflow: "hidden", marginBottom: 28, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--color-slate-200)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, background: "#fafafa" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
                 Properties Register ({filtered.length})
               </h2>
-              <span style={{ fontSize: 11, fontWeight: 800, background: "#e2e8f0", color: "#334155", padding: "2px 8px", borderRadius: 12 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, background: "var(--color-slate-200)", color: "var(--color-slate-700)", padding: "2px 8px", borderRadius: 12 }}>
                 Primary Portfolio View
               </span>
             </div>
-            <p style={{ fontSize: 13, color: "#0f172a", fontWeight: 750, margin: "2px 0 0" }}>
+            <p style={{ fontSize: 13, color: "var(--color-slate-900)", fontWeight: 750, margin: "2px 0 0" }}>
               Select any property to view live status, open technical property audit, or manage details.
             </p>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {/* Quick Type Filter Chips */}
-            <div style={{ display: "flex", background: "#f1f5f9", padding: 3, borderRadius: 8, gap: 2 }}>
+            <div style={{ display: "flex", background: "var(--color-slate-100)", padding: 3, borderRadius: 8, gap: 2 }}>
               {["all", "commercial", "residential"].map((t) => (
                 <button
                   key={t}
@@ -295,12 +295,12 @@ export function PortfolioOverviewWorkspace() {
                   onClick={() => { setTypeFilter(t); setPage(1); }}
                   style={{
                     background: typeFilter === t ? "#ffffff" : "transparent",
-                    color: typeFilter === t ? "#0f172a" : "#64748b",
+                    color: typeFilter === t ? "var(--color-slate-900)" : "var(--color-slate-500)",
                     fontWeight: typeFilter === t ? 800 : 600,
                     fontSize: 12,
                     padding: "4px 10px",
                     borderRadius: 6,
-                    border: typeFilter === t ? "1px solid #cbd5e1" : "none",
+                    border: typeFilter === t ? "1px solid var(--color-slate-300)" : "none",
                     cursor: "pointer",
                     textTransform: "capitalize",
                   }}
@@ -312,7 +312,7 @@ export function PortfolioOverviewWorkspace() {
 
             {/* Search Input */}
             <div style={{ position: "relative", width: "100%", maxWidth: 280, minWidth: 200 }}>
-              <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#64748b", pointerEvents: "none" }} />
+              <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--color-slate-500)", pointerEvents: "none" }} />
               <input
                 type="text"
                 placeholder="Search by code, name, city..."
@@ -327,10 +327,10 @@ export function PortfolioOverviewWorkspace() {
                   paddingRight: 12,
                   paddingLeft: 34,
                   borderRadius: 8,
-                  border: "1px solid #cbd5e1",
+                  border: "1px solid var(--color-slate-300)",
                   fontSize: 12,
                   fontWeight: 600,
-                  color: "#0f172a",
+                  color: "var(--color-slate-900)",
                   background: "#ffffff",
                   width: "100%",
                   boxSizing: "border-box",
@@ -344,7 +344,7 @@ export function PortfolioOverviewWorkspace() {
         <div className="table-scroll">
           <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+              <tr style={{ background: "var(--color-slate-50)", borderBottom: "1px solid var(--color-slate-200)" }}>
                 <th style={{ padding: "12px 20px", textAlign: "left", fontSize: 12, fontWeight: 900, color: "#000000", textTransform: "uppercase" }}>Code</th>
                 <th style={{ padding: "12px 20px", textAlign: "left", fontSize: 12, fontWeight: 900, color: "#000000", textTransform: "uppercase" }}>Property Name</th>
                 <th style={{ padding: "12px 20px", textAlign: "left", fontSize: 12, fontWeight: 900, color: "#000000", textTransform: "uppercase" }}>Type</th>
@@ -356,37 +356,37 @@ export function PortfolioOverviewWorkspace() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: 32, textAlign: "center", color: "#0f172a", fontWeight: 750 }}>
+                  <td colSpan={6} style={{ padding: 32, textAlign: "center", color: "var(--color-slate-900)", fontWeight: 750 }}>
                     Loading portfolio properties…
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: 32, textAlign: "center", color: "#0f172a", fontWeight: 750 }}>
+                  <td colSpan={6} style={{ padding: 32, textAlign: "center", color: "var(--color-slate-900)", fontWeight: 750 }}>
                     No properties match your filter criteria.
                   </td>
                 </tr>
               ) : (
                 paginatedProps.map((prop) => (
-                  <tr key={prop.id} style={{ borderBottom: "1px solid #f1f5f9", cursor: "pointer" }} onClick={() => selectProperty({ id: prop.id, name: prop.name, code: prop.code, status: prop.status, location: [prop.address, prop.city].filter(Boolean).join(", ") })}>
+                  <tr key={prop.id} style={{ borderBottom: "1px solid var(--color-slate-100)", cursor: "pointer" }} onClick={() => selectProperty({ id: prop.id, name: prop.name, code: prop.code, status: prop.status, location: [prop.address, prop.city].filter(Boolean).join(", ") })}>
                     <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 900, color: "#000000", fontFamily: "ui-monospace, monospace" }}>
                       {prop.code || `PROP-${prop.id.slice(0, 6)}`}
                     </td>
                     <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 800, color: "#000000" }}>
-                      <Link href="/property" onClick={(e) => { e.stopPropagation(); selectProperty({ id: prop.id, name: prop.name, code: prop.code, status: prop.status, location: [prop.address, prop.city].filter(Boolean).join(", ") }); }} style={{ color: "#2563eb", textDecoration: "none", fontWeight: 800 }}>
+                      <Link href="/property" onClick={(e) => { e.stopPropagation(); selectProperty({ id: prop.id, name: prop.name, code: prop.code, status: prop.status, location: [prop.address, prop.city].filter(Boolean).join(", ") }); }} style={{ color: "var(--color-info)", textDecoration: "none", fontWeight: 800 }}>
                         {prop.name}
                       </Link>
                     </td>
-                    <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 750, color: "#0f172a", textTransform: "capitalize" }}>
-                      <span style={{ background: prop.property_type?.toLowerCase() === "residential" ? "#f3e8ff" : "#e0e7ff", color: prop.property_type?.toLowerCase() === "residential" ? "#6b21a8" : "#3730a3", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700 }}>
+                    <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 750, color: "var(--color-slate-900)", textTransform: "capitalize" }}>
+                      <span style={{ background: prop.property_type?.toLowerCase() === "residential" ? "#f3e8ff" : "var(--color-indigo-bg)", color: prop.property_type?.toLowerCase() === "residential" ? "#6b21a8" : "#3730a3", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700 }}>
                         {prop.property_type || "Commercial"}
                       </span>
                     </td>
-                    <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 750, color: "#0f172a" }}>
+                    <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 750, color: "var(--color-slate-900)" }}>
                       {prop.address ? `${prop.address}${prop.city ? `, ${prop.city}` : ""}` : prop.city || "—"}
                     </td>
                     <td style={{ padding: "14px 20px" }}>
-                      <span style={{ background: "#dcfce7", color: "#166534", padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                      <span style={{ background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "4px 10px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
                         {Number(prop.units ?? prop.total_units ?? 0)} Units ({Number(prop.occupancy ?? prop.occupancy_rate ?? 0)}% Occupied)
                       </span>
                     </td>
@@ -399,9 +399,9 @@ export function PortfolioOverviewWorkspace() {
                             setSelectedDossier(prop);
                           }}
                           style={{
-                            background: "#eff6ff",
-                            border: "1px solid #bfdbfe",
-                            color: "#1d4ed8",
+                            background: "var(--color-blue-soft)",
+                            border: "1px solid var(--color-blue-200)",
+                            color: "var(--color-info-strong)",
                             padding: "6px 12px",
                             borderRadius: 6,
                             fontSize: 12,
@@ -420,7 +420,7 @@ export function PortfolioOverviewWorkspace() {
                           onClick={(e) => e.stopPropagation()}
                           style={{
                             background: "#ffffff",
-                            border: "1px solid #cbd5e1",
+                            border: "1px solid var(--color-slate-300)",
                             color: "#000000",
                             padding: "6px 12px",
                             borderRadius: 6,
@@ -444,8 +444,8 @@ export function PortfolioOverviewWorkspace() {
             </tbody>
           </table>
         </div>
-        <div style={{ padding: "12px 20px", borderTop: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <small style={{ color: "#64748b", fontWeight: 700 }}>Showing {paginatedProps.length} of {filtered.length} properties</small>
+        <div style={{ padding: "12px 20px", borderTop: "1px solid var(--color-slate-100)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <small style={{ color: "var(--color-slate-500)", fontWeight: 700 }}>Showing {paginatedProps.length} of {filtered.length} properties</small>
           <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </div>
       </article>
@@ -492,12 +492,12 @@ export function PortfolioOverviewWorkspace() {
               overflow: "hidden",
             }}
           >
-            <div style={{ padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--color-slate-200)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <h3 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
                   Edit Property: {editingProperty.name}
                 </h3>
-                <span style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>
+                <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>
                   Update property information, code, and address details.
                 </span>
               </div>
@@ -511,7 +511,7 @@ export function PortfolioOverviewWorkspace() {
 
             <form onSubmit={handleSaveProperty} style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
               {saveSuccess && (
-                <div style={{ background: "#dcfce7", border: "1px solid #86efac", color: "#166534", padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ background: "var(--color-green-bg)", border: "1px solid var(--color-green-300)", color: "var(--color-green-text)", padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
                   <CheckCircle2 size={18} />
                   <span>Property details updated successfully!</span>
                 </div>
@@ -527,7 +527,7 @@ export function PortfolioOverviewWorkspace() {
                     name="code"
                     defaultValue={editingProperty.code || `CE-NRB-00${editingProperty.id.slice(0, 1)}`}
                     required
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000" }}
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000" }}
                   />
                 </div>
 
@@ -540,7 +540,7 @@ export function PortfolioOverviewWorkspace() {
                     name="name"
                     defaultValue={editingProperty.name}
                     required
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000" }}
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000" }}
                   />
                 </div>
               </div>
@@ -553,7 +553,7 @@ export function PortfolioOverviewWorkspace() {
                   <select
                     name="property_type"
                     defaultValue={editingProperty.property_type || "commercial"}
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000", background: "#fff" }}
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000", background: "#fff" }}
                   >
                     <option value="commercial">Commercial Office</option>
                     <option value="residential">Residential Apartments</option>
@@ -571,7 +571,7 @@ export function PortfolioOverviewWorkspace() {
                     type="text"
                     name="city"
                     defaultValue={editingProperty.city || "Nairobi"}
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000" }}
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000" }}
                   />
                 </div>
               </div>
@@ -584,7 +584,7 @@ export function PortfolioOverviewWorkspace() {
                   type="text"
                   name="address"
                   defaultValue={editingProperty.address || "Westlands Road, Nairobi"}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 800, color: "#000000" }}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000" }}
                 />
               </div>
 
@@ -597,7 +597,7 @@ export function PortfolioOverviewWorkspace() {
                   rows={3}
                   defaultValue={editingProperty.notes || ""}
                   placeholder="Enter property notes, landlord details, or specifications…"
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 700, color: "#000000" }}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 700, color: "#000000" }}
                 />
               </div>
 
@@ -605,7 +605,7 @@ export function PortfolioOverviewWorkspace() {
                 <button
                   type="button"
                   onClick={() => setEditingProperty(null)}
-                  style={{ background: "#f1f5f9", border: 0, color: "#0f172a", padding: "10px 16px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}
+                  style={{ background: "var(--color-slate-100)", border: 0, color: "var(--color-slate-900)", padding: "10px 16px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}
                 >
                   Cancel
                 </button>
@@ -613,7 +613,7 @@ export function PortfolioOverviewWorkspace() {
                 <button
                   type="submit"
                   disabled={saving}
-                  style={{ background: "#dc2626", border: 0, color: "#ffffff", padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}
+                  style={{ background: "var(--color-danger)", border: 0, color: "#ffffff", padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}
                 >
                   {saving ? "Saving Changes…" : "Save Property Details"}
                 </button>

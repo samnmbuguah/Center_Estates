@@ -61,8 +61,8 @@ export function ServiceChargeReconciliationsView({
           value={`${kN(filtered.length)} Periods`}
           sub={`${approvedCount} formally approved`}
           iconBg="rgba(37, 99, 235, 0.12)"
-          iconColor="#2563eb"
-          borderColor="#2563eb"
+          iconColor="var(--color-info)"
+          borderColor="var(--color-info)"
         />
         <KpiCard
           icon={<DollarSign size={16} />}
@@ -70,8 +70,8 @@ export function ServiceChargeReconciliationsView({
           value={money.format(totalBudgeted)}
           sub="Target operational allowance"
           iconBg="rgba(217, 119, 6, 0.12)"
-          iconColor="#d97706"
-          borderColor="#d97706"
+          iconColor="var(--color-warning)"
+          borderColor="var(--color-warning)"
         />
         <KpiCard
           icon={<DollarSign size={16} />}
@@ -88,8 +88,8 @@ export function ServiceChargeReconciliationsView({
           value={`${money.format(Math.abs(totalVariance))} ${totalVariance >= 0 ? "Surplus" : "Deficit"}`}
           sub={totalVariance >= 0 ? "✓ Under Budget (Tenant credit)" : "⚠ Over Budget (Balancing charge)"}
           iconBg={totalVariance >= 0 ? "rgba(16, 185, 129, 0.12)" : "rgba(220, 38, 38, 0.12)"}
-          iconColor={totalVariance >= 0 ? "#10b981" : "#dc2626"}
-          borderColor={totalVariance >= 0 ? "#10b981" : "#dc2626"}
+          iconColor={totalVariance >= 0 ? "var(--color-emerald)" : "var(--color-danger)"}
+          borderColor={totalVariance >= 0 ? "var(--color-emerald)" : "var(--color-danger)"}
         />
       </KpiStrip>
 
@@ -141,7 +141,7 @@ export function ServiceChargeReconciliationsView({
                       </td>
                       <td
                         className="mono"
-                        style={{ fontWeight: 800, color: isSurplus ? "#059669" : "#dc2626" }}
+                        style={{ fontWeight: 800, color: isSurplus ? "var(--color-emerald-strong)" : "var(--color-danger)" }}
                       >
                         {money.format(Math.abs(varianceNum))}
                         <span style={{ fontSize: 10, marginLeft: 4, fontWeight: 700 }}>
@@ -153,7 +153,7 @@ export function ServiceChargeReconciliationsView({
                           Prep: {String(r.prepared_by_name ?? "System")}
                         </div>
                         {Boolean(r.reviewed_by_name) && (
-                          <div style={{ fontSize: 11, color: "#059669", fontWeight: 700 }}>
+                          <div style={{ fontSize: 11, color: "var(--color-emerald-strong)", fontWeight: 700 }}>
                             Rev: {String(r.reviewed_by_name)}
                           </div>
                         )}

@@ -254,7 +254,7 @@ export function Tickets() {
             </div>
             {comments.length === 0 && <p className="muted">No comments yet.</p>}
             {comments.map((c) => (
-              <div key={c.id} style={{ margin: "8px 0", padding: 8, background: "var(--surface-2, #1e293b)", borderRadius: 8 }}>
+              <div key={c.id} style={{ margin: "8px 0", padding: 8, background: "var(--surface-2, var(--color-slate-800))", borderRadius: 8 }}>
                 <div className="row" style={{ justifyContent: "space-between" }}>
                   <strong>{c.author}</strong>
                   <span className="muted" style={{ fontSize: 11 }}>{new Date(c.created_at).toLocaleString()}</span>

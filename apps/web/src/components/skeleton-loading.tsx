@@ -28,7 +28,7 @@ export function SkeletonTable({ rows = 5, columns = 4 }: { rows?: number; column
       </Box>
       <Box sx={{ overflow: "hidden" }}>
         {Array.from({ length: rows }).map((_, rowIndex) => (
-          <Box key={rowIndex} sx={{ display: "flex", gap: 2, py: 1, borderBottom: "1px solid #f1f5f9" }}>
+          <Box key={rowIndex} sx={{ display: "flex", gap: 2, py: 1, borderBottom: "1px solid var(--color-slate-100)" }}>
             {Array.from({ length: columns }).map((_, colIndex) => (
               <Skeleton key={colIndex} variant="text" width="100%" />
             ))}

@@ -20,10 +20,10 @@ import {
 // or bank reference to show operators what the deposit is likely paying for.
 // ---------------------------------------------------------------------------
 const CHARGE_PREFIX_MAP: Record<string, { label: string; bg: string; color: string }> = {
-  "RENT":  { label: "Rent",           bg: "rgba(59,130,246,0.13)",  color: "#2563eb" },
-  "SC":    { label: "Service Charge", bg: "rgba(139,92,246,0.13)",  color: "#7c3aed" },
-  "WATER": { label: "Water",          bg: "rgba(20,184,166,0.13)",  color: "#0d9488" },
-  "MF":    { label: "Mgmt Fee",       bg: "rgba(245,158,11,0.13)",  color: "#d97706" },
+  "RENT":  { label: "Rent",           bg: "rgba(59,130,246,0.13)",  color: "var(--color-info)" },
+  "SC":    { label: "Service Charge", bg: "rgba(139,92,246,0.13)",  color: "var(--color-violet)" },
+  "WATER": { label: "Water",          bg: "rgba(20,184,166,0.13)",  color: "var(--color-teal)" },
+  "MF":    { label: "Mgmt Fee",       bg: "rgba(245,158,11,0.13)",  color: "var(--color-warning)" },
 };
 
 function detectChargePrefix(tx: BankTransactionRow): string | null {
@@ -432,7 +432,7 @@ export function BankReconciliationView({
               className="btn sm"
               onClick={runAiMatch}
               style={{
-                background: "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)",
+                background: "linear-gradient(135deg, var(--color-violet) 0%, var(--color-indigo) 100%)",
                 color: "#ffffff",
                 border: "none",
                 fontWeight: 700,
@@ -474,7 +474,7 @@ export function BankReconciliationView({
           }}
           onClick={() => fileInputRef.current?.click()}
           style={{
-            border: isDragging ? "2px dashed #6366f1" : "1.5px dashed var(--border)",
+            border: isDragging ? "2px dashed var(--color-indigo-strong)" : "1.5px dashed var(--border)",
             background: isDragging
               ? "rgba(99, 102, 241, 0.08)"
               : "radial-gradient(ellipse at top, rgba(99, 102, 241, 0.04) 0%, var(--surface) 100%)",
@@ -502,7 +502,7 @@ export function BankReconciliationView({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: isDragging ? "#6366f1" : "var(--primary)",
+              color: isDragging ? "var(--color-indigo-strong)" : "var(--primary)",
             }}>
               <UploadCloud size={24} className={importing ? "animate-bounce" : ""} />
             </div>
@@ -519,14 +519,14 @@ export function BankReconciliationView({
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "center", marginTop: 4 }}>
               <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>Auto-Parsed Formats:</span>
               {[
-                { name: "NCBA Bank", color: "#2563eb", bg: "rgba(37,99,235,0.08)" },
-                { name: "Equity EazzyBiz", color: "#b91c1c", bg: "rgba(185,28,28,0.08)" },
-                { name: "KCB Corporate", color: "#15803d", bg: "rgba(21,128,61,0.08)" },
-                { name: "Stanbic Bank", color: "#0284c7", bg: "rgba(2,132,199,0.08)" },
-                { name: "Co-op Omni", color: "#047857", bg: "rgba(4,120,87,0.08)" },
-                { name: "M-PESA Business", color: "#16a34a", bg: "rgba(22,163,74,0.08)" },
+                { name: "NCBA Bank", color: "var(--color-info)", bg: "rgba(37,99,235,0.08)" },
+                { name: "Equity EazzyBiz", color: "var(--color-danger-strong)", bg: "rgba(185,28,28,0.08)" },
+                { name: "KCB Corporate", color: "var(--color-success-strong)", bg: "rgba(21,128,61,0.08)" },
+                { name: "Stanbic Bank", color: "var(--color-sky)", bg: "rgba(2,132,199,0.08)" },
+                { name: "Co-op Omni", color: "var(--color-emerald-deep)", bg: "rgba(4,120,87,0.08)" },
+                { name: "M-PESA Business", color: "var(--color-success)", bg: "rgba(22,163,74,0.08)" },
               ].map((b) => (
-                <span key={b.name} style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 12, background: b.bg, color: b.color, border: `1px solid ${b.color}22` }}>
+                <span key={b.name} style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 12, background: b.bg, color: b.color, border: `1px solid color-mix(in srgb, ${b.color} 13%, transparent)` }}>
                   {b.name}
                 </span>
               ))}
@@ -539,24 +539,24 @@ export function BankReconciliationView({
       <KpiStrip cols={4}>
         <KpiCard
           icon="🏦"
-          iconBg="#dbeafe"
-          iconColor="#1d4ed8"
+          iconBg="var(--color-blue-bg)"
+          iconColor="var(--color-info-strong)"
           label="Total Bank Inflow"
           value={kM(summary.totalInflow)}
           sub={`${kN(transactions.length)} statement lines`}
         />
         <KpiCard
           icon="✓"
-          iconBg="#dcfce7"
-          iconColor="#15803d"
+          iconBg="var(--color-green-bg)"
+          iconColor="var(--color-success-strong)"
           label="Reconciled Revenue"
           value={kN(summary.matched.length)}
           sub={kM(summary.matchedTotal)}
         />
         <KpiCard
           icon="⚠️"
-          iconBg="#fef3c7"
-          iconColor="#b45309"
+          iconBg="var(--color-amber-bg)"
+          iconColor="var(--color-amber-deep)"
           label="Unreceipted Deposits"
           value={kN(summary.unreceipted.length)}
           sub={`${kM(summary.unreceiptedTotal)} Action Required`}
@@ -587,8 +587,8 @@ export function BankReconciliationView({
           className={`btn ${activeTab === "unreceipted" ? "primary" : "ghost"} sm`}
           style={{
             borderRadius: 6,
-            background: activeTab === "unreceipted" ? "#b45309" : undefined,
-            color: activeTab === "unreceipted" ? "#ffffff" : summary.unreceipted.length ? "#b45309" : undefined,
+            background: activeTab === "unreceipted" ? "var(--color-amber-deep)" : undefined,
+            color: activeTab === "unreceipted" ? "#ffffff" : summary.unreceipted.length ? "var(--color-amber-deep)" : undefined,
             fontWeight: summary.unreceipted.length ? 700 : undefined,
           }}
         >
@@ -647,7 +647,7 @@ export function BankReconciliationView({
                       key={String(tx.id)}
                       style={{
                         background: isUnreceipted ? "rgba(245, 158, 11, 0.05)" : undefined,
-                        borderLeft: isUnreceipted ? "3px solid #f59e0b" : undefined,
+                        borderLeft: isUnreceipted ? "3px solid var(--color-amber)" : undefined,
                       }}
                     >
                       <td>
@@ -669,7 +669,7 @@ export function BankReconciliationView({
                           {/* Charge-type intelligence badge — derived from reference prefix or matched invoice */}
                           <ChargePrefixBadge tx={tx} />
                           {tx.extracted_mpesa_ref && (
-                            <span style={{ fontSize: 11, fontWeight: 700, color: "#15803d" }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-success-strong)" }}>
                               📱 M-PESA: <span className="mono">{tx.extracted_mpesa_ref}</span>
                             </span>
                           )}
@@ -693,9 +693,9 @@ export function BankReconciliationView({
                       </td>
                       <td style={{ textAlign: "right", fontWeight: 700 }} className="mono">
                         {isCredit ? (
-                          <span style={{ color: "#16a34a" }}>+{kM(tx.money_in || tx.amount)}</span>
+                          <span style={{ color: "var(--color-success)" }}>+{kM(tx.money_in || tx.amount)}</span>
                         ) : (
-                          <span style={{ color: "#dc2626" }}>-{kM(tx.money_out || tx.amount)}</span>
+                          <span style={{ color: "var(--color-danger)" }}>-{kM(tx.money_out || tx.amount)}</span>
                         )}
                       </td>
                       <td>
@@ -716,11 +716,11 @@ export function BankReconciliationView({
                               gap: 4,
                               padding: "2px 8px",
                               borderRadius: 9999,
-                              background: "#fef3c7",
-                              color: "#92400e",
+                              background: "var(--color-amber-bg)",
+                              color: "var(--color-amber-strong)",
                               fontWeight: 700,
                               fontSize: 11,
-                              border: "1px solid #fde68a",
+                              border: "1px solid var(--color-amber-200)",
                             }}
                           >
                             ⚠️ Unreceipted
@@ -735,7 +735,7 @@ export function BankReconciliationView({
                             <button
                               type="button"
                               className="btn primary sm"
-                              style={{ background: "#16a34a", borderColor: "#16a34a", fontSize: 12, padding: "4px 8px" }}
+                              style={{ background: "var(--color-success)", borderColor: "var(--color-success)", fontSize: 12, padding: "4px 8px" }}
                               onClick={() => setQuickReceiptTarget(tx)}
                             >
                               + Create & Match Receipt
@@ -761,7 +761,7 @@ export function BankReconciliationView({
                           </button>
                         )}
                         {isMatched && (
-                          <span style={{ color: "#16a34a", fontSize: 12, fontWeight: 600 }}>✓ Reconciled</span>
+                          <span style={{ color: "var(--color-success)", fontSize: 12, fontWeight: 600 }}>✓ Reconciled</span>
                         )}
                       </td>
                     </tr>
@@ -808,7 +808,7 @@ export function BankReconciliationView({
               {loadingInvoices ? (
                 <p className="muted">Loading available invoices…</p>
               ) : invoices.length === 0 ? (
-                <p className="muted" style={{ color: "#dc2626" }}>
+                <p className="muted" style={{ color: "var(--color-danger)" }}>
                   No open invoices with positive balances found. Please issue an invoice first or match an existing receipt.
                 </p>
               ) : (
@@ -871,7 +871,7 @@ export function BankReconciliationView({
                 type="submit"
                 className="btn primary"
                 disabled={submitting || !selectedInvoiceId || invoices.length === 0}
-                style={{ background: "#16a34a", borderColor: "#16a34a" }}
+                style={{ background: "var(--color-success)", borderColor: "var(--color-success)" }}
               >
                 {submitting ? "Posting & Reconciling…" : "✓ Post Receipt & Reconcile"}
               </button>
@@ -917,7 +917,7 @@ export function BankReconciliationView({
         <Modal
           title={
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <FileSpreadsheet size={18} color="#10b981" />
+              <FileSpreadsheet size={18} color="var(--color-emerald)" />
               <span>Bank Statement Import & Auto-Match Report</span>
             </div>
           }
@@ -957,7 +957,7 @@ export function BankReconciliationView({
                   style={{
                     height: "100%",
                     width: `${Number(importSummary.created ?? 0) > 0 ? Math.min(100, Math.round((Number(importSummary.auto_matched ?? 0) / Number(importSummary.created ?? 1)) * 100)) : 100}%`,
-                    background: "linear-gradient(90deg, #10b981 0%, #34d399 100%)",
+                    background: "linear-gradient(90deg, var(--color-emerald) 0%, #34d399 100%)",
                     transition: "width 0.4s ease-in-out",
                   }}
                 />
@@ -971,16 +971,16 @@ export function BankReconciliationView({
                 <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>{importSummary.total_parsed ?? 0}</div>
               </div>
               <div style={{ padding: "12px", borderRadius: 8, background: "rgba(37,99,235,0.06)", border: "1px solid rgba(37,99,235,0.2)", textAlign: "center" }}>
-                <div style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600 }}>New Lines</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "#3b82f6", marginTop: 2 }}>{importSummary.created ?? 0}</div>
+                <div style={{ fontSize: 11, color: "var(--color-blue)", fontWeight: 600 }}>New Lines</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "var(--color-blue)", marginTop: 2 }}>{importSummary.created ?? 0}</div>
               </div>
               <div style={{ padding: "12px", borderRadius: 8, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)", textAlign: "center" }}>
-                <div style={{ fontSize: 11, color: "#10b981", fontWeight: 600 }}>Auto-Matched</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "#10b981", marginTop: 2 }}>{importSummary.auto_matched ?? 0}</div>
+                <div style={{ fontSize: 11, color: "var(--color-emerald)", fontWeight: 600 }}>Auto-Matched</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "var(--color-emerald)", marginTop: 2 }}>{importSummary.auto_matched ?? 0}</div>
               </div>
               <div style={{ padding: "12px", borderRadius: 8, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)", textAlign: "center" }}>
-                <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 600 }}>Unreceipted</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "#f59e0b", marginTop: 2 }}>{importSummary.unreceipted_credits ?? 0}</div>
+                <div style={{ fontSize: 11, color: "var(--color-amber)", fontWeight: 600 }}>Unreceipted</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "var(--color-amber)", marginTop: 2 }}>{importSummary.unreceipted_credits ?? 0}</div>
               </div>
             </div>
 
@@ -990,7 +990,7 @@ export function BankReconciliationView({
                 <button
                   type="button"
                   className="btn primary sm"
-                  style={{ background: "#b45309", borderColor: "#b45309" }}
+                  style={{ background: "var(--color-amber-deep)", borderColor: "var(--color-amber-deep)" }}
                   onClick={() => {
                     setActiveTab("unreceipted");
                     setShowImportModal(false);
@@ -1030,7 +1030,7 @@ export function BankReconciliationView({
               </div>
               {aiMatchStats && (
                 <div style={{ display: "flex", gap: 8 }}>
-                  <span style={{ padding: "4px 8px", borderRadius: 6, background: "rgba(16,185,129,0.15)", color: "#10b981", fontWeight: 700, fontSize: 12 }}>
+                  <span style={{ padding: "4px 8px", borderRadius: 6, background: "rgba(16,185,129,0.15)", color: "var(--color-emerald)", fontWeight: 700, fontSize: 12 }}>
                     {aiMatchStats.highConfidence} High Confidence
                   </span>
                   <span style={{ padding: "4px 8px", borderRadius: 6, background: "var(--surface-2)", color: "var(--text-secondary)", fontWeight: 600, fontSize: 12 }}>
@@ -1047,7 +1047,7 @@ export function BankReconciliationView({
               </div>
             ) : aiMatches.length === 0 ? (
               <div style={{ padding: "30px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
-                <CheckCircle2 size={32} color="#10b981" style={{ marginBottom: 8 }} />
+                <CheckCircle2 size={32} color="var(--color-emerald)" style={{ marginBottom: 8 }} />
                 <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>All deposits are reconciled!</div>
                 <div style={{ fontSize: 13, marginTop: 4 }}>No unmatched bank statement lines were found requiring reconciliation.</div>
               </div>
@@ -1082,7 +1082,7 @@ export function BankReconciliationView({
                               padding: "2px 8px",
                               borderRadius: 4,
                               background: m.is_high_confidence ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.15)",
-                              color: m.is_high_confidence ? "#10b981" : "#f59e0b",
+                              color: m.is_high_confidence ? "var(--color-emerald)" : "var(--color-amber)",
                             }}
                           >
                             {Math.round(m.confidence * 100)}% Match
@@ -1098,8 +1098,8 @@ export function BankReconciliationView({
                         className="btn primary sm"
                         onClick={() => approveAiMatch(m)}
                         style={{
-                          background: m.is_high_confidence ? "#16a34a" : "#4f46e5",
-                          borderColor: m.is_high_confidence ? "#16a34a" : "#4f46e5",
+                          background: m.is_high_confidence ? "var(--color-success)" : "var(--color-indigo)",
+                          borderColor: m.is_high_confidence ? "var(--color-success)" : "var(--color-indigo)",
                           fontWeight: 700,
                           fontSize: 12,
                           whiteSpace: "nowrap",
@@ -1114,7 +1114,7 @@ export function BankReconciliationView({
                         <span style={{ color: "var(--muted)" }}>Matched To: </span>
                         <strong>{m.suggested_invoice.tenant_name}</strong> (Unit {m.suggested_invoice.unit_code}) · Invoice <strong className="mono">{m.suggested_invoice.number}</strong>
                       </div>
-                      <div style={{ color: "#10b981", fontWeight: 700 }}>
+                      <div style={{ color: "var(--color-emerald)", fontWeight: 700 }}>
                         Balance: {kM(m.suggested_invoice.balance)}
                       </div>
                     </div>
@@ -1122,7 +1122,7 @@ export function BankReconciliationView({
                     {m.match_reasons && m.match_reasons.length > 0 && (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {m.match_reasons.map((r: string, idx: number) => (
-                          <span key={idx} style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "rgba(99,102,241,0.08)", color: "#6366f1", fontWeight: 600 }}>
+                          <span key={idx} style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "rgba(99,102,241,0.08)", color: "var(--color-indigo-strong)", fontWeight: 600 }}>
                             ✓ {r}
                           </span>
                         ))}
@@ -1149,7 +1149,7 @@ export function BankReconciliationView({
                   onClick={approveAllHighConfidence}
                   disabled={aiBatchBusy}
                   style={{
-                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    background: "linear-gradient(135deg, var(--color-emerald) 0%, var(--color-emerald-strong) 100%)",
                     border: "none",
                     fontWeight: 800,
                     padding: "8px 18px",

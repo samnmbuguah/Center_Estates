@@ -218,10 +218,10 @@ export function FeesView({
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* KPI Strip */}
       <KpiStrip cols={4}>
-        <KpiCard icon="💰" iconBg="#dcfce7" iconColor="#16a34a" label="Gross Collections" value={kM(grossCollections)} sub="From landlord invoices" onClick={() => setTab("receipting")} />
-        <KpiCard icon="💼" iconBg="#e0e7ff" iconColor="#4f46e5" label="Agency Fees Earned" value={kM(totalFees)} sub={`${invoices.length} invoice(s)`} />
-        <KpiCard icon="🏛️" iconBg="#fef3c7" iconColor="#d97706" label="VAT on Commission" value={kM(totalVat)} sub="16% Output Tax" />
-        <KpiCard icon="🏦" iconBg="#dbeafe" iconColor="#2563eb" label="Net Landlord Payout" value={kM(totalNet)} sub="After fees & deductions" />
+        <KpiCard icon="💰" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Gross Collections" value={kM(grossCollections)} sub="From landlord invoices" onClick={() => setTab("receipting")} />
+        <KpiCard icon="💼" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Agency Fees Earned" value={kM(totalFees)} sub={`${invoices.length} invoice(s)`} />
+        <KpiCard icon="🏛️" iconBg="var(--color-amber-bg)" iconColor="var(--color-warning)" label="VAT on Commission" value={kM(totalVat)} sub="16% Output Tax" />
+        <KpiCard icon="🏦" iconBg="var(--color-blue-bg)" iconColor="var(--color-info)" label="Net Landlord Payout" value={kM(totalNet)} sub="After fees & deductions" />
       </KpiStrip>
 
       {/* Toolbar */}
@@ -266,14 +266,14 @@ export function FeesView({
               <tbody>
                 {filteredInvoices.map((inv) => (
                   <tr key={inv.id}>
-                    <td className="mono" style={{ fontWeight: 700, color: "var(--brand-primary, #dc2626)" }}>{inv.number}</td>
+                    <td className="mono" style={{ fontWeight: 700, color: "var(--brand-primary, var(--color-danger))" }}>{inv.number}</td>
                     <td style={{ fontSize: 12 }}>{inv.billing_period}</td>
                     <td style={{ fontSize: 12 }}>{inv.landlord_name}</td>
-                    <td className="mono" style={{ color: "#16a34a", fontWeight: 600 }}>{kM(Number(inv.gross_collections))}</td>
-                    <td className="mono" style={{ color: "#4f46e5" }}>{kM(Number(inv.fee_amount))}</td>
-                    <td className="mono" style={{ color: "#d97706" }}>{kM(Number(inv.vat_amount))}</td>
+                    <td className="mono" style={{ color: "var(--color-success)", fontWeight: 600 }}>{kM(Number(inv.gross_collections))}</td>
+                    <td className="mono" style={{ color: "var(--color-indigo)" }}>{kM(Number(inv.fee_amount))}</td>
+                    <td className="mono" style={{ color: "var(--color-warning)" }}>{kM(Number(inv.vat_amount))}</td>
                     <td className="mono" style={{ fontWeight: 800 }}>{kM(Number(inv.total_amount))}</td>
-                    <td className="mono" style={{ color: "#2563eb", fontWeight: 800 }}>{kM(Number(inv.net_payout))}</td>
+                    <td className="mono" style={{ color: "var(--color-info)", fontWeight: 800 }}>{kM(Number(inv.net_payout))}</td>
                     <td>
                       <StatusPill value={inv.status} />
                       {inv.payment_reference && <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{inv.payment_reference}</div>}
@@ -329,10 +329,10 @@ export function FeesView({
             <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "var(--surface-sunken)" }}>
               <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", color: "text.secondary" }}>Preview</Typography>
               <Stack spacing={1} sx={{ mt: 1.5, fontSize: 13 }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>Gross Collections:</span><strong className="mono" style={{ color: "#16a34a" }}>{kM(grossCollections)}</strong></Box>
-                <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>Fee ({feeRate}%):</span><strong className="mono" style={{ color: "#4f46e5" }}>- {kM(feeModel === "fixed_retainer" ? fixedAmount : Math.round((grossCollections * feeRate) / 100))}</strong></Box>
-                {applyVat && <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>VAT (16%):</span><strong className="mono" style={{ color: "#d97706" }}>- {kM(Math.round((feeModel === "fixed_retainer" ? fixedAmount : Math.round((grossCollections * feeRate) / 100)) * 0.16))}</strong></Box>}
-                <Box sx={{ borderTop: "1px solid var(--border)", pt: 1, display: "flex", justifyContent: "space-between", fontSize: 14 }}><strong>Net Payout:</strong><strong className="mono" style={{ color: "#2563eb" }}>{kM(Math.max(grossCollections - (feeModel === "fixed_retainer" ? fixedAmount : Math.round((grossCollections * feeRate) / 100)) - (applyVat ? Math.round((feeModel === "fixed_retainer" ? fixedAmount : Math.round((grossCollections * feeRate) / 100)) * 0.16) : 0), 0))}</strong></Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>Gross Collections:</span><strong className="mono" style={{ color: "var(--color-success)" }}>{kM(grossCollections)}</strong></Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>Fee ({feeRate}%):</span><strong className="mono" style={{ color: "var(--color-indigo)" }}>- {kM(feeModel === "fixed_retainer" ? fixedAmount : Math.round((grossCollections * feeRate) / 100))}</strong></Box>
+                {applyVat && <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>VAT (16%):</span><strong className="mono" style={{ color: "var(--color-warning)" }}>- {kM(Math.round((feeModel === "fixed_retainer" ? fixedAmount : Math.round((grossCollections * feeRate) / 100)) * 0.16))}</strong></Box>}
+                <Box sx={{ borderTop: "1px solid var(--border)", pt: 1, display: "flex", justifyContent: "space-between", fontSize: 14 }}><strong>Net Payout:</strong><strong className="mono" style={{ color: "var(--color-info)" }}>{kM(Math.max(grossCollections - (feeModel === "fixed_retainer" ? fixedAmount : Math.round((grossCollections * feeRate) / 100)) - (applyVat ? Math.round((feeModel === "fixed_retainer" ? fixedAmount : Math.round((grossCollections * feeRate) / 100)) * 0.16) : 0), 0))}</strong></Box>
               </Stack>
             </Paper>
             <TextField label="Notes / Reference" placeholder="e.g. Wire transfer ref / August rental settlement" size="small" value={disbursementNote} onChange={(e) => setDisbursementNote(e.target.value)} fullWidth />
@@ -340,7 +340,7 @@ export function FeesView({
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setShowGenerateModal(false)}>Cancel</Button>
-          <Button variant="contained" onClick={() => void handleConfirmGenerate()} startIcon={<CheckCircleRounded />} sx={{ bgcolor: "#2563eb", "&:hover": { bgcolor: "#1d4ed8" }, fontWeight: 800 }}>Confirm & Generate</Button>
+          <Button variant="contained" onClick={() => void handleConfirmGenerate()} startIcon={<CheckCircleRounded />} sx={{ bgcolor: "var(--color-info)", "&:hover": { bgcolor: "var(--color-info-strong)" }, fontWeight: 800 }}>Confirm & Generate</Button>
         </DialogActions>
       </Dialog>
     </div>

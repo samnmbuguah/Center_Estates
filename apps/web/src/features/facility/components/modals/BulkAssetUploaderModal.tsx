@@ -272,7 +272,7 @@ export function BulkAssetUploaderModal({
                             const val = e.target.value;
                             setRows((prev) => prev.map((item, idx) => idx === i ? { ...item, name: val } : item));
                           }}
-                          style={{ width: "100%", padding: "2px 4px", fontSize: 11, borderRadius: 4, border: !r.name ? "1px solid #dc2626" : "1px solid var(--border)", background: "var(--surface)" }}
+                          style={{ width: "100%", padding: "2px 4px", fontSize: 11, borderRadius: 4, border: !r.name ? "1px solid var(--color-danger)" : "1px solid var(--border)", background: "var(--surface)" }}
                         />
                       </td>
                       <td style={{ padding: "4px 8px" }}>
@@ -316,7 +316,7 @@ export function BulkAssetUploaderModal({
                         <button
                           type="button"
                           onClick={() => setRows((prev) => prev.filter((_, idx) => idx !== i))}
-                          style={{ background: "none", border: 0, color: "#dc2626", cursor: "pointer", fontSize: 13, padding: 0 }}
+                          style={{ background: "none", border: 0, color: "var(--color-danger)", cursor: "pointer", fontSize: 13, padding: 0 }}
                           title="Remove row"
                         >
                           ✕
@@ -332,12 +332,12 @@ export function BulkAssetUploaderModal({
 
         {/* Results Banner */}
         {result && (
-          <div style={{ padding: 16, background: result.count > 0 ? "#dcfce7" : "#fee2e2", border: `1px solid ${result.count > 0 ? "#86efac" : "#fca5a5"}`, borderRadius: 8, marginBottom: 16 }}>
-            <strong style={{ color: result.count > 0 ? "#166534" : "#991b1b", fontSize: "0.95rem" }}>
+          <div style={{ padding: 16, background: result.count > 0 ? "var(--color-green-bg)" : "var(--color-red-bg)", border: `1px solid ${result.count > 0 ? "var(--color-green-300)" : "var(--color-red-300)"}`, borderRadius: 8, marginBottom: 16 }}>
+            <strong style={{ color: result.count > 0 ? "var(--color-green-text)" : "var(--color-danger-deep)", fontSize: "0.95rem" }}>
               {result.count > 0 ? `✓ Successfully imported ${result.count} assets!` : "⚠️ Import Failed"}
             </strong>
             {result.errors && result.errors.length > 0 && (
-              <ul style={{ margin: "8px 0 0", paddingLeft: 20, fontSize: "0.8rem", color: "#991b1b" }}>
+              <ul style={{ margin: "8px 0 0", paddingLeft: 20, fontSize: "0.8rem", color: "var(--color-danger-deep)" }}>
                 {result.errors.map((err, i) => (
                   <li key={i}>{err}</li>
                 ))}
@@ -367,7 +367,7 @@ export function BulkAssetUploaderModal({
               onClick={executeUpload}
               disabled={uploading || rows.length === 0}
               style={{
-                background: "var(--primary, #e23b3b)",
+                background: "var(--primary, var(--color-brand-red))",
                 color: "#fff",
                 border: 0,
                 padding: "8px 20px",

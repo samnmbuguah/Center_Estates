@@ -78,7 +78,7 @@ export default function InstructionsPage() {
       eyebrow="Valuation Work"
       title="Valuation Instructions"
       subtitle="Property valuation instructions, bank mortgage valuations, site inspection logs and comparable sales evidence."
-      accent="#0891b2"
+      accent="var(--color-cyan)"
       groups={valuationNav}
       activeId="instructions"
       onSelect={(id) => {

@@ -21,8 +21,8 @@ export function FacilityOverviewView({
       <KpiStrip>
         <KpiCard
           icon="🔧"
-          iconBg="#dbeafe"
-          iconColor="#2563eb"
+          iconBg="var(--color-blue-bg)"
+          iconColor="var(--color-info)"
           label="Open Work Orders"
           value={String(kpis.openWorkOrders ?? 0)}
           sub="Active maintenance jobs"
@@ -31,8 +31,8 @@ export function FacilityOverviewView({
         />
         <KpiCard
           icon="📅"
-          iconBg="#dcfce7"
-          iconColor="#16a34a"
+          iconBg="var(--color-green-bg)"
+          iconColor="var(--color-success)"
           label="PPM Compliance"
           value={`${kpis.ppmCompliance ?? 0}%`}
           sub="Planned maintenance target"
@@ -41,8 +41,8 @@ export function FacilityOverviewView({
         />
         <KpiCard
           icon="📦"
-          iconBg="#fef3c7"
-          iconColor="#d97706"
+          iconBg="var(--color-amber-bg)"
+          iconColor="var(--color-warning)"
           label="Registered Assets"
           value={String(kpis.totalAssets ?? 0)}
           sub="Equipment & inventory"
@@ -52,7 +52,7 @@ export function FacilityOverviewView({
         <KpiCard
           icon="🔍"
           iconBg="#f3e8ff"
-          iconColor="#7c3aed"
+          iconColor="var(--color-violet)"
           label="Pending Inspections"
           value={String(kpis.openInspections ?? 0)}
           sub="Audits due"

@@ -63,11 +63,11 @@ function parseDateMs(value: string | number | null | undefined): number | null {
 
 function statusColor(status: string, complete: number): string {
   const s = (status || "").toLowerCase();
-  if (complete >= 100 || /complete|done|closed/.test(s)) return "#10b981";
-  if (/delay|late|behind|critical/.test(s)) return "#ef4444";
-  if (/risk|warning|at risk/.test(s)) return "#f59e0b";
-  if (complete <= 0 || /not started|pending|draft/.test(s)) return "#94a3b8";
-  return "#10b981";
+  if (complete >= 100 || /complete|done|closed/.test(s)) return "var(--color-emerald)";
+  if (/delay|late|behind|critical/.test(s)) return "var(--color-danger)";
+  if (/risk|warning|at risk/.test(s)) return "var(--color-amber)";
+  if (complete <= 0 || /not started|pending|draft/.test(s)) return "var(--color-slate-400)";
+  return "var(--color-emerald)";
 }
 
 function normalizeStatus(status: string, complete: number): string {
@@ -233,7 +233,7 @@ function mapWorkPlanTasks(raw: WorkPlanTask[]): ActivityRow[] {
       resource: t.resource || "",
       responsible: t.responsible_party || "",
       isCritical,
-      color: isCritical ? "#ef4444" : statusColor(status, complete),
+      color: isCritical ? "var(--color-danger)" : statusColor(status, complete),
     };
   });
   return buildGanttMetrics(base);
@@ -268,7 +268,7 @@ function mapMilestones(items: any[]): ActivityRow[] {
       resource: "",
       responsible: m.required_certifying_role || "",
       isCritical,
-      color: isCritical ? "#ef4444" : statusColor(status, complete),
+      color: isCritical ? "var(--color-danger)" : statusColor(status, complete),
     };
   });
   return buildGanttMetrics(base);
@@ -305,7 +305,7 @@ export function Timeline() {
                 ...a,
                 pct: Number(updated.percent_complete),
                 status: updated.status || a.status,
-                color: a.isCritical ? "#ef4444" : a.color,
+                color: a.isCritical ? "var(--color-danger)" : a.color,
               }
             : a,
         ),
@@ -446,27 +446,27 @@ export function Timeline() {
 
   const scheduleStatusLabel = useMemo(() => {
     if (!activities.length) return { label: "—", sub: "No programme data", color: "var(--muted)" };
-    if (scheduleVariance >= 2) return { label: "Ahead", sub: `${scheduleVariance.toFixed(1)}% ahead of plan`, color: "#10b981" };
+    if (scheduleVariance >= 2) return { label: "Ahead", sub: `${scheduleVariance.toFixed(1)}% ahead of plan`, color: "var(--color-emerald)" };
     if (scheduleVariance <= -5 || criticalCount > 0)
       return {
         label: criticalCount > 0 ? "At Risk" : "Behind",
         sub: `${Math.abs(scheduleVariance).toFixed(1)}% vs plan · ${criticalCount} critical`,
-        color: scheduleVariance <= -10 ? "#ef4444" : "#f59e0b",
+        color: scheduleVariance <= -10 ? "var(--color-danger)" : "var(--color-amber)",
       };
-    return { label: "On Track", sub: `${scheduleVariance >= 0 ? "+" : ""}${scheduleVariance.toFixed(1)}% vs plan`, color: "#10b981" };
+    return { label: "On Track", sub: `${scheduleVariance >= 0 ? "+" : ""}${scheduleVariance.toFixed(1)}% vs plan`, color: "var(--color-emerald)" };
   }, [activities, scheduleVariance, criticalCount]);
 
   const donutParts = useMemo(() => {
     const total = Math.max(activities.length, 1);
-    const onTrack = activities.filter((a) => a.color === "#10b981").length;
-    const risk = activities.filter((a) => a.color === "#f59e0b").length;
-    const delayed = activities.filter((a) => a.color === "#ef4444").length;
-    const idle = activities.filter((a) => a.color === "#94a3b8").length;
+    const onTrack = activities.filter((a) => a.color === "var(--color-emerald)").length;
+    const risk = activities.filter((a) => a.color === "var(--color-amber)").length;
+    const delayed = activities.filter((a) => a.color === "var(--color-danger)").length;
+    const idle = activities.filter((a) => a.color === "var(--color-slate-400)").length;
     const buckets = [
-      { label: "On Track / Done", count: onTrack, color: "#10b981" },
-      { label: "At Risk", count: risk, color: "#f59e0b" },
-      { label: "Delayed / Critical", count: delayed, color: "#ef4444" },
-      { label: "Not Started", count: idle, color: "#94a3b8" },
+      { label: "On Track / Done", count: onTrack, color: "var(--color-emerald)" },
+      { label: "At Risk", count: risk, color: "var(--color-amber)" },
+      { label: "Delayed / Critical", count: delayed, color: "var(--color-danger)" },
+      { label: "Not Started", count: idle, color: "var(--color-slate-400)" },
     ];
     let acc = 0;
     const stops: string[] = [];
@@ -660,7 +660,7 @@ export function Timeline() {
                 <div style={{ fontSize: "22px", fontWeight: 700, fontFamily: "IBM Plex Mono", color: "var(--text)" }}>
                   {pct(overallProgress, 1)}
                 </div>
-                <div style={{ fontSize: "11px", color: scheduleVariance >= 0 ? "#10b981" : "#f59e0b", fontWeight: 600, marginTop: "2px" }}>
+                <div style={{ fontSize: "11px", color: scheduleVariance >= 0 ? "var(--color-emerald)" : "var(--color-amber)", fontWeight: 600, marginTop: "2px" }}>
                   Planned {pct(plannedProgress, 1)}
                 </div>
               </div>
@@ -669,12 +669,12 @@ export function Timeline() {
                   width: 44,
                   height: 44,
                   borderRadius: "50%",
-                  border: `4px solid ${scheduleStatusLabel.color === "var(--muted)" ? "#10b981" : scheduleStatusLabel.color}`,
+                  border: `4px solid ${scheduleStatusLabel.color === "var(--muted)" ? "var(--color-emerald)" : scheduleStatusLabel.color}`,
                   display: "grid",
                   placeItems: "center",
                   fontSize: "11px",
                   fontWeight: 700,
-                  color: scheduleStatusLabel.color === "var(--muted)" ? "#10b981" : scheduleStatusLabel.color,
+                  color: scheduleStatusLabel.color === "var(--muted)" ? "var(--color-emerald)" : scheduleStatusLabel.color,
                 }}
               >
                 {Math.round(overallProgress)}%
@@ -700,7 +700,7 @@ export function Timeline() {
                 </div>
                 <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>Latest task end</div>
               </div>
-              <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(139,92,246,0.15)", display: "grid", placeItems: "center", color: "#8b5cf6" }}>
+              <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(139,92,246,0.15)", display: "grid", placeItems: "center", color: "var(--color-violet-strong)" }}>
                 <Flag size={20} />
               </div>
             </div>
@@ -713,7 +713,7 @@ export function Timeline() {
                 </div>
                 <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>Earliest task start</div>
               </div>
-              <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(59,130,246,0.15)", display: "grid", placeItems: "center", color: "#3b82f6" }}>
+              <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(59,130,246,0.15)", display: "grid", placeItems: "center", color: "var(--color-blue)" }}>
                 <Calendar size={20} />
               </div>
             </div>
@@ -721,14 +721,14 @@ export function Timeline() {
             <div className="card" style={{ padding: "16px", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>Critical / Delayed</div>
-                <div style={{ fontSize: "22px", fontWeight: 700, color: criticalCount ? "#f59e0b" : "#10b981", fontFamily: "IBM Plex Mono" }}>
+                <div style={{ fontSize: "22px", fontWeight: 700, color: criticalCount ? "var(--color-amber)" : "var(--color-emerald)", fontFamily: "IBM Plex Mono" }}>
                   {criticalCount}
                 </div>
-                <div style={{ fontSize: "11px", color: criticalCount ? "#f59e0b" : "var(--muted)", fontWeight: 600, marginTop: "2px" }}>
+                <div style={{ fontSize: "11px", color: criticalCount ? "var(--color-amber)" : "var(--muted)", fontWeight: 600, marginTop: "2px" }}>
                   of {activities.length} activities
                 </div>
               </div>
-              <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(245,158,11,0.15)", display: "grid", placeItems: "center", color: "#f59e0b" }}>
+              <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(245,158,11,0.15)", display: "grid", placeItems: "center", color: "var(--color-amber)" }}>
                 <Clock size={20} />
               </div>
             </div>
@@ -736,14 +736,14 @@ export function Timeline() {
             <div className="card" style={{ padding: "16px", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ fontSize: "11px", color: "var(--muted)", marginBottom: "4px" }}>Activities Complete</div>
-                <div style={{ fontSize: "22px", fontWeight: 700, color: "#10b981", fontFamily: "IBM Plex Mono" }}>
+                <div style={{ fontSize: "22px", fontWeight: 700, color: "var(--color-emerald)", fontFamily: "IBM Plex Mono" }}>
                   {completedCount} / {activities.length}
                 </div>
                 <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>
                   {activities.length ? pct((completedCount / activities.length) * 100, 0) : "0%"} completed
                 </div>
               </div>
-              <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(16,185,129,0.15)", display: "grid", placeItems: "center", color: "#10b981" }}>
+              <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(16,185,129,0.15)", display: "grid", placeItems: "center", color: "var(--color-emerald)" }}>
                 <CheckCircle size={20} />
               </div>
             </div>
@@ -766,24 +766,24 @@ export function Timeline() {
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span className="muted">Schedule Performance (SPI)</span>
-                  <strong style={{ color: spi >= 1 ? "#10b981" : "#ef4444" }}>
+                  <strong style={{ color: spi >= 1 ? "var(--color-emerald)" : "var(--color-danger)" }}>
                     {spi.toFixed(2)} {spi >= 1 ? "↑" : "↓"}
                   </strong>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span className="muted">Time Variance (SV)</span>
-                  <strong style={{ color: scheduleVariance >= 0 ? "#10b981" : "#ef4444" }}>
+                  <strong style={{ color: scheduleVariance >= 0 ? "var(--color-emerald)" : "var(--color-danger)" }}>
                     {scheduleVariance >= 0 ? "+" : ""}
                     {scheduleVariance.toFixed(1)}%
                   </strong>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span className="muted">Critical activities</span>
-                  <strong style={{ color: criticalCount ? "#f59e0b" : "#10b981" }}>{criticalCount}</strong>
+                  <strong style={{ color: criticalCount ? "var(--color-amber)" : "var(--color-emerald)" }}>{criticalCount}</strong>
                 </div>
                 <button
                   className="btn ghost sm"
-                  style={{ color: "#d92d2d", padding: 0, justifyContent: "flex-start", marginTop: "4px" }}
+                  style={{ color: "var(--color-danger)", padding: 0, justifyContent: "flex-start", marginTop: "4px" }}
                   onClick={() => navigate("/app/reports")}
                 >
                   View performance details →
@@ -798,7 +798,7 @@ export function Timeline() {
                 </h3>
                 <div style={{ display: "flex", gap: "12px", fontSize: "11px" }}>
                   <span style={{ color: "var(--muted)" }}>— Planned</span>
-                  <span style={{ color: "#10b981", fontWeight: 600 }}>— Actual ({pct(overallProgress, 0)})</span>
+                  <span style={{ color: "var(--color-emerald)", fontWeight: 600 }}>— Actual ({pct(overallProgress, 0)})</span>
                 </div>
               </div>
               {sCurveSeries.length === 0 ? (
@@ -809,9 +809,9 @@ export function Timeline() {
                 <>
                   <div style={{ flex: 1, minHeight: 180, position: "relative" }}>
                     <svg width="100%" height="100%" viewBox="0 0 500 150" preserveAspectRatio="none">
-                      <line x1="0" y1="30" x2="500" y2="30" stroke="var(--border)" strokeDasharray="3 3" />
-                      <line x1="0" y1="75" x2="500" y2="75" stroke="var(--border)" strokeDasharray="3 3" />
-                      <line x1="0" y1="120" x2="500" y2="120" stroke="var(--border)" strokeDasharray="3 3" />
+                      <line x1="0" y1="30" x2="500" y2="30" stroke="#cbd5e1" strokeDasharray="3 3" />
+                      <line x1="0" y1="75" x2="500" y2="75" stroke="#cbd5e1" strokeDasharray="3 3" />
+                      <line x1="0" y1="120" x2="500" y2="120" stroke="#cbd5e1" strokeDasharray="3 3" />
                       {plannedPath && (
                         <polyline points={plannedPath} fill="none" stroke="#94a3b8" strokeWidth="2" strokeDasharray="4 4" />
                       )}
@@ -879,7 +879,7 @@ export function Timeline() {
               <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid var(--border)", fontSize: "11px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <span className="muted" style={{ display: "block", fontSize: 10 }}>Critical activities</span>
-                  <strong style={{ color: criticalCount ? "#ef4444" : "#10b981" }}>
+                  <strong style={{ color: criticalCount ? "var(--color-danger)" : "var(--color-emerald)" }}>
                     {criticalCount === 0
                       ? "None flagged"
                       : activities
@@ -889,7 +889,7 @@ export function Timeline() {
                           .join(", ") + (criticalCount > 2 ? ` +${criticalCount - 2}` : "")}
                   </strong>
                 </div>
-                <button className="btn ghost sm" style={{ color: "#d92d2d", padding: 0 }} onClick={() => setCriticalOnly((v) => !v)}>
+                <button className="btn ghost sm" style={{ color: "var(--color-danger)", padding: 0 }} onClick={() => setCriticalOnly((v) => !v)}>
                   {criticalOnly ? "Show all activities" : "View critical path →"}
                 </button>
               </div>
@@ -931,13 +931,13 @@ export function Timeline() {
               <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px" }}>
                 <div style={{ display: "flex", gap: 12, marginRight: 12, fontSize: 11 }}>
                   <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ width: 10, height: 10, background: "#3b82f6", borderRadius: 2, opacity: 0.5 }} /> Baseline
+                    <span style={{ width: 10, height: 10, background: "var(--color-blue)", borderRadius: 2, opacity: 0.5 }} /> Baseline
                   </span>
                   <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ width: 10, height: 10, background: "#10b981", borderRadius: 2 }} /> Actual
+                    <span style={{ width: 10, height: 10, background: "var(--color-emerald)", borderRadius: 2 }} /> Actual
                   </span>
                   <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    <span style={{ width: 10, height: 10, background: "#ef4444", borderRadius: 2 }} /> Critical
+                    <span style={{ width: 10, height: 10, background: "var(--color-danger)", borderRadius: 2 }} /> Critical
                   </span>
                 </div>
                 <button
@@ -1022,10 +1022,10 @@ export function Timeline() {
                               fontSize: 10,
                               padding: "2px 6px",
                               borderRadius: 10,
-                              background: `${a.color}20`,
+                              background: `color-mix(in srgb, ${a.color} 13%, transparent)`,
                               color: a.color,
                               fontWeight: 700,
-                              border: `1px solid ${a.color}40`,
+                              border: `1px solid color-mix(in srgb, ${a.color} 25%, transparent)`,
                               whiteSpace: "nowrap",
                             }}
                           >
@@ -1073,7 +1073,7 @@ export function Timeline() {
                         top: 0,
                         bottom: 0,
                         width: 2,
-                        background: "#ef4444",
+                        background: "var(--color-danger)",
                         zIndex: 10,
                         pointerEvents: "none",
                       }}
@@ -1083,7 +1083,7 @@ export function Timeline() {
                           position: "absolute",
                           top: 2,
                           left: -28,
-                          background: "#ef4444",
+                          background: "var(--color-danger)",
                           color: "#fff",
                           padding: "1px 5px",
                           borderRadius: 8,
@@ -1107,7 +1107,7 @@ export function Timeline() {
                             width: `${a.barWidth}%`,
                             height: 6,
                             top: 0,
-                            background: "#3b82f6",
+                            background: "var(--color-blue)",
                             opacity: 0.45,
                             borderRadius: 3,
                           }}
@@ -1119,7 +1119,7 @@ export function Timeline() {
                             width: `${Math.max(a.barWidth * (a.pct / 100), a.pct > 0 ? 0.4 : 0)}%`,
                             height: 10,
                             top: 6,
-                            background: a.isCritical ? "#ef4444" : a.color,
+                            background: a.isCritical ? "var(--color-danger)" : a.color,
                             borderRadius: 4,
                             minWidth: a.pct > 0 ? 2 : 0,
                           }}

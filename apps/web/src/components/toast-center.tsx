@@ -52,26 +52,26 @@ export function ToastCenter() {
         const isWarning = t.type === "warning";
 
         const bg = isSuccess
-          ? "#f0fdf4"
+          ? "var(--color-green-soft)"
           : isError
-          ? "#fef2f2"
+          ? "var(--color-red-soft)"
           : isWarning
           ? "#fffbeb"
           : "var(--surface, #ffffff)";
         const border = isSuccess
-          ? "#bbf7d0"
+          ? "var(--color-green-200)"
           : isError
-          ? "#fecaca"
+          ? "var(--color-red-200)"
           : isWarning
-          ? "#fde68a"
-          : "var(--border, #e2e8f0)";
+          ? "var(--color-amber-200)"
+          : "var(--border, var(--color-slate-200))";
         const textColor = isSuccess
-          ? "#15803d"
+          ? "var(--color-success-strong)"
           : isError
-          ? "#b91c1c"
+          ? "var(--color-danger-strong)"
           : isWarning
-          ? "#b45309"
-          : "var(--text, #0f172a)";
+          ? "var(--color-amber-deep)"
+          : "var(--text, var(--color-slate-900))";
 
         return (
           <div
@@ -92,10 +92,10 @@ export function ToastCenter() {
             }}
           >
             <div style={{ marginTop: 2 }}>
-              {isSuccess && <CheckCircle2 size={20} color="#16a34a" />}
-              {isError && <XCircle size={20} color="#dc2626" />}
-              {isWarning && <AlertTriangle size={20} color="#d97706" />}
-              {!isSuccess && !isError && !isWarning && <Info size={20} color="#0284c7" />}
+              {isSuccess && <CheckCircle2 size={20} color="var(--color-success)" />}
+              {isError && <XCircle size={20} color="var(--color-danger)" />}
+              {isWarning && <AlertTriangle size={20} color="var(--color-warning)" />}
+              {!isSuccess && !isError && !isWarning && <Info size={20} color="var(--color-sky)" />}
             </div>
 
             <div>
@@ -104,7 +104,7 @@ export function ToastCenter() {
                   {t.title}
                 </div>
               )}
-              <div style={{ fontSize: 13, color: "var(--text, #1e293b)", lineHeight: 1.4, fontWeight: 500 }}>
+              <div style={{ fontSize: 13, color: "var(--text, var(--color-slate-800))", lineHeight: 1.4, fontWeight: 500 }}>
                 {t.message}
               </div>
               {t.action && (
@@ -136,7 +136,7 @@ export function ToastCenter() {
               style={{
                 background: "transparent",
                 border: 0,
-                color: "var(--muted, #64748b)",
+                color: "var(--muted, var(--color-slate-500))",
                 cursor: "pointer",
                 padding: 2,
                 borderRadius: 4,

@@ -372,7 +372,7 @@ export function Home() {
               { icon: "indigo", label: "Calendar & Scheduling", desc: "Track inspections, milestones, and key project activities.",
                 svg: <><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /><polyline points="9 16 11 18 15 14" /></> },
               { icon: "amber", label: "Notifications & Alerts", desc: "Get real-time alerts on delays, payments, and project updates.",
-                svg: <><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" /><circle cx="19" cy="5" r="3" fill="var(--brand)" stroke="none" /></> },
+                svg: <><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" /><circle cx="19" cy="5" r="3" fill="#2563eb" stroke="none" /></> },
               { icon: "green", label: "WhatsApp Integration", desc: "Send updates, alerts, and reports directly via WhatsApp.",
                 svg: <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" /> },
               { icon: "mpesa", label: "M-PESA Integration", desc: "Track and reconcile payments seamlessly through M-Pesa.",

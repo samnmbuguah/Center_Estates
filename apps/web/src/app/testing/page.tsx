@@ -42,11 +42,11 @@ type AIAuditResult = {
 };
 
 const statusMeta: Record<Status, { label: string; color: string; bg: string }> = {
-  not_started: { label: "Not tested", color: "#64748b", bg: "#f1f5f9" },
-  in_progress: { label: "In progress", color: "#2563eb", bg: "#eff6ff" },
-  passed: { label: "Passed", color: "#16a34a", bg: "#f0fdf4" },
-  failed: { label: "Failed", color: "#dc2626", bg: "#fef2f2" },
-  blocked: { label: "Blocked", color: "#d97706", bg: "#fffbeb" },
+  not_started: { label: "Not tested", color: "var(--color-slate-500)", bg: "var(--color-slate-100)" },
+  in_progress: { label: "In progress", color: "var(--color-info)", bg: "var(--color-blue-soft)" },
+  passed: { label: "Passed", color: "var(--color-success)", bg: "var(--color-green-soft)" },
+  failed: { label: "Failed", color: "var(--color-danger)", bg: "var(--color-red-soft)" },
+  blocked: { label: "Blocked", color: "var(--color-warning)", bg: "#fffbeb" },
 };
 
 export default function TestingPage() {
@@ -168,17 +168,17 @@ export default function TestingPage() {
   return (
     <main className="page-wrap testing-hub-root" style={{ maxWidth: 1360, margin: "0 auto", paddingBottom: 60 }}>
       {/* Printable Report Stylesheet Header */}
-      <div className="print-only" style={{ display: "none", marginBottom: 24, borderBottom: "2px solid #0f172a", paddingBottom: 16 }}>
+      <div className="print-only" style={{ display: "none", marginBottom: 24, borderBottom: "2px solid var(--color-slate-900)", paddingBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 900, margin: 0, color: "#0f172a" }}>CENTER ESTATES · RELEASE READINESS AUDIT REPORT</h1>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#475569" }}>
+            <h1 style={{ fontSize: 24, fontWeight: 900, margin: 0, color: "var(--color-slate-900)" }}>CENTER ESTATES · RELEASE READINESS AUDIT REPORT</h1>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--color-slate-600)" }}>
               Organization: <strong>{data?.organization_name || session?.organizations.find(o => o.id === session.activeOrganizationId)?.name || "Legend Management Limited"}</strong> · Audit Date: {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
             </p>
           </div>
           <div style={{ textAlign: "right" }}>
-            <span style={{ fontSize: 22, fontWeight: 900, color: completion >= 80 ? "#16a34a" : "#ca8a04" }}>{completion}% READINESS SCORE</span>
-            <div style={{ fontSize: 12, color: "#64748b" }}>{data?.summary.passed ?? 0} of {data?.total ?? 0} Workflows Verified ({autoVerifiedCount} Auto-Detected)</div>
+            <span style={{ fontSize: 22, fontWeight: 900, color: completion >= 80 ? "var(--color-success)" : "#ca8a04" }}>{completion}% READINESS SCORE</span>
+            <div style={{ fontSize: 12, color: "var(--color-slate-500)" }}>{data?.summary.passed ?? 0} of {data?.total ?? 0} Workflows Verified ({autoVerifiedCount} Auto-Detected)</div>
           </div>
         </div>
       </div>
@@ -187,12 +187,12 @@ export default function TestingPage() {
       <header className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap", marginBottom: 20 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--primary, #e23b3b)", background: "rgba(226, 59, 59, 0.1)", padding: "3px 8px", borderRadius: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--primary, var(--color-brand-red))", background: "rgba(226, 59, 59, 0.1)", padding: "3px 8px", borderRadius: 4 }}>
               ADMINISTRATION & GOVERNANCE
             </span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary, #64748b)" }}>• 36 End-to-End Workflows</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary, var(--color-slate-500))" }}>• 36 End-to-End Workflows</span>
           </div>
-          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 850, letterSpacing: "-0.02em", color: "var(--text, #0f172a)" }}>
+          <h1 style={{ margin: 0, fontSize: 26, fontWeight: 850, letterSpacing: "-0.02em", color: "var(--text, var(--color-slate-900))" }}>
             Testing & Release Readiness Hub
           </h1>
           <p className="muted" style={{ margin: "6px 0 0", fontSize: 14, maxWidth: 840, lineHeight: 1.5 }}>
@@ -206,7 +206,7 @@ export default function TestingPage() {
             className="btn btn-primary" 
             onClick={() => void handleAutoScan()} 
             disabled={scanning || loading}
-            style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 750, background: "linear-gradient(135deg, #e23b3b, #b91c1c)", color: "#fff", border: 0 }}
+            style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 750, background: "linear-gradient(135deg, var(--color-brand-red), var(--color-danger-strong))", color: "#fff", border: 0 }}
           >
             <Sparkles size={15} className={scanning ? "animate-spin" : ""} />
             {scanning ? "Scanning System Data…" : "⚡ Auto-Scan System Usage"}
@@ -216,7 +216,7 @@ export default function TestingPage() {
             className="btn btn-secondary" 
             onClick={() => void handleAiAudit()} 
             disabled={aiAuditLoading || loading}
-            style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 700, borderColor: "var(--primary-subtle, #fecaca)", color: "var(--primary, #e23b3b)" }}
+            style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 700, borderColor: "var(--primary-subtle, var(--color-red-200))", color: "var(--primary, var(--color-brand-red))" }}
           >
             <Bot size={15} />
             {aiAuditLoading ? "Auditing…" : "🤖 AI QM Audit"}
@@ -244,26 +244,26 @@ export default function TestingPage() {
       </header>
 
       {/* Alerts */}
-      {error && <div role="alert" className="alert-error no-print" style={{ marginBottom: 14, padding: "12px 16px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626" }}>{error}</div>}
-      {successMsg && <div role="status" className="no-print" style={{ marginBottom: 14, padding: "12px 16px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#16a34a", fontWeight: 650, display: "flex", alignItems: "center", gap: 8 }}><CheckCheck size={18} />{successMsg}</div>}
+      {error && <div role="alert" className="alert-error no-print" style={{ marginBottom: 14, padding: "12px 16px", borderRadius: 8, background: "var(--color-red-soft)", border: "1px solid var(--color-red-200)", color: "var(--color-danger)" }}>{error}</div>}
+      {successMsg && <div role="status" className="no-print" style={{ marginBottom: 14, padding: "12px 16px", borderRadius: 8, background: "var(--color-green-soft)", border: "1px solid var(--color-green-200)", color: "var(--color-success)", fontWeight: 650, display: "flex", alignItems: "center", gap: 8 }}><CheckCheck size={18} />{successMsg}</div>}
 
       {/* Release Metrics Overview Card */}
-      <section className="content-card no-print" style={{ padding: "20px 24px", marginBottom: 16, background: "var(--surface, #ffffff)", borderRadius: 12, border: "1px solid var(--border, #e2e8f0)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+      <section className="content-card no-print" style={{ padding: "20px 24px", marginBottom: 16, background: "var(--surface, #ffffff)", borderRadius: 12, border: "1px solid var(--border, var(--color-slate-200))", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20, alignItems: "center" }}>
           <div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span style={{ fontSize: 32, fontWeight: 900, color: completion >= 80 ? "#16a34a" : completion >= 50 ? "#2563eb" : "#e23b3b", letterSpacing: "-0.03em" }}>
+              <span style={{ fontSize: 32, fontWeight: 900, color: completion >= 80 ? "var(--color-success)" : completion >= 50 ? "var(--color-info)" : "var(--color-brand-red)", letterSpacing: "-0.03em" }}>
                 {completion}%
               </span>
-              <span style={{ fontSize: 13, fontWeight: 750, textTransform: "uppercase", color: "var(--text-secondary, #64748b)" }}>
+              <span style={{ fontSize: 13, fontWeight: 750, textTransform: "uppercase", color: "var(--text-secondary, var(--color-slate-500))" }}>
                 Readiness Index
               </span>
             </div>
-            <div style={{ fontSize: 13, color: "var(--text-secondary, #64748b)", marginTop: 2 }}>
+            <div style={{ fontSize: 13, color: "var(--text-secondary, var(--color-slate-500))", marginTop: 2 }}>
               <strong>{data?.summary.passed ?? 0}</strong> of <strong>{data?.total ?? 0}</strong> workflows recorded as passed.
             </div>
             {autoVerifiedCount > 0 && (
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 800, color: "#059669", background: "#ecfdf5", padding: "2px 8px", borderRadius: 4, marginTop: 6 }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 800, color: "var(--color-emerald-strong)", background: "#ecfdf5", padding: "2px 8px", borderRadius: 4, marginTop: 6 }}>
                 ⚡ {autoVerifiedCount} features auto-verified from database activity
               </div>
             )}
@@ -271,7 +271,7 @@ export default function TestingPage() {
 
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
             {(["passed", "in_progress", "blocked", "failed", "not_started"] as Status[]).map((status) => (
-              <div key={status} style={{ padding: "8px 14px", borderRadius: 8, background: statusMeta[status].bg, border: `1px solid ${statusMeta[status].color}33`, textAlign: "center", minWidth: 90 }}>
+              <div key={status} style={{ padding: "8px 14px", borderRadius: 8, background: statusMeta[status].bg, border: `1px solid color-mix(in srgb, ${statusMeta[status].color} 20%, transparent)`, textAlign: "center", minWidth: 90 }}>
                 <div style={{ fontSize: 18, fontWeight: 850, color: statusMeta[status].color }}>{data?.summary[status] ?? 0}</div>
                 <div style={{ fontSize: 11, fontWeight: 750, color: statusMeta[status].color, textTransform: "uppercase" }}>{statusMeta[status].label}</div>
               </div>
@@ -280,33 +280,33 @@ export default function TestingPage() {
         </div>
 
         {/* Multi-tier Progress Bar */}
-        <div style={{ height: 10, borderRadius: 10, overflow: "hidden", background: "var(--surface-muted, #e2e8f0)", marginTop: 18, display: "flex" }}>
-          <div style={{ width: `${completion}%`, height: "100%", background: "linear-gradient(90deg, #10b981, #16a34a)", transition: "width .3s" }} title={`Passed: ${completion}%`} />
-          <div style={{ width: `${Math.round(((data?.summary.in_progress ?? 0) / Math.max(data?.total ?? 1, 1)) * 100)}%`, height: "100%", background: "#3b82f6" }} title="In Progress" />
-          <div style={{ width: `${Math.round(((data?.summary.blocked ?? 0) / Math.max(data?.total ?? 1, 1)) * 100)}%`, height: "100%", background: "#f59e0b" }} title="Blocked" />
-          <div style={{ width: `${Math.round(((data?.summary.failed ?? 0) / Math.max(data?.total ?? 1, 1)) * 100)}%`, height: "100%", background: "#ef4444" }} title="Failed" />
+        <div style={{ height: 10, borderRadius: 10, overflow: "hidden", background: "var(--surface-muted, var(--color-slate-200))", marginTop: 18, display: "flex" }}>
+          <div style={{ width: `${completion}%`, height: "100%", background: "linear-gradient(90deg, var(--color-emerald), var(--color-success))", transition: "width .3s" }} title={`Passed: ${completion}%`} />
+          <div style={{ width: `${Math.round(((data?.summary.in_progress ?? 0) / Math.max(data?.total ?? 1, 1)) * 100)}%`, height: "100%", background: "var(--color-blue)" }} title="In Progress" />
+          <div style={{ width: `${Math.round(((data?.summary.blocked ?? 0) / Math.max(data?.total ?? 1, 1)) * 100)}%`, height: "100%", background: "var(--color-amber)" }} title="Blocked" />
+          <div style={{ width: `${Math.round(((data?.summary.failed ?? 0) / Math.max(data?.total ?? 1, 1)) * 100)}%`, height: "100%", background: "var(--color-danger)" }} title="Failed" />
         </div>
       </section>
 
       {/* Filter and Search Bar */}
-      <section className="content-card no-print" style={{ padding: "14px 18px", marginBottom: 16, background: "var(--surface, #ffffff)", borderRadius: 10, border: "1px solid var(--border, #e2e8f0)", display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+      <section className="content-card no-print" style={{ padding: "14px 18px", marginBottom: 16, background: "var(--surface, #ffffff)", borderRadius: 10, border: "1px solid var(--border, var(--color-slate-200))", display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", flex: 1, minWidth: 280 }}>
           {/* Search */}
           <div style={{ position: "relative", minWidth: 220, flex: 1 }}>
-            <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary, #94a3b8)" }} />
+            <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary, var(--color-slate-400))" }} />
             <input
               type="text"
               placeholder="Search workflows, evidence or keys…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ width: "100%", padding: "7px 10px 7px 32px", fontSize: 13, borderRadius: 6, border: "1px solid var(--border, #cbd5e1)", outline: "none" }}
+              style={{ width: "100%", padding: "7px 10px 7px 32px", fontSize: 13, borderRadius: 6, border: "1px solid var(--border, var(--color-slate-300))", outline: "none" }}
             />
           </div>
 
           {/* Module Filter */}
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "var(--text-secondary, #64748b)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "var(--text-secondary, var(--color-slate-500))" }}>
             Module:
-            <select value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)} style={{ padding: "7px 10px", fontSize: 13, borderRadius: 6, border: "1px solid var(--border, #cbd5e1)", background: "var(--surface, #ffffff)", fontWeight: 600 }}>
+            <select value={moduleFilter} onChange={(e) => setModuleFilter(e.target.value)} style={{ padding: "7px 10px", fontSize: 13, borderRadius: 6, border: "1px solid var(--border, var(--color-slate-300))", background: "var(--surface, #ffffff)", fontWeight: 600 }}>
               {modules.map((m) => (
                 <option key={m} value={m}>{m}</option>
               ))}
@@ -314,9 +314,9 @@ export default function TestingPage() {
           </label>
 
           {/* Status Filter */}
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "var(--text-secondary, #64748b)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "var(--text-secondary, var(--color-slate-500))" }}>
             Status:
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ padding: "7px 10px", fontSize: 13, borderRadius: 6, border: "1px solid var(--border, #cbd5e1)", background: "var(--surface, #ffffff)", fontWeight: 600 }}>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ padding: "7px 10px", fontSize: 13, borderRadius: 6, border: "1px solid var(--border, var(--color-slate-300))", background: "var(--surface, #ffffff)", fontWeight: 600 }}>
               <option value="all">All statuses</option>
               {Object.entries(statusMeta).map(([st, meta]) => (
                 <option key={st} value={st}>{meta.label}</option>
@@ -340,7 +340,7 @@ export default function TestingPage() {
               padding: "16px 20px", 
               background: "var(--surface, #ffffff)", 
               borderRadius: 10, 
-              border: "1px solid var(--border, #e2e8f0)",
+              border: "1px solid var(--border, var(--color-slate-200))",
               display: "grid", 
               gridTemplateColumns: "auto minmax(0, 1fr) auto", 
               gap: 16, 
@@ -357,7 +357,7 @@ export default function TestingPage() {
               style={{ 
                 border: 0, 
                 background: "transparent", 
-                color: item.status === "passed" ? "#16a34a" : "#94a3b8", 
+                color: item.status === "passed" ? "var(--color-success)" : "var(--color-slate-400)", 
                 cursor: "pointer", 
                 padding: 4,
                 display: "flex",
@@ -371,7 +371,7 @@ export default function TestingPage() {
             {/* Workflow Info & Evidence Notes */}
             <div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
-                <strong style={{ fontSize: 14, color: "var(--text, #0f172a)" }}>{item.title}</strong>
+                <strong style={{ fontSize: 14, color: "var(--text, var(--color-slate-900))" }}>{item.title}</strong>
                 <span style={{ 
                   background: statusMeta[item.status].bg, 
                   color: statusMeta[item.status].color, 
@@ -380,22 +380,22 @@ export default function TestingPage() {
                   padding: "2px 8px", 
                   borderRadius: 4, 
                   textTransform: "uppercase",
-                  border: `1px solid ${statusMeta[item.status].color}33`
+                  border: `1px solid color-mix(in srgb, ${statusMeta[item.status].color} 20%, transparent)`
                 }}>
                   {statusMeta[item.status].label}
                 </span>
 
                 {item.is_auto_verified && (
-                  <span style={{ fontSize: 11, fontWeight: 800, color: "#047857", background: "#d1fae5", padding: "2px 8px", borderRadius: 4, display: "inline-flex", alignItems: "center", gap: 3 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "var(--color-emerald-deep)", background: "#d1fae5", padding: "2px 8px", borderRadius: 4, display: "inline-flex", alignItems: "center", gap: 3 }}>
                     ⚡ Auto-Verified
                   </span>
                 )}
               </div>
 
               <div className="muted" style={{ fontSize: 12, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ fontWeight: 700, color: "var(--text-secondary, #475569)" }}>{item.module}</span>
+                <span style={{ fontWeight: 700, color: "var(--text-secondary, var(--color-slate-600))" }}>{item.module}</span>
                 <span>•</span>
-                <span style={{ fontFamily: "monospace", fontSize: 11, color: "var(--text-secondary, #64748b)" }}>{item.key}</span>
+                <span style={{ fontFamily: "monospace", fontSize: 11, color: "var(--text-secondary, var(--color-slate-500))" }}>{item.key}</span>
                 <span>•</span>
                 <span>{item.tested_by ? `Tested by ${item.tested_by}` : "No tester assigned"}</span>
                 {item.tested_at && (
@@ -408,10 +408,10 @@ export default function TestingPage() {
 
               {/* Live Evidence Note */}
               {item.notes && (
-                <div style={{ marginTop: 6, fontSize: 12, padding: "6px 10px", background: "var(--surface-2, #f8fafc)", borderRadius: 6, border: "1px solid var(--border, #e2e8f0)", color: "var(--text, #334155)" }}>
+                <div style={{ marginTop: 6, fontSize: 12, padding: "6px 10px", background: "var(--surface-2, var(--color-slate-50))", borderRadius: 6, border: "1px solid var(--border, var(--color-slate-200))", color: "var(--text, var(--color-slate-700))" }}>
                   <strong>Evidence:</strong> {item.notes}
                   {item.evidence_url && (
-                    <a href={item.evidence_url} target="_blank" rel="noreferrer" style={{ marginLeft: 8, color: "var(--primary, #0284c7)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 2 }}>
+                    <a href={item.evidence_url} target="_blank" rel="noreferrer" style={{ marginLeft: 8, color: "var(--primary, var(--color-sky))", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 2 }}>
                       View Attachment <ExternalLink size={11} />
                     </a>
                   )}
@@ -448,7 +448,7 @@ export default function TestingPage() {
                   fontSize: 12, 
                   fontWeight: 750, 
                   borderRadius: 6, 
-                  border: "1px solid var(--border, #cbd5e1)",
+                  border: "1px solid var(--border, var(--color-slate-300))",
                   background: statusMeta[item.status].bg,
                   color: statusMeta[item.status].color,
                   cursor: "pointer"
@@ -463,8 +463,8 @@ export default function TestingPage() {
         ))}
 
         {!loading && visible.length === 0 && (
-          <div className="content-card" style={{ textAlign: "center", padding: 48, background: "#ffffff", borderRadius: 12, border: "1px solid #e2e8f0" }}>
-            <FlaskConical size={36} color="#94a3b8" />
+          <div className="content-card" style={{ textAlign: "center", padding: 48, background: "#ffffff", borderRadius: 12, border: "1px solid var(--color-slate-200)" }}>
+            <FlaskConical size={36} color="var(--color-slate-400)" />
             <h2 style={{ fontSize: 18, margin: "12px 0 4px" }}>No workflows match the selected filter</h2>
             <p className="muted" style={{ fontSize: 14 }}>Try clearing the search query or changing the module filter.</p>
           </div>
@@ -472,30 +472,30 @@ export default function TestingPage() {
       </section>
 
       {/* Formal QA Sign-off Block for Print & Export */}
-      <div className="print-only" style={{ display: "none", marginTop: 40, paddingTop: 20, borderTop: "2px solid #0f172a" }}>
+      <div className="print-only" style={{ display: "none", marginTop: 40, paddingTop: 20, borderTop: "2px solid var(--color-slate-900)" }}>
         <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 16 }}>OFFICIAL ACCEPTANCE & RELEASE SIGN-OFF</h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24 }}>
-          <div style={{ borderTop: "1px solid #94a3b8", paddingTop: 8 }}>
+          <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700 }}>Quality Assurance Lead</div>
-            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Signature & Date: ___________________</div>
+            <div style={{ fontSize: 11, color: "var(--color-slate-500)", marginTop: 2 }}>Signature & Date: ___________________</div>
           </div>
-          <div style={{ borderTop: "1px solid #94a3b8", paddingTop: 8 }}>
+          <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700 }}>Head of Operations / Property Manager</div>
-            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Signature & Date: ___________________</div>
+            <div style={{ fontSize: 11, color: "var(--color-slate-500)", marginTop: 2 }}>Signature & Date: ___________________</div>
           </div>
-          <div style={{ borderTop: "1px solid #94a3b8", paddingTop: 8 }}>
+          <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700 }}>Systems Auditor / Tech Lead</div>
-            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Signature & Date: ___________________</div>
+            <div style={{ fontSize: 11, color: "var(--color-slate-500)", marginTop: 2 }}>Signature & Date: ___________________</div>
           </div>
         </div>
       </div>
 
       {/* Guidelines Card */}
-      <section className="content-card no-print" style={{ padding: 18, marginTop: 20, background: "#f8fafc", borderRadius: 10, border: "1px solid #e2e8f0", borderLeft: "4px solid #2563eb" }}>
+      <section className="content-card no-print" style={{ padding: 18, marginTop: 20, background: "var(--color-slate-50)", borderRadius: 10, border: "1px solid var(--color-slate-200)", borderLeft: "4px solid var(--color-info)" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-          <Info size={20} color="#2563eb" style={{ flexShrink: 0, marginTop: 2 }} />
+          <Info size={20} color="var(--color-info)" style={{ flexShrink: 0, marginTop: 2 }} />
           <div>
-            <strong style={{ color: "#1e293b", fontSize: 14 }}>How Acceptance Testing Works:</strong>
+            <strong style={{ color: "var(--color-slate-800)", fontSize: 14 }}>How Acceptance Testing Works:</strong>
             <p className="muted" style={{ margin: "4px 0 0", fontSize: 13, lineHeight: 1.5 }}>
               1. <strong>Automated Scan:</strong> Click <em>⚡ Auto-Scan System Usage</em> to auto-verify features with database activity (properties, units, leases, invoices, receipts, work orders, meter readings).<br />
               2. <strong>Manual Testing:</strong> Click <em>Open Workflow</em>, exercise the business action in the role, confirm outcome, and set status to <strong>Passed</strong>.<br />
@@ -511,9 +511,9 @@ export default function TestingPage() {
           <div style={{ background: "#ffffff", borderRadius: 12, width: "100%", maxWidth: 540, padding: 24, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.2)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Record Evidence & Notes</h3>
-              <button onClick={() => setEditingItem(null)} style={{ border: 0, background: "transparent", cursor: "pointer", color: "#64748b" }}><X size={20} /></button>
+              <button onClick={() => setEditingItem(null)} style={{ border: 0, background: "transparent", cursor: "pointer", color: "var(--color-slate-500)" }}><X size={20} /></button>
             </div>
-            <p style={{ margin: "0 0 14px", fontSize: 13, color: "#64748b" }}>
+            <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--color-slate-500)" }}>
               Workflow: <strong>{editingItem.title}</strong> ({editingItem.key})
             </p>
 
@@ -524,7 +524,7 @@ export default function TestingPage() {
                 onChange={(e) => setEditNotes(e.target.value)} 
                 placeholder="e.g. Created test lease REF-9281 with 10% annual escalation, invoice generated successfully."
                 rows={4}
-                style={{ width: "100%", padding: 10, borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4, fontSize: 13, resize: "vertical" }}
+                style={{ width: "100%", padding: 10, borderRadius: 6, border: "1px solid var(--color-slate-300)", marginTop: 4, fontSize: 13, resize: "vertical" }}
               />
             </label>
 
@@ -535,7 +535,7 @@ export default function TestingPage() {
                 value={editEvidenceUrl} 
                 onChange={(e) => setEditEvidenceUrl(e.target.value)} 
                 placeholder="https://..."
-                style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #cbd5e1", marginTop: 4, fontSize: 13 }}
+                style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--color-slate-300)", marginTop: 4, fontSize: 13 }}
               />
             </label>
 
@@ -545,7 +545,7 @@ export default function TestingPage() {
                 className="btn btn-primary" 
                 onClick={() => void update(editingItem, editingItem.status, editNotes, editEvidenceUrl)}
                 disabled={saving === editingItem.key}
-                style={{ background: "#e23b3b", color: "#fff", border: 0, fontWeight: 750 }}
+                style={{ background: "var(--color-brand-red)", color: "#fff", border: 0, fontWeight: 750 }}
               >
                 {saving === editingItem.key ? "Saving…" : "Save Evidence"}
               </button>
@@ -561,44 +561,44 @@ export default function TestingPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, background: "#f0fdf4", color: "#16a34a", padding: "3px 8px", borderRadius: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, background: "var(--color-green-soft)", color: "var(--color-success)", padding: "3px 8px", borderRadius: 4 }}>
                     QUARTERMASTER AI AUDIT
                   </span>
-                  <span style={{ fontSize: 12, color: "#64748b" }}>
+                  <span style={{ fontSize: 12, color: "var(--color-slate-500)" }}>
                     {new Date(aiAuditData.evaluated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
-                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 850, color: "#0f172a" }}>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 850, color: "var(--color-slate-900)" }}>
                   Executive Release Readiness Assessment
                 </h2>
               </div>
-              <button onClick={() => setShowAiModal(false)} style={{ border: 0, background: "transparent", cursor: "pointer", color: "#64748b" }}><X size={22} /></button>
+              <button onClick={() => setShowAiModal(false)} style={{ border: 0, background: "transparent", cursor: "pointer", color: "var(--color-slate-500)" }}><X size={22} /></button>
             </div>
 
             {/* Score & Verdict Banner */}
-            <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "16px 20px", background: aiAuditData.score >= 80 ? "#f0fdf4" : "#eff6ff", borderRadius: 12, border: "1px solid #bbf7d0", marginBottom: 20 }}>
-              <div style={{ fontSize: 36, fontWeight: 900, color: aiAuditData.score >= 80 ? "#16a34a" : "#2563eb" }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "16px 20px", background: aiAuditData.score >= 80 ? "var(--color-green-soft)" : "var(--color-blue-soft)", borderRadius: 12, border: "1px solid var(--color-green-200)", marginBottom: 20 }}>
+              <div style={{ fontSize: 36, fontWeight: 900, color: aiAuditData.score >= 80 ? "var(--color-success)" : "var(--color-info)" }}>
                 {aiAuditData.score}%
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: "#475569" }}>Readiness Verdict</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a" }}>
+                <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: "var(--color-slate-600)" }}>Readiness Verdict</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-slate-900)" }}>
                   {aiAuditData.verdict === "PRODUCTION_READY" ? "🟢 PRODUCTION READY" : aiAuditData.verdict === "STAGING_VERIFIED" ? "🟡 STAGING VERIFIED (CONDITIONAL)" : "🔴 TESTING IN PROGRESS"}
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b" }}>
+                <div style={{ fontSize: 12, color: "var(--color-slate-500)" }}>
                   {aiAuditData.passed_count} of {aiAuditData.total_features} core workflows verified.
                 </div>
               </div>
             </div>
 
             {/* AI Assessment Content */}
-            <div style={{ fontSize: 14, lineHeight: 1.65, color: "#334155", background: "#f8fafc", padding: 20, borderRadius: 10, border: "1px solid #e2e8f0", whiteSpace: "pre-line" }}>
+            <div style={{ fontSize: 14, lineHeight: 1.65, color: "var(--color-slate-700)", background: "var(--color-slate-50)", padding: 20, borderRadius: 10, border: "1px solid var(--color-slate-200)", whiteSpace: "pre-line" }}>
               {aiAuditData.assessment}
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
               <button className="btn btn-secondary" onClick={() => setShowAiModal(false)}>Close</button>
-              <button className="btn btn-primary" onClick={handlePrint} style={{ background: "#e23b3b", color: "#fff", border: 0, fontWeight: 750 }}>
+              <button className="btn btn-primary" onClick={handlePrint} style={{ background: "var(--color-brand-red)", color: "#fff", border: 0, fontWeight: 750 }}>
                 Print Audit Report
               </button>
             </div>

@@ -287,7 +287,7 @@ export function DailyLogs() {
         <button
           type="button"
           className="btn btn-primary"
-          style={{ background: "#d92d2d", borderColor: "#d92d2d" }}
+          style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }}
           onClick={() => {
             setFormError(null);
             setShowForm((s) => !s);
@@ -327,7 +327,7 @@ export function DailyLogs() {
                 borderRadius: 8,
                 background: "rgba(239,68,68,0.1)",
                 border: "1px solid rgba(239,68,68,0.3)",
-                color: "#ef4444",
+                color: "var(--color-danger)",
                 fontSize: 13,
               }}
             >
@@ -417,7 +417,7 @@ export function DailyLogs() {
             <button type="button" className="btn ghost" disabled={saving} onClick={() => setShowForm(false)}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={saving} style={{ background: "#d92d2d", borderColor: "#d92d2d" }}>
+            <button type="submit" className="btn btn-primary" disabled={saving} style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }}>
               {saving ? "Saving…" : "Save daily log"}
             </button>
           </div>
@@ -461,7 +461,7 @@ export function DailyLogs() {
                   fontSize: "24px",
                   fontWeight: 700,
                   margin: "6px 0 2px",
-                  color: labourToday != null || latestLabour != null ? "#00a3ff" : "var(--muted)",
+                  color: labourToday != null || latestLabour != null ? "var(--color-brand-blue)" : "var(--muted)",
                   fontFamily: "IBM Plex Mono, ui-monospace, monospace",
                 }}
               >
@@ -501,7 +501,7 @@ export function DailyLogs() {
                   fontSize: "24px",
                   fontWeight: 700,
                   margin: "6px 0 2px",
-                  color: incidents.length > 0 ? "#f59e0b" : "var(--text)",
+                  color: incidents.length > 0 ? "var(--color-amber)" : "var(--text)",
                 }}
               >
                 {incidents.length}
@@ -567,7 +567,7 @@ export function DailyLogs() {
                                 gap: 4,
                                 fontSize: 11,
                                 background: "rgba(0,163,255,0.12)",
-                                color: "#00a3ff",
+                                color: "var(--color-brand-blue)",
                                 padding: "2px 8px",
                                 borderRadius: 12,
                                 fontWeight: 600,
@@ -591,7 +591,7 @@ export function DailyLogs() {
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
                         <div style={{ textAlign: "right", fontSize: 12 }}>
                           <div style={{ color: "var(--muted)" }}>Workforce on site</div>
-                          <strong style={{ fontFamily: "IBM Plex Mono, ui-monospace, monospace", color: "#00a3ff", fontSize: 16 }}>
+                          <strong style={{ fontFamily: "IBM Plex Mono, ui-monospace, monospace", color: "var(--color-brand-blue)", fontSize: 16 }}>
                             {labour} {labour === 1 ? "worker" : "workers"}
                           </strong>
                           {adequacy && (

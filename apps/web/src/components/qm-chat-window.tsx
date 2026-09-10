@@ -312,7 +312,7 @@ export default function QmChatWindow({
         sx={{
           p: 1.5,
           color: "white",
-          background: "linear-gradient(135deg, #0f766e, #0f172a)",
+          background: "linear-gradient(135deg, #0f766e, var(--color-slate-900))",
           display: "flex",
           alignItems: "center",
           gap: 1,
@@ -386,7 +386,7 @@ export default function QmChatWindow({
                       primary={<Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>{c.title || c.messages?.[0]?.content?.slice(0, 40) || "Conversation"}</Typography>}
                       secondary={<Typography variant="caption" color="text.secondary">{formatConvDate(c.created_at)}</Typography>}
                     />
-                    <IconButton size="small" onClick={(e) => togglePin(c.id, e)} sx={{ color: "#f59e0b" }}>
+                    <IconButton size="small" onClick={(e) => togglePin(c.id, e)} sx={{ color: "var(--color-amber)" }}>
                       <PinOff size={14} />
                     </IconButton>
                   </ListItemButton>
@@ -441,7 +441,7 @@ export default function QmChatWindow({
         >
           {messages.length === 0 && (
             <Box sx={{ m: "auto", px: 2, textAlign: "center", py: 3 }}>
-              <Sparkles size={34} color="#0d9488" />
+              <Sparkles size={34} color="var(--color-teal)" />
               <Typography sx={{ mt: 1, fontWeight: 800, fontSize: 16 }}>Good day! How can I assist you?</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                 Ask about rent collections, outstanding tasks, tenancy notices, or facility work orders.

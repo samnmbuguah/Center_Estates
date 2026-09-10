@@ -64,10 +64,10 @@ export function BudgetsView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="🎯" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total SC Budget" value={kM(grandTotalSC)} sub="Annual approved scheme" />
-        <KpiCard icon="💸" iconBg="#dbeafe" iconColor="#2563eb" label="Operating Spend (OPEX)" value={kM(totalOpexBudget)} sub="Routine operational services" />
-        <KpiCard icon="🛡️" iconBg="#dcfce7" iconColor="#16a34a" label="Sinking Fund Reserve" value={kM(totalSinkingFund)} sub="Capital renewal reserve" />
-        <KpiCard icon="📐" iconBg="#fef3c7" iconColor="#d97706" label="Rate / sq.ft / month" value={`KES ${ratePerSqftMonth}`} sub={`KES ${ratePerSqftYear} / sq.ft / year`} />
+        <KpiCard icon="🎯" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total SC Budget" value={kM(grandTotalSC)} sub="Annual approved scheme" />
+        <KpiCard icon="💸" iconBg="var(--color-blue-bg)" iconColor="var(--color-info)" label="Operating Spend (OPEX)" value={kM(totalOpexBudget)} sub="Routine operational services" />
+        <KpiCard icon="🛡️" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Sinking Fund Reserve" value={kM(totalSinkingFund)} sub="Capital renewal reserve" />
+        <KpiCard icon="📐" iconBg="var(--color-amber-bg)" iconColor="var(--color-warning)" label="Rate / sq.ft / month" value={`KES ${ratePerSqftMonth}`} sub={`KES ${ratePerSqftYear} / sq.ft / year`} />
       </KpiStrip>
 
       {/* Subtab Bar */}
@@ -149,9 +149,9 @@ export function BudgetsView({
                   </div>
                   <div className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
                     <span style={{ alignItems: "center", color: "var(--muted)", display: "flex", gap: 8 }}>
-                      <i style={{ background: "#16a34a", borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />Remaining Variance
+                      <i style={{ background: "var(--color-success)", borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />Remaining Variance
                     </span>
-                    <strong className="mono" style={{ color: "#16a34a" }}>{kM(totalVariance)}</strong>
+                    <strong className="mono" style={{ color: "var(--color-success)" }}>{kM(totalVariance)}</strong>
                   </div>
                 </div>
               </div>
@@ -187,7 +187,7 @@ export function BudgetsView({
                             <td className="mono">{kM(b.amount)}</td>
                             <td className="mono">{kM(b.actual_amount)}</td>
                             <td>
-                              <span style={{ fontWeight: 800, color: u > 90 ? "var(--danger)" : "#16a34a" }}>
+                              <span style={{ fontWeight: 800, color: u > 90 ? "var(--danger)" : "var(--color-success)" }}>
                                 {u}%
                               </span>
                             </td>
@@ -217,11 +217,11 @@ export function BudgetsView({
                 </div>
                 <div>
                   <span className="muted">OPEX Proportion:</span>
-                  <strong style={{ display: "block", color: "#2563eb" }}>{kM(totalOpexBudget)} (87.2%)</strong>
+                  <strong style={{ display: "block", color: "var(--color-info)" }}>{kM(totalOpexBudget)} (87.2%)</strong>
                 </div>
                 <div>
                   <span className="muted">Sinking Fund Reserve:</span>
-                  <strong style={{ display: "block", color: "#16a34a" }}>{kM(totalSinkingFund)} (12.8%)</strong>
+                  <strong style={{ display: "block", color: "var(--color-success)" }}>{kM(totalSinkingFund)} (12.8%)</strong>
                 </div>
                 <button
                   className="btn ghost sm"
@@ -292,7 +292,7 @@ export function BudgetsView({
                             <div className="muted" style={{ fontSize: 11 }}>{c.desc}</div>
                           </td>
                           <td className="mono" style={{ textAlign: "right" }}>{money.format(c.opex)}</td>
-                          <td className="mono" style={{ textAlign: "right", color: c.sinking > 0 ? "#16a34a" : "inherit", fontWeight: c.sinking > 0 ? 800 : 400 }}>
+                          <td className="mono" style={{ textAlign: "right", color: c.sinking > 0 ? "var(--color-success)" : "inherit", fontWeight: c.sinking > 0 ? 800 : 400 }}>
                             {c.sinking > 0 ? money.format(c.sinking) : "—"}
                           </td>
                           <td className="mono" style={{ textAlign: "right", fontWeight: 800 }}>{money.format(tot)}</td>
@@ -303,7 +303,7 @@ export function BudgetsView({
                     <tr style={{ background: "var(--surface-2)", fontWeight: 900 }}>
                       <td>TOTAL SERVICE CHARGE BUDGET</td>
                       <td className="mono" style={{ textAlign: "right" }}>{money.format(totalOpexBudget)}</td>
-                      <td className="mono" style={{ textAlign: "right", color: "#16a34a" }}>{money.format(totalSinkingFund)}</td>
+                      <td className="mono" style={{ textAlign: "right", color: "var(--color-success)" }}>{money.format(totalSinkingFund)}</td>
                       <td className="mono" style={{ textAlign: "right", color: "var(--primary)" }}>{money.format(grandTotalSC)}</td>
                       <td className="mono" style={{ textAlign: "right" }}>KES {ratePerSqftYear}</td>
                     </tr>
@@ -322,7 +322,7 @@ export function BudgetsView({
                       Simulate actual tenant monthly billing statement based on unit area & approved scheme
                     </small>
                   </div>
-                  <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 800 }}>
+                  <span style={{ background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "3px 8px", borderRadius: 4, fontSize: 11, fontWeight: 800 }}>
                     100% Cost Recoverable
                   </span>
                 </div>
@@ -350,14 +350,14 @@ export function BudgetsView({
 
                   <div style={{ background: "var(--surface)", padding: 10, borderRadius: 6, border: "1px solid var(--border)" }}>
                     <span className="muted" style={{ fontSize: 11, display: "block" }}>Monthly OPEX Charge:</span>
-                    <strong style={{ fontSize: 14, color: "#2563eb" }}>
+                    <strong style={{ fontSize: 14, color: "var(--color-info)" }}>
                       KES {((1500 / totalLettableSqft) * (totalOpexBudget / 12)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </strong>
                   </div>
 
                   <div style={{ background: "var(--surface)", padding: 10, borderRadius: 6, border: "1px solid var(--border)" }}>
                     <span className="muted" style={{ fontSize: 11, display: "block" }}>Monthly Sinking Fund:</span>
-                    <strong style={{ fontSize: 14, color: "#16a34a" }}>
+                    <strong style={{ fontSize: 14, color: "var(--color-success)" }}>
                       KES {((1500 / totalLettableSqft) * (totalSinkingFund / 12)).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </strong>
                   </div>

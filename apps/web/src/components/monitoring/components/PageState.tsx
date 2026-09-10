@@ -78,10 +78,10 @@ export function StatusPill({
   tone?: "success" | "warning" | "danger" | "info" | "neutral";
 }) {
   const palette = {
-    success: { bg: "rgba(16,185,129,0.12)", fg: "#10b981", border: "rgba(16,185,129,0.3)" },
-    warning: { bg: "rgba(245,158,11,0.12)", fg: "#f59e0b", border: "rgba(245,158,11,0.3)" },
-    danger: { bg: "rgba(239,68,68,0.12)", fg: "#ef4444", border: "rgba(239,68,68,0.3)" },
-    info: { bg: "rgba(0,163,255,0.12)", fg: "#00a3ff", border: "rgba(0,163,255,0.3)" },
+    success: { bg: "rgba(16,185,129,0.12)", fg: "var(--color-emerald)", border: "rgba(16,185,129,0.3)" },
+    warning: { bg: "rgba(245,158,11,0.12)", fg: "var(--color-amber)", border: "rgba(245,158,11,0.3)" },
+    danger: { bg: "rgba(239,68,68,0.12)", fg: "var(--color-danger)", border: "rgba(239,68,68,0.3)" },
+    info: { bg: "rgba(0,163,255,0.12)", fg: "var(--color-brand-blue)", border: "rgba(0,163,255,0.3)" },
     neutral: { bg: "var(--surface-2)", fg: "var(--muted)", border: "var(--border)" },
   } as const;
   const c = palette[tone] ?? palette.neutral;

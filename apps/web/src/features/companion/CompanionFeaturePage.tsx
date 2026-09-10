@@ -203,7 +203,7 @@ export function CompanionFeaturePage({ initialTab = "overview", caretakerMode = 
       eyebrow={caretakerMode ? "Field operations" : "Personal command center"}
       title={caretakerMode ? "Caretaker field portal" : "Companion & Staff Performance"}
       subtitle={caretakerMode ? "Capture readings, complete assigned field work and report property issues for review." : "Daily work, team dialogue, staff assignment matrix, and operational productivity."}
-      accent="#0d9488"
+      accent="var(--color-teal)"
       groups={filteredNavGroups}
       activeId={tab}
       onSelect={(id) => setTab(id as CompanionTab)}
@@ -384,7 +384,7 @@ export function CompanionFeaturePage({ initialTab = "overview", caretakerMode = 
                   <div style={{ fontSize: 13, fontWeight: 600 }}>{String(selectedTask.property_name || "Portfolio-wide")}</div>
                 </Field>
                 <Field label="Due Date">
-                  <div className="mono" style={{ fontSize: 12, color: Boolean(selectedTask.overdue) ? "#ef4444" : "var(--text)", fontWeight: Boolean(selectedTask.overdue) ? 700 : 500 }}>
+                  <div className="mono" style={{ fontSize: 12, color: Boolean(selectedTask.overdue) ? "var(--color-danger)" : "var(--text)", fontWeight: Boolean(selectedTask.overdue) ? 700 : 500 }}>
                     {Boolean(selectedTask.overdue) ? "⚠️ " : ""}
                     {fmtDateTime(selectedTask.due_at as string | undefined)}
                   </div>
@@ -506,14 +506,14 @@ export function CompanionFeaturePage({ initialTab = "overview", caretakerMode = 
                     </button>
                   )}
                   {(selectedTask.status === "pending" || selectedTask.status === "acknowledged") && (
-                    <button className="btn ghost sm" style={{ color: "#6366f1" }} onClick={() => runTaskAction(selectedTask, "start")}>
+                    <button className="btn ghost sm" style={{ color: "var(--color-indigo-strong)" }} onClick={() => runTaskAction(selectedTask, "start")}>
                       ⚡ Start Work
                     </button>
                   )}
                   {selectedTask.status === "in_progress" && (
                     <button
                       className="btn primary sm"
-                      style={{ background: "#16a34a", borderColor: "#16a34a", fontWeight: 700 }}
+                      style={{ background: "var(--color-success)", borderColor: "var(--color-success)", fontWeight: 700 }}
                       onClick={() => setCompletingTask(selectedTask)}
                     >
                       ✓ Complete with Proof

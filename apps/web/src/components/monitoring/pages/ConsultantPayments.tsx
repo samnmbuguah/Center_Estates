@@ -13,22 +13,22 @@ function money(v: number | string) {
 
 function Avatar({ name }: { name: string }) {
   const initials = name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
-  const colors = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#ef4444"];
+  const colors = ["var(--color-blue)", "var(--color-violet-strong)", "var(--color-emerald)", "var(--color-amber)", "var(--color-danger)"];
   const color = colors[name.charCodeAt(0) % colors.length];
   return (
     <div style={{
       width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-      background: `${color}20`, color, display: "flex", alignItems: "center",
+      background: `color-mix(in srgb, ${color} 13%, transparent)`, color, display: "flex", alignItems: "center",
       justifyContent: "center", fontSize: 13, fontWeight: 800,
     }}>{initials}</div>
   );
 }
 
 const STATUS_STYLES: Record<string, { bg: string; color: string; label: string }> = {
-  pending:  { bg: "rgba(245,158,11,0.1)",  color: "#f59e0b",  label: "Pending" },
-  approved: { bg: "rgba(59,130,246,0.1)",  color: "#3b82f6",  label: "Approved" },
-  paid:     { bg: "rgba(16,185,129,0.1)",  color: "#10b981",  label: "Paid" },
-  void:     { bg: "rgba(239,68,68,0.1)",   color: "#ef4444",  label: "Void" },
+  pending:  { bg: "rgba(245,158,11,0.1)",  color: "var(--color-amber)",  label: "Pending" },
+  approved: { bg: "rgba(59,130,246,0.1)",  color: "var(--color-blue)",  label: "Approved" },
+  paid:     { bg: "rgba(16,185,129,0.1)",  color: "var(--color-emerald)",  label: "Paid" },
+  void:     { bg: "rgba(239,68,68,0.1)",   color: "var(--color-danger)",  label: "Void" },
 };
 
 export function ConsultantPayments() {
@@ -107,10 +107,10 @@ export function ConsultantPayments() {
       {/* KPI Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
         {[
-          { icon: BadgeDollarSign, label: "Total Approved Fees", value: money(approvedTotal), sub: `${summary.length} consultants`, color: "#3b82f6" },
-          { icon: CheckCircle2, label: "Total Paid", value: money(paidTotal), sub: "Confirmed disbursements", color: "#10b981" },
-          { icon: Clock3, label: "Pending Approval", value: money(summary.reduce((s, r) => s + r.pending, 0)), sub: "Submitted payments", color: "#f59e0b" },
-          { icon: Wallet, label: "Outstanding Balance", value: money(outstandingTotal), sub: "Against approved fees", color: "#ef4444" },
+          { icon: BadgeDollarSign, label: "Total Approved Fees", value: money(approvedTotal), sub: `${summary.length} consultants`, color: "var(--color-blue)" },
+          { icon: CheckCircle2, label: "Total Paid", value: money(paidTotal), sub: "Confirmed disbursements", color: "var(--color-emerald)" },
+          { icon: Clock3, label: "Pending Approval", value: money(summary.reduce((s, r) => s + r.pending, 0)), sub: "Submitted payments", color: "var(--color-amber)" },
+          { icon: Wallet, label: "Outstanding Balance", value: money(outstandingTotal), sub: "Against approved fees", color: "var(--color-danger)" },
         ].map(kpi => (
           <div key={kpi.label} style={{
             padding: "16px 20px", borderRadius: 12, background: "var(--surface)",
@@ -220,14 +220,14 @@ export function ConsultantPayments() {
                       {r.role?.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) || "—"}
                     </td>
                     <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 700, fontSize: 14 }}>{money(r.approved)}</td>
-                    <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: 14, color: "#10b981", fontWeight: 700 }}>{money(r.paid)}</td>
-                    <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: 14, color: outstanding > 0 ? "#ef4444" : "#10b981", fontWeight: 800 }}>
+                    <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: 14, color: "var(--color-emerald)", fontWeight: 700 }}>{money(r.paid)}</td>
+                    <td style={{ padding: "12px 16px", fontFamily: "monospace", fontSize: 14, color: outstanding > 0 ? "var(--color-danger)" : "var(--color-emerald)", fontWeight: 800 }}>
                       {money(outstanding)}
                     </td>
                     <td style={{ padding: "12px 16px", minWidth: 120 }}>
                       <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{paidPct.toFixed(0)}% paid</div>
                       <div style={{ height: 6, borderRadius: 3, background: "var(--surface-3)", overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${paidPct}%`, background: paidPct === 100 ? "#10b981" : "#3b82f6", borderRadius: 3, transition: "width 0.3s" }} />
+                        <div style={{ height: "100%", width: `${paidPct}%`, background: paidPct === 100 ? "var(--color-emerald)" : "var(--color-blue)", borderRadius: 3, transition: "width 0.3s" }} />
                       </div>
                     </td>
                   </tr>
@@ -238,8 +238,8 @@ export function ConsultantPayments() {
               <tr style={{ background: "var(--surface-2)", borderTop: "2px solid var(--border)" }}>
                 <td colSpan={2} style={{ padding: "12px 16px", fontWeight: 800 }}>TOTAL</td>
                 <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 800 }}>{money(approvedTotal)}</td>
-                <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 800, color: "#10b981" }}>{money(paidTotal)}</td>
-                <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 800, color: outstandingTotal > 0 ? "#ef4444" : "#10b981" }}>{money(outstandingTotal)}</td>
+                <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 800, color: "var(--color-emerald)" }}>{money(paidTotal)}</td>
+                <td style={{ padding: "12px 16px", fontFamily: "monospace", fontWeight: 800, color: outstandingTotal > 0 ? "var(--color-danger)" : "var(--color-emerald)" }}>{money(outstandingTotal)}</td>
                 <td style={{ padding: "12px 16px" }}></td>
               </tr>
             </tfoot>
@@ -286,12 +286,12 @@ export function ConsultantPayments() {
                         <div style={{ display: "flex", gap: 4 }}>
                           {p.status === "pending" && can("finance.admin") && (
                             <>
-                              <button className="btn sm" onClick={() => action(p.id, "approve")} style={{ background: "#3b82f6", borderColor: "#3b82f6", color: "white", fontSize: 11 }}>Approve</button>
+                              <button className="btn sm" onClick={() => action(p.id, "approve")} style={{ background: "var(--color-blue)", borderColor: "var(--color-blue)", color: "white", fontSize: 11 }}>Approve</button>
                               <button className="btn ghost sm" onClick={() => action(p.id, "void")} style={{ fontSize: 11 }}>Void</button>
                             </>
                           )}
                           {p.status === "approved" && can("finance.admin") && (
-                            <button className="btn sm" onClick={() => action(p.id, "pay")} style={{ background: "#10b981", borderColor: "#10b981", color: "white", fontSize: 11 }}>Mark Paid</button>
+                            <button className="btn sm" onClick={() => action(p.id, "pay")} style={{ background: "var(--color-emerald)", borderColor: "var(--color-emerald)", color: "white", fontSize: 11 }}>Mark Paid</button>
                           )}
                         </div>
                       </td>

@@ -110,26 +110,26 @@ export function ExpenditureView({ rows, organizationId, propertyId, canApprove, 
 
       {/* Landlord Float balance card */}
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", marginBottom: 16 }}>
-        <div className="data-panel" style={{ padding: 18, border: "1.5px solid #2563eb", background: "rgba(37, 99, 235, 0.05)" }}>
-          <span style={{ color: "#2563eb", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>LANDLORD FLOAT ALLOCATED</span>
+        <div className="data-panel" style={{ padding: 18, border: "1.5px solid var(--color-info)", background: "rgba(37, 99, 235, 0.05)" }}>
+          <span style={{ color: "var(--color-info)", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>LANDLORD FLOAT ALLOCATED</span>
           <strong style={{ color: "var(--text-primary)", display: "block", fontSize: 26, fontWeight: 900 }}>{money.format(floatAllocated)}</strong>
           <small style={{ color: "var(--text-secondary)", display: "block", fontWeight: 700, marginTop: 10 }}>From the approved FM budget for this property</small>
         </div>
         <div className="data-panel" style={{ padding: 18 }}>
           <span style={{ color: "var(--text-primary)", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>SPENT</span>
-          <strong style={{ display: "block", fontSize: 26, color: "#b91c1c", fontWeight: 900 }}>{money.format(spent)}</strong>
+          <strong style={{ display: "block", fontSize: 26, color: "var(--color-danger-strong)", fontWeight: 900 }}>{money.format(spent)}</strong>
           <span style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 700 }}>{spentPct}% of allocated float</span>
         </div>
         <div className="data-panel" style={{ padding: 18 }}>
           <span style={{ color: "var(--text-primary)", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>REMAINING BALANCE</span>
-          <strong style={{ display: "block", fontSize: 26, color: remaining < 0 ? "#b91c1c" : "#15803d", fontWeight: 900 }}>{money.format(Math.max(remaining, 0))}</strong>
-          {remaining < 0 && <span style={{ color: "#b91c1c", fontSize: 12, fontWeight: 800 }}>Float exceeded by {money.format(Math.abs(remaining))}</span>}
+          <strong style={{ display: "block", fontSize: 26, color: remaining < 0 ? "var(--color-danger-strong)" : "var(--color-success-strong)", fontWeight: 900 }}>{money.format(Math.max(remaining, 0))}</strong>
+          {remaining < 0 && <span style={{ color: "var(--color-danger-strong)", fontSize: 12, fontWeight: 800 }}>Float exceeded by {money.format(Math.abs(remaining))}</span>}
         </div>
         <div className="data-panel" style={{ padding: 18 }}>
           <span style={{ color: "var(--text-primary)", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>FLOAT UTILIZATION</span>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>
-            <div style={{ background: "#edf0f5", borderRadius: 99, flex: 1, height: 10, overflow: "hidden" }}>
-              <i style={{ background: spentPct >= 100 ? "#ef4444" : spentPct >= 75 ? "#f59e0b" : "#22c55e", borderRadius: "inherit", display: "block", height: "100%", width: `${spentPct}%` }} />
+            <div style={{ background: "var(--color-surface-alt)", borderRadius: 99, flex: 1, height: 10, overflow: "hidden" }}>
+              <i style={{ background: spentPct >= 100 ? "var(--color-danger)" : spentPct >= 75 ? "var(--color-amber)" : "var(--color-green)", borderRadius: "inherit", display: "block", height: "100%", width: `${spentPct}%` }} />
             </div>
             <strong style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{spentPct}%</strong>
           </div>

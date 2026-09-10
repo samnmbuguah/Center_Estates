@@ -30,9 +30,9 @@ export function SimpleBarChart({ data, bars, height = 200 }: {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--border, #334155)" />
-        <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="var(--muted, #94a3b8)" />
-        <YAxis tick={{ fontSize: 11 }} stroke="var(--muted, #94a3b8)" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#64748b" />
+        <YAxis tick={{ fontSize: 11 }} stroke="#64748b" />
         <Tooltip contentStyle={{ background: "var(--card-bg, #1e293b)", border: "1px solid var(--border, #334155)", borderRadius: 8 }} />
         {bars.map((b) => <Bar key={b.key} dataKey={b.key} fill={b.color} radius={[4, 4, 0, 0]} />)}
       </BarChart>
@@ -60,9 +60,9 @@ export function SimpleLineChart({ data, lines, height = 200 }: {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--border, #334155)" />
-        <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="var(--muted, #94a3b8)" />
-        <YAxis tick={{ fontSize: 11 }} stroke="var(--muted, #94a3b8)" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="#64748b" />
+        <YAxis tick={{ fontSize: 11 }} stroke="#64748b" />
         <Tooltip contentStyle={{ background: "var(--card-bg, #1e293b)", border: "1px solid var(--border, #334155)", borderRadius: 8 }} />
         <Legend />
         {lines.map((l) => <Line key={l.key} type="monotone" dataKey={l.key} stroke={l.color} name={l.name} strokeWidth={2} dot={{ r: 3 }} />)}

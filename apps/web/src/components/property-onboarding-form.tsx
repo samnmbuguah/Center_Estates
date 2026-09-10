@@ -849,7 +849,7 @@ export function PropertyOnboardingForm() {
         <Grid columns={4}><TextField required label={values.title_type === "sectional" ? "Sectional unit number" : "Unit number"} value={unitDraft.unit_no} onChange={e => setUnitDraft({ ...unitDraft, unit_no: e.target.value })} /><TextField required label={values.property_type === "residential" ? "Typology" : "Unit type"} placeholder={values.property_type === "residential" ? "e.g. 1 Bedroom, 2 Bedroom" : "e.g. Shop, Office"} value={unitDraft.unit_type} onChange={e => setUnitDraft({ ...unitDraft, unit_type: e.target.value })} /><TextField required label="Floor" value={unitDraft.floor} onChange={e => setUnitDraft({ ...unitDraft, floor: e.target.value })} /><TextField required label="Use" value={unitDraft.use} onChange={e => setUnitDraft({ ...unitDraft, use: e.target.value })} /><TextField required type="number" label={values.property_type === "residential" ? "Unit area (sq ft)" : "Space area (sq ft)"} value={unitDraft.area} onChange={e => setUnitDraft({ ...unitDraft, area: e.target.value })} /><TextField type="number" label="Rateable area" value={unitDraft.rateable_area} onChange={e => setUnitDraft({ ...unitDraft, rateable_area: e.target.value })} /><TextField type="number" label="Monthly service charge" value={unitDraft.service_charge_rate} onChange={e => setUnitDraft({ ...unitDraft, service_charge_rate: e.target.value, service_charge_calculation: "fixed" })} helperText="Billed to the configured owner or tenant" /><TextField type="number" label="Building #" value={unitDraft.building_index} onChange={e => setUnitDraft({ ...unitDraft, building_index: e.target.value })} /><TextField label="Description" value={unitDraft.description} onChange={e => setUnitDraft({ ...unitDraft, description: e.target.value })} /></Grid>
         <Button startIcon={<Plus size={16} />} variant="outlined" sx={{ mt: 1.5 }} onClick={addUnit}>Add unit</Button>
         <Divider sx={{ my: 2 }} />
-        <RowList rows={units} columns={["Unit no.", "Floor", "Type", "Use", "Area", "Rateable area", "Layout Outline"]} render={u => [u.unit_no, u.floor, u.unit_type, u.use, u.area, u.rateable_area || "—", u.polygon && u.polygon.length > 0 ? <Chip size="small" color="success" label="✓ Outline Mapped" sx={{ fontSize: 10, fontWeight: 700 }} /> : <span style={{ color: "#94a3b8", fontSize: 11 }}>Not mapped</span>]} onRemove={i => setUnits(rows => rows.filter((_, index) => index !== i))} empty="No units added yet." />
+        <RowList rows={units} columns={["Unit no.", "Floor", "Type", "Use", "Area", "Rateable area", "Layout Outline"]} render={u => [u.unit_no, u.floor, u.unit_type, u.use, u.area, u.rateable_area || "—", u.polygon && u.polygon.length > 0 ? <Chip size="small" color="success" label="✓ Outline Mapped" sx={{ fontSize: 10, fontWeight: 700 }} /> : <span style={{ color: "var(--color-slate-400)", fontSize: 11 }}>Not mapped</span>]} onRemove={i => setUnits(rows => rows.filter((_, index) => index !== i))} empty="No units added yet." />
         <Box sx={{ display: "flex", gap: 1, mt: 2, flexWrap: "wrap" }}><Chip label={`Total units: ${units.length}`} /><Chip label={`Lettable area: ${totalArea.toLocaleString()} sq ft`} /><Chip label={`Vacant units: ${units.length}`} color="success" variant="outlined" /></Box>
         {units.length > 0 && (
           <Box sx={{ mt: 3, pt: 2, borderTop: "1px dashed var(--border)" }}>
@@ -926,7 +926,7 @@ export function PropertyOnboardingForm() {
             }}
           >
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
-              <Zap size={18} color="#6366f1" />
+              <Zap size={18} color="var(--color-indigo-strong)" />
               <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "primary.main" }}>
                 ⚡ Quick Bulk Meter Allocator ({units.length} registered units available)
               </Typography>
@@ -978,7 +978,7 @@ export function PropertyOnboardingForm() {
                 variant="contained"
                 startIcon={<Zap size={16} />}
                 onClick={autoAllocateUnitMeters}
-                sx={{ background: "#4f46e5", "&:hover": { background: "#4338ca" }, fontWeight: 700 }}
+                sx={{ background: "var(--color-indigo)", "&:hover": { background: "#4338ca" }, fontWeight: 700 }}
               >
                 Allocate All {units.length} Units
               </Button>

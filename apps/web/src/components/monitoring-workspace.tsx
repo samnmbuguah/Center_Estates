@@ -225,11 +225,11 @@ function ProjectManagerDashboard() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
         {[
-          { label: "Active Projects", value: String(activeProjects), color: "#7c3aed" },
-          { label: "Overdue Milestones", value: String(overdueMilestones), color: overdueMilestones > 0 ? "#dc2626" : "#059669" },
-          { label: "Open Risks", value: String(openRisks), color: openRisks > 0 ? "#d97706" : "#059669" },
-          { label: "Budget Utilization", value: `${budgetUtilization}%`, color: "#2563eb" },
-          { label: "Team Members", value: String(teamMembers), color: "#7c3aed" },
+          { label: "Active Projects", value: String(activeProjects), color: "var(--color-violet)" },
+          { label: "Overdue Milestones", value: String(overdueMilestones), color: overdueMilestones > 0 ? "var(--color-danger)" : "var(--color-emerald-strong)" },
+          { label: "Open Risks", value: String(openRisks), color: openRisks > 0 ? "var(--color-warning)" : "var(--color-emerald-strong)" },
+          { label: "Budget Utilization", value: `${budgetUtilization}%`, color: "var(--color-info)" },
+          { label: "Team Members", value: String(teamMembers), color: "var(--color-violet)" },
         ].map((kpi) => (
           <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
             <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
@@ -321,11 +321,11 @@ function FinanceDashboard() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
         {[
-          { label: "Total Budget", value: `KES ${(totalBudget / 1e6).toFixed(1)}M`, color: "#7c3aed" },
-          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "#2563eb" },
-          { label: "Paid Value", value: `KES ${(paidValue / 1e6).toFixed(1)}M`, color: "#059669" },
-          { label: "Outstanding", value: `KES ${(outstanding / 1e6).toFixed(1)}M`, color: outstanding > 0 ? "#d97706" : "#059669" },
-          { label: "Cost Variance", value: `${costVariance > 0 ? "+" : ""}${costVariance}%`, color: costVariance > 0 ? "#dc2626" : "#059669" },
+          { label: "Total Budget", value: `KES ${(totalBudget / 1e6).toFixed(1)}M`, color: "var(--color-violet)" },
+          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "var(--color-info)" },
+          { label: "Paid Value", value: `KES ${(paidValue / 1e6).toFixed(1)}M`, color: "var(--color-emerald-strong)" },
+          { label: "Outstanding", value: `KES ${(outstanding / 1e6).toFixed(1)}M`, color: outstanding > 0 ? "var(--color-warning)" : "var(--color-emerald-strong)" },
+          { label: "Cost Variance", value: `${costVariance > 0 ? "+" : ""}${costVariance}%`, color: costVariance > 0 ? "var(--color-danger)" : "var(--color-emerald-strong)" },
         ].map((kpi) => (
           <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
             <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
@@ -338,9 +338,9 @@ function FinanceDashboard() {
         <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>Budget vs Certified vs Paid</div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 20, height: 140, padding: "0 12px" }}>
           {[
-            { label: "Budget", value: totalBudget, color: "#7c3aed" },
-            { label: "Certified", value: certifiedValue, color: "#2563eb" },
-            { label: "Paid", value: paidValue, color: "#059669" },
+            { label: "Budget", value: totalBudget, color: "var(--color-violet)" },
+            { label: "Certified", value: certifiedValue, color: "var(--color-info)" },
+            { label: "Paid", value: paidValue, color: "var(--color-emerald-strong)" },
           ].map((bar) => (
             <div key={bar.label} style={{ flex: 1, textAlign: "center" }}>
               <div style={{ background: bar.color, borderRadius: 4, height: `${Math.max(4, (bar.value / maxBar) * 100)}%`, minHeight: 4, transition: "height 0.3s" }} title={`KES ${(bar.value / 1e6).toFixed(1)}M`} />
@@ -364,7 +364,7 @@ function FinanceDashboard() {
               ) : (
                 requisitions.filter((r) => r.status === "submitted" || r.status === "reviewed").slice(0, 8).map((r) => (
                   <tr key={r.id}>
-                    <td><span className="mono" style={{ fontSize: 12, color: "#7c3aed", fontWeight: 700 }}>{String((r as unknown as Record<string, unknown>).reference ?? `REQ-${r.id}`)}</span></td>
+                    <td><span className="mono" style={{ fontSize: 12, color: "var(--color-violet)", fontWeight: 700 }}>{String((r as unknown as Record<string, unknown>).reference ?? `REQ-${r.id}`)}</span></td>
                     <td style={{ fontSize: 12 }}>{String((r as unknown as Record<string, unknown>).project_name ?? "—")}</td>
                     <td className="mono" style={{ fontSize: 12 }}>KES {Number(r.amount ?? 0).toLocaleString()}</td>
                     <td><span className="status-pill" style={{ fontSize: 11 }}>{r.status}</span></td>
@@ -408,11 +408,11 @@ function SiteAgentDashboard() {
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
         {[
-          { label: "Active Projects", value: String(activeProjects), color: "#7c3aed" },
-          { label: "Today's Tasks", value: String(todayTasks), color: "#2563eb" },
-          { label: "Pending Inspections", value: String(pendingInspections), color: pendingInspections > 0 ? "#d97706" : "#059669" },
-          { label: "Open Issues", value: String(openIssues), color: openIssues > 0 ? "#dc2626" : "#059669" },
-          { label: "Safety Score", value: `${safetyScore}%`, color: safetyScore >= 90 ? "#059669" : safetyScore >= 70 ? "#d97706" : "#dc2626" },
+          { label: "Active Projects", value: String(activeProjects), color: "var(--color-violet)" },
+          { label: "Today's Tasks", value: String(todayTasks), color: "var(--color-info)" },
+          { label: "Pending Inspections", value: String(pendingInspections), color: pendingInspections > 0 ? "var(--color-warning)" : "var(--color-emerald-strong)" },
+          { label: "Open Issues", value: String(openIssues), color: openIssues > 0 ? "var(--color-danger)" : "var(--color-emerald-strong)" },
+          { label: "Safety Score", value: `${safetyScore}%`, color: safetyScore >= 90 ? "var(--color-emerald-strong)" : safetyScore >= 70 ? "var(--color-warning)" : "var(--color-danger)" },
         ].map((kpi) => (
           <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
             <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
@@ -491,10 +491,10 @@ function RoleDevDashboard() {
       {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {[
-          { label: "Active Projects", value: String(activeProjects), color: "#7c3aed" },
-          { label: "Portfolio Projects", value: String(portfolioProjects), color: "#2563eb" },
-          { label: "Budget Utilization", value: `${budgetUtilization}%`, color: "#059669" },
-          { label: "High Risks", value: String(openRisks), color: openRisks > 0 ? "#dc2626" : "#059669" },
+          { label: "Active Projects", value: String(activeProjects), color: "var(--color-violet)" },
+          { label: "Portfolio Projects", value: String(portfolioProjects), color: "var(--color-info)" },
+          { label: "Budget Utilization", value: `${budgetUtilization}%`, color: "var(--color-emerald-strong)" },
+          { label: "High Risks", value: String(openRisks), color: openRisks > 0 ? "var(--color-danger)" : "var(--color-emerald-strong)" },
         ].map((kpi) => (
           <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
             <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
@@ -560,11 +560,11 @@ function RoleSalesDashboard() {
       {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {[
-          { label: "Total Projects", value: String(totalProjects), color: "#7c3aed" },
-          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "#2563eb" },
-          { label: "Outstanding", value: `KES ${(outstanding / 1e6).toFixed(1)}M`, color: outstanding > 0 ? "#d97706" : "#059669" },
-          { label: "Open Risks", value: String(openRisks), color: openRisks > 0 ? "#dc2626" : "#059669" },
-          { label: "Pending Verifications", value: String(pendingVerifications), color: pendingVerifications > 0 ? "#d97706" : "#059669" },
+          { label: "Total Projects", value: String(totalProjects), color: "var(--color-violet)" },
+          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "var(--color-info)" },
+          { label: "Outstanding", value: `KES ${(outstanding / 1e6).toFixed(1)}M`, color: outstanding > 0 ? "var(--color-warning)" : "var(--color-emerald-strong)" },
+          { label: "Open Risks", value: String(openRisks), color: openRisks > 0 ? "var(--color-danger)" : "var(--color-emerald-strong)" },
+          { label: "Pending Verifications", value: String(pendingVerifications), color: pendingVerifications > 0 ? "var(--color-warning)" : "var(--color-emerald-strong)" },
         ].map((kpi) => (
           <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
             <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
@@ -630,10 +630,10 @@ function RoleMarketingDashboard() {
       {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {[
-          { label: "Project Count", value: String(totalProjects), color: "#7c3aed" },
-          { label: "Lead Pipeline", value: String(totalProjects), color: "#2563eb" },
-          { label: "Marketing Spend", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "#d97706" },
-          { label: "Budget Utilization", value: `${budgetUtilization}%`, color: "#059669" },
+          { label: "Project Count", value: String(totalProjects), color: "var(--color-violet)" },
+          { label: "Lead Pipeline", value: String(totalProjects), color: "var(--color-info)" },
+          { label: "Marketing Spend", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "var(--color-warning)" },
+          { label: "Budget Utilization", value: `${budgetUtilization}%`, color: "var(--color-emerald-strong)" },
         ].map((kpi) => (
           <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
             <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
@@ -704,10 +704,10 @@ function RoleClerkDashboard() {
       {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {[
-          { label: "Total Projects", value: String(totalProjects), color: "#7c3aed" },
-          { label: "Pending Approvals", value: String(pendingVerifications), color: pendingVerifications > 0 ? "#d97706" : "#059669" },
-          { label: "Open Tickets", value: String(openTickets), color: openTickets > 0 ? "#dc2626" : "#059669" },
-          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "#2563eb" },
+          { label: "Total Projects", value: String(totalProjects), color: "var(--color-violet)" },
+          { label: "Pending Approvals", value: String(pendingVerifications), color: pendingVerifications > 0 ? "var(--color-warning)" : "var(--color-emerald-strong)" },
+          { label: "Open Tickets", value: String(openTickets), color: openTickets > 0 ? "var(--color-danger)" : "var(--color-emerald-strong)" },
+          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "var(--color-info)" },
         ].map((kpi) => (
           <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
             <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
@@ -779,11 +779,11 @@ function RoleValuerDashboard() {
       {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {[
-          { label: "Projects", value: String(totalProjects), color: "#7c3aed" },
-          { label: "Total Budget", value: `KES ${(totalBudget / 1e6).toFixed(1)}M`, color: "#2563eb" },
-          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "#059669" },
-          { label: "Cost Variance", value: `${costVariance > 0 ? "+" : ""}${costVariance}%`, color: costVariance > 0 ? "#dc2626" : "#059669" },
-          { label: "Pending Verifications", value: String(pendingVerifications), color: pendingVerifications > 0 ? "#d97706" : "#059669" },
+          { label: "Projects", value: String(totalProjects), color: "var(--color-violet)" },
+          { label: "Total Budget", value: `KES ${(totalBudget / 1e6).toFixed(1)}M`, color: "var(--color-info)" },
+          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "var(--color-emerald-strong)" },
+          { label: "Cost Variance", value: `${costVariance > 0 ? "+" : ""}${costVariance}%`, color: costVariance > 0 ? "var(--color-danger)" : "var(--color-emerald-strong)" },
+          { label: "Pending Verifications", value: String(pendingVerifications), color: pendingVerifications > 0 ? "var(--color-warning)" : "var(--color-emerald-strong)" },
         ].map((kpi) => (
           <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
             <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
@@ -795,8 +795,8 @@ function RoleValuerDashboard() {
         <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>Valuation Summary</div>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 20, height: 120, padding: "0 12px" }}>
           {[
-            { label: "Budget", value: totalBudget, color: "#7c3aed" },
-            { label: "Certified", value: certifiedValue, color: "#2563eb" },
+            { label: "Budget", value: totalBudget, color: "var(--color-violet)" },
+            { label: "Certified", value: certifiedValue, color: "var(--color-info)" },
           ].map((bar) => (
             <div key={bar.label} style={{ flex: 1, textAlign: "center" }}>
               <div style={{ background: bar.color, borderRadius: 4, height: `${totalBudget > 0 ? Math.max(4, (bar.value / totalBudget) * 100) : 4}%`, minHeight: 4, transition: "height 0.3s" }} title={`KES ${(bar.value / 1e6).toFixed(1)}M`} />
@@ -863,10 +863,10 @@ function RoleFacilitiesDashboard() {
       {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {[
-          { label: "Active Facilities", value: String(totalProjects), color: "#7c3aed" },
-          { label: "Maintenance Requests", value: String(openTickets), color: openTickets > 0 ? "#d97706" : "#059669" },
-          { label: "Utilization Rate", value: `${totalBudget > 0 ? Math.round((paidValue / totalBudget) * 100) : 0}%`, color: "#2563eb" },
-          { label: "Safety Score", value: `${safetyScore}%`, color: safetyScore >= 90 ? "#059669" : safetyScore >= 70 ? "#d97706" : "#dc2626" },
+          { label: "Active Facilities", value: String(totalProjects), color: "var(--color-violet)" },
+          { label: "Maintenance Requests", value: String(openTickets), color: openTickets > 0 ? "var(--color-warning)" : "var(--color-emerald-strong)" },
+          { label: "Utilization Rate", value: `${totalBudget > 0 ? Math.round((paidValue / totalBudget) * 100) : 0}%`, color: "var(--color-info)" },
+          { label: "Safety Score", value: `${safetyScore}%`, color: safetyScore >= 90 ? "var(--color-emerald-strong)" : safetyScore >= 70 ? "var(--color-warning)" : "var(--color-danger)" },
         ].map((kpi) => (
           <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
             <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
@@ -939,10 +939,10 @@ function RoleAdminDashboard() {
       {error && <div className="error-banner" style={{ background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: 8, color: "var(--danger)", padding: "10px 14px", fontSize: 12 }}>{error}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
         {[
-          { label: "Total Projects", value: String(totalProjects), color: "#7c3aed" },
-          { label: "Team Members", value: String(teamMembers), color: "#2563eb" },
-          { label: "System Health", value: `${openTickets === 0 ? "100" : Math.max(0, 100 - openTickets)}%`, color: openTickets === 0 ? "#059669" : "#d97706" },
-          { label: "Pending Tasks", value: String(pendingVerifications), color: pendingVerifications > 0 ? "#d97706" : "#059669" },
+          { label: "Total Projects", value: String(totalProjects), color: "var(--color-violet)" },
+          { label: "Team Members", value: String(teamMembers), color: "var(--color-info)" },
+          { label: "System Health", value: `${openTickets === 0 ? "100" : Math.max(0, 100 - openTickets)}%`, color: openTickets === 0 ? "var(--color-emerald-strong)" : "var(--color-warning)" },
+          { label: "Pending Tasks", value: String(pendingVerifications), color: pendingVerifications > 0 ? "var(--color-warning)" : "var(--color-emerald-strong)" },
         ].map((kpi) => (
           <div key={kpi.label} className="card card-compact" style={{ padding: 14 }}>
             <div className="muted" style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>{kpi.label}</div>
@@ -1033,7 +1033,7 @@ function WorkspaceContent() {
       eyebrow="Construction & Site Operations"
       title="Construction Management Workspace"
       subtitle="Full lifecycle site monitoring, commercial controls, BIM/GIS, progress certification, and risk engineering."
-      accent="#00a3ff"
+      accent="var(--color-brand-blue)"
       activeId={tab}
       onSelect={handleSelectTab}
     >

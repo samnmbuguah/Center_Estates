@@ -76,10 +76,10 @@ export function CashFlow() {
       {/* KPI Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
         {[
-          { icon: TrendingUp, label: "Total Inflows (YTD)", value: money(totalInflow * 1e6), sub: "Certificates + recoveries", color: "#10b981" },
-          { icon: TrendingDown, label: "Total Outflows (YTD)", value: money(totalOutflow * 1e6), sub: "Contractors + materials", color: "#ef4444" },
-          { icon: Activity, label: "Net Position (YTD)", value: money(netPosition * 1e6), sub: netPosition >= 0 ? "Positive flow" : "Cash deficit", color: netPosition >= 0 ? "#10b981" : "#ef4444" },
-          { icon: DollarSign, label: "Current Balance", value: money(currentBalance), sub: "As at 18 Jul 2026", color: "#3b82f6" },
+          { icon: TrendingUp, label: "Total Inflows (YTD)", value: money(totalInflow * 1e6), sub: "Certificates + recoveries", color: "var(--color-emerald)" },
+          { icon: TrendingDown, label: "Total Outflows (YTD)", value: money(totalOutflow * 1e6), sub: "Contractors + materials", color: "var(--color-danger)" },
+          { icon: Activity, label: "Net Position (YTD)", value: money(netPosition * 1e6), sub: netPosition >= 0 ? "Positive flow" : "Cash deficit", color: netPosition >= 0 ? "var(--color-emerald)" : "var(--color-danger)" },
+          { icon: DollarSign, label: "Current Balance", value: money(currentBalance), sub: "As at 18 Jul 2026", color: "var(--color-blue)" },
         ].map(k => (
           <div key={k.label} style={{
             padding: "16px 20px", borderRadius: 12, background: "var(--surface)",
@@ -106,9 +106,9 @@ export function CashFlow() {
               <div style={{ fontSize: 12, color: "var(--muted)" }}>Inflows vs Outflows (KSh Millions)</div>
             </div>
             <div style={{ display: "flex", gap: 12, fontSize: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: "#10b981" }} /> Inflow</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: "#ef4444" }} /> Outflow</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: "#3b82f6" }} /> Net</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: "var(--color-emerald)" }} /> Inflow</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: "var(--color-danger)" }} /> Outflow</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: "var(--color-blue)" }} /> Net</div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "flex-end", height: 200, paddingBottom: 24, position: "relative" }}>
@@ -116,8 +116,8 @@ export function CashFlow() {
               <div key={i} style={{ flex: 1, display: "flex", gap: 2, alignItems: "flex-end" }}>
                 {d.inflow > 0 ? (
                   <>
-                    <div style={{ flex: 1, height: `${(d.inflow / maxBar) * 100}%`, background: "#10b981", borderRadius: "3px 3px 0 0", minHeight: 2 }} title={`Inflow: KSh ${d.inflow}M`} />
-                    <div style={{ flex: 1, height: `${(d.outflow / maxBar) * 100}%`, background: "#ef4444", borderRadius: "3px 3px 0 0", minHeight: 2 }} title={`Outflow: KSh ${d.outflow}M`} />
+                    <div style={{ flex: 1, height: `${(d.inflow / maxBar) * 100}%`, background: "var(--color-emerald)", borderRadius: "3px 3px 0 0", minHeight: 2 }} title={`Inflow: KSh ${d.inflow}M`} />
+                    <div style={{ flex: 1, height: `${(d.outflow / maxBar) * 100}%`, background: "var(--color-danger)", borderRadius: "3px 3px 0 0", minHeight: 2 }} title={`Outflow: KSh ${d.outflow}M`} />
                   </>
                 ) : (
                   <div style={{ flex: 2, height: 4, background: "var(--surface-3)", borderRadius: 2, opacity: 0.4 }} />
@@ -141,18 +141,18 @@ export function CashFlow() {
             <div key={i} style={{ marginBottom: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
                 <span>{f.month}</span>
-                <span style={{ color: f.net >= 0 ? "#10b981" : "#ef4444" }}>Net: KSh {f.net}M</span>
+                <span style={{ color: f.net >= 0 ? "var(--color-emerald)" : "var(--color-danger)" }}>Net: KSh {f.net}M</span>
               </div>
               <div style={{ marginBottom: 4 }}>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>Inflow: KSh {f.expectedInflow}M</div>
                 <div style={{ height: 5, borderRadius: 3, background: "var(--surface-3)", overflow: "hidden" }}>
-                  <div style={{ width: `${(f.expectedInflow / 100) * 100}%`, height: "100%", background: "#10b981", borderRadius: 3 }} />
+                  <div style={{ width: `${(f.expectedInflow / 100) * 100}%`, height: "100%", background: "var(--color-emerald)", borderRadius: 3 }} />
                 </div>
               </div>
               <div>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>Outflow: KSh {f.expectedOutflow}M</div>
                 <div style={{ height: 5, borderRadius: 3, background: "var(--surface-3)", overflow: "hidden" }}>
-                  <div style={{ width: `${(f.expectedOutflow / 100) * 100}%`, height: "100%", background: "#ef4444", borderRadius: 3 }} />
+                  <div style={{ width: `${(f.expectedOutflow / 100) * 100}%`, height: "100%", background: "var(--color-danger)", borderRadius: 3 }} />
                 </div>
               </div>
             </div>
@@ -188,12 +188,12 @@ export function CashFlow() {
                   <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "var(--surface-3)", color: "var(--muted)", fontWeight: 600 }}>{t.category}</span>
                 </td>
                 <td style={{ padding: "11px 16px" }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, color: t.type === "inflow" ? "#10b981" : "#ef4444" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 700, color: t.type === "inflow" ? "var(--color-emerald)" : "var(--color-danger)" }}>
                     {t.type === "inflow" ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                     {t.type === "inflow" ? "Inflow" : "Outflow"}
                   </span>
                 </td>
-                <td style={{ padding: "11px 16px", fontFamily: "monospace", fontSize: 14, fontWeight: 700, color: t.type === "inflow" ? "#10b981" : "#ef4444" }}>
+                <td style={{ padding: "11px 16px", fontFamily: "monospace", fontSize: 14, fontWeight: 700, color: t.type === "inflow" ? "var(--color-emerald)" : "var(--color-danger)" }}>
                   {t.type === "inflow" ? "+" : "-"}{money(t.amount)}
                 </td>
                 <td style={{ padding: "11px 16px", fontFamily: "monospace", fontSize: 13 }}>{money(t.balance)}</td>

@@ -129,7 +129,7 @@ export function BulkContractorUploaderModal({
         className="modal-panel"
         style={{
           background: "var(--surface, #ffffff)",
-          border: "1px solid var(--border, #cbd5e1)",
+          border: "1px solid var(--border, var(--color-slate-300))",
           borderRadius: 12,
           boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
           width: "100%",
@@ -141,18 +141,18 @@ export function BulkContractorUploaderModal({
         }}
       >
         {/* Header */}
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border, #cbd5e1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border, var(--color-slate-300))", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--text-primary, #0f172a)" }}>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--text-primary, var(--color-slate-900))" }}>
               ⬆ Bulk Upload Service Providers &amp; Contractors (CSV)
             </h3>
-            <small style={{ color: "var(--text-secondary, #64748b)" }}>
+            <small style={{ color: "var(--text-secondary, var(--color-slate-500))" }}>
               Import multiple maintenance vendors, specialists, and SLA emergency contacts simultaneously.
             </small>
           </div>
           <button
             onClick={onClose}
-            style={{ background: "none", border: 0, fontSize: 20, cursor: "pointer", color: "var(--text-secondary, #64748b)" }}
+            style={{ background: "none", border: 0, fontSize: 20, cursor: "pointer", color: "var(--text-secondary, var(--color-slate-500))" }}
           >
             ✕
           </button>
@@ -169,7 +169,7 @@ export function BulkContractorUploaderModal({
             >
               📥 Download CSV Template
             </button>
-            <span style={{ fontSize: 12, color: "var(--text-secondary, #64748b)" }}>
+            <span style={{ fontSize: 12, color: "var(--text-secondary, var(--color-slate-500))" }}>
               Required columns: <strong>name</strong>, <strong>specialty</strong>, <strong>contact_name</strong>, <strong>phone</strong>
             </span>
           </div>
@@ -186,12 +186,12 @@ export function BulkContractorUploaderModal({
             }}
             onClick={() => fileRef.current?.click()}
             style={{
-              border: `2px dashed ${dragOver ? "var(--primary, #dc2626)" : "var(--border, #cbd5e1)"}`,
+              border: `2px dashed ${dragOver ? "var(--primary, var(--color-danger))" : "var(--border, var(--color-slate-300))"}`,
               borderRadius: 10,
               padding: "24px 20px",
               textAlign: "center",
               cursor: "pointer",
-              background: dragOver ? "rgba(220,38,38,0.04)" : "var(--surface-sunken, #f8fafc)",
+              background: dragOver ? "rgba(220,38,38,0.04)" : "var(--surface-sunken, var(--color-slate-50))",
               transition: "all 0.15s ease",
             }}
           >
@@ -206,10 +206,10 @@ export function BulkContractorUploaderModal({
               }}
             />
             <div style={{ fontSize: 28, marginBottom: 6 }}>📄</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary, #0f172a)" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary, var(--color-slate-900))" }}>
               {filename ? `Selected: ${filename}` : "Drag and drop CSV file here, or click to browse"}
             </div>
-            <small style={{ color: "var(--text-secondary, #64748b)", marginTop: 4, display: "block" }}>
+            <small style={{ color: "var(--text-secondary, var(--color-slate-500))", marginTop: 4, display: "block" }}>
               Accepts .csv files (up to 1,000 providers per import)
             </small>
           </div>
@@ -222,7 +222,7 @@ export function BulkContractorUploaderModal({
                 borderRadius: 8,
                 background: result.count > 0 ? "rgba(22,163,74,0.1)" : "rgba(220,38,38,0.1)",
                 border: `1px solid ${result.count > 0 ? "rgba(22,163,74,0.3)" : "rgba(220,38,38,0.3)"}`,
-                color: result.count > 0 ? "#166534" : "#991b1b",
+                color: result.count > 0 ? "var(--color-green-text)" : "var(--color-danger-deep)",
                 fontSize: 13,
               }}
             >
@@ -239,21 +239,21 @@ export function BulkContractorUploaderModal({
           {rows.length > 0 && (
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary, #0f172a)" }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary, var(--color-slate-900))" }}>
                   Preview: {rows.length} Providers Ready to Import
                 </span>
                 <button
                   onClick={() => { setRows([]); setFilename(""); }}
-                  style={{ background: "none", border: 0, color: "var(--primary, #dc2626)", fontSize: 12, cursor: "pointer", fontWeight: 700 }}
+                  style={{ background: "none", border: 0, color: "var(--primary, var(--color-danger))", fontSize: 12, cursor: "pointer", fontWeight: 700 }}
                 >
                   Clear
                 </button>
               </div>
 
-              <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid var(--border, #cbd5e1)", borderRadius: 6 }}>
+              <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid var(--border, var(--color-slate-300))", borderRadius: 6 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                   <thead>
-                    <tr style={{ background: "var(--surface-sunken, #f8fafc)", borderBottom: "1px solid var(--border, #cbd5e1)", textAlign: "left" }}>
+                    <tr style={{ background: "var(--surface-sunken, var(--color-slate-50))", borderBottom: "1px solid var(--border, var(--color-slate-300))", textAlign: "left" }}>
                       <th style={{ padding: "6px 10px" }}>Code</th>
                       <th style={{ padding: "6px 10px" }}>Provider Name</th>
                       <th style={{ padding: "6px 10px" }}>Specialty</th>
@@ -264,7 +264,7 @@ export function BulkContractorUploaderModal({
                   </thead>
                   <tbody>
                     {rows.slice(0, 10).map((r, i) => (
-                      <tr key={i} style={{ borderBottom: "1px solid var(--border, #e2e8f0)" }}>
+                      <tr key={i} style={{ borderBottom: "1px solid var(--border, var(--color-slate-200))" }}>
                         <td style={{ padding: "6px 10px", fontFamily: "monospace" }}>{r.code || `VND-${100 + i}`}</td>
                         <td style={{ padding: "6px 10px", fontWeight: 700 }}>{r.name}</td>
                         <td style={{ padding: "6px 10px" }}>{r.specialty}</td>
@@ -277,7 +277,7 @@ export function BulkContractorUploaderModal({
                 </table>
               </div>
               {rows.length > 10 && (
-                <small style={{ color: "var(--text-secondary, #64748b)", display: "block", marginTop: 4 }}>
+                <small style={{ color: "var(--text-secondary, var(--color-slate-500))", display: "block", marginTop: 4 }}>
                   Showing first 10 of {rows.length} records.
                 </small>
               )}
@@ -286,7 +286,7 @@ export function BulkContractorUploaderModal({
         </div>
 
         {/* Footer */}
-        <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border, #cbd5e1)", display: "flex", justifyContent: "flex-end", gap: 10, background: "var(--surface-sunken, #f8fafc)" }}>
+        <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border, var(--color-slate-300))", display: "flex", justifyContent: "flex-end", gap: 10, background: "var(--surface-sunken, var(--color-slate-50))" }}>
           <button
             onClick={onClose}
             className="fc-toolbar-btn"

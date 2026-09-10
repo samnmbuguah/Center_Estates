@@ -138,32 +138,32 @@ export function ReceiptAllocationsView({
       <KpiStrip cols={4}>
         <KpiCard
           icon="🔗"
-          iconBg="#e0e7ff"
-          iconColor="#4f46e5"
+          iconBg="var(--color-indigo-bg)"
+          iconColor="var(--color-indigo)"
           label="Total Allocated"
           value={kM(totalAllocated)}
           sub="Applied against invoices"
         />
         <KpiCard
           icon="🧾"
-          iconBg="#dbeafe"
-          iconColor="#0284c7"
+          iconBg="var(--color-blue-bg)"
+          iconColor="var(--color-sky)"
           label="Allocations"
           value={kN(allocations.length)}
           sub="Ledger transactions"
         />
         <KpiCard
           icon="🏢"
-          iconBg="#dcfce7"
-          iconColor="#16a34a"
+          iconBg="var(--color-green-bg)"
+          iconColor="var(--color-success)"
           label="Invoices Settled"
           value={kN(uniqueInvoicesCount)}
           sub="Covered by collections"
         />
         <KpiCard
           icon="⚡"
-          iconBg="#fef3c7"
-          iconColor="#d97706"
+          iconBg="var(--color-amber-bg)"
+          iconColor="var(--color-warning)"
           label="FIFO Engine"
           value="Active"
           sub="Automated clearing"
@@ -178,7 +178,7 @@ export function ReceiptAllocationsView({
             fontSize: 13,
             fontWeight: 500,
             background: feedback.type === "success" ? "rgba(22, 163, 74, 0.1)" : "rgba(220, 38, 38, 0.1)",
-            color: feedback.type === "success" ? "#16a34a" : "#dc2626",
+            color: feedback.type === "success" ? "var(--color-success)" : "var(--color-danger)",
             border: `1px solid ${feedback.type === "success" ? "rgba(22, 163, 74, 0.2)" : "rgba(220, 38, 38, 0.2)"}`,
           }}
         >
@@ -231,7 +231,7 @@ export function ReceiptAllocationsView({
             className="btn primary sm"
             disabled={autoAllocating}
             style={{
-              background: "#0284c7",
+              background: "var(--color-sky)",
               color: "#ffffff",
               fontWeight: 700,
             }}
@@ -276,13 +276,13 @@ export function ReceiptAllocationsView({
                     <td className="mono" style={{ fontSize: 12, fontWeight: 600 }}>
                       {String(a.receipt_number ?? "—")}
                     </td>
-                    <td className="mono" style={{ fontSize: 12, color: "#0284c7" }}>
+                    <td className="mono" style={{ fontSize: 12, color: "var(--color-sky)" }}>
                       {String(a.invoice_number ?? "—")}
                     </td>
                     <td>
                       <strong style={{ fontSize: 12 }}>{String(a.tenant_name ?? "—")}</strong>
                     </td>
-                    <td className="mono" style={{ fontWeight: 700, color: "#16a34a" }}>
+                    <td className="mono" style={{ fontWeight: 700, color: "var(--color-success)" }}>
                       {kM(a.amount)}
                     </td>
                     <td style={{ fontSize: 12 }}>{fmtDate(a.created_at)}</td>
@@ -335,7 +335,7 @@ export function ReceiptAllocationsView({
               </div>
               <div className="row" style={{ justifyContent: "space-between", marginTop: 4, fontSize: 12 }}>
                 <span className="muted">Allocated Amount:</span>
-                <strong className="mono" style={{ color: "#16a34a" }}>{kM(selectedAllocation.amount)}</strong>
+                <strong className="mono" style={{ color: "var(--color-success)" }}>{kM(selectedAllocation.amount)}</strong>
               </div>
               <div className="row" style={{ justifyContent: "space-between", marginTop: 4, fontSize: 12 }}>
                 <span className="muted">Allocation Date:</span>

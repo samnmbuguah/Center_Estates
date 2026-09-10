@@ -27,18 +27,18 @@ export function TenderBiddingMatrixView() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+      <div style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
             Tender Vendor Bidding Comparison Matrix
           </h2>
-          <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 750 }}>
+          <span style={{ fontSize: 13, color: "var(--color-slate-900)", fontWeight: 750 }}>
             Side-by-side comparative analysis of incoming contractor bids highlighting price, timeline, and rating.
           </span>
         </div>
 
         <div style={{ position: "relative", minWidth: 260 }}>
-          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#64748b", pointerEvents: "none" }} />
+          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--color-slate-500)", pointerEvents: "none" }} />
           <input
             type="text"
             placeholder="Search contractors..."
@@ -47,7 +47,7 @@ export function TenderBiddingMatrixView() {
             style={{
               padding: "8px 12px 8px 36px",
               borderRadius: 8,
-              border: "1px solid #cbd5e1",
+              border: "1px solid var(--color-slate-300)",
               fontSize: 13,
               fontWeight: 700,
               color: "#000000",
@@ -58,11 +58,11 @@ export function TenderBiddingMatrixView() {
         </div>
       </div>
 
-      <div className="data-panel" style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, overflow: "hidden" }}>
+      <div className="data-panel" style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, overflow: "hidden" }}>
         <div className="table-scroll">
           <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+              <tr style={{ background: "var(--color-slate-50)", borderBottom: "1px solid var(--color-slate-200)" }}>
                 <th style={{ padding: "14px 20px", textAlign: "left", fontSize: 12, fontWeight: 900, color: "#000000" }}>Contractor / Vendor</th>
                 <th style={{ padding: "14px 20px", textAlign: "left", fontSize: 12, fontWeight: 900, color: "#000000" }}>Bid Amount (KES)</th>
                 <th style={{ padding: "14px 20px", textAlign: "left", fontSize: 12, fontWeight: 900, color: "#000000" }}>Execution Timeline</th>
@@ -73,35 +73,35 @@ export function TenderBiddingMatrixView() {
             </thead>
             <tbody>
               {paginated.map((b) => (
-                <tr key={b.vendor} style={{ background: b.recommended ? "#f0fdf4" : "transparent", borderBottom: "1px solid #f1f5f9" }}>
+                <tr key={b.vendor} style={{ background: b.recommended ? "var(--color-green-soft)" : "transparent", borderBottom: "1px solid var(--color-slate-100)" }}>
                   <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 900, color: "#000000" }}>
                     {b.vendor}
                     {b.recommended && (
-                      <span style={{ marginLeft: 8, background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 900 }}>
+                      <span style={{ marginLeft: 8, background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 900 }}>
                         ★ Best Value
                       </span>
                     )}
                   </td>
-                  <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 900, color: b.recommended ? "#16a34a" : "#000000" }}>
+                  <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 900, color: b.recommended ? "var(--color-success)" : "#000000" }}>
                     KES {b.bidAmount.toLocaleString()}
                   </td>
                   <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 800, color: "#000000" }}>
                     {b.timeline}
                   </td>
-                  <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 800, color: "#d97706" }}>
+                  <td style={{ padding: "14px 20px", fontSize: 13, fontWeight: 800, color: "var(--color-warning)" }}>
                     ★ {b.rating} / 5.0
                   </td>
                   <td style={{ padding: "14px 20px" }}>
-                    <span style={{ background: "#dcfce7", color: "#15803d", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
+                    <span style={{ background: "var(--color-green-bg)", color: "var(--color-success-strong)", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
                       {b.compliance}
                     </span>
                   </td>
                   <td style={{ padding: "14px 20px", textAlign: "right" }}>
                     <button
                       style={{
-                        background: b.recommended ? "#16a34a" : "#ffffff",
+                        background: b.recommended ? "var(--color-success)" : "#ffffff",
                         color: b.recommended ? "#ffffff" : "#000000",
-                        border: `1px solid ${b.recommended ? "#16a34a" : "#cbd5e1"}`,
+                        border: `1px solid ${b.recommended ? "var(--color-success)" : "var(--color-slate-300)"}`,
                         padding: "6px 14px",
                         borderRadius: 6,
                         fontSize: 12,

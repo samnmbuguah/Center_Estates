@@ -31,11 +31,11 @@ function normalizeChargeType(raw?: string): string {
 function ChargeTypeBadge({ chargeType }: { chargeType?: string }) {
   const norm = normalizeChargeType(chargeType);
   const styles: Record<string, { bg: string; color: string }> = {
-    rent:           { bg: "rgba(59,130,246,0.12)",  color: "#2563eb" },
-    service_charge: { bg: "rgba(139,92,246,0.12)",  color: "#7c3aed" },
-    utility:        { bg: "rgba(20,184,166,0.12)",  color: "#0d9488" },
-    management_fee: { bg: "rgba(245,158,11,0.12)",  color: "#d97706" },
-    other:          { bg: "rgba(100,116,139,0.12)", color: "#475569" },
+    rent:           { bg: "rgba(59,130,246,0.12)",  color: "var(--color-info)" },
+    service_charge: { bg: "rgba(139,92,246,0.12)",  color: "var(--color-violet)" },
+    utility:        { bg: "rgba(20,184,166,0.12)",  color: "var(--color-teal)" },
+    management_fee: { bg: "rgba(245,158,11,0.12)",  color: "var(--color-warning)" },
+    other:          { bg: "rgba(100,116,139,0.12)", color: "var(--color-slate-600)" },
   };
   const s = styles[norm] ?? styles.other;
   return (
@@ -174,16 +174,16 @@ export function ReceiptsView({
       <KpiStrip cols={4}>
         <KpiCard
           icon="🧾"
-          iconBg="#e0e7ff"
-          iconColor="#4f46e5"
+          iconBg="var(--color-indigo-bg)"
+          iconColor="var(--color-indigo)"
           label="Total Collected"
           value={kM(receiptTotal)}
           sub="Gross collections"
         />
         <KpiCard
           icon="✓"
-          iconBg="#dcfce7"
-          iconColor="#16a34a"
+          iconBg="var(--color-green-bg)"
+          iconColor="var(--color-success)"
           label="Applied Receipts"
           value={kM(appliedTotal)}
           sub="Allocated to invoices"
@@ -192,8 +192,8 @@ export function ReceiptsView({
         />
         <KpiCard
           icon="⚠️"
-          iconBg="#fee2e2"
-          iconColor="#dc2626"
+          iconBg="var(--color-red-bg)"
+          iconColor="var(--color-danger)"
           label="Unapplied Float"
           value={kM(unappliedTotal)}
           sub="Available for allocation"
@@ -202,8 +202,8 @@ export function ReceiptsView({
         />
         <KpiCard
           icon="💳"
-          iconBg="#fef3c7"
-          iconColor="#d97706"
+          iconBg="var(--color-amber-bg)"
+          iconColor="var(--color-warning)"
           label="Payment Volume"
           value={kN(receipts.length)}
           sub="Transactions recorded"
@@ -282,7 +282,7 @@ export function ReceiptsView({
           marginBottom: 10,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <CheckSquare size={16} color="#6366f1" />
+            <CheckSquare size={16} color="var(--color-indigo-strong)" />
             <span>
               <strong>{selectedIds.size}</strong> receipt{selectedIds.size === 1 ? "" : "s"} selected · Total: <strong style={{ color: "var(--primary)" }}>{kM(selectedAmountTotal)}</strong>
             </span>
@@ -381,7 +381,7 @@ export function ReceiptsView({
                       <td>
                         <strong style={{ fontSize: 12 }}>{String(r.tenant_name ?? (r as any).owner_name ?? "—")}</strong>
                         {(r as any).recipient_type === "owner" && (
-                          <span style={{ display: "block", fontSize: 10, color: "#7c3aed", fontWeight: 600 }}>Owner</span>
+                          <span style={{ display: "block", fontSize: 10, color: "var(--color-violet)", fontWeight: 600 }}>Owner</span>
                         )}
                       </td>
                       <td>

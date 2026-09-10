@@ -38,7 +38,7 @@ export function ExpensesView({ rows, financial, loading, search, setSearch, setT
   const incomeByCategory = financial?.incomeByMethod ?? [];
   const incomeTotal = incomeByCategory.reduce((s, c) => s + Number(c.total ?? 0), 0);
   const incomePct = (part: unknown) => incomeTotal > 0 ? Math.round((Number(part ?? 0) / incomeTotal) * 100) : 0;
-  const categoryColors = ["#22c55e", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#6366f1"];
+  const categoryColors = ["var(--color-green)", "var(--color-blue)", "var(--color-amber)", "var(--color-violet-strong)", "#ec4899", "#06b6d4", "#f97316", "var(--color-indigo-strong)"];
   const incomeDonutStops = incomeByCategory.reduce<string>((acc, c, i) => {
     const p = incomePct(c.total);
     const prev = incomeByCategory.slice(0, i).reduce((s, pc) => s + incomePct(pc.total), 0);
@@ -51,10 +51,10 @@ export function ExpensesView({ rows, financial, loading, search, setSearch, setT
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="📈" iconBg="#dcfce7" iconColor="#16a34a" label="Total Income" value={kM(income)} sub="Receipts YTD" link="View receipts" onClick={() => setTab("receipts")} />
-        <KpiCard icon="📉" iconBg="#fee2e2" iconColor="#dc2626" label="Total Expenses" value={kM(spent)} sub="Approved & paid" link="View expenses" onClick={() => setTab("expenses")} />
-        <KpiCard icon="◔" iconBg="#dbeafe" iconColor="#2563eb" label="Net Income" value={kM(net)} sub="Income less expenses" link="View expenses" onClick={() => setTab("expenses")} />
-        <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Transactions" value={kN(expenses.length)} sub="Recent expense lines" link="View expenses" onClick={() => setTab("expenses")} />
+        <KpiCard icon="📈" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Total Income" value={kM(income)} sub="Receipts YTD" link="View receipts" onClick={() => setTab("receipts")} />
+        <KpiCard icon="📉" iconBg="var(--color-red-bg)" iconColor="var(--color-danger)" label="Total Expenses" value={kM(spent)} sub="Approved & paid" link="View expenses" onClick={() => setTab("expenses")} />
+        <KpiCard icon="◔" iconBg="var(--color-blue-bg)" iconColor="var(--color-info)" label="Net Income" value={kM(net)} sub="Income less expenses" link="View expenses" onClick={() => setTab("expenses")} />
+        <KpiCard icon="🧾" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Transactions" value={kN(expenses.length)} sub="Recent expense lines" link="View expenses" onClick={() => setTab("expenses")} />
       </KpiStrip>
 
       <ViewToolbar title="Property Expenses" subtitle="Track and analyse income and expenses for the selected property" search={search} onSearch={setSearch} placeholder="Search supplier or category…">
@@ -68,23 +68,23 @@ export function ExpensesView({ rows, financial, loading, search, setSearch, setT
         <Panel title="Income vs Expenses (YTD)" action={<button className="btn ghost sm" onClick={() => setTab("receipts")}>Collections →</button>}>
           <div className="row" style={{ alignItems: "flex-end", gap: 24, height: 150, padding: "18px 20px 8px", borderBottom: "1px solid var(--border)" }}>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-              <div style={{ width: 44, height: `${Math.max(pct(income, netMax), 3)}%`, background: "#22c55e", borderRadius: "6px 6px 0 0" }} />
+              <div style={{ width: 44, height: `${Math.max(pct(income, netMax), 3)}%`, background: "var(--color-green)", borderRadius: "6px 6px 0 0" }} />
               <span className="muted" style={{ fontSize: 11 }}>Income</span>
             </div>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-              <div style={{ width: 44, height: `${Math.max(pct(spent, netMax), 3)}%`, background: "#e23b3b", borderRadius: "6px 6px 0 0" }} />
+              <div style={{ width: 44, height: `${Math.max(pct(spent, netMax), 3)}%`, background: "var(--color-brand-red)", borderRadius: "6px 6px 0 0" }} />
               <span className="muted" style={{ fontSize: 11 }}>Expenses</span>
             </div>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-              <div style={{ width: 44, height: `${Math.max(pct(net, netMax), 3)}%`, background: "#2563eb", borderRadius: "6px 6px 0 0" }} />
+              <div style={{ width: 44, height: `${Math.max(pct(net, netMax), 3)}%`, background: "var(--color-info)", borderRadius: "6px 6px 0 0" }} />
               <span className="muted" style={{ fontSize: 11 }}>Net</span>
             </div>
           </div>
           <div style={{ padding: "14px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
             {[
-              { label: "Income", amount: income, color: "#22c55e" },
-              { label: "Expenses", amount: spent, color: "#e23b3b" },
-              { label: "Net", amount: net, color: "#2563eb" },
+              { label: "Income", amount: income, color: "var(--color-green)" },
+              { label: "Expenses", amount: spent, color: "var(--color-brand-red)" },
+              { label: "Net", amount: net, color: "var(--color-info)" },
             ].map((row) => (
               <div key={row.label} className="row" style={{ justifyContent: "space-between", fontSize: 12 }}>
                 <span style={{ alignItems: "center", color: "var(--muted)", display: "flex", gap: 8 }}>
@@ -104,7 +104,7 @@ export function ExpensesView({ rows, financial, loading, search, setSearch, setT
                 <div key={c.category} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 12, width: 150, color: "var(--muted)" }}>{String(c.category ?? "—")}</span>
                   <div style={{ flex: 1, height: 8, borderRadius: 99, background: "var(--border)", overflow: "hidden" }}>
-                    <div style={{ width: `${pct(c.total, expenseMax)}%`, height: "100%", background: "#e23b3b" }} />
+                    <div style={{ width: `${pct(c.total, expenseMax)}%`, height: "100%", background: "var(--color-brand-red)" }} />
                   </div>
                   <strong className="mono" style={{ fontSize: 11, width: 84, textAlign: "right" }}>{kM(c.total)}</strong>
                 </div>

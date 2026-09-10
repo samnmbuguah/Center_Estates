@@ -12,9 +12,9 @@ function money(v: number | string) {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  requested: "#f59e0b",
-  approved: "#10b981",
-  rejected: "#ef4444",
+  requested: "var(--color-amber)",
+  approved: "var(--color-emerald)",
+  rejected: "var(--color-danger)",
 };
 
 const CAT_LABELS: Record<string, string> = {
@@ -153,20 +153,20 @@ export function ContingencyDrawdowns() {
         {/* Utilisation meter */}
         <div style={{
           padding: "20px 24px", borderRadius: 12, background: "var(--surface)",
-          border: "1px solid var(--border)", borderTop: "3px solid #8b5cf6",
+          border: "1px solid var(--border)", borderTop: "3px solid var(--color-violet-strong)",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <PiggyBank size={16} style={{ color: "#8b5cf6" }} />
+            <PiggyBank size={16} style={{ color: "var(--color-violet-strong)" }} />
             <span style={{ fontWeight: 700, fontSize: 14 }}>Budget Utilisation</span>
           </div>
-          <div style={{ fontSize: 32, fontWeight: 900, color: utilPct > 80 ? "#ef4444" : utilPct > 60 ? "#f59e0b" : "#8b5cf6", marginBottom: 8 }}>
+          <div style={{ fontSize: 32, fontWeight: 900, color: utilPct > 80 ? "var(--color-danger)" : utilPct > 60 ? "var(--color-amber)" : "var(--color-violet-strong)", marginBottom: 8 }}>
             {utilPct.toFixed(0)}%
           </div>
           <div style={{ height: 8, borderRadius: 4, background: "var(--surface-3)", overflow: "hidden", marginBottom: 10 }}>
             <div style={{
               height: "100%", borderRadius: 4,
               width: `${utilPct}%`,
-              background: utilPct > 80 ? "#ef4444" : utilPct > 60 ? "#f59e0b" : "linear-gradient(90deg,#8b5cf6,#a78bfa)",
+              background: utilPct > 80 ? "var(--color-danger)" : utilPct > 60 ? "var(--color-amber)" : "linear-gradient(90deg,var(--color-violet-strong),#a78bfa)",
               transition: "width 0.4s",
             }} />
           </div>
@@ -178,9 +178,9 @@ export function ContingencyDrawdowns() {
         {/* 3 KPI columns */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
           {[
-            { label: "Contingency Budget", value: allowance > 0 ? money(allowance) : "Not set", sub: "Configured allowance", color: "#3b82f6" },
-            { label: "Approved Drawn", value: money(approved), sub: `${items.filter(i => i.status === "approved").length} drawdowns`, color: "#10b981" },
-            { label: "Remaining Available", value: allowance > 0 ? money(available) : "—", sub: `${items.filter(i => i.status === "requested").length} pending (${money(pending)})`, color: available < 0 ? "#ef4444" : "#8b5cf6" },
+            { label: "Contingency Budget", value: allowance > 0 ? money(allowance) : "Not set", sub: "Configured allowance", color: "var(--color-blue)" },
+            { label: "Approved Drawn", value: money(approved), sub: `${items.filter(i => i.status === "approved").length} drawdowns`, color: "var(--color-emerald)" },
+            { label: "Remaining Available", value: allowance > 0 ? money(available) : "—", sub: `${items.filter(i => i.status === "requested").length} pending (${money(pending)})`, color: available < 0 ? "var(--color-danger)" : "var(--color-violet-strong)" },
           ].map(k => (
             <div key={k.label} style={{
               padding: "16px 18px", borderRadius: 12, background: "var(--surface)",
@@ -197,7 +197,7 @@ export function ContingencyDrawdowns() {
       <ErrorBanner message={error} />
 
       {uploadMsg && (
-        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 8, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", fontSize: 13, color: "#10b981", display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 8, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", fontSize: 13, color: "var(--color-emerald)", display: "flex", alignItems: "center", gap: 8 }}>
           <CheckCircle2 size={14} /> {uploadMsg}
         </div>
       )}
@@ -314,7 +314,7 @@ export function ContingencyDrawdowns() {
                   <td style={{ padding: "10px 16px", fontSize: 12, color: "var(--muted)" }}>{CAT_LABELS[cd.category] || cd.category}</td>
                   <td style={{ padding: "10px 16px", fontFamily: "monospace", fontWeight: 700, fontSize: 14 }}>{money(cd.amount)}</td>
                   <td style={{ padding: "10px 16px" }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 12, background: `${color}18`, color }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 12, background: `color-mix(in srgb, ${color} 9%, transparent)`, color }}>
                       {cd.status.charAt(0).toUpperCase() + cd.status.slice(1)}
                     </span>
                   </td>
@@ -322,7 +322,7 @@ export function ContingencyDrawdowns() {
                   <td style={{ padding: "10px 16px" }}>
                     {can("finance.admin") && cd.status === "requested" && (
                       <div style={{ display: "flex", gap: 4 }}>
-                        <button className="btn sm" onClick={() => action(cd.id, "approve")} style={{ background: "#10b981", borderColor: "#10b981", color: "white", fontSize: 11 }}>Approve</button>
+                        <button className="btn sm" onClick={() => action(cd.id, "approve")} style={{ background: "var(--color-emerald)", borderColor: "var(--color-emerald)", color: "white", fontSize: 11 }}>Approve</button>
                         <button className="btn ghost sm" onClick={() => action(cd.id, "reject")} style={{ fontSize: 11 }}>Reject</button>
                       </div>
                     )}

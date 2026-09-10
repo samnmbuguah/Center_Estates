@@ -28,7 +28,7 @@ export function BrandLogo({
   const dims = { sm: 30, md: 38, lg: 48 };
   const d = dims[size];
   const wordmarkColor = dark ? "#ffffff" : "var(--text)";
-  const subColor = dark ? "#ef4444" : "var(--muted)";
+  const subColor = dark ? "var(--color-danger)" : "var(--muted)";
   const customLogo = Boolean(logoUrl);
 
   const inner = (

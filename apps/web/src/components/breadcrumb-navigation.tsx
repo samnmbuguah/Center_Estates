@@ -85,12 +85,12 @@ export function BreadcrumbNavigation({
     <Box sx={{ mb: 3 }}>
       {/* Breadcrumbs */}
       <Breadcrumbs 
-        separator={<ChevronRight size={16} style={{ color: "#94a3b8" }} />}
+        separator={<ChevronRight size={16} style={{ color: "var(--color-slate-400)" }} />}
         sx={{ mb: 2 }}
       >
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 0.5, textDecoration: "none", color: "#64748b" }}>
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 0.5, textDecoration: "none", color: "var(--color-slate-500)" }}>
           <Home size={16} />
-          <Typography variant="body2" sx={{ color: "#64748b" }}>
+          <Typography variant="body2" sx={{ color: "var(--color-slate-500)" }}>
             Home
           </Typography>
         </Link>
@@ -110,11 +110,11 @@ export function BreadcrumbNavigation({
                     alignItems: "center", 
                     gap: 0.5, 
                     textDecoration: "none",
-                    color: isLast ? "#0f172a" : "#64748b",
+                    color: isLast ? "var(--color-slate-900)" : "var(--color-slate-500)",
                     fontWeight: isLast ? 600 : 400
                   }}
                 >
-                  <Typography variant="body2" sx={{ color: isLast ? "#0f172a" : "#64748b", fontWeight: isLast ? 600 : 400 }}>
+                  <Typography variant="body2" sx={{ color: isLast ? "var(--color-slate-900)" : "var(--color-slate-500)", fontWeight: isLast ? 600 : 400 }}>
                     {item.label}
                   </Typography>
                 </Link>
@@ -128,7 +128,7 @@ export function BreadcrumbNavigation({
                   }}
                   onClick={item.action}
                 >
-                  <Typography variant="body2" sx={{ color: "#0f172a", fontWeight: 600 }}>
+                  <Typography variant="body2" sx={{ color: "var(--color-slate-900)", fontWeight: 600 }}>
                     {item.label}
                   </Typography>
                 </Box>
@@ -153,12 +153,12 @@ export function BreadcrumbNavigation({
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Search size={18} style={{ color: "#64748b" }} />
+                        <Search size={18} style={{ color: "var(--color-slate-500)" }} />
                       </InputAdornment>
                     ),
                     endAdornment: (
                       <InputAdornment position="end">
-                        <Keyboard size={16} style={{ color: "#94a3b8" }} />
+                        <Keyboard size={16} style={{ color: "var(--color-slate-400)" }} />
                       </InputAdornment>
                     ),
                   }
@@ -189,7 +189,7 @@ export function BreadcrumbNavigation({
                   }}
                 >
                   <Box sx={{ p: 2 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 700, color: "#64748b", mb: 1 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--color-slate-500)", mb: 1 }}>
                       SEARCH RESULTS
                     </Typography>
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -210,7 +210,7 @@ export function BreadcrumbNavigation({
                 size="small" 
                 onClick={(e) => setShortcutsMenuAnchor(e.currentTarget as HTMLElement)}
               >
-                <Keyboard size={18} style={{ color: "#64748b" }} />
+                <Keyboard size={18} style={{ color: "var(--color-slate-500)" }} />
               </IconButton>
             </Tooltip>
           )}
@@ -252,8 +252,8 @@ export function BreadcrumbNavigation({
                 sx={{ 
                   height: 24, 
                   fontSize: 11,
-                  bgcolor: "#f1f5f9",
-                  color: "#64748b"
+                  bgcolor: "var(--color-slate-100)",
+                  color: "var(--color-slate-500)"
                 }} 
               />
             </Box>

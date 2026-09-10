@@ -366,9 +366,9 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
   if (result) return (
     <div style={{padding:24,display:'flex',flexDirection:'column',gap:16}}>
       <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
-        {[{n:result.succeeded_count,label:'Tenants created',bg:'#dcfce7',border:'#bbf7d0',c:'#166534'},
-          {n:result.failed_count,label:'Failed rows',bg:result.failed_count?'#fee2e2':'#f0fdf4',border:result.failed_count?'#fecaca':'#bbf7d0',c:result.failed_count?'#991b1b':'#166534'},
-          {n:result.total,label:'Total rows',bg:'#f0f9ff',border:'#bae6fd',c:'#0369a1'}
+        {[{n:result.succeeded_count,label:'Tenants created',bg:'var(--color-green-bg)',border:'var(--color-green-200)',c:'var(--color-green-text)'},
+          {n:result.failed_count,label:'Failed rows',bg:result.failed_count?'var(--color-red-bg)':'var(--color-green-soft)',border:result.failed_count?'var(--color-red-200)':'var(--color-green-200)',c:result.failed_count?'var(--color-danger-deep)':'var(--color-green-text)'},
+          {n:result.total,label:'Total rows',bg:'#f0f9ff',border:'#bae6fd',c:'var(--color-sky-deep)'}
         ].map(({n,label,bg,border,c}) => (
           <div key={label} style={{flex:1,minWidth:110,padding:'14px 18px',background:bg,borderRadius:10,border:`1px solid ${border}`}}>
             <div style={{fontSize:24,fontWeight:900,color:c}}>{n}</div>
@@ -398,15 +398,15 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
 
       {result.succeeded.length > 0 && (
         <div>
-          <div style={{fontSize:13,fontWeight:700,marginBottom:8,color:'#166534'}}>✅ Successful imports</div>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:8,color:'var(--color-green-text)'}}>✅ Successful imports</div>
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-              <thead><tr style={{background:'#f0fdf4',borderBottom:'1px solid #bbf7d0'}}>
-                {['Row','Unit','Code','Name','Lease Ref'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',color:'#166534'}}>{h}</th>)}
+              <thead><tr style={{background:'var(--color-green-soft)',borderBottom:'1px solid var(--color-green-200)'}}>
+                {['Row','Unit','Code','Name','Lease Ref'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',color:'var(--color-green-text)'}}>{h}</th>)}
               </tr></thead>
               <tbody>{result.succeeded.map(s=><tr key={s.row} style={{borderBottom:'1px solid #e7fde8'}}>
                 <td style={{padding:'6px 10px'}}>{s.row}</td>
-                <td style={{padding:'6px 10px',fontFamily:'monospace',fontWeight:800,color:'#166534'}}>{s.unit_code}</td>
+                <td style={{padding:'6px 10px',fontFamily:'monospace',fontWeight:800,color:'var(--color-green-text)'}}>{s.unit_code}</td>
                 <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{s.tenant_code}</td>
                 <td style={{padding:'6px 10px'}}>{s.tenant_name}</td>
                 <td style={{padding:'6px 10px',fontFamily:'monospace'}}>{s.lease_reference}</td>
@@ -418,17 +418,17 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
 
       {result.failed.length > 0 && (
         <div>
-          <div style={{fontSize:13,fontWeight:700,marginBottom:8,color:'#991b1b'}}>❌ Validation Issues — Please Review</div>
+          <div style={{fontSize:13,fontWeight:700,marginBottom:8,color:'var(--color-danger-deep)'}}>❌ Validation Issues — Please Review</div>
           <div style={{overflowX:'auto'}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-              <thead><tr style={{background:'#fff7f7',borderBottom:'1px solid #fecaca'}}>
-                {['Row','Unit','Tenant Name','Error Details','Action'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',color:'#991b1b'}}>{h}</th>)}
+              <thead><tr style={{background:'#fff7f7',borderBottom:'1px solid var(--color-red-200)'}}>
+                {['Row','Unit','Tenant Name','Error Details','Action'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',color:'var(--color-danger-deep)'}}>{h}</th>)}
               </tr></thead>
-              <tbody>{result.failed.map(f=><tr key={f.row} style={{borderBottom:'1px solid #fee2e2'}}>
+              <tbody>{result.failed.map(f=><tr key={f.row} style={{borderBottom:'1px solid var(--color-red-bg)'}}>
                 <td style={{padding:'6px 10px',fontWeight:700}}>{f.row}</td>
-                <td style={{padding:'6px 10px',fontFamily:'monospace',fontWeight:800,color:'#991b1b'}}>{f.unit_code || '—'}</td>
+                <td style={{padding:'6px 10px',fontFamily:'monospace',fontWeight:800,color:'var(--color-danger-deep)'}}>{f.unit_code || '—'}</td>
                 <td style={{padding:'6px 10px',fontWeight:600}}>{f.name}</td>
-                <td style={{padding:'6px 10px',color:'#dc2626'}}>
+                <td style={{padding:'6px 10px',color:'var(--color-danger)'}}>
                   {typeof f.errors === 'object' ? Object.entries(f.errors).map(([k,v])=>`${k}: ${String(v)}`).join(' | ') : String(f.errors)}
                 </td>
                 <td style={{padding:'6px 10px'}}>
@@ -464,9 +464,9 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
           ⬇ Download CSV template (Unit First)
         </button>
       </div>
-      <div style={{background:'var(--surface-2,#f8fafc)',border:'1px solid var(--border)',borderRadius:8,padding:'12px 14px',fontSize:12,display:'flex',flexDirection:'column',gap:8}}>
+      <div style={{background:'var(--surface-2,var(--color-slate-50))',border:'1px solid var(--border)',borderRadius:8,padding:'12px 14px',fontSize:12,display:'flex',flexDirection:'column',gap:8}}>
         <div>
-          <span style={{color:'var(--primary,#0284c7)',fontWeight:800}}>Column 1 (Required):</span> <code>unit_code</code> (e.g. <code>A-101</code>, <code>B-201</code>, <code>G-01</code>)
+          <span style={{color:'var(--primary,var(--color-sky))',fontWeight:800}}>Column 1 (Required):</span> <code>unit_code</code> (e.g. <code>A-101</code>, <code>B-201</code>, <code>G-01</code>)
           <span style={{margin:'0 8px',color:'var(--border)'}}>|</span>
           <strong>Required Profile Fields:</strong> <span style={{color:'var(--muted)'}}>name, lease_start, and either monthly_rent or rent_rate_per_sqft</span>
         </div>
@@ -474,7 +474,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
           <strong>Card Mirrored Fields:</strong> <code>address_1</code>, <code>address_2</code>, <code>city</code>, <code>phone</code>, <code>email</code>, <code>tax_id</code>, <code>registration_number</code>, <code>contact_name</code>, <code>contact_phone</code>, <code>contact_email</code>, <code>rent_type</code>, <code>vat_rate</code>, <code>escalation_percent</code>, <code>parking_bay</code>, <code>parking_monthly_fee</code>, <code>opening_balance_amount</code>.
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',color:'var(--text-primary)',background:'rgba(16,185,129,0.08)',border:'1px solid rgba(16,185,129,0.25)',borderRadius:6,padding:'6px 10px'}}>
-          <span style={{color:'#15803d',fontWeight:800,fontSize:11}}>
+          <span style={{color:'var(--color-success-strong)',fontWeight:800,fontSize:11}}>
             📅 Date Recognition:
           </span>
           <span style={{fontSize:11,color:'var(--text-secondary)'}}>
@@ -482,7 +482,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
           </span>
         </div>
         <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',color:'var(--text-primary)',background:'rgba(2,132,199,0.08)',border:'1px solid rgba(2,132,199,0.25)',borderRadius:6,padding:'6px 10px'}}>
-          <span style={{color:'#0284c7',fontWeight:800,fontSize:11}}>
+          <span style={{color:'var(--color-sky)',fontWeight:800,fontSize:11}}>
             🏢 Sectional &amp; Landlord-Owned Units:
           </span>
           <span style={{fontSize:11,color:'var(--text-secondary)'}}>
@@ -496,9 +496,9 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
         onDrop={onDrop}
         onClick={()=>fileRef.current?.click()}
         style={{
-          border:`2px dashed ${dragging?'#e23b3b':'var(--border)'}`,
+          border:`2px dashed ${dragging?'var(--color-brand-red)':'var(--border)'}`,
           borderRadius:12,padding:'32px 24px',textAlign:'center',cursor:'pointer',
-          background:dragging?'rgba(226,59,59,0.04)':'var(--surface-2,#f8fafc)',
+          background:dragging?'rgba(226,59,59,0.04)':'var(--surface-2,var(--color-slate-50))',
           transition:'border-color 0.15s,background 0.15s',
         }}
       >
@@ -516,8 +516,8 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
         )}
         <input ref={fileRef} type="file" accept=".csv" style={{display:'none'}} onChange={onFileChange} />
       </div>
-      {parseError && <div style={{background:'#fee2e2',color:'#991b1b',padding:'10px 14px',borderRadius:8,fontSize:13}}>⚠️ {parseError}</div>}
-      {submitError && <div style={{background:'#fee2e2',color:'#991b1b',padding:'10px 14px',borderRadius:8,fontSize:13}}>❌ {submitError}</div>}
+      {parseError && <div style={{background:'var(--color-red-bg)',color:'var(--color-danger-deep)',padding:'10px 14px',borderRadius:8,fontSize:13}}>⚠️ {parseError}</div>}
+      {submitError && <div style={{background:'var(--color-red-bg)',color:'var(--color-danger-deep)',padding:'10px 14px',borderRadius:8,fontSize:13}}>❌ {submitError}</div>}
       {rows.length > 0 && (() => {
         const validationIssues = rows.map((r, i) => {
           const issues: string[] = [];
@@ -550,23 +550,23 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <div style={{ fontSize: 13, fontWeight: 700 }}>Preview — {rows.length} tenant row{rows.length !== 1 ? 's' : ''} parsed (Mirrors Card)</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ fontSize: 11, background: "#e0f2fe", color: "#075985", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
+                <span style={{ fontSize: 11, background: "var(--color-sky-bg)", color: "#075985", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
                   {directLandlordCount} utility-only / direct landlord
                 </span>
-                <span style={{ fontSize: 11, background: "#dcfce7", color: "#166534", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
+                <span style={{ fontSize: 11, background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
                   {estateManagedCount} estate-rent billed
                 </span>
                 {multiUnitTenants.length > 0 && (
-                  <span style={{ fontSize: 11, background: "#e0e7ff", color: "#4338ca", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
+                  <span style={{ fontSize: 11, background: "var(--color-indigo-bg)", color: "#4338ca", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
                     🏢 {multiUnitTenants.length} Multi-Unit Tenant{multiUnitTenants.length > 1 ? "s" : ""} Detected
                   </span>
                 )}
                 {hasErrors ? (
-                  <span style={{ fontSize: 11, background: "#fee2e2", color: "#991b1b", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
+                  <span style={{ fontSize: 11, background: "var(--color-red-bg)", color: "var(--color-danger-deep)", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
                     ⚠️ Issues detected in some rows
                   </span>
                 ) : (
-                  <span style={{ fontSize: 11, background: "#dcfce7", color: "#166534", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
+                  <span style={{ fontSize: 11, background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "3px 8px", borderRadius: 12, fontWeight: 700 }}>
                     ✓ All rows valid
                   </span>
                 )}
@@ -591,18 +591,18 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
                         <td style={{ padding: '8px 12px', color: 'var(--muted)', fontWeight: 700 }}>{i + 1}</td>
                         <td style={{ padding: '8px 12px' }}>
                           {isValid ? (
-                            <span style={{ color: "#16a34a", background: "#dcfce7", padding: "3px 8px", borderRadius: 10, fontWeight: 800, fontSize: 11 }}>✓ Ready</span>
+                            <span style={{ color: "var(--color-success)", background: "var(--color-green-bg)", padding: "3px 8px", borderRadius: 10, fontWeight: 800, fontSize: 11 }}>✓ Ready</span>
                           ) : (
-                            <span style={{ color: "#991b1b", background: "#fee2e2", padding: "3px 8px", borderRadius: 10, fontWeight: 800, fontSize: 11 }} title={rowIssues.join(", ")}>
+                            <span style={{ color: "var(--color-danger-deep)", background: "var(--color-red-bg)", padding: "3px 8px", borderRadius: 10, fontWeight: 800, fontSize: 11 }} title={rowIssues.join(", ")}>
                               ⚠️ {rowIssues[0]}
                             </span>
                           )}
                         </td>
                         <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontWeight: 900, color: "var(--primary)" }}>
-                          {r.unit_code || <span style={{ color: '#dc2626' }}>MISSING</span>}
+                          {r.unit_code || <span style={{ color: 'var(--color-danger)' }}>MISSING</span>}
                         </td>
                         <td style={{ padding: '8px 12px', fontWeight: 700, color: "var(--text-primary)", maxWidth: 200, whiteSpace: "normal" }}>
-                          {r.name || <span style={{ color: '#dc2626', fontWeight: 800 }}>MISSING</span>}
+                          {r.name || <span style={{ color: 'var(--color-danger)', fontWeight: 800 }}>MISSING</span>}
                         </td>
                         <td style={{ padding: '8px 12px', textTransform: 'capitalize' }}>{r.tenant_type}</td>
                         <td style={{ padding: '8px 12px', fontSize: 11, color: "var(--text-secondary)", maxWidth: 220 }}>
@@ -616,7 +616,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
                           {r.tax_id || r.registration_number ? `${r.tax_id || ''} ${r.registration_number ? `(${r.registration_number})` : ''}` : '—'}
                         </td>
                         <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11 }}>
-                          <div>{r.lease_start || <span style={{ color: '#dc2626' }}>MISSING</span>}</div>
+                          <div>{r.lease_start || <span style={{ color: 'var(--color-danger)' }}>MISSING</span>}</div>
                           <div style={{ color: "var(--text-secondary)" }}>{r.lease_term_months} mo term</div>
                         </td>
                         <td style={{ padding: '8px 12px', fontSize: 11 }}>
@@ -625,7 +625,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
                             if (isDirect) {
                               return (
                                 <div>
-                                  <span style={{ display: 'inline-block', background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: 4, fontWeight: 700, fontSize: 10 }}>
+                                  <span style={{ display: 'inline-block', background: 'var(--color-sky-bg)', color: 'var(--color-sky-deep)', padding: '2px 6px', borderRadius: 4, fontWeight: 700, fontSize: 10 }}>
                                     Direct to Landlord
                                   </span>
                                   <div style={{ color: "var(--muted)", fontSize: 10, marginTop: 2 }}>KES 0 Rent to Mgmt</div>
@@ -634,7 +634,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
                             }
                             return (
                               <span style={{ fontFamily: 'monospace', fontWeight: 800, color: "var(--text-primary)" }}>
-                                {r.monthly_rent ? `KES ${Number(r.monthly_rent).toLocaleString()}/mo` : r.rent_rate_per_sqft ? `KES ${r.rent_rate_per_sqft}/sqft` : <span style={{ color: '#dc2626' }}>MISSING</span>}
+                                {r.monthly_rent ? `KES ${Number(r.monthly_rent).toLocaleString()}/mo` : r.rent_rate_per_sqft ? `KES ${r.rent_rate_per_sqft}/sqft` : <span style={{ color: 'var(--color-danger)' }}>MISSING</span>}
                               </span>
                             );
                           })()}
@@ -645,7 +645,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
                         </td>
                         <td style={{ padding: '8px 12px', fontSize: 11 }}>
                           {r.parking_bay && <div>🚗 {r.parking_bay} (KES {r.parking_monthly_fee || '0'})</div>}
-                          {Number(r.opening_balance_amount || 0) > 0 && <div style={{ color: '#b45309', fontWeight: 700 }}>Arrears: KES {Number(r.opening_balance_amount).toLocaleString()}</div>}
+                          {Number(r.opening_balance_amount || 0) > 0 && <div style={{ color: 'var(--color-amber-deep)', fontWeight: 700 }}>Arrears: KES {Number(r.opening_balance_amount).toLocaleString()}</div>}
                           {!r.parking_bay && !Number(r.opening_balance_amount || 0) && <span style={{ color: "var(--muted)" }}>—</span>}
                         </td>
                       </tr>
@@ -659,7 +659,7 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              background: 'var(--surface-2, #f8fafc)',
+              background: 'var(--surface-2, var(--color-slate-50))',
               border: '1px solid var(--border)',
               borderRadius: 8,
               padding: '10px 14px',

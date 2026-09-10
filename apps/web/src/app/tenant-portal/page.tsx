@@ -453,7 +453,7 @@ export default function TenantPortalPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {previewTenants.length > 1 && (
               <select
-                style={{ background: "#ffffff", color: "#1e293b", padding: "6px 12px", borderRadius: 6, fontWeight: 600, fontSize: 13, border: "none", cursor: "pointer" }}
+                style={{ background: "#ffffff", color: "var(--color-slate-800)", padding: "6px 12px", borderRadius: 6, fontWeight: 600, fontSize: 13, border: "none", cursor: "pointer" }}
                 value={activeTenantId || data.tenant.code}
                 onChange={(e) => {
                   setActiveTenantId(e.target.value);
@@ -633,7 +633,7 @@ export default function TenantPortalPage() {
         </Alert>
       )}
       {stkNotice && (
-        <div style={{ background: "#dcfce7", color: "#15803d", padding: "12px 16px", borderRadius: 8, fontWeight: 600, marginBottom: 16, border: "1px solid #bbf7d0", display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ background: "var(--color-green-bg)", color: "var(--color-success-strong)", padding: "12px 16px", borderRadius: 8, fontWeight: 600, marginBottom: 16, border: "1px solid var(--color-green-200)", display: "flex", alignItems: "center", gap: 8 }}>
           <span>✅</span> {stkNotice}
         </div>
       )}
@@ -829,8 +829,8 @@ export default function TenantPortalPage() {
                   </p>
                 </div>
                 <div style={{ background: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "6px 14px", borderRadius: 8 }}>
-                  <span style={{ fontSize: "0.8rem", color: "#059669", fontWeight: 600, marginRight: 6 }}>Current Credit Balance:</span>
-                  <strong style={{ fontSize: "1rem", color: "#047857" }}>{cash.format(Number(data.walletCredit || 0))}</strong>
+                  <span style={{ fontSize: "0.8rem", color: "var(--color-emerald-strong)", fontWeight: 600, marginRight: 6 }}>Current Credit Balance:</span>
+                  <strong style={{ fontSize: "1rem", color: "var(--color-emerald-deep)" }}>{cash.format(Number(data.walletCredit || 0))}</strong>
                 </div>
               </div>
 
@@ -847,14 +847,14 @@ export default function TenantPortalPage() {
                         fontSize: "0.75rem",
                         fontWeight: 700,
                         background: entry.entry_type === "credit" ? "rgba(16, 185, 129, 0.15)" : "rgba(59, 130, 246, 0.15)",
-                        color: entry.entry_type === "credit" ? "#047857" : "#1d4ed8",
+                        color: entry.entry_type === "credit" ? "var(--color-emerald-deep)" : "var(--color-info-strong)",
                       }}
                     >
                       {entry.entry_type === "credit" ? "CREDIT (+)" : "DEBIT (-)"}
                     </span>,
                     <strong
                       key={`${entry.id}-amt`}
-                      style={{ color: entry.entry_type === "credit" ? "#059669" : "#2563eb" }}
+                      style={{ color: entry.entry_type === "credit" ? "var(--color-emerald-strong)" : "var(--color-info)" }}
                     >
                       {entry.entry_type === "credit" ? `+${cash.format(Number(entry.amount))}` : `-${cash.format(Number(entry.amount))}`}
                     </strong>,
@@ -886,7 +886,7 @@ export default function TenantPortalPage() {
             rows={data.serviceRequests.map((row) => [
               <span
                 key={`${row.id}-subject`}
-                style={{ cursor: "pointer", fontWeight: 750, color: "var(--brand-primary, #1d4ed8)", textDecoration: "underline", textUnderlineOffset: 3 }}
+                style={{ cursor: "pointer", fontWeight: 750, color: "var(--brand-primary, var(--color-info-strong))", textDecoration: "underline", textUnderlineOffset: 3 }}
                 onClick={() => setSelectedTicket(row)}
                 title="Click to view full ticket progress dossier"
               >
@@ -1112,19 +1112,19 @@ export default function TenantPortalPage() {
 
                 {/* Management Update / Resolution Note */}
                 {selectedTicket.decision_notes ? (
-                  <div className="tenant-ticket-narrative-card" style={{ background: "#f0fdf4", borderColor: "#bbf7d0" }}>
-                    <h4 style={{ color: "#166534" }}>Estate Maintenance Team Update</h4>
-                    <p style={{ color: "#15803d" }}>{String(selectedTicket.decision_notes)}</p>
+                  <div className="tenant-ticket-narrative-card" style={{ background: "var(--color-green-soft)", borderColor: "var(--color-green-200)" }}>
+                    <h4 style={{ color: "var(--color-green-text)" }}>Estate Maintenance Team Update</h4>
+                    <p style={{ color: "var(--color-success-strong)" }}>{String(selectedTicket.decision_notes)}</p>
                     {selectedTicket.resolved_at && (
-                      <small style={{ display: "block", marginTop: 6, color: "#166534", fontSize: 11 }}>
+                      <small style={{ display: "block", marginTop: 6, color: "var(--color-green-text)", fontSize: 11 }}>
                         Resolved on {friendlyDate(selectedTicket.resolved_at)}
                       </small>
                     )}
                   </div>
                 ) : status === "resolved" ? (
-                  <div className="tenant-ticket-narrative-card" style={{ background: "#f0fdf4", borderColor: "#bbf7d0" }}>
-                    <h4 style={{ color: "#166534" }}>Work Completed</h4>
-                    <p style={{ color: "#15803d" }}>The technician has reported this task as resolved and ready for your sign-off.</p>
+                  <div className="tenant-ticket-narrative-card" style={{ background: "var(--color-green-soft)", borderColor: "var(--color-green-200)" }}>
+                    <h4 style={{ color: "var(--color-green-text)" }}>Work Completed</h4>
+                    <p style={{ color: "var(--color-success-strong)" }}>The technician has reported this task as resolved and ready for your sign-off.</p>
                   </div>
                 ) : null}
 
@@ -1167,7 +1167,7 @@ export default function TenantPortalPage() {
                 )}
 
                 {status === "closed" && (
-                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 14, textAlign: "center" }}>
+                  <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", borderRadius: 10, padding: 14, textAlign: "center" }}>
                     <span style={{ fontSize: 20 }}>✅</span>
                     <strong style={{ display: "block", marginTop: 4, fontSize: 13, color: "var(--text-primary)" }}>
                       Ticket Closed & Confirmed

@@ -179,10 +179,10 @@ function SettingsContent() {
     <div style={{ padding: "24px 32px", maxWidth: 1000, margin: "0 auto" }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, color: "var(--text, #1e293b)" }}>
+        <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, color: "var(--text, var(--color-slate-800))" }}>
           ⚙️ User & Operational Settings
         </h1>
-        <p style={{ margin: "4px 0 0", color: "var(--muted, #64748b)", fontSize: "0.9rem" }}>
+        <p style={{ margin: "4px 0 0", color: "var(--muted, var(--color-slate-500))", fontSize: "0.9rem" }}>
           Manage your account profile, test M-Pesa STK Push prompts, and configure notification preferences.
         </p>
       </div>
@@ -199,8 +199,8 @@ function SettingsContent() {
             alignItems: "center",
             gap: 10,
             background: notice.type === "success" ? "rgba(22, 163, 74, 0.1)" : "rgba(220, 38, 38, 0.1)",
-            color: notice.type === "success" ? "#16a34a" : "#dc2626",
-            border: `1px solid ${notice.type === "success" ? "#86efac" : "#fca5a5"}`,
+            color: notice.type === "success" ? "var(--color-success)" : "var(--color-danger)",
+            border: `1px solid ${notice.type === "success" ? "var(--color-green-300)" : "var(--color-red-300)"}`,
           }}
         >
           {notice.type === "success" ? <CheckCircle size={18} /> : <AlertCircle size={18} />}
@@ -210,7 +210,7 @@ function SettingsContent() {
 
       {/* TAB 1: PROFILE */}
       {tab === "profile" && (
-        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
           <div style={{ marginBottom: 20, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
             <h2 style={{ margin: "0 0 4px", fontSize: "1.2rem", fontWeight: 800 }}>👤 User Profile Information</h2>
             <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
@@ -228,8 +228,8 @@ function SettingsContent() {
                 alignItems: "center",
                 gap: 10,
                 background: profileNotice.type === "success" ? "rgba(22, 163, 74, 0.1)" : "rgba(220, 38, 38, 0.1)",
-                color: profileNotice.type === "success" ? "#16a34a" : "#dc2626",
-                border: `1px solid ${profileNotice.type === "success" ? "#86efac" : "#fca5a5"}`,
+                color: profileNotice.type === "success" ? "var(--color-success)" : "var(--color-danger)",
+                border: `1px solid ${profileNotice.type === "success" ? "var(--color-green-300)" : "var(--color-red-300)"}`,
               }}
             >
               {profileNotice.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
@@ -267,7 +267,7 @@ function SettingsContent() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <div>
                 <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
-                  Email Address <span style={{ color: "#dc2626" }}>*</span>:
+                  Email Address <span style={{ color: "var(--color-danger)" }}>*</span>:
                 </label>
                 <input
                   type="email"
@@ -326,7 +326,7 @@ function SettingsContent() {
 
       {/* TAB 2: STK PUSH TEST TOOL */}
       {tab === "mpesa-test" && (
-        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
+        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 24 }}>
           <div style={{ marginBottom: 16 }}>
             <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700 }}>💳 M-Pesa STK Push Simulation & Test Tool</h2>
             <p style={{ margin: "4px 0 0", color: "var(--muted)", fontSize: "0.85rem" }}>
@@ -377,7 +377,7 @@ function SettingsContent() {
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                background: "#e23b3b",
+                background: "var(--color-brand-red)",
                 color: "#ffffff",
                 padding: "10px 16px",
                 borderRadius: 8,
@@ -396,7 +396,7 @@ function SettingsContent() {
 
       {/* TAB 3: NOTIFICATIONS */}
       {tab === "notifications" && (
-        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
+        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 24 }}>
           <div style={{ marginBottom: 18, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
             <h2 style={{ margin: "0 0 4px", fontSize: "1.25rem", fontWeight: 800 }}>🔔 Notification & Email Preferences</h2>
             <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.85rem" }}>
@@ -409,7 +409,7 @@ function SettingsContent() {
           ) : (
             <form onSubmit={handleSavePreferences} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {/* Channel Controls */}
-              <div style={{ background: "var(--surface-sunken, #f8fafc)", border: "1px solid var(--border)", borderRadius: 10, padding: 14 }}>
+              <div style={{ background: "var(--surface-sunken, var(--color-slate-50))", border: "1px solid var(--border)", borderRadius: 10, padding: 14 }}>
                 <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text)", marginBottom: 10 }}>Delivery Channels</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                   <label style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
@@ -497,7 +497,7 @@ function SettingsContent() {
                   type="submit"
                   disabled={prefSaving}
                   style={{
-                    background: "#dc2626",
+                    background: "var(--color-danger)",
                     color: "#fff",
                     border: 0,
                     borderRadius: 8,
@@ -517,7 +517,7 @@ function SettingsContent() {
 
       {/* TAB 4: APPEARANCE */}
       {tab === "appearance" && (
-        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, #e2e8f0)", borderRadius: 12, padding: 24 }}>
+        <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 24 }}>
           <h2 style={{ margin: "0 0 16px", fontSize: "1.2rem", fontWeight: 700 }}>🎨 Display & Regional Preferences</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 500 }}>
             <div>

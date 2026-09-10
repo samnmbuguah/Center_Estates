@@ -210,10 +210,10 @@ export default function GuestInvoicePayPage() {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", bgcolor: "#f8fafc", p: 3 }}>
+      <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", bgcolor: "var(--color-slate-50)", p: 3 }}>
         <Stack spacing={2} sx={{ alignItems: "center" }}>
-          <CircularProgress size={42} sx={{ color: "#00a651" }} />
-          <Typography variant="body2" sx={{ fontWeight: 700, color: "#64748b" }}>
+          <CircularProgress size={42} sx={{ color: "var(--color-green-brand)" }} />
+          <Typography variant="body2" sx={{ fontWeight: 700, color: "var(--color-slate-500)" }}>
             Loading secure payment gateway…
           </Typography>
         </Stack>
@@ -225,7 +225,7 @@ export default function GuestInvoicePayPage() {
     <Box
       sx={{
         minHeight: "100vh",
-        bgcolor: "#f1f5f9",
+        bgcolor: "var(--color-slate-100)",
         py: { xs: 2.5, md: 5 },
         px: 2,
         display: "flex",
@@ -241,7 +241,7 @@ export default function GuestInvoicePayPage() {
           maxWidth: 480,
           borderRadius: 3.5,
           overflow: "hidden",
-          border: "1px solid #e2e8f0",
+          border: "1px solid var(--color-slate-200)",
           bgcolor: "#ffffff",
         }}
       >
@@ -249,7 +249,7 @@ export default function GuestInvoicePayPage() {
         <Box
           sx={{
             p: 3,
-            background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+            background: "linear-gradient(135deg, var(--color-slate-900) 0%, var(--color-slate-800) 100%)",
             color: "#ffffff",
             textAlign: "center",
             position: "relative",
@@ -260,7 +260,7 @@ export default function GuestInvoicePayPage() {
               width: 52,
               height: 52,
               borderRadius: "50%",
-              bgcolor: "#00a651",
+              bgcolor: "var(--color-green-brand)",
               color: "#ffffff",
               display: "grid",
               placeItems: "center",
@@ -271,13 +271,13 @@ export default function GuestInvoicePayPage() {
             <Smartphone size={26} />
           </Box>
 
-          <Typography variant="caption" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", fontWeight: 800 }}>
+          <Typography variant="caption" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--color-slate-400)", fontWeight: 800 }}>
             Center Estates · Instant Checkout
           </Typography>
           <Typography variant="h6" sx={{ fontWeight: 900, mt: 0.25, color: "#ffffff" }}>
             {invoice?.property_name || "Center Estates"}
           </Typography>
-          <Typography variant="caption" sx={{ color: "#cbd5e1" }}>
+          <Typography variant="caption" sx={{ color: "var(--color-slate-300)" }}>
             {invoice?.unit_code} · Tenant: {invoice?.tenant_name}
           </Typography>
         </Box>
@@ -288,18 +288,18 @@ export default function GuestInvoicePayPage() {
             sx={{
               p: 2,
               borderRadius: 2.5,
-              bgcolor: "#f8fafc",
-              border: "1px solid #e2e8f0",
+              bgcolor: "var(--color-slate-50)",
+              border: "1px solid var(--color-slate-200)",
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
             }}
           >
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: "#64748b" }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--color-slate-500)" }}>
                 INVOICE NUMBER
               </Typography>
-              <Typography variant="subtitle2" sx={{ fontWeight: 900, color: "#0f172a" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 900, color: "var(--color-slate-900)" }}>
                 {invoice?.number}
               </Typography>
               <Typography variant="caption" color="text.secondary">
@@ -308,10 +308,10 @@ export default function GuestInvoicePayPage() {
             </Box>
 
             <Box sx={{ textAlign: "right" }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: "#64748b" }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--color-slate-500)" }}>
                 TOTAL AMOUNT DUE
               </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 900, color: "#16a34a" }}>
+              <Typography variant="h5" sx={{ fontWeight: 900, color: "var(--color-success)" }}>
                 {cash.format(invoice?.balance || invoice?.amount || 0)}
               </Typography>
               <Chip size="small" label="Unpaid" color="warning" sx={{ height: 20, fontSize: 10, fontWeight: 800 }} />
@@ -332,8 +332,8 @@ export default function GuestInvoicePayPage() {
                   width: 64,
                   height: 64,
                   borderRadius: "50%",
-                  bgcolor: "#dcfce7",
-                  color: "#16a34a",
+                  bgcolor: "var(--color-green-bg)",
+                  color: "var(--color-success)",
                   display: "grid",
                   placeItems: "center",
                   margin: "0 auto 16px",
@@ -342,7 +342,7 @@ export default function GuestInvoicePayPage() {
                 <CheckCircle2 size={36} />
               </Box>
 
-              <Typography variant="h6" sx={{ fontWeight: 900, color: "#166534" }}>
+              <Typography variant="h6" sx={{ fontWeight: 900, color: "var(--color-green-text)" }}>
                 Payment Received & Confirmed!
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
@@ -356,8 +356,8 @@ export default function GuestInvoicePayPage() {
                 startIcon={<Download size={18} />}
                 onClick={() => window.print()}
                 sx={{
-                  bgcolor: "#00a651",
-                  "&:hover": { bgcolor: "#007a3d" },
+                  bgcolor: "var(--color-green-brand)",
+                  "&:hover": { bgcolor: "var(--color-green-deep)" },
                   fontWeight: 800,
                   py: 1.25,
                   borderRadius: 2,
@@ -369,8 +369,8 @@ export default function GuestInvoicePayPage() {
           ) : (
             /* ACTIVE PAYMENT FORM */
             <Box sx={{ mt: 2.5 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "#0f172a", mb: 1, display: "flex", alignItems: "center", gap: 1 }}>
-                <Zap size={16} color="#00a651" />
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--color-slate-900)", mb: 1, display: "flex", alignItems: "center", gap: 1 }}>
+                <Zap size={16} color="var(--color-green-brand)" />
                 <span>1-Click M-Pesa STK Push:</span>
               </Typography>
 
@@ -394,16 +394,16 @@ export default function GuestInvoicePayPage() {
                       p: 2,
                       mb: 2,
                       bgcolor: "rgba(0, 166, 81, 0.08)",
-                      borderColor: "#86efac",
+                      borderColor: "var(--color-green-300)",
                       borderRadius: 2,
                       display: "flex",
                       alignItems: "center",
                       gap: 1.5,
                     }}
                   >
-                    <CircularProgress size={22} sx={{ color: "#00a651" }} />
+                    <CircularProgress size={22} sx={{ color: "var(--color-green-brand)" }} />
                     <Box>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "#166534" }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--color-green-text)" }}>
                         Waiting for M-Pesa PIN…
                       </Typography>
                       <Typography variant="caption" sx={{ color: "#14532d", display: "block" }}>
@@ -421,8 +421,8 @@ export default function GuestInvoicePayPage() {
                   disabled={paying}
                   startIcon={paying ? <CircularProgress size={18} color="inherit" /> : <Zap size={18} />}
                   sx={{
-                    bgcolor: "#00a651",
-                    "&:hover": { bgcolor: "#007a3d" },
+                    bgcolor: "var(--color-green-brand)",
+                    "&:hover": { bgcolor: "var(--color-green-deep)" },
                     py: 1.4,
                     fontWeight: 900,
                     fontSize: "0.95rem",
@@ -435,8 +435,8 @@ export default function GuestInvoicePayPage() {
               </form>
 
               {/* MANUAL PAYBILL INSTRUCTIONS */}
-              <Box sx={{ mt: 3, pt: 2, borderTop: "1px dashed #cbd5e1" }}>
-                <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", color: "#64748b", display: "block", mb: 1.5 }}>
+              <Box sx={{ mt: 3, pt: 2, borderTop: "1px dashed var(--color-slate-300)" }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", color: "var(--color-slate-500)", display: "block", mb: 1.5 }}>
                   Or Pay Manually from your M-Pesa Menu:
                 </Typography>
 
@@ -445,8 +445,8 @@ export default function GuestInvoicePayPage() {
                     sx={{
                       p: 1.25,
                       borderRadius: 2,
-                      bgcolor: "#f8fafc",
-                      border: "1px solid #e2e8f0",
+                      bgcolor: "var(--color-slate-50)",
+                      border: "1px solid var(--color-slate-200)",
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
@@ -473,8 +473,8 @@ export default function GuestInvoicePayPage() {
                     sx={{
                       p: 1.25,
                       borderRadius: 2,
-                      bgcolor: "#f8fafc",
-                      border: "1px solid #e2e8f0",
+                      bgcolor: "var(--color-slate-50)",
+                      border: "1px solid var(--color-slate-200)",
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
@@ -506,17 +506,17 @@ export default function GuestInvoicePayPage() {
         <Box
           sx={{
             p: 2,
-            bgcolor: "#f8fafc",
-            borderTop: "1px solid #e2e8f0",
+            bgcolor: "var(--color-slate-50)",
+            borderTop: "1px solid var(--color-slate-200)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             gap: 1,
-            color: "#64748b",
+            color: "var(--color-slate-500)",
             fontSize: "0.78rem",
           }}
         >
-          <ShieldCheck size={16} color="#00a651" />
+          <ShieldCheck size={16} color="var(--color-green-brand)" />
           <span>Encrypted 256-Bit Safaricom Daraja Payment Gateway</span>
         </Box>
       </Paper>

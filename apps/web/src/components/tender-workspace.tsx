@@ -184,7 +184,7 @@ function ProgressBar({ pct }: { pct: number }) {
 function Donut({ pct, color, value, label, size = 96 }: { pct: number; color: string; value: ReactNode; label: string; size?: number }) {
   const p = Math.max(0, Math.min(100, Number(pct) || 0));
   return (
-    <div className="donut" style={{ background: `conic-gradient(${color} 0% ${p}%, #edf0f5 ${p}% 100%)`, height: size, width: size }}>
+    <div className="donut" style={{ background: `conic-gradient(${color} 0% ${p}%, var(--color-surface-alt) ${p}% 100%)`, height: size, width: size }}>
       <strong style={{ fontSize: 15 }}>{value}</strong>
       <small>{label}</small>
     </div>
@@ -253,7 +253,7 @@ function TendersView({ rows, search, setSearch, openRegister, canRegister }: {
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "rgba(124,58,237,0.12)", color: "#7c3aed",
+            p: 2, borderRadius: 2, bgcolor: "rgba(124,58,237,0.12)", color: "var(--color-violet)",
             textAlign: "center"
           }}>
             <FileText size={24} style={{ marginBottom: 8 }} />
@@ -263,7 +263,7 @@ function TendersView({ rows, search, setSearch, openRegister, canRegister }: {
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "rgba(16,185,129,0.12)", color: "#059669",
+            p: 2, borderRadius: 2, bgcolor: "rgba(16,185,129,0.12)", color: "var(--color-emerald-strong)",
             textAlign: "center"
           }}>
             <DollarSign size={24} style={{ marginBottom: 8 }} />
@@ -273,7 +273,7 @@ function TendersView({ rows, search, setSearch, openRegister, canRegister }: {
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "rgba(245,158,11,0.12)", color: "#d97706",
+            p: 2, borderRadius: 2, bgcolor: "rgba(245,158,11,0.12)", color: "var(--color-warning)",
             textAlign: "center"
           }}>
             <Scale size={24} style={{ marginBottom: 8 }} />
@@ -283,7 +283,7 @@ function TendersView({ rows, search, setSearch, openRegister, canRegister }: {
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "rgba(239,68,68,0.12)", color: "#dc2626",
+            p: 2, borderRadius: 2, bgcolor: "rgba(239,68,68,0.12)", color: "var(--color-danger)",
             textAlign: "center"
           }}>
             <Clock size={24} style={{ marginBottom: 8 }} />
@@ -318,7 +318,7 @@ function TendersView({ rows, search, setSearch, openRegister, canRegister }: {
           <DataTable headers={["Tender No", "Title", "Client", "Category", "Budget", "Deadline", "Readiness", "Stage", "Actions"]}>
             {filtered.map((r) => (
               <tr key={String(r.id)}>
-                <td><span className="mono" style={{ color: "#7c3aed", fontWeight: 700 }}>{String(r.reference ?? "—")}</span></td>
+                <td><span className="mono" style={{ color: "var(--color-violet)", fontWeight: 700 }}>{String(r.reference ?? "—")}</span></td>
                 <td>
                   <strong style={{ display: "block", fontSize: 12 }}>{String(r.title ?? "—")}</strong>
                   <small className="muted">{truncate(r.description, 46)}</small>
@@ -340,7 +340,7 @@ function TendersView({ rows, search, setSearch, openRegister, canRegister }: {
 
       {selected && (
         <DetailDrawer title={`${String(selected.reference ?? "Tender")} · Details`} onClose={() => setSelected(null)} width={400}>
-          <DetailField label="Tender Reference"><span className="mono" style={{ color: "#7c3aed", fontWeight: 700 }}>{String(selected.reference ?? "—")}</span></DetailField>
+          <DetailField label="Tender Reference"><span className="mono" style={{ color: "var(--color-violet)", fontWeight: 700 }}>{String(selected.reference ?? "—")}</span></DetailField>
           <DetailField label="Title">{String(selected.title ?? "—")}</DetailField>
           <DetailField label="Client">{String(selected.client ?? "—")}</DetailField>
           <DetailField label="Category">{String(selected.category ?? "—")}</DetailField>
@@ -388,7 +388,7 @@ function RequirementCard({ reqs, tender, confirmRow, canConfirm }: {
     <article className="data-panel" style={{ padding: 18 }}>
       <div style={{ alignItems: "center", display: "flex", gap: 12, justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap" }}>
         <div>
-          <span className="mono" style={{ color: "#7c3aed", fontSize: 12, fontWeight: 700 }}>{String(tender?.reference ?? "—")}</span>
+          <span className="mono" style={{ color: "var(--color-violet)", fontSize: 12, fontWeight: 700 }}>{String(tender?.reference ?? "—")}</span>
           <h3 style={{ fontSize: 15, fontWeight: 800, margin: "2px 0 0" }}>{String(tender?.title ?? "Tender")}</h3>
           <small className="muted">{String(tender?.client ?? "—")}</small>
         </div>
@@ -400,7 +400,7 @@ function RequirementCard({ reqs, tender, confirmRow, canConfirm }: {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
         {categories.map(([cat, items]) => (
           <div key={cat} style={{ background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--line)", padding: 14 }}>
-            <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", margin: "0 0 10px", textTransform: "uppercase", color: "#7c3aed" }}>{cat} · {items.length}</p>
+            <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", margin: "0 0 10px", textTransform: "uppercase", color: "var(--color-violet)" }}>{cat} · {items.length}</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {items.map((req) => (
                 <div key={String(req.id)} style={{ borderLeft: `3px solid ${String(req.status) === "gap" ? "var(--danger)" : String(req.status) === "met" ? "var(--success)" : "var(--border-strong)"}`, paddingLeft: 10 }}>
@@ -461,10 +461,10 @@ function RequirementsView({ rows, search, setSearch, tenderIndex, confirmRow, ca
       } />
 
       <KpiStrip cols={4}>
-        <KpiCard icon="🤖" iconBg="rgba(124,58,237,0.12)" iconColor="#7c3aed" label="Extracted Findings" value={rows.length} sub="Across analysed tenders" />
-        <KpiCard icon="⚠️" iconBg="rgba(239,68,68,0.12)" iconColor="#dc2626" label="Awaiting Confirmation" value={pendingTotal} sub="Pending human sign-off" />
-        <KpiCard icon="🧾" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Mandatory Clauses" value={rows.filter((r) => Boolean(r.mandatory)).length} sub="Hard compliance gates" />
-        <KpiCard icon="📄" iconBg="rgba(59,130,246,0.12)" iconColor="#2563eb" label="Tenders Analysed" value={groups.length} sub="Distinct invitations" />
+        <KpiCard icon="🤖" iconBg="rgba(124,58,237,0.12)" iconColor="var(--color-violet)" label="Extracted Findings" value={rows.length} sub="Across analysed tenders" />
+        <KpiCard icon="⚠️" iconBg="rgba(239,68,68,0.12)" iconColor="var(--color-danger)" label="Awaiting Confirmation" value={pendingTotal} sub="Pending human sign-off" />
+        <KpiCard icon="🧾" iconBg="rgba(16,185,129,0.12)" iconColor="var(--color-emerald-strong)" label="Mandatory Clauses" value={rows.filter((r) => Boolean(r.mandatory)).length} sub="Hard compliance gates" />
+        <KpiCard icon="📄" iconBg="rgba(59,130,246,0.12)" iconColor="var(--color-info)" label="Tenders Analysed" value={groups.length} sub="Distinct invitations" />
       </KpiStrip>
 
       {groups.length === 0 ? (
@@ -540,10 +540,10 @@ function DecisionsView({ rows, search, setSearch, tenderIndex, openDecide, canDe
       </div>
 
       <KpiStrip cols={4}>
-        <KpiCard icon="✅" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Approved to Bid" value={approved} sub="Green-lit pursuits" />
-        <KpiCard icon="🚫" iconBg="rgba(239,68,68,0.12)" iconColor="#dc2626" label="Declined" value={declined} sub="No-bid decisions" />
-        <KpiCard icon="⏳" iconBg="rgba(245,158,11,0.12)" iconColor="#d97706" label="Pending" value={pending} sub="Awaiting board decision" />
-        <KpiCard icon="⚠️" iconBg="rgba(124,58,237,0.12)" iconColor="#7c3aed" label="Avg. Risk Score" value={`${avgRisk}/100`} sub="Across decisions" />
+        <KpiCard icon="✅" iconBg="rgba(16,185,129,0.12)" iconColor="var(--color-emerald-strong)" label="Approved to Bid" value={approved} sub="Green-lit pursuits" />
+        <KpiCard icon="🚫" iconBg="rgba(239,68,68,0.12)" iconColor="var(--color-danger)" label="Declined" value={declined} sub="No-bid decisions" />
+        <KpiCard icon="⏳" iconBg="rgba(245,158,11,0.12)" iconColor="var(--color-warning)" label="Pending" value={pending} sub="Awaiting board decision" />
+        <KpiCard icon="⚠️" iconBg="rgba(124,58,237,0.12)" iconColor="var(--color-violet)" label="Avg. Risk Score" value={`${avgRisk}/100`} sub="Across decisions" />
       </KpiStrip>
     </>
   );
@@ -621,7 +621,7 @@ function TasksView({ rows, search, setSearch, openTask, canTask }: {
                   <div key={String(r.id)} style={{ alignItems: "center", display: "grid", gridTemplateColumns: "220px 1fr", gap: 12, marginBottom: 8 }}>
                     <span style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(r.title ?? "—")}</span>
                     <div style={{ background: "var(--surface-2)", borderRadius: 4, height: 18, position: "relative" }}>
-                      <div style={{ background: String(r.status) === "completed" ? "#10b981" : "#7c3aed", borderRadius: 4, height: "100%", left: `${Math.max(0, left)}%`, opacity: 0.85, position: "absolute", width: `${Math.max(3, width)}%` }} title={`${fmtDate(r.starts_on)} → ${fmtDate(r.due_on)}`} />
+                      <div style={{ background: String(r.status) === "completed" ? "var(--color-emerald)" : "var(--color-violet)", borderRadius: 4, height: "100%", left: `${Math.max(0, left)}%`, opacity: 0.85, position: "absolute", width: `${Math.max(3, width)}%` }} title={`${fmtDate(r.starts_on)} → ${fmtDate(r.due_on)}`} />
                     </div>
                   </div>
                 );
@@ -632,10 +632,10 @@ function TasksView({ rows, search, setSearch, openTask, canTask }: {
       )}
 
       <KpiStrip cols={4}>
-        <KpiCard icon="✅" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Completed" value={completed} sub="Done tasks" />
-        <KpiCard icon="⚙️" iconBg="rgba(59,130,246,0.12)" iconColor="#2563eb" label="In Progress" value={inProgress} sub="Active tasks" />
-        <KpiCard icon="🚧" iconBg="rgba(239,68,68,0.12)" iconColor="#dc2626" label="Blocked" value={blocked} sub="Need unblocking" />
-        <KpiCard icon="☑️" iconBg="rgba(124,58,237,0.12)" iconColor="#7c3aed" label="Total Tasks" value={rows.length} sub="Across bid plans" />
+        <KpiCard icon="✅" iconBg="rgba(16,185,129,0.12)" iconColor="var(--color-emerald-strong)" label="Completed" value={completed} sub="Done tasks" />
+        <KpiCard icon="⚙️" iconBg="rgba(59,130,246,0.12)" iconColor="var(--color-info)" label="In Progress" value={inProgress} sub="Active tasks" />
+        <KpiCard icon="🚧" iconBg="rgba(239,68,68,0.12)" iconColor="var(--color-danger)" label="Blocked" value={blocked} sub="Need unblocking" />
+        <KpiCard icon="☑️" iconBg="rgba(124,58,237,0.12)" iconColor="var(--color-violet)" label="Total Tasks" value={rows.length} sub="Across bid plans" />
       </KpiStrip>
     </>
   );
@@ -690,9 +690,9 @@ function CompanyDocumentsView({ rows, search, setSearch, setShowUploadDoc }: {
       </div>
 
       <KpiStrip cols={3}>
-        <KpiCard icon="✅" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Valid" value={valid} sub="In date documents" />
-        <KpiCard icon="⏰" iconBg="rgba(245,158,11,0.12)" iconColor="#d97706" label="Expiring Soon" value={expiring} sub="Within 30 days" />
-        <KpiCard icon="⛔" iconBg="rgba(239,68,68,0.12)" iconColor="#dc2626" label="Expired" value={expired} sub="Need renewal" />
+        <KpiCard icon="✅" iconBg="rgba(16,185,129,0.12)" iconColor="var(--color-emerald-strong)" label="Valid" value={valid} sub="In date documents" />
+        <KpiCard icon="⏰" iconBg="rgba(245,158,11,0.12)" iconColor="var(--color-warning)" label="Expiring Soon" value={expiring} sub="Within 30 days" />
+        <KpiCard icon="⛔" iconBg="rgba(239,68,68,0.12)" iconColor="var(--color-danger)" label="Expired" value={expired} sub="Need renewal" />
       </KpiStrip>
     </>
   );
@@ -748,10 +748,10 @@ function ProposalsView({ rows, search, setSearch, openProposal, canPropose }: {
       </div>
 
       <KpiStrip cols={4}>
-        <KpiCard icon="✅" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Approved" value={approved} sub="Immutable sections" />
-        <KpiCard icon="🔍" iconBg="rgba(245,158,11,0.12)" iconColor="#d97706" label="In Review" value={inReview} sub="Pending approval" />
-        <KpiCard icon="📝" iconBg="rgba(59,130,246,0.12)" iconColor="#2563eb" label="Drafts" value={drafts} sub="Work in progress" />
-        <KpiCard icon="🤖" iconBg="rgba(124,58,237,0.12)" iconColor="#7c3aed" label="AI Assisted" value={rows.filter((r) => Boolean(r.ai_assisted)).length} sub="Drafted sections" />
+        <KpiCard icon="✅" iconBg="rgba(16,185,129,0.12)" iconColor="var(--color-emerald-strong)" label="Approved" value={approved} sub="Immutable sections" />
+        <KpiCard icon="🔍" iconBg="rgba(245,158,11,0.12)" iconColor="var(--color-warning)" label="In Review" value={inReview} sub="Pending approval" />
+        <KpiCard icon="📝" iconBg="rgba(59,130,246,0.12)" iconColor="var(--color-info)" label="Drafts" value={drafts} sub="Work in progress" />
+        <KpiCard icon="🤖" iconBg="rgba(124,58,237,0.12)" iconColor="var(--color-violet)" label="AI Assisted" value={rows.filter((r) => Boolean(r.ai_assisted)).length} sub="Drafted sections" />
       </KpiStrip>
     </>
   );
@@ -784,7 +784,7 @@ function FinancialItemsView({ rows, search, setSearch, onApprove, canPrice }: {
           <DataTable headers={["Code", "Description", "Tender", "Qty", "Unit", "Unit Rate", "Total", "Status", "Actions"]}>
             {rows.map((r) => (
               <tr key={String(r.id)}>
-                <td><span className="mono" style={{ color: "#7c3aed", fontSize: 12, fontWeight: 700 }}>{String(r.code ?? "—")}</span></td>
+                <td><span className="mono" style={{ color: "var(--color-violet)", fontSize: 12, fontWeight: 700 }}>{String(r.code ?? "—")}</span></td>
                 <td style={{ fontSize: 12 }}>{String(r.description ?? "—")}</td>
                 <td style={{ fontSize: 12 }}>{String(r.tender_title ?? "—")}</td>
                 <td className="mono" style={{ fontSize: 12 }}>{Number(r.quantity ?? 0)}</td>
@@ -809,7 +809,7 @@ function FinancialItemsView({ rows, search, setSearch, onApprove, canPrice }: {
         <div className="data-panel" style={{ padding: 18 }}>
           <SectionHeader eyebrow="Pricing" title="Total Bid Summary" />
           <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
-            <Donut pct={total ? Math.round((approvedValue / total) * 100) : 0} color="#7c3aed" value={total ? `${Math.round((approvedValue / total) * 100)}%` : "0%"} label="Approved" />
+            <Donut pct={total ? Math.round((approvedValue / total) * 100) : 0} color="var(--color-violet)" value={total ? `${Math.round((approvedValue / total) * 100)}%` : "0%"} label="Approved" />
             <div style={{ flex: 1, minWidth: 200 }}>
               <DetailField label="Total Bid Value">{money.format(total)}</DetailField>
               <DetailField label="Approved Value">{money.format(approvedValue)}</DetailField>
@@ -891,9 +891,9 @@ function ReviewsView({ rows, search, setSearch, tenderIndex, openReview, canRevi
       </div>
 
       <KpiStrip cols={3}>
-        <KpiCard icon="✅" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Approved Gates" value={approved} sub="Passed review" />
-        <KpiCard icon="⏳" iconBg="rgba(245,158,11,0.12)" iconColor="#d97706" label="Pending" value={pending} sub="Awaiting approver" />
-        <KpiCard icon="🔁" iconBg="rgba(239,68,68,0.12)" iconColor="#dc2626" label="Changes Required" value={changes} sub="Returned for edits" />
+        <KpiCard icon="✅" iconBg="rgba(16,185,129,0.12)" iconColor="var(--color-emerald-strong)" label="Approved Gates" value={approved} sub="Passed review" />
+        <KpiCard icon="⏳" iconBg="rgba(245,158,11,0.12)" iconColor="var(--color-warning)" label="Pending" value={pending} sub="Awaiting approver" />
+        <KpiCard icon="🔁" iconBg="rgba(239,68,68,0.12)" iconColor="var(--color-danger)" label="Changes Required" value={changes} sub="Returned for edits" />
       </KpiStrip>
     </>
   );
@@ -981,10 +981,10 @@ function PackagingView({ rows, search, setSearch, tenderIndex }: {
       } />
 
       <KpiStrip cols={4}>
-        <KpiCard icon="📦" iconBg="rgba(124,58,237,0.12)" iconColor="#7c3aed" label="Total Packages" value={rows.length} sub="Created packages" />
-        <KpiCard icon="✅" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Ready to Submit" value={readyToSubmit} sub="Awaiting submission" />
-        <KpiCard icon="🔧" iconBg="rgba(245,158,11,0.12)" iconColor="#d97706" label="Pending Assembly" value={pendingAssembly} sub="In progress" />
-        <KpiCard icon="📤" iconBg="rgba(59,130,246,0.12)" iconColor="#2563eb" label="Submitted" value={submitted} sub="Delivered" />
+        <KpiCard icon="📦" iconBg="rgba(124,58,237,0.12)" iconColor="var(--color-violet)" label="Total Packages" value={rows.length} sub="Created packages" />
+        <KpiCard icon="✅" iconBg="rgba(16,185,129,0.12)" iconColor="var(--color-emerald-strong)" label="Ready to Submit" value={readyToSubmit} sub="Awaiting submission" />
+        <KpiCard icon="🔧" iconBg="rgba(245,158,11,0.12)" iconColor="var(--color-warning)" label="Pending Assembly" value={pendingAssembly} sub="In progress" />
+        <KpiCard icon="📤" iconBg="rgba(59,130,246,0.12)" iconColor="var(--color-info)" label="Submitted" value={submitted} sub="Delivered" />
       </KpiStrip>
 
       <div className="data-panel">
@@ -998,7 +998,7 @@ function PackagingView({ rows, search, setSearch, tenderIndex }: {
           <DataTable headers={["Package Ref", "Tender", "Sections", "TOC Generated", "Status", "Actions"]}>
             {rows.map((r) => (
               <tr key={String(r.id)}>
-                <td><span className="mono" style={{ color: "#7c3aed", fontWeight: 700 }}>{String(r.package_ref ?? `PKG-${String(r.id)}`)}</span></td>
+                <td><span className="mono" style={{ color: "var(--color-violet)", fontWeight: 700 }}>{String(r.package_ref ?? `PKG-${String(r.id)}`)}</span></td>
                 <td style={{ fontSize: 12 }}>{String(r.tender_title ?? tenderById.get(String(r.tender))?.title ?? "—")}</td>
                 <td className="mono" style={{ fontSize: 12 }}>{Number(r.sections_count ?? 0)}</td>
                 <td>{r.toc_generated ? <Badge value="Yes" tone="green" /> : <StatusPill value="No" tone="gray" />}</td>
@@ -1017,7 +1017,7 @@ function PackagingView({ rows, search, setSearch, tenderIndex }: {
 
       {selected && (
         <DetailDrawer title={`Package ${String(selected.package_ref ?? selected.id)} · Details`} onClose={() => setSelected(null)} width={420}>
-          <DetailField label="Package Reference"><span className="mono" style={{ color: "#7c3aed", fontWeight: 700 }}>{String(selected.package_ref ?? `PKG-${String(selected.id)}`)}</span></DetailField>
+          <DetailField label="Package Reference"><span className="mono" style={{ color: "var(--color-violet)", fontWeight: 700 }}>{String(selected.package_ref ?? `PKG-${String(selected.id)}`)}</span></DetailField>
           <DetailField label="Tender">{String(selected.tender_title ?? tenderById.get(String(selected.tender))?.title ?? "—")}</DetailField>
           <DetailField label="Sections Included">{String(selected.sections_count ?? 0)}</DetailField>
           <DetailField label="TOC Generated">{selected.toc_generated ? "Yes" : "No"}</DetailField>
@@ -1124,7 +1124,7 @@ function SubmissionsView({ rows, search, setSearch, openRecord, canRecord }: {
                 <td><strong style={{ fontSize: 12 }}>{String(r.tender_title ?? "—")}</strong></td>
                 <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDateTime(r.submitted_at)}</td>
                 <td><StatusPill value={String(r.channel ?? "—")} /></td>
-                <td><span className="mono" style={{ fontSize: 12, color: "#7c3aed", fontWeight: 700 }}>{String(r.receipt_reference ?? "—")}</span></td>
+                <td><span className="mono" style={{ fontSize: 12, color: "var(--color-violet)", fontWeight: 700 }}>{String(r.receipt_reference ?? "—")}</span></td>
                 <td><span className="mono" style={{ fontSize: 11 }}>v{String(r.package_version ?? "—")}</span></td>
                 <td>{Boolean(r.compliant) ? <StatusPill value="received" /> : <StatusPill value="incomplete" />}</td>
                 <td>
@@ -1137,9 +1137,9 @@ function SubmissionsView({ rows, search, setSearch, openRecord, canRecord }: {
       </div>
 
       <KpiStrip cols={3}>
-        <KpiCard icon="📦" iconBg="rgba(124,58,237,0.12)" iconColor="#7c3aed" label="Recorded Submissions" value={recorded} sub="Packaged bids delivered" />
-        <KpiCard icon="🧾" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Compliant" value={rows.filter((r) => Boolean(r.compliant)).length} sub="Acknowledgements held" />
-        <KpiCard icon="🔒" iconBg="rgba(59,130,246,0.12)" iconColor="#2563eb" label="Immutable Receipts" value={rows.length} sub="Evidence cannot be edited" />
+        <KpiCard icon="📦" iconBg="rgba(124,58,237,0.12)" iconColor="var(--color-violet)" label="Recorded Submissions" value={recorded} sub="Packaged bids delivered" />
+        <KpiCard icon="🧾" iconBg="rgba(16,185,129,0.12)" iconColor="var(--color-emerald-strong)" label="Compliant" value={rows.filter((r) => Boolean(r.compliant)).length} sub="Acknowledgements held" />
+        <KpiCard icon="🔒" iconBg="rgba(59,130,246,0.12)" iconColor="var(--color-info)" label="Immutable Receipts" value={rows.length} sub="Evidence cannot be edited" />
       </KpiStrip>
 
       {selected && (
@@ -1215,9 +1215,9 @@ function OutcomesView({ rows, search, setSearch, tenderIndex, openRecord, canRec
       </div>
 
       <KpiStrip cols={3}>
-        <KpiCard icon="🏆" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Awarded" value={awarded} sub="Won tenders" />
-        <KpiCard icon="💔" iconBg="rgba(239,68,68,0.12)" iconColor="#dc2626" label="Regretted" value={regretted} sub="Lost tenders" />
-        <KpiCard icon="🚫" iconBg="rgba(245,158,11,0.12)" iconColor="#d97706" label="Cancelled" value={cancelled} sub="Withdrawn" />
+        <KpiCard icon="🏆" iconBg="rgba(16,185,129,0.12)" iconColor="var(--color-emerald-strong)" label="Awarded" value={awarded} sub="Won tenders" />
+        <KpiCard icon="💔" iconBg="rgba(239,68,68,0.12)" iconColor="var(--color-danger)" label="Regretted" value={regretted} sub="Lost tenders" />
+        <KpiCard icon="🚫" iconBg="rgba(245,158,11,0.12)" iconColor="var(--color-warning)" label="Cancelled" value={cancelled} sub="Withdrawn" />
       </KpiStrip>
 
       {selected && (
@@ -1249,10 +1249,10 @@ function ReportsView({ analytics, reports, recentExports, onExport }: {
     <>
       <SectionHeader eyebrow="Insights" title="Report Catalogue" />
       <KpiStrip cols={4}>
-        <KpiCard icon="📤" iconBg="rgba(59,130,246,0.12)" iconColor="#2563eb" label="Submitted Bids" value={metrics?.submitted ?? 0} sub="To client" />
-        <KpiCard icon="🏆" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Awarded" value={metrics?.awarded ?? 0} sub="Won tenders" />
-        <KpiCard icon="💔" iconBg="rgba(239,68,68,0.12)" iconColor="#dc2626" label="Regretted" value={metrics?.regretted ?? 0} sub="Lost tenders" />
-        <KpiCard icon="📈" iconBg="rgba(124,58,237,0.12)" iconColor="#7c3aed" label="Win Rate" value={`${metrics?.winRate ?? 0}%`} sub="Of closed tenders" />
+        <KpiCard icon="📤" iconBg="rgba(59,130,246,0.12)" iconColor="var(--color-info)" label="Submitted Bids" value={metrics?.submitted ?? 0} sub="To client" />
+        <KpiCard icon="🏆" iconBg="rgba(16,185,129,0.12)" iconColor="var(--color-emerald-strong)" label="Awarded" value={metrics?.awarded ?? 0} sub="Won tenders" />
+        <KpiCard icon="💔" iconBg="rgba(239,68,68,0.12)" iconColor="var(--color-danger)" label="Regretted" value={metrics?.regretted ?? 0} sub="Lost tenders" />
+        <KpiCard icon="📈" iconBg="rgba(124,58,237,0.12)" iconColor="var(--color-violet)" label="Win Rate" value={`${metrics?.winRate ?? 0}%`} sub="Of closed tenders" />
       </KpiStrip>
 
       <div className="grid-2">
@@ -1320,7 +1320,7 @@ function AuditEventsView({ rows, search, setSearch }: {
               <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDateTime(r.created_at)}</td>
               <td><span className="mono" style={{ fontSize: 12 }}>{String(r.actor_name ?? "—")}</span></td>
               <td><StatusPill value={String(r.event_type ?? "—")} tone={String(r.event_type).includes("reject") || String(r.event_type).includes("regret") ? "red" : String(r.event_type).includes("submitted") || String(r.event_type).includes("approved") ? "green" : String(r.event_type).includes("pending") ? "yellow" : "blue"} /></td>
-              <td><span className="mono" style={{ fontSize: 12, color: "#7c3aed" }}>{String(r.tender_reference ?? "—")}</span></td>
+              <td><span className="mono" style={{ fontSize: 12, color: "var(--color-violet)" }}>{String(r.tender_reference ?? "—")}</span></td>
               <td style={{ fontSize: 12 }}>
                 {r.from_stage && r.to_stage ? (
                   <span className="row" style={{ gap: 6, flexWrap: "wrap" }}>
@@ -1377,12 +1377,12 @@ function OverviewView({ dash, setTab, openRegister, canRegister }: {
   return (
     <>
       <KpiStrip cols={6}>
-        <KpiCard icon="📋" iconBg="rgba(124,58,237,0.12)" iconColor="#7c3aed" label="Active Tenders" value={active} sub={`${Number(kpis.dueThisWeek ?? 0)} due this week`} link="Open register" onClick={() => setTab("tenders")} />
-        <KpiCard icon="💼" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Pipeline Value" value={money.format(pipelineValue)} sub="Live open pipeline" link="View pipeline" onClick={() => setTab("tenders")} />
-        <KpiCard icon="📝" iconBg="rgba(59,130,246,0.12)" iconColor="#2563eb" label="Drafted" value={drafted} sub="Invitations registered" link="See invitations" onClick={() => setTab("tenders")} />
-        <KpiCard icon="📤" iconBg="rgba(6,182,212,0.12)" iconColor="#0891b2" label="Submitted" value={submitted} sub="Bids delivered" link="View submissions" onClick={() => setTab("submissions")} />
-        <KpiCard icon="🏆" iconBg="rgba(16,185,129,0.12)" iconColor="#059669" label="Won" value={won} sub="Awards secured" link="See outcomes" onClick={() => setTab("outcomes")} />
-        <KpiCard icon="📈" iconBg="rgba(245,158,11,0.12)" iconColor="#d97706" label="Award Rate" value={`${awardRate}%`} sub="Of closed tenders" link="Analyse wins" onClick={() => setTab("outcomes")} />
+        <KpiCard icon="📋" iconBg="rgba(124,58,237,0.12)" iconColor="var(--color-violet)" label="Active Tenders" value={active} sub={`${Number(kpis.dueThisWeek ?? 0)} due this week`} link="Open register" onClick={() => setTab("tenders")} />
+        <KpiCard icon="💼" iconBg="rgba(16,185,129,0.12)" iconColor="var(--color-emerald-strong)" label="Pipeline Value" value={money.format(pipelineValue)} sub="Live open pipeline" link="View pipeline" onClick={() => setTab("tenders")} />
+        <KpiCard icon="📝" iconBg="rgba(59,130,246,0.12)" iconColor="var(--color-info)" label="Drafted" value={drafted} sub="Invitations registered" link="See invitations" onClick={() => setTab("tenders")} />
+        <KpiCard icon="📤" iconBg="rgba(6,182,212,0.12)" iconColor="var(--color-cyan)" label="Submitted" value={submitted} sub="Bids delivered" link="View submissions" onClick={() => setTab("submissions")} />
+        <KpiCard icon="🏆" iconBg="rgba(16,185,129,0.12)" iconColor="var(--color-emerald-strong)" label="Won" value={won} sub="Awards secured" link="See outcomes" onClick={() => setTab("outcomes")} />
+        <KpiCard icon="📈" iconBg="rgba(245,158,11,0.12)" iconColor="var(--color-warning)" label="Award Rate" value={`${awardRate}%`} sub="Of closed tenders" link="Analyse wins" onClick={() => setTab("outcomes")} />
       </KpiStrip>
 
       <div className="data-panel" style={{ padding: 16 }}>
@@ -1391,7 +1391,7 @@ function OverviewView({ dash, setTab, openRegister, canRegister }: {
           {steps.map((s, i) => (
             <Fragment key={s.label}>
               <button type="button" className="btn ghost sm" style={{ alignItems: "center", display: "flex", gap: 6, flexShrink: 0, fontSize: 11, padding: "5px 9px" }} onClick={() => setTab(s.tab)}>
-                <span style={{ alignItems: "center", background: "linear-gradient(145deg, #7c3aed, #a855f7)", borderRadius: "50%", color: "#fff", display: "flex", fontSize: 10, height: 18, justifyContent: "center", width: 18 }}>{i + 1}</span>
+                <span style={{ alignItems: "center", background: "linear-gradient(145deg, var(--color-violet), #a855f7)", borderRadius: "50%", color: "#fff", display: "flex", fontSize: 10, height: 18, justifyContent: "center", width: 18 }}>{i + 1}</span>
                 {s.label}
               </button>
               {i < steps.length - 1 && <span style={{ color: "var(--muted)", flexShrink: 0, fontSize: 11 }}>→</span>}
@@ -1412,7 +1412,7 @@ function OverviewView({ dash, setTab, openRegister, canRegister }: {
             <DataTable headers={["Tender No", "Title", "Client", "Deadline", "Value", "Stage"]}>
               {(dash.recentTenders ?? []).map((r) => (
                 <tr key={String(r.id)}>
-                  <td><span className="mono" style={{ color: "#7c3aed", fontSize: 12, fontWeight: 700 }}>{String(r.reference ?? "—")}</span></td>
+                  <td><span className="mono" style={{ color: "var(--color-violet)", fontSize: 12, fontWeight: 700 }}>{String(r.reference ?? "—")}</span></td>
                   <td><strong style={{ fontSize: 12 }}>{String(r.title ?? "—")}</strong></td>
                   <td style={{ fontSize: 12 }}>{String(r.client ?? "—")}</td>
                   <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDateTime(r.submission_deadline)}</td>
@@ -1448,11 +1448,11 @@ function OverviewView({ dash, setTab, openRegister, canRegister }: {
           <div className="data-panel" style={{ padding: 18 }}>
             <SectionHeader eyebrow="Snapshot" title="Pipeline Health" />
             <div style={{ alignItems: "center", display: "flex", gap: 16, flexWrap: "wrap" }}>
-              <Donut pct={compliance} color="#7c3aed" value={`${compliance}%`} label="Submitted" />
+              <Donut pct={compliance} color="var(--color-violet)" value={`${compliance}%`} label="Submitted" />
               <div style={{ display: "flex", flex: 1, flexDirection: "column", gap: 8 }}>
                 {funnel.slice(0, 6).map((f) => (
                   <div key={f.stage} style={{ alignItems: "center", display: "flex", fontSize: 11, gap: 8 }}>
-                    <i style={{ background: stageToneMap[f.stage] === "red" ? "#ef4444" : stageToneMap[f.stage] === "green" ? "#10b981" : stageToneMap[f.stage] === "yellow" ? "#f59e0b" : stageToneMap[f.stage] === "cyan" ? "#06b6d4" : stageToneMap[f.stage] === "purple" ? "#7c3aed" : "#94a3b8", borderRadius: "50%", height: 8, width: 8 }} />
+                    <i style={{ background: stageToneMap[f.stage] === "red" ? "var(--color-danger)" : stageToneMap[f.stage] === "green" ? "var(--color-emerald)" : stageToneMap[f.stage] === "yellow" ? "var(--color-amber)" : stageToneMap[f.stage] === "cyan" ? "#06b6d4" : stageToneMap[f.stage] === "purple" ? "var(--color-violet)" : "var(--color-slate-400)", borderRadius: "50%", height: 8, width: 8 }} />
                     <span className="muted" style={{ flex: 1 }}>{String(f.stage).replace(/_/g, " ")}</span>
                     <strong>{f.count}</strong>
                   </div>
@@ -2263,7 +2263,7 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
       eyebrow="Tender Intelligence Workspace"
       title="Tender Management"
       subtitle="Controlled 11-step bid production from invitation & AI analysis to packaging and award."
-      accent="#7c3aed"
+      accent="var(--color-violet)"
       activeId={tab}
       onSelect={selectTab}
     >

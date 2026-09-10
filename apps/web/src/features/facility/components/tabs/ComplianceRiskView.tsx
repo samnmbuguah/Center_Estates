@@ -98,11 +98,11 @@ export function ComplianceRiskView({
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Top Strip */}
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="🛡️" iconBg="#dcfce7" iconColor="#16a34a" label="Statutory Compliance" value={`${obligations.filter(o => o.status === 'active').length} active`} sub={`${obligations.filter(o => o.status === 'expired').length} expired`} />
-        <FcKpiCard icon="📅" iconBg="#fef3c7" iconColor="#b45309" label="Certificates Expiring < 30d" value={String(obligations.filter(o => { const d = o.expiry_date ? new Date(String(o.expiry_date)) : null; return d && d.getTime() - Date.now() < 30 * 86400000 && d.getTime() > Date.now(); }).length)} sub="Within 30 days" />
-        <FcKpiCard icon="⚡" iconBg="#e0e7ff" iconColor="#4f46e5" label="Monitored Obligations" value={String(obligations.length)} sub="All tracked certificates" />
-        <FcKpiCard icon="🚨" iconBg="#fee2e2" iconColor="#dc2626" label="Open Risk Items" value={String(risks.filter(r => r.status === 'open' || r.status === 'mitigating').length)} sub={`${risks.filter(r => Number((r as Record<string, unknown>).inherent_score ?? 0) >= 12).length} high priority`} />
-        <FcKpiCard icon="🔔" iconBg="#fdf4ff" iconColor="#9333ea" label="Active Automated Flags" value={String(flags.length)} sub="Rule-based operational triggers" />
+        <FcKpiCard icon="🛡️" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Statutory Compliance" value={`${obligations.filter(o => o.status === 'active').length} active`} sub={`${obligations.filter(o => o.status === 'expired').length} expired`} />
+        <FcKpiCard icon="📅" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-deep)" label="Certificates Expiring < 30d" value={String(obligations.filter(o => { const d = o.expiry_date ? new Date(String(o.expiry_date)) : null; return d && d.getTime() - Date.now() < 30 * 86400000 && d.getTime() > Date.now(); }).length)} sub="Within 30 days" />
+        <FcKpiCard icon="⚡" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Monitored Obligations" value={String(obligations.length)} sub="All tracked certificates" />
+        <FcKpiCard icon="🚨" iconBg="var(--color-red-bg)" iconColor="var(--color-danger)" label="Open Risk Items" value={String(risks.filter(r => r.status === 'open' || r.status === 'mitigating').length)} sub={`${risks.filter(r => Number((r as Record<string, unknown>).inherent_score ?? 0) >= 12).length} high priority`} />
+        <FcKpiCard icon="🔔" iconBg="#fdf4ff" iconColor="var(--color-purple)" label="Active Automated Flags" value={String(flags.length)} sub="Rule-based operational triggers" />
       </div>
 
       {mode === "compliance" && (
@@ -140,18 +140,18 @@ export function ComplianceRiskView({
                       <strong style={{ display: "block", fontSize: "0.85rem", color: "var(--text-primary)" }}>
                         {String(c.title)}
                       </strong>
-                      <span style={{ color: "#2563eb", fontSize: 11, fontWeight: 700 }}>{String(c.category)}</span>
+                      <span style={{ color: "var(--color-info)", fontSize: 11, fontWeight: 700 }}>{String(c.category)}</span>
                     </td>
                     <td style={{ padding: "12px 14px", fontSize: 12 }}>{String(c.issuing_authority ?? "—")}</td>
                     <td style={{ padding: "12px 14px", fontSize: 12, fontWeight: 700 }}>{String(c.certificate_number ?? "—")}</td>
-                    <td style={{ padding: "12px 14px", fontSize: 12, fontWeight: 800, color: c.status === "due_soon" ? "#d97706" : "inherit" }}>
+                    <td style={{ padding: "12px 14px", fontSize: 12, fontWeight: 800, color: c.status === "due_soon" ? "var(--color-warning)" : "inherit" }}>
                       {String(c.expiry_date)}
                     </td>
                     <td style={{ padding: "12px 14px", textAlign: "center" }}>
                       <span
                         style={{
-                          background: c.status === "compliant" ? "#dcfce7" : c.status === "due_soon" ? "#fef3c7" : "#fee2e2",
-                          color: c.status === "compliant" ? "#166534" : c.status === "due_soon" ? "#92400e" : "#991b1b",
+                          background: c.status === "compliant" ? "var(--color-green-bg)" : c.status === "due_soon" ? "var(--color-amber-bg)" : "var(--color-red-bg)",
+                          color: c.status === "compliant" ? "var(--color-green-text)" : c.status === "due_soon" ? "var(--color-amber-strong)" : "var(--color-danger-deep)",
                           padding: "3px 8px",
                           borderRadius: 4,
                           fontSize: 10,
@@ -189,7 +189,7 @@ export function ComplianceRiskView({
                 <button
                   onClick={() => setSelectedCell(null)}
                   className="fc-toolbar-btn"
-                  style={{ background: "#fee2e2", color: "#991b1b", fontWeight: 800 }}
+                  style={{ background: "var(--color-red-bg)", color: "var(--color-danger-deep)", fontWeight: 800 }}
                 >
                   ✕ Clear Filter (L{selectedCell.l} × I{selectedCell.i})
                 </button>
@@ -224,8 +224,8 @@ export function ComplianceRiskView({
                       });
                       const count = cellRisks.length;
 
-                      const bg = score >= 15 ? "#fee2e2" : score >= 8 ? "#fef3c7" : score >= 4 ? "#fef9c3" : "#dcfce7";
-                      const textCol = score >= 15 ? "#991b1b" : score >= 8 ? "#92400e" : score >= 4 ? "#854d0e" : "#166534";
+                      const bg = score >= 15 ? "var(--color-red-bg)" : score >= 8 ? "var(--color-amber-bg)" : score >= 4 ? "#fef9c3" : "var(--color-green-bg)";
+                      const textCol = score >= 15 ? "var(--color-danger-deep)" : score >= 8 ? "var(--color-amber-strong)" : score >= 4 ? "#854d0e" : "var(--color-green-text)";
 
                       return (
                         <button
@@ -234,7 +234,7 @@ export function ComplianceRiskView({
                           style={{
                             background: bg,
                             color: textCol,
-                            border: isSelected ? "2.5px solid #2563eb" : "1px solid rgba(0,0,0,0.06)",
+                            border: isSelected ? "2.5px solid var(--color-info)" : "1px solid rgba(0,0,0,0.06)",
                             borderRadius: 6,
                             padding: "10px 4px",
                             cursor: "pointer",
@@ -296,7 +296,7 @@ export function ComplianceRiskView({
                           </strong>
                         </td>
                         <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                          <span style={{ background: inherentVal >= 12 ? "#fee2e2" : "#fef3c7", color: inherentVal >= 12 ? "#991b1b" : "#92400e", padding: "3px 8px", borderRadius: 4, fontWeight: 900 }}>
+                          <span style={{ background: inherentVal >= 12 ? "var(--color-red-bg)" : "var(--color-amber-bg)", color: inherentVal >= 12 ? "var(--color-danger-deep)" : "var(--color-amber-strong)", padding: "3px 8px", borderRadius: 4, fontWeight: 900 }}>
                             {inherentVal} / 25
                           </span>
                         </td>
@@ -304,7 +304,7 @@ export function ComplianceRiskView({
                           {String(r.mitigation_controls ?? "—")}
                         </td>
                         <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                          <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 8px", borderRadius: 4, fontWeight: 800 }}>
+                          <span style={{ background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "3px 8px", borderRadius: 4, fontWeight: 800 }}>
                             {String(r.residual_score ?? "—")}
                           </span>
                         </td>
@@ -313,7 +313,7 @@ export function ComplianceRiskView({
                           <small style={{ color: "var(--text-muted)" }}>Due: {String(r.due_date ?? "—")}</small>
                         </td>
                         <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                          <span style={{ background: r.status === "mitigating" ? "#dbeafe" : "#fef3c7", color: r.status === "mitigating" ? "#1e40af" : "#92400e", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>
+                          <span style={{ background: r.status === "mitigating" ? "var(--color-blue-bg)" : "var(--color-amber-bg)", color: r.status === "mitigating" ? "var(--color-info-deep)" : "var(--color-amber-strong)", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>
                             {String(r.status ?? "open")}
                           </span>
                         </td>

@@ -55,9 +55,9 @@ export function InteractiveSCurve({ data }: { data: SCurvePoint[] }) {
         </div>
         {activePoint && (
           <div style={{ display: "flex", gap: 12, fontSize: 12, fontWeight: 700 }}>
-            <span style={{ color: "#94a3b8" }}>Planned: {activePoint.planned}%</span>
-            <span style={{ color: "#10b981" }}>Actual: {activePoint.actual}%</span>
-            <span style={{ color: activePoint.actual >= activePoint.planned ? "#10b981" : "#ef4444" }}>
+            <span style={{ color: "var(--color-slate-400)" }}>Planned: {activePoint.planned}%</span>
+            <span style={{ color: "var(--color-emerald)" }}>Actual: {activePoint.actual}%</span>
+            <span style={{ color: activePoint.actual >= activePoint.planned ? "var(--color-emerald)" : "var(--color-danger)" }}>
               Variance: {(activePoint.actual - activePoint.planned).toFixed(1)}%
             </span>
           </div>
@@ -71,8 +71,8 @@ export function InteractiveSCurve({ data }: { data: SCurvePoint[] }) {
             const y = paddingTop + chartH - (v / 100) * chartH;
             return (
               <g key={v}>
-                <line x1={paddingLeft} y1={y} x2={width - paddingRight} y2={y} stroke="var(--border)" strokeDasharray="3 3" />
-                <text x={paddingLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill="var(--muted)">{v}%</text>
+                <line x1={paddingLeft} y1={y} x2={width - paddingRight} y2={y} stroke="#cbd5e1" strokeDasharray="3 3" />
+                <text x={paddingLeft - 8} y={y + 4} textAnchor="end" fontSize="10" fill="#64748b">{v}%</text>
               </g>
             );
           })}
@@ -92,7 +92,7 @@ export function InteractiveSCurve({ data }: { data: SCurvePoint[] }) {
               <g key={idx} onMouseEnter={() => setHoverIdx(idx)} onMouseLeave={() => setHoverIdx(null)} style={{ cursor: "pointer" }}>
                 <circle cx={px} cy={py} r={isHovered ? 6 : 3} fill="#94a3b8" />
                 <circle cx={ax} cy={ay} r={isHovered ? 7 : 4} fill="#10b981" stroke="#ffffff" strokeWidth="2" />
-                <text x={ax} y={height - 8} textAnchor="middle" fontSize="9" fill="var(--muted)">
+                <text x={ax} y={height - 8} textAnchor="middle" fontSize="9" fill="#64748b">
                   {p.date}
                 </text>
               </g>

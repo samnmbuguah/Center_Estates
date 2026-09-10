@@ -108,10 +108,10 @@ export function RequisitionsView({ rows, loading, error, search, setSearch, orga
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2, width: "100%" }}>
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2, 1fr)", md: "repeat(4, 1fr)" }, gap: 1.5 }}>
         {[
-          { label: "Total", value: kpis.total, color: "#6366f1", icon: "📝" },
-          { label: "Awaiting Approval", value: kpis.pending, color: kpis.pending > 0 ? "#d97706" : "#94a3b8", icon: "⏳" },
-          { label: "Approved", value: kpis.approved, color: "#2563eb", icon: "✓" },
-          { label: "Converted to WO", value: kpis.converted, color: "#16a34a", icon: "🔧" },
+          { label: "Total", value: kpis.total, color: "var(--color-indigo-strong)", icon: "📝" },
+          { label: "Awaiting Approval", value: kpis.pending, color: kpis.pending > 0 ? "var(--color-warning)" : "var(--color-slate-400)", icon: "⏳" },
+          { label: "Approved", value: kpis.approved, color: "var(--color-info)", icon: "✓" },
+          { label: "Converted to WO", value: kpis.converted, color: "var(--color-success)", icon: "🔧" },
         ].map((k, i) => (
           <Paper key={i} variant="outlined" sx={{ p: 1.75, borderRadius: 2.5, borderTop: "3px solid", borderTopColor: k.color }}>
             <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
@@ -159,7 +159,7 @@ export function RequisitionsView({ rows, loading, error, search, setSearch, orga
                 {requisitions.map((r) => (
                   <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <td style={{ padding: "12px 14px" }}>
-                      <div className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, #dc2626)" }}>{r.code}</div>
+                      <div className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, var(--color-danger))" }}>{r.code}</div>
                       {r.service_request_reference && <div style={{ fontSize: 11, color: "text.secondary" }}>from {r.service_request_reference}</div>}
                     </td>
                     <td style={{ padding: "12px 14px" }}>
@@ -174,7 +174,7 @@ export function RequisitionsView({ rows, loading, error, search, setSearch, orga
                     <td style={{ padding: "12px 14px" }}>
                       <StatusPill value={r.status} />
                       {r.work_order_number && <div className="mono" style={{ fontSize: 11, color: "text.secondary", marginTop: 2 }}>→ {r.work_order_number}</div>}
-                      {r.rejected_reason && <div style={{ fontSize: 11, color: "var(--error, #dc2626)", marginTop: 2 }}>{r.rejected_reason}</div>}
+                      {r.rejected_reason && <div style={{ fontSize: 11, color: "var(--error, var(--color-danger))", marginTop: 2 }}>{r.rejected_reason}</div>}
                     </td>
                     <td style={{ padding: "12px 14px", textAlign: "right" }}>
                       <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>

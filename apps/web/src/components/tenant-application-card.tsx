@@ -473,7 +473,7 @@ export function TenantApplicationCard({
               disabled={saving}
               onClick={submit}
               sx={{
-                bgcolor: "#e23b3b",
+                bgcolor: "var(--color-brand-red)",
                 "&:hover": { bgcolor: "#cc2b2b" },
                 fontWeight: 800,
                 px: 3,
@@ -881,7 +881,7 @@ export function TenantApplicationCard({
                 p: 3,
                 borderRadius: 3,
                 background: "var(--surface)",
-                borderTop: "4px solid #3b82f6",
+                borderTop: "4px solid var(--color-blue)",
                 boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
               }}
             >
@@ -914,7 +914,7 @@ export function TenantApplicationCard({
                       <Typography
                         variant="body2"
                         sx={{
-                          color: isTotal ? "#1d4ed8" : "var(--text-secondary)",
+                          color: isTotal ? "var(--color-info-strong)" : "var(--text-secondary)",
                           fontWeight: isTotal ? 800 : isSubtotal ? 700 : 500,
                           fontSize: isTotal ? 14 : 12,
                         }}
@@ -926,7 +926,7 @@ export function TenantApplicationCard({
                         sx={{
                           fontWeight: isTotal ? 900 : isSubtotal ? 800 : 600,
                           fontSize: isTotal ? 16 : 13,
-                          color: isTotal ? "#1d4ed8" : "var(--text)",
+                          color: isTotal ? "var(--color-info-strong)" : "var(--text)",
                         }}
                       >
                         {money(val)}
@@ -957,7 +957,7 @@ export function TenantApplicationCard({
                 </Box>
                 <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: "var(--text-secondary)" }}>Draft Status:</span>
-                  <span style={{ color: "#16a34a", fontWeight: 700 }}>● Auto-Saved</span>
+                  <span style={{ color: "var(--color-success)", fontWeight: 700 }}>● Auto-Saved</span>
                 </Box>
               </Stack>
             </Paper>
@@ -970,7 +970,7 @@ export function TenantApplicationCard({
               disabled={saving}
               onClick={submit}
               sx={{
-                bgcolor: "#e23b3b",
+                bgcolor: "var(--color-brand-red)",
                 "&:hover": { bgcolor: "#cc2b2b" },
                 fontWeight: 800,
                 py: 1.5,

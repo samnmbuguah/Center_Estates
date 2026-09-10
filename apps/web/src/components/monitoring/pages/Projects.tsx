@@ -83,7 +83,7 @@ export function Projects() {
         </div>
 
         <div style={{ display: "flex", gap: "10px" }}>
-          <button className="btn btn-primary" style={{ background: "#d92d2d", borderColor: "#d92d2d" }} onClick={() => navigate("/app/onboarding")}>
+          <button className="btn btn-primary" style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }} onClick={() => navigate("/app/onboarding")}>
             <Plus size={15} style={{ marginRight: "4px" }} /> + Onboard Project
           </button>
         </div>
@@ -107,7 +107,7 @@ export function Projects() {
                 onClick={() => setStageFilter(tab.id)}
                 className={`btn sm ${stageFilter === tab.id ? "primary" : "ghost"}`}
                 style={{
-                  background: stageFilter === tab.id ? "#00a3ff" : "var(--surface-2)",
+                  background: stageFilter === tab.id ? "var(--color-brand-blue)" : "var(--surface-2)",
                   color: stageFilter === tab.id ? "#fff" : "var(--muted)",
                   border: "1px solid var(--border)",
                   fontSize: "12px",
@@ -206,7 +206,7 @@ export function Projects() {
           {filtered.map((p) => {
             const budgetVal = Number(p.budget || p.tender_amount || 0);
             const progress = typeof p.physical_progress === "number" ? p.physical_progress : null;
-            const healthColor = p.health === "Delayed" ? "#ef4444" : p.health === "At Risk" ? "#f59e0b" : p.health === "On Track" ? "#10b981" : "#94a3b8";
+            const healthColor = p.health === "Delayed" ? "var(--color-danger)" : p.health === "At Risk" ? "var(--color-amber)" : p.health === "On Track" ? "var(--color-emerald)" : "var(--color-slate-400)";
 
             const imgMap: Record<string, string> = {
               "proj-a": "/images/site_inspection.png",
@@ -258,7 +258,7 @@ export function Projects() {
                   {p.health && (
                     <span style={{
                       position: "absolute", top: 10, right: 10, fontSize: "11px",
-                      padding: "3px 8px", borderRadius: "12px", background: `${healthColor}dd`,
+                      padding: "3px 8px", borderRadius: "12px", background: `color-mix(in srgb, ${healthColor} 87%, transparent)`,
                       color: "#ffffff", fontWeight: 700,
                     }}>
                       {p.health}
@@ -300,10 +300,10 @@ export function Projects() {
                 <div style={{ padding: "0 16px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "4px" }}>
                     <span style={{ color: "var(--muted)" }}>Physical Progress</span>
-                    <strong style={{ color: "#00a3ff", fontFamily: "IBM Plex Mono" }}>{progress != null ? `${progress}%` : "—"}</strong>
+                    <strong style={{ color: "var(--color-brand-blue)", fontFamily: "IBM Plex Mono" }}>{progress != null ? `${progress}%` : "—"}</strong>
                   </div>
                   <div style={{ width: "100%", height: "8px", background: "var(--surface-3)", borderRadius: "4px", overflow: "hidden", marginBottom: "12px" }}>
-                    <div style={{ width: `${progress ?? 0}%`, height: "100%", background: progress != null ? "#00a3ff" : "transparent", borderRadius: "4px" }} />
+                    <div style={{ width: `${progress ?? 0}%`, height: "100%", background: progress != null ? "var(--color-brand-blue)" : "transparent", borderRadius: "4px" }} />
                   </div>
 
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", paddingTop: "8px", borderTop: "1px solid var(--border)" }}>
@@ -315,7 +315,7 @@ export function Projects() {
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ color: "var(--muted)", fontSize: "11px" }}>Stage</div>
-                      <strong style={{ fontFamily: "IBM Plex Mono", color: "#10b981" }}>{(p.stage || "—").replace(/_/g, " ")}</strong>
+                      <strong style={{ fontFamily: "IBM Plex Mono", color: "var(--color-emerald)" }}>{(p.stage || "—").replace(/_/g, " ")}</strong>
                     </div>
                   </div>
                 </div>
@@ -324,7 +324,7 @@ export function Projects() {
                 <div style={{ display: "flex", gap: "8px", marginTop: "4px", padding: "0 16px" }}>
                   <button
                     className="btn btn-primary"
-                    style={{ flex: 1, background: "#00a3ff", borderColor: "#00a3ff", fontSize: "12px" }}
+                    style={{ flex: 1, background: "var(--color-brand-blue)", borderColor: "var(--color-brand-blue)", fontSize: "12px" }}
                     onClick={() => {
                       sessionStorage.setItem("activeProject", p.id);
                       navigate(`/app/workspace/${p.id}`);
@@ -376,14 +376,14 @@ export function Projects() {
                   <td style={{ padding: "10px", color: "var(--muted)" }}>{p.location || "—"}</td>
                   <td style={{ padding: "10px" }}>{p.client || "—"}</td>
                   <td style={{ padding: "10px", fontFamily: "IBM Plex Mono" }}>{b > 0 ? `KSh ${(b / 1000000).toFixed(1)}M` : "—"}</td>
-                  <td style={{ padding: "10px", fontFamily: "IBM Plex Mono", color: "#00a3ff", fontWeight: 700 }}>{prog != null ? `${prog}%` : "—"}</td>
+                  <td style={{ padding: "10px", fontFamily: "IBM Plex Mono", color: "var(--color-brand-blue)", fontWeight: 700 }}>{prog != null ? `${prog}%` : "—"}</td>
                   <td style={{ padding: "10px" }}>
-                    <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "12px", background: "rgba(0,163,255,0.12)", color: "#00a3ff", fontWeight: 600 }}>
+                    <span style={{ fontSize: "11px", padding: "2px 8px", borderRadius: "12px", background: "rgba(0,163,255,0.12)", color: "var(--color-brand-blue)", fontWeight: 600 }}>
                       {(p.stage || "—").replace(/_/g, " ")}
                     </span>
                   </td>
                   <td style={{ padding: "10px", textAlign: "right" }}>
-                    <button className="btn sm ghost" style={{ color: "#00a3ff" }} onClick={() => {
+                    <button className="btn sm ghost" style={{ color: "var(--color-brand-blue)" }} onClick={() => {
                       sessionStorage.setItem("activeProject", p.id);
                       navigate(`/app/workspace/${p.id}`);
                     }}>

@@ -189,15 +189,15 @@ export function UnitFloorPlanCanvas({
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case "occupied":
-        return { fill: "rgba(37, 99, 235, 0.45)", stroke: "#2563eb", badge: "#1d4ed8", bg: "#dbeafe" };
+        return { fill: "rgba(37, 99, 235, 0.45)", stroke: "var(--color-info)", badge: "var(--color-info-strong)", bg: "var(--color-blue-bg)" };
       case "available":
-        return { fill: "rgba(22, 163, 74, 0.45)", stroke: "#16a34a", badge: "#15803d", bg: "#dcfce7" };
+        return { fill: "rgba(22, 163, 74, 0.45)", stroke: "var(--color-success)", badge: "var(--color-success-strong)", bg: "var(--color-green-bg)" };
       case "reserved":
-        return { fill: "rgba(217, 119, 6, 0.45)", stroke: "#d97706", badge: "#b45309", bg: "#fef3c7" };
+        return { fill: "rgba(217, 119, 6, 0.45)", stroke: "var(--color-warning)", badge: "var(--color-amber-deep)", bg: "var(--color-amber-bg)" };
       case "sold":
-        return { fill: "rgba(147, 51, 234, 0.45)", stroke: "#9333ea", badge: "#7e22ce", bg: "#f3e8ff" };
+        return { fill: "rgba(147, 51, 234, 0.45)", stroke: "var(--color-purple)", badge: "#7e22ce", bg: "#f3e8ff" };
       default:
-        return { fill: "rgba(100, 116, 139, 0.35)", stroke: "#64748b", badge: "#475569", bg: "#f1f5f9" };
+        return { fill: "rgba(100, 116, 139, 0.35)", stroke: "var(--color-slate-500)", badge: "var(--color-slate-600)", bg: "var(--color-slate-100)" };
     }
   };
 
@@ -226,7 +226,7 @@ export function UnitFloorPlanCanvas({
         sx={{
           p: 1.5,
           borderBottom: "1px solid var(--border)",
-          background: "var(--surface-sunken, #f8fafc)",
+          background: "var(--surface-sunken, var(--color-slate-50))",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -249,9 +249,9 @@ export function UnitFloorPlanCanvas({
           {/* Status Legend */}
           <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", gap: 1.5, mr: 1 }}>
             {[
-              { label: "Available", color: "#16a34a" },
-              { label: "Occupied", color: "#2563eb" },
-              { label: "Reserved", color: "#d97706" },
+              { label: "Available", color: "var(--color-success)" },
+              { label: "Occupied", color: "var(--color-info)" },
+              { label: "Reserved", color: "var(--color-warning)" },
             ].map((st) => (
               <Box key={st.label} sx={{ display: "flex", alignItems: "center", gap: 0.5, fontSize: 11, fontWeight: 700 }}>
                 <Box sx={{ width: 10, height: 10, borderRadius: "50%", background: st.color }} />
@@ -362,7 +362,7 @@ export function UnitFloorPlanCanvas({
           height,
           position: "relative",
           overflow: "hidden",
-          background: "radial-gradient(#e2e8f0 1px, transparent 1px)",
+          background: "radial-gradient(var(--color-slate-200) 1px, transparent 1px)",
           backgroundSize: "20px 20px",
           cursor: isPanning ? "grabbing" : mode !== "view" ? "crosshair" : "grab",
           display: "flex",
@@ -398,12 +398,12 @@ export function UnitFloorPlanCanvas({
               sx={{
                 width: "100%",
                 height: "100%",
-                border: "2px dashed #cbd5e1",
+                border: "2px dashed var(--color-slate-300)",
                 borderRadius: 2,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#94a3b8",
+                color: "var(--color-slate-400)",
               }}
             >
               <Typography variant="body2">Architectural floor plan canvas grid</Typography>
@@ -503,7 +503,7 @@ export function UnitFloorPlanCanvas({
                     cx={p.x * 1000}
                     cy={p.y * 1000}
                     r={i === 0 ? 8 : 5}
-                    fill={i === 0 ? "#16a34a" : "#ef4444"}
+                    fill={i === 0 ? "var(--color-success)" : "var(--color-danger)"}
                     stroke="#fff"
                     strokeWidth="2"
                   />

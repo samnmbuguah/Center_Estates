@@ -143,7 +143,7 @@ export function Finance() {
             <h1 style={{ margin: 0, fontSize: "22px", fontWeight: 700, color: "var(--text)" }}>
               {projects.find((p) => p.id === projectFilter)?.name || "Financial Monitoring"}
             </h1>
-            <span style={{ background: "rgba(16, 185, 129, 0.15)", color: "#10b981", padding: "2px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: 600, border: "1px solid rgba(16, 185, 129, 0.3)" }}>
+            <span style={{ background: "rgba(16, 185, 129, 0.15)", color: "var(--color-emerald)", padding: "2px 8px", borderRadius: "12px", fontSize: "11px", fontWeight: 600, border: "1px solid rgba(16, 185, 129, 0.3)" }}>
               Live data
             </span>
           </div>
@@ -169,7 +169,7 @@ export function Finance() {
           </button>
           <button
             className="btn btn-primary"
-            style={{ background: "#d92d2d", borderColor: "#d92d2d" }}
+            style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }}
             onClick={() => projectFilter && navigate(`/app/projects/${projectFilter}/generate-ipc`)}
             disabled={!projectFilter}
           >
@@ -187,30 +187,30 @@ export function Finance() {
 
         <div className="card" style={{ padding: "16px", background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "4px" }}>Certified to Date</div>
-          <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "IBM Plex Mono", color: "#00a3ff" }}>{money(certifiedToDateVal)}</div>
+          <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "IBM Plex Mono", color: "var(--color-brand-blue)" }}>{money(certifiedToDateVal)}</div>
           <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>{certifiedPercentVal}% of Contract Sum</div>
         </div>
 
         <div className="card" style={{ padding: "16px", background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "4px" }}>Paid to Date</div>
-          <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "IBM Plex Mono", color: "#10b981" }}>{money(paidToDateVal)}</div>
+          <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "IBM Plex Mono", color: "var(--color-emerald)" }}>{money(paidToDateVal)}</div>
           <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>{paidPercentVal}% of Certified</div>
         </div>
 
         <div className="card" style={{ padding: "16px", background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "4px" }}>Balance to be Paid</div>
-          <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "IBM Plex Mono", color: "#f59e0b" }}>{money(balanceToBePaidVal)}</div>
+          <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "IBM Plex Mono", color: "var(--color-amber)" }}>{money(balanceToBePaidVal)}</div>
         </div>
 
         <div className="card" style={{ padding: "16px", background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "4px" }}>Budget Utilization</div>
-          <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "IBM Plex Mono", color: "#10b981" }}>{certifiedPercentVal}%</div>
-          <div style={{ fontSize: "11px", color: "#10b981", marginTop: "2px" }}>On Track</div>
+          <div style={{ fontSize: "20px", fontWeight: 700, fontFamily: "IBM Plex Mono", color: "var(--color-emerald)" }}>{certifiedPercentVal}%</div>
+          <div style={{ fontSize: "11px", color: "var(--color-emerald)", marginTop: "2px" }}>On Track</div>
         </div>
 
         <div className="card" style={{ padding: "16px", background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "4px" }}>Overall Financial Health</div>
-          <div style={{ fontSize: "20px", fontWeight: 700, color: "#10b981" }}>Good</div>
+          <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--color-emerald)" }}>Good</div>
         </div>
       </div>
 
@@ -222,36 +222,36 @@ export function Finance() {
             <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "IBM Plex Mono" }}>KSh 42.60M</div>
             <div style={{ fontSize: "10px", color: "var(--muted)" }}>of KSh 112.00M</div>
           </div>
-          <div style={{ width: "36px", height: "36px", borderRadius: "50%", border: "3px solid #00a3ff", display: "grid", placeItems: "center", fontSize: "11px", fontWeight: 700 }}>38%</div>
+          <div style={{ width: "36px", height: "36px", borderRadius: "50%", border: "3px solid var(--color-brand-blue)", display: "grid", placeItems: "center", fontSize: "11px", fontWeight: 700 }}>38%</div>
         </div>
 
         <div className="card" style={{ padding: "14px", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: "11px", color: "#d97706" }}>Contingency Drawdown Utilization</div>
+            <div style={{ fontSize: "11px", color: "var(--color-warning)" }}>Contingency Drawdown Utilization</div>
             <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "IBM Plex Mono" }}>KSh 8.50M</div>
             <div style={{ fontSize: "10px", color: "var(--muted)" }}>of KSh 35.00M</div>
           </div>
-          <div style={{ width: "36px", height: "36px", borderRadius: "50%", border: "3px solid #10b981", display: "grid", placeItems: "center", fontSize: "11px", fontWeight: 700 }}>24%</div>
+          <div style={{ width: "36px", height: "36px", borderRadius: "50%", border: "3px solid var(--color-emerald)", display: "grid", placeItems: "center", fontSize: "11px", fontWeight: 700 }}>24%</div>
         </div>
 
         <div className="card" style={{ padding: "14px", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: "11px", color: "#7c3aed" }}>Advance Payments &amp; Recovery</div>
+            <div style={{ fontSize: "11px", color: "var(--color-violet)" }}>Advance Payments &amp; Recovery</div>
             <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "IBM Plex Mono" }}>KSh 76.00M</div>
             <div style={{ fontSize: "10px", color: "var(--muted)" }}>of KSh 125.00M</div>
           </div>
-          <div style={{ width: "36px", height: "36px", borderRadius: "50%", border: "3px solid #f59e0b", display: "grid", placeItems: "center", fontSize: "11px", fontWeight: 700 }}>61%</div>
+          <div style={{ width: "36px", height: "36px", borderRadius: "50%", border: "3px solid var(--color-amber)", display: "grid", placeItems: "center", fontSize: "11px", fontWeight: 700 }}>61%</div>
         </div>
 
         <div className="card" style={{ padding: "14px", background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div style={{ fontSize: "11px", color: "var(--muted)" }}>Retention Held</div>
-          <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "IBM Plex Mono", color: "#f59e0b" }}>KSh 49.20M</div>
+          <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "IBM Plex Mono", color: "var(--color-amber)" }}>KSh 49.20M</div>
           <div style={{ fontSize: "10px", color: "var(--muted)" }}>2.66% of Contract Sum</div>
         </div>
 
         <div className="card" style={{ padding: "14px", background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div style={{ fontSize: "11px", color: "var(--muted)" }}>Variation Orders</div>
-          <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "IBM Plex Mono", color: "#d92d2d" }}>KSh 72.00M</div>
+          <div style={{ fontSize: "16px", fontWeight: 700, fontFamily: "IBM Plex Mono", color: "var(--color-danger)" }}>KSh 72.00M</div>
           <div style={{ fontSize: "10px", color: "var(--muted)" }}>3.89% of Contract Sum</div>
         </div>
       </div>
@@ -260,9 +260,9 @@ export function Finance() {
       <div className="card" style={{ padding: 18, borderTop: "3px solid var(--primary)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}><div><h3 style={{ margin: 0 }}>Funding &amp; Deductions Summary</h3><div className="muted" style={{ fontSize: 12, marginTop: 3 }}>Separate cash releases, contingency use, and contractor advance recovery.</div></div><span className="badge">Project view</span></div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-          <div className="card" style={{ padding: 12, borderLeft: "3px solid #2563eb" }}><strong style={{ color: "#2563eb" }}>Funding Drawdowns</strong><div className="muted fs-sm">Requested {money(fundingRequested)}</div><div className="muted fs-sm">Approved {money(fundingApproved)}</div><div className="fs-sm">Disbursed <b>{money(fundingDisbursed)}</b></div></div>
-          <div className="card" style={{ padding: 12, borderLeft: "3px solid #d97706" }}><strong style={{ color: "#d97706" }}>Contingency Drawdowns</strong><div className="muted fs-sm">Used {money(contingencyUsed)}</div><div className="fs-sm">Approved records <b>{contingencyList.filter(c => c.status === "approved").length}</b></div><div className="muted fs-sm">Allowance tracked in Cost Dashboard</div></div>
-          <div className="card" style={{ padding: 12, borderLeft: "3px solid #7c3aed" }}><strong style={{ color: "#7c3aed" }}>Advance Recovery</strong><div className="muted fs-sm">Recovered {money(advanceRecovered)}</div><div className="fs-sm">Outstanding <b>{money(advanceOutstanding)}</b></div><div className="muted fs-sm">Recovered through IPC deductions</div></div>
+          <div className="card" style={{ padding: 12, borderLeft: "3px solid var(--color-info)" }}><strong style={{ color: "var(--color-info)" }}>Funding Drawdowns</strong><div className="muted fs-sm">Requested {money(fundingRequested)}</div><div className="muted fs-sm">Approved {money(fundingApproved)}</div><div className="fs-sm">Disbursed <b>{money(fundingDisbursed)}</b></div></div>
+          <div className="card" style={{ padding: 12, borderLeft: "3px solid var(--color-warning)" }}><strong style={{ color: "var(--color-warning)" }}>Contingency Drawdowns</strong><div className="muted fs-sm">Used {money(contingencyUsed)}</div><div className="fs-sm">Approved records <b>{contingencyList.filter(c => c.status === "approved").length}</b></div><div className="muted fs-sm">Allowance tracked in Cost Dashboard</div></div>
+          <div className="card" style={{ padding: 12, borderLeft: "3px solid var(--color-violet)" }}><strong style={{ color: "var(--color-violet)" }}>Advance Recovery</strong><div className="muted fs-sm">Recovered {money(advanceRecovered)}</div><div className="fs-sm">Outstanding <b>{money(advanceOutstanding)}</b></div><div className="muted fs-sm">Recovered through IPC deductions</div></div>
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "20px" }}>
@@ -272,7 +272,7 @@ export function Finance() {
           <div className="card" style={{ padding: "18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
               <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700 }}>PAYMENT CERTIFICATES</h3>
-              <span style={{ fontSize: "12px", color: "#00a3ff", cursor: "pointer" }} onClick={() => navigate(`/app/projects/${projectFilter}/generate-ipc`)}>View all certificates →</span>
+              <span style={{ fontSize: "12px", color: "var(--color-brand-blue)", cursor: "pointer" }} onClick={() => navigate(`/app/projects/${projectFilter}/generate-ipc`)}>View all certificates →</span>
             </div>
 
             <div style={{ overflowX: "auto" }}>
@@ -296,11 +296,11 @@ export function Finance() {
                       <td style={{ padding: "8px", fontWeight: 700 }}>{cert.no}</td>
                       <td style={{ padding: "8px", color: "var(--muted)" }}>{cert.period}</td>
                       <td style={{ padding: "8px", fontFamily: "IBM Plex Mono" }}>{cert.gross.toLocaleString()}</td>
-                      <td style={{ padding: "8px", fontFamily: "IBM Plex Mono", color: "#f59e0b" }}>{cert.retention.toLocaleString()}</td>
-                      <td style={{ padding: "8px", fontFamily: "IBM Plex Mono", color: "#00a3ff" }}>{cert.advance.toLocaleString()}</td>
-                      <td style={{ padding: "8px", fontFamily: "IBM Plex Mono", fontWeight: 700, color: "#10b981" }}>{cert.net.toLocaleString()}</td>
+                      <td style={{ padding: "8px", fontFamily: "IBM Plex Mono", color: "var(--color-amber)" }}>{cert.retention.toLocaleString()}</td>
+                      <td style={{ padding: "8px", fontFamily: "IBM Plex Mono", color: "var(--color-brand-blue)" }}>{cert.advance.toLocaleString()}</td>
+                      <td style={{ padding: "8px", fontFamily: "IBM Plex Mono", fontWeight: 700, color: "var(--color-emerald)" }}>{cert.net.toLocaleString()}</td>
                       <td style={{ padding: "8px" }}>
-                        <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(16, 185, 129, 0.15)", color: "#10b981", fontWeight: 600 }}>{cert.status}</span>
+                        <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(16, 185, 129, 0.15)", color: "var(--color-emerald)", fontWeight: 600 }}>{cert.status}</span>
                       </td>
                       <td style={{ padding: "8px", color: "var(--muted)" }}>{cert.paidOn}</td>
                       <td style={{ padding: "8px", textAlign: "center" }}><Eye size={14} style={{ cursor: "pointer", color: "var(--muted)" }} onClick={() => navigate(`/app/projects/${projectFilter}/generate-ipc`)} /></td>
@@ -317,7 +317,7 @@ export function Finance() {
             <div className="card" style={{ padding: "16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                 <h4 style={{ margin: 0, fontSize: "14px" }}>PROVISIONAL SUM REGISTER</h4>
-                <span style={{ fontSize: "11px", color: "#00a3ff", cursor: "pointer" }} onClick={() => navigate(`/app/projects/${projectFilter}/provisional-sums`)}>View all →</span>
+                <span style={{ fontSize: "11px", color: "var(--color-brand-blue)", cursor: "pointer" }} onClick={() => navigate(`/app/projects/${projectFilter}/provisional-sums`)}>View all →</span>
               </div>
               <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse" }}>
                 <thead>
@@ -335,8 +335,8 @@ export function Finance() {
                       <td style={{ padding: "6px", fontWeight: 600 }}>{ps.item}</td>
                       <td style={{ padding: "6px", textAlign: "right", fontFamily: "IBM Plex Mono" }}>{(ps.budget/1000000).toFixed(1)}M</td>
                       <td style={{ padding: "6px", textAlign: "right", fontFamily: "IBM Plex Mono" }}>{(ps.spent/1000000).toFixed(1)}M</td>
-                      <td style={{ padding: "6px", textAlign: "right", fontFamily: "IBM Plex Mono", color: "#10b981" }}>{(ps.balance/1000000).toFixed(1)}M</td>
-                      <td style={{ padding: "6px", textAlign: "right", fontWeight: 700, color: ps.usedPct > 50 ? "#f59e0b" : "#00a3ff" }}>{ps.usedPct}%</td>
+                      <td style={{ padding: "6px", textAlign: "right", fontFamily: "IBM Plex Mono", color: "var(--color-emerald)" }}>{(ps.balance/1000000).toFixed(1)}M</td>
+                      <td style={{ padding: "6px", textAlign: "right", fontWeight: 700, color: ps.usedPct > 50 ? "var(--color-amber)" : "var(--color-brand-blue)" }}>{ps.usedPct}%</td>
                     </tr>
                   ))}
                 </tbody>
@@ -347,7 +347,7 @@ export function Finance() {
             <div className="card" style={{ padding: "16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
                 <div><h4 style={{ margin: 0, fontSize: "14px" }}>CONTINGENCY DRAWDOWNS</h4><div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>Uses approved contingency allowance for unforeseen costs.</div></div>
-                <span style={{ fontSize: "11px", color: "#00a3ff", cursor: "pointer" }} onClick={() => navigate(`/app/projects/${projectFilter}/contingency-drawdowns`)}>View all →</span>
+                <span style={{ fontSize: "11px", color: "var(--color-brand-blue)", cursor: "pointer" }} onClick={() => navigate(`/app/projects/${projectFilter}/contingency-drawdowns`)}>View all →</span>
               </div>
               <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse" }}>
                 <thead>
@@ -380,15 +380,15 @@ export function Finance() {
             <h4 style={{ margin: "0 0 12px", fontSize: "13px", fontWeight: 700, letterSpacing: "0.05em", color: "var(--muted)" }}>FINANCIAL SUMMARY</h4>
             <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "12px" }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span>Contract Sum</span><strong style={{ fontFamily: "IBM Plex Mono" }}>{money(contractSumVal)}</strong></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Approved Variations</span><strong style={{ fontFamily: "IBM Plex Mono", color: "#d92d2d" }}>{money(Number(costDashboard?.approved_variations || 0))}</strong></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Approved Variations</span><strong style={{ fontFamily: "IBM Plex Mono", color: "var(--color-danger)" }}>{money(Number(costDashboard?.approved_variations || 0))}</strong></div>
               <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "4px", borderTop: "1px solid var(--border)" }}><span>Revised Contract Sum</span><strong style={{ fontFamily: "IBM Plex Mono" }}>{money(contractSumVal + Number(costDashboard?.approved_variations || 0))}</strong></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Certified to Date</span><strong style={{ fontFamily: "IBM Plex Mono", color: "#00a3ff" }}>{money(certifiedToDateVal)}</strong></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Paid to Date</span><strong style={{ fontFamily: "IBM Plex Mono", color: "#10b981" }}>{money(paidToDateVal)}</strong></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Balance to be Paid</span><strong style={{ fontFamily: "IBM Plex Mono", color: "#f59e0b" }}>{money(balanceToBePaidVal)}</strong></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Certified to Date</span><strong style={{ fontFamily: "IBM Plex Mono", color: "var(--color-brand-blue)" }}>{money(certifiedToDateVal)}</strong></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Paid to Date</span><strong style={{ fontFamily: "IBM Plex Mono", color: "var(--color-emerald)" }}>{money(paidToDateVal)}</strong></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Balance to be Paid</span><strong style={{ fontFamily: "IBM Plex Mono", color: "var(--color-amber)" }}>{money(balanceToBePaidVal)}</strong></div>
               <div style={{ display: "flex", justifyContent: "space-between" }}><span>Retention Held</span><strong style={{ fontFamily: "IBM Plex Mono" }}>{money(Number(costDashboard?.retention_held || 0))}</strong></div>
-              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Advance Outstanding</span><strong style={{ fontFamily: "IBM Plex Mono", color: "#ef4444" }}>{money(Number(costDashboard?.advance_outstanding || 0))}</strong></div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}><span>Advance Outstanding</span><strong style={{ fontFamily: "IBM Plex Mono", color: "var(--color-danger)" }}>{money(Number(costDashboard?.advance_outstanding || 0))}</strong></div>
             </div>
-            <div onClick={downloadFinancialReport} role="button" tabIndex={0} style={{ marginTop: "14px", fontSize: "11px", color: "#00a3ff", cursor: "pointer", textAlign: "center", fontWeight: 600 }}>
+            <div onClick={downloadFinancialReport} role="button" tabIndex={0} style={{ marginTop: "14px", fontSize: "11px", color: "var(--color-brand-blue)", cursor: "pointer", textAlign: "center", fontWeight: 600 }}>
               View Full Financial Status Report →
             </div>
           </div>
@@ -397,31 +397,31 @@ export function Finance() {
           <div className="card" style={{ padding: "16px", background: "var(--surface)", border: "1px solid var(--border)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
               <h4 style={{ margin: 0, fontSize: "13px", fontWeight: 700, letterSpacing: "0.05em", color: "var(--muted)" }}>ALERTS & ACTIONS</h4>
-              <span style={{ fontSize: "11px", color: "#00a3ff" }}>View all →</span>
+              <span style={{ fontSize: "11px", color: "var(--color-brand-blue)" }}>View all →</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "11px" }}>
-              <div style={{ background: "rgba(239, 68, 68, 0.1)", borderLeft: "3px solid #ef4444", padding: "8px", borderRadius: "4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ background: "rgba(239, 68, 68, 0.1)", borderLeft: "3px solid var(--color-danger)", padding: "8px", borderRadius: "4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <strong style={{ color: "#ef4444" }}>Advance recovery is 61%</strong>
+                  <strong style={{ color: "var(--color-danger)" }}>Advance recovery is 61%</strong>
                   <div style={{ color: "var(--muted)" }}>Recover KSh 49.00M more</div>
                 </div>
-                <button className="btn sm" style={{ background: "#ef4444", color: "#fff", border: "none", fontSize: "10px", padding: "2px 8px" }}>Action</button>
+                <button className="btn sm" style={{ background: "var(--color-danger)", color: "#fff", border: "none", fontSize: "10px", padding: "2px 8px" }}>Action</button>
               </div>
 
-              <div style={{ background: "rgba(0, 163, 255, 0.1)", borderLeft: "3px solid #00a3ff", padding: "8px", borderRadius: "4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ background: "rgba(0, 163, 255, 0.1)", borderLeft: "3px solid var(--color-brand-blue)", padding: "8px", borderRadius: "4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <strong style={{ color: "#00a3ff" }}>Contingency utilization at 24%</strong>
+                  <strong style={{ color: "var(--color-brand-blue)" }}>Contingency utilization at 24%</strong>
                   <div style={{ color: "var(--muted)" }}>Monitor usage</div>
                 </div>
                 <button className="btn sm" style={{ background: "var(--surface-2)", color: "var(--text)", border: "1px solid var(--border)", fontSize: "10px", padding: "2px 8px" }}>Info</button>
               </div>
 
-              <div style={{ background: "rgba(245, 158, 11, 0.1)", borderLeft: "3px solid #f59e0b", padding: "8px", borderRadius: "4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ background: "rgba(245, 158, 11, 0.1)", borderLeft: "3px solid var(--color-amber)", padding: "8px", borderRadius: "4px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <strong style={{ color: "#f59e0b" }}>2 CFO invoices pending approval</strong>
+                  <strong style={{ color: "var(--color-amber)" }}>2 CFO invoices pending approval</strong>
                   <div style={{ color: "var(--muted)" }}>Total KSh 1.85M</div>
                 </div>
-                <button className="btn sm" style={{ background: "#f59e0b", color: "#fff", border: "none", fontSize: "10px", padding: "2px 8px" }}>Action</button>
+                <button className="btn sm" style={{ background: "var(--color-amber)", color: "#fff", border: "none", fontSize: "10px", padding: "2px 8px" }}>Action</button>
               </div>
             </div>
           </div>
@@ -438,7 +438,7 @@ export function Finance() {
             "Cash Flow Report", "Complete Financial Audit Report"
           ].map((rpt, idx) => (
             <button key={idx} onClick={downloadFinancialReport} style={{ background: "var(--surface-2)", border: "1px solid var(--border)", padding: "10px", borderRadius: "6px", textAlign: "center", cursor: "pointer", color: "var(--text)" }} title={`Download ${rpt}`}>
-              <FileText size={20} style={{ color: "#d92d2d", marginBottom: "4px" }} />
+              <FileText size={20} style={{ color: "var(--color-danger)", marginBottom: "4px" }} />
               <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--text)", lineHeight: "1.2" }}>{rpt}</div>
               <div style={{ fontSize: "9px", color: "var(--muted)", marginTop: "4px" }}>PDF</div>
             </button>

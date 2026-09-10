@@ -87,7 +87,7 @@ export function ModuleShell({
   eyebrow = "Module workspace",
   title,
   subtitle,
-  accent = "#00a3ff",
+  accent = "var(--color-brand-blue)",
   groups,
   activeId,
   onSelect,

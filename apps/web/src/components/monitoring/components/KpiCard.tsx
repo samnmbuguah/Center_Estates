@@ -30,7 +30,7 @@ export function KpiCard({
       onMouseEnter={(e) => {
         if (!to) return;
         (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)";
-        (e.currentTarget as HTMLDivElement).style.boxShadow = `0 8px 24px -8px ${color}40`;
+        (e.currentTarget as HTMLDivElement).style.boxShadow = `0 8px 24px -8px color-mix(in srgb, ${color} 25%, transparent)`;
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLDivElement).style.transform = "";

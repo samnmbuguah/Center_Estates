@@ -9,16 +9,16 @@ import { useWorkspace } from "../context/WorkspaceContext";
 import { useSort } from "../hooks/useSort";
 
 const TYPE_COLORS: Record<string, string> = {
-  addition: "#10b981",
-  omission: "#ef4444",
-  administrative: "#f59e0b",
+  addition: "var(--color-emerald)",
+  omission: "var(--color-danger)",
+  administrative: "var(--color-amber)",
 };
 
 const STATUS_COLORS: Record<string, string> = {
   draft: "var(--muted)",
-  submitted: "#3b82f6",
-  approved: "#10b981",
-  rejected: "#ef4444",
+  submitted: "var(--color-blue)",
+  approved: "var(--color-emerald)",
+  rejected: "var(--color-danger)",
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -27,7 +27,7 @@ function StatusBadge({ status }: { status: string }) {
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px",
       borderRadius: 20, fontSize: 12, fontWeight: 600,
-      background: `${color}18`, color,
+      background: `color-mix(in srgb, ${color} 9%, transparent)`, color,
     }}>
       {status === "approved" && <Check size={11} />}
       {status === "rejected" && <X size={11} />}
@@ -104,9 +104,9 @@ export function Variations() {
       {/* KPI Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
         {[
-          { label: "Total Variations", value: items.length.toString(), sub: "All statuses", color: "#3b82f6" },
-          { label: "Approved Value", value: money(totalApproved), sub: `${items.filter(v => v.status === "approved").length} variations`, color: "#10b981" },
-          { label: "Pending Approval", value: money(totalPending), sub: `${items.filter(v => v.status === "submitted").length} submitted`, color: "#f59e0b" },
+          { label: "Total Variations", value: items.length.toString(), sub: "All statuses", color: "var(--color-blue)" },
+          { label: "Approved Value", value: money(totalApproved), sub: `${items.filter(v => v.status === "approved").length} variations`, color: "var(--color-emerald)" },
+          { label: "Pending Approval", value: money(totalPending), sub: `${items.filter(v => v.status === "submitted").length} submitted`, color: "var(--color-amber)" },
         ].map(kpi => (
           <div key={kpi.label} style={{
             padding: "16px 20px", borderRadius: 12, background: "var(--surface)",
@@ -226,7 +226,7 @@ export function Variations() {
                       )}
                       {can("finance.admin") && v.status === "submitted" && (
                         <>
-                          <button className="btn sm" onClick={() => action(v.id, "approve")} style={{ background: "#10b981", borderColor: "#10b981", color: "white" }}>Approve</button>
+                          <button className="btn sm" onClick={() => action(v.id, "approve")} style={{ background: "var(--color-emerald)", borderColor: "var(--color-emerald)", color: "white" }}>Approve</button>
                           <button className="btn ghost sm" onClick={() => action(v.id, "reject")}>Reject</button>
                         </>
                       )}

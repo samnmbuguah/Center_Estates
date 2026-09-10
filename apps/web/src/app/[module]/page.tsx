@@ -12,7 +12,7 @@ export default async function ModulePage({ params }: { params: Promise<{ module:
   return <div className="page-wrap">
     <section className="module-hero" style={{ borderColor: selectedModule.accent }}>
       <div><p className="eyebrow">Subscribed module</p><h1>{selectedModule.name}</h1><p>{selectedModule.description}</p></div>
-      <span className="module-icon large" style={{ background: `${selectedModule.accent}18`, color: selectedModule.accent }}>{selectedModule.name.slice(0, 1)}</span>
+      <span className="module-icon large" style={{ background: `color-mix(in srgb, ${selectedModule.accent} 9%, transparent)`, color: selectedModule.accent }}>{selectedModule.name.slice(0, 1)}</span>
     </section>
     {"migration" in selectedModule && <div className="notice">This module will reuse and migrate the existing MonitoringERP implementation.</div>}
     <section><div className="section-heading"><div><p className="eyebrow">Initial boundary</p><h2>Module capabilities</h2></div></div>

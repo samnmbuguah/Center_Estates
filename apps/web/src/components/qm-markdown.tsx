@@ -76,7 +76,7 @@ export function QmMarkdown({ text }: { text: string }) {
           : level === 3
           ? "0.95rem"
           : "0.88rem";
-      const color = level <= 2 ? "#0f172a" : "#334155";
+      const color = level <= 2 ? "var(--color-slate-900)" : "var(--color-slate-700)";
 
       renderedElements.push(
         <div
@@ -104,7 +104,7 @@ export function QmMarkdown({ text }: { text: string }) {
             margin: "10px 0 4px",
             fontSize: "1.05rem",
             fontWeight: 800,
-            color: "#0f172a",
+            color: "var(--color-slate-900)",
             borderBottom: "1.5px solid rgba(13, 148, 136, 0.3)",
             paddingBottom: 4,
           }}
@@ -132,7 +132,7 @@ export function QmMarkdown({ text }: { text: string }) {
         >
           <span
             style={{
-              color: "#0d9488",
+              color: "var(--color-teal)",
               fontWeight: 800,
               lineHeight: 1.4,
               userSelect: "none",
@@ -163,7 +163,7 @@ export function QmMarkdown({ text }: { text: string }) {
         >
           <span
             style={{
-              color: "#0d9488",
+              color: "var(--color-teal)",
               fontWeight: 700,
               fontSize: "0.85em",
               minWidth: 16,
@@ -187,11 +187,11 @@ export function QmMarkdown({ text }: { text: string }) {
           style={{
             margin: "6px 0",
             padding: "6px 12px",
-            borderLeft: "3px solid #0d9488",
+            borderLeft: "3px solid var(--color-teal)",
             background: "rgba(13, 148, 136, 0.06)",
             borderRadius: "0 6px 6px 0",
             fontSize: "0.85rem",
-            color: "#334155",
+            color: "var(--color-slate-700)",
             fontStyle: "italic",
           }}
         >

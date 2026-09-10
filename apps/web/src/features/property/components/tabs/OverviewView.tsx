@@ -77,8 +77,8 @@ export function OverviewView({
   const expiryMax = Math.max(...leaseExpiry.map((e) => Number(e.count ?? 0)), 1);
   const agingTotal = aging.reduce((s, a) => s + Number(a.amount ?? 0), 0);
   const donut = billedTotal > 0
-    ? `conic-gradient(#16a34a 0% ${collectionRate}%, #ef4444 ${collectionRate}% 100%)`
-    : "conic-gradient(#e2e8f0 0% 100%)";
+    ? `conic-gradient(var(--color-success) 0% ${collectionRate}%, var(--color-danger) ${collectionRate}% 100%)`
+    : "conic-gradient(var(--color-slate-200) 0% 100%)";
 
   return (
     <div className="module-page-stack">
@@ -102,7 +102,7 @@ export function OverviewView({
           </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0, letterSpacing: "-0.01em", color: "var(--text-primary, #0f172a)" }}>
+              <h2 style={{ fontSize: 20, fontWeight: 900, margin: 0, letterSpacing: "-0.01em", color: "var(--text-primary, var(--color-slate-900))" }}>
                 {String(currentProperty?.name ?? "Property Overview")}
               </h2>
               <span
@@ -112,15 +112,15 @@ export function OverviewView({
                   padding: "3px 9px",
                   borderRadius: 6,
                   background: occupancyRate >= 80 ? "rgba(34, 197, 94, 0.12)" : "rgba(245, 158, 11, 0.12)",
-                  color: occupancyRate >= 80 ? "#16a34a" : "#d97706",
+                  color: occupancyRate >= 80 ? "var(--color-success)" : "var(--color-warning)",
                   border: occupancyRate >= 80 ? "1px solid rgba(34, 197, 94, 0.3)" : "1px solid rgba(245, 158, 11, 0.3)",
                 }}
               >
                 {occupancyRate}% OCCUPIED
               </span>
             </div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary, #64748b)", marginTop: 4 }}>
-              Commercial & Residential Operations · <strong style={{ color: "var(--text-primary, #0f172a)" }}>{units} Units</strong> ({occupied} active, {vacant} vacant)
+            <div style={{ fontSize: 12, color: "var(--text-secondary, var(--color-slate-500))", marginTop: 4 }}>
+              Commercial & Residential Operations · <strong style={{ color: "var(--text-primary, var(--color-slate-900))" }}>{units} Units</strong> ({occupied} active, {vacant} vacant)
             </div>
           </div>
         </div>
@@ -189,7 +189,7 @@ export function OverviewView({
                 {kM(monthlyRent)}
               </div>
             </div>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(37, 99, 235, 0.1)", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(37, 99, 235, 0.1)", color: "var(--color-info)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
               💵
             </div>
           </div>
@@ -220,7 +220,7 @@ export function OverviewView({
                 Collection Rate (YTD)
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 6 }}>
-                <span style={{ fontSize: 22, fontWeight: 900, color: collectionRate >= 90 ? "#16a34a" : "#d97706" }}>
+                <span style={{ fontSize: 22, fontWeight: 900, color: collectionRate >= 90 ? "var(--color-success)" : "var(--color-warning)" }}>
                   {collectionRate}%
                 </span>
                 <span style={{ fontSize: 12, color: "var(--faint)", fontWeight: 600 }}>
@@ -228,7 +228,7 @@ export function OverviewView({
                 </span>
               </div>
             </div>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(22, 163, 74, 0.1)", color: "#16a34a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(22, 163, 74, 0.1)", color: "var(--color-success)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
               ◔
             </div>
           </div>
@@ -259,7 +259,7 @@ export function OverviewView({
                 Occupancy Rate
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 6 }}>
-                <span style={{ fontSize: 22, fontWeight: 900, color: "#4f46e5" }}>
+                <span style={{ fontSize: 22, fontWeight: 900, color: "var(--color-indigo)" }}>
                   {occupancyRate}%
                 </span>
                 <span style={{ fontSize: 12, color: "var(--faint)", fontWeight: 600 }}>
@@ -267,12 +267,12 @@ export function OverviewView({
                 </span>
               </div>
             </div>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(79, 70, 229, 0.1)", color: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(79, 70, 229, 0.1)", color: "var(--color-indigo)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
               🔑
             </div>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, paddingTop: 10, borderTop: "1px solid var(--border)", fontSize: 12 }}>
-            <span style={{ color: vacant > 0 ? "#ea580c" : "var(--faint)", fontWeight: 600 }}>
+            <span style={{ color: vacant > 0 ? "var(--color-orange)" : "var(--faint)", fontWeight: 600 }}>
               {vacant} vacant units available
             </span>
             <span style={{ color: "var(--primary)", fontWeight: 700 }}>Manage Units →</span>
@@ -299,11 +299,11 @@ export function OverviewView({
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                 Total Arrears Balance
               </div>
-              <div style={{ fontSize: 22, fontWeight: 900, color: outstanding > 0 ? "#dc2626" : "var(--text)", marginTop: 6 }}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: outstanding > 0 ? "var(--color-danger)" : "var(--text)", marginTop: 6 }}>
                 {kM(outstanding)}
               </div>
             </div>
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(220, 38, 38, 0.1)", color: "#dc2626", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(220, 38, 38, 0.1)", color: "var(--color-danger)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
               ⚠️
             </div>
           </div>
@@ -342,9 +342,9 @@ export function OverviewView({
               >
                 {[
                   { label: "Expected Billed", value: money.format(trendExpected), color: "var(--text)" },
-                  { label: "Actual Received", value: money.format(trendActual), color: "#16a34a" },
-                  { label: "Net Variance", value: money.format(trendVariance), color: trendVariance >= 0 ? "#16a34a" : "#dc2626" },
-                  { label: "Period Efficiency", value: `${trendCollectionRate}%`, color: trendCollectionRate >= 90 ? "#16a34a" : "#d97706" },
+                  { label: "Actual Received", value: money.format(trendActual), color: "var(--color-success)" },
+                  { label: "Net Variance", value: money.format(trendVariance), color: trendVariance >= 0 ? "var(--color-success)" : "var(--color-danger)" },
+                  { label: "Period Efficiency", value: `${trendCollectionRate}%`, color: trendCollectionRate >= 90 ? "var(--color-success)" : "var(--color-warning)" },
                 ].map((item) => (
                   <div
                     key={item.label}
@@ -372,13 +372,13 @@ export function OverviewView({
                     <i style={{ width: 14, height: 3, background: "var(--text)", borderRadius: 2, display: "inline-block" }} />
                     Expected Target (KES)
                   </span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "#16a34a" }}>
-                    <i style={{ width: 14, height: 3, background: "#16a34a", borderRadius: 2, display: "inline-block" }} />
+                  <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--color-success)" }}>
+                    <i style={{ width: 14, height: 3, background: "var(--color-success)", borderRadius: 2, display: "inline-block" }} />
                     Actual Collected (KES)
                   </span>
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)" }}>
-                  Period Efficiency: <strong style={{ color: trendCollectionRate >= 90 ? "#16a34a" : "#d97706", fontWeight: 900 }}>{trendCollectionRate}%</strong>
+                  Period Efficiency: <strong style={{ color: trendCollectionRate >= 90 ? "var(--color-success)" : "var(--color-warning)", fontWeight: 900 }}>{trendCollectionRate}%</strong>
                 </span>
               </div>
 
@@ -430,16 +430,16 @@ export function OverviewView({
                     <svg viewBox={`0 0 ${svgW} ${svgH}`} style={{ width: "100%", height: "auto", display: "block" }}>
                       <defs>
                         <linearGradient id="collGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#16a34a" stopOpacity="0.28" />
-                          <stop offset="100%" stopColor="#16a34a" stopOpacity="0.0" />
+                          <stop offset="0%" stopColor="var(--color-success)" stopOpacity="0.28" />
+                          <stop offset="100%" stopColor="var(--color-success)" stopOpacity="0.0" />
                         </linearGradient>
                       </defs>
 
                       {/* Grid Lines & Ticks */}
                       {yTicks.map((tick, idx) => (
                         <g key={idx}>
-                          <line x1={pX} y1={tick.y} x2={pX + cW} y2={tick.y} stroke="var(--border)" strokeDasharray="3 3" strokeWidth="1" />
-                          <text x={pX - 10} y={tick.y + 4} textAnchor="end" fontSize="10" fill="var(--faint)" fontWeight="600">
+                          <line x1={pX} y1={tick.y} x2={pX + cW} y2={tick.y} stroke="#cbd5e1" strokeDasharray="3 3" strokeWidth="1" />
+                          <text x={pX - 10} y={tick.y + 4} textAnchor="end" fontSize="10" fill="#94a3b8" fontWeight="600">
                             {tick.label}
                           </text>
                         </g>
@@ -449,7 +449,7 @@ export function OverviewView({
                       <path d={areaPath} fill="url(#collGradient)" />
 
                       {/* Expected Target Line */}
-                      <path d={expectedPath} fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeDasharray="4 4" opacity="0.6" />
+                      <path d={expectedPath} fill="none" stroke="#0f172a" strokeWidth="2" strokeDasharray="4 4" opacity="0.6" />
 
                       {/* Actual Collection Line */}
                       <path d={actualPath} fill="none" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
@@ -466,7 +466,7 @@ export function OverviewView({
                             style={{ cursor: "pointer" }}
                           >
                             {/* Expected Point */}
-                            <circle cx={expectedPoint.x} cy={expectedPoint.y} r="3.5" fill="var(--text-secondary)" opacity="0.8" />
+                            <circle cx={expectedPoint.x} cy={expectedPoint.y} r="3.5" fill="#0f172a" opacity="0.8" />
 
                             {/* Actual Point */}
                             <circle cx={pt.x} cy={pt.y} r={isHovered ? 7 : 5} fill="#16a34a" stroke="#ffffff" strokeWidth="2" />
@@ -482,7 +482,7 @@ export function OverviewView({
                             )}
 
                             {/* Month Label */}
-                            <text x={pt.x} y={pY + cH + 20} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--text)">
+                            <text x={pt.x} y={pY + cH + 20} textAnchor="middle" fontSize="11" fontWeight="700" fill="#000000">
                               {pt.month.toUpperCase()}
                             </text>
                           </g>
@@ -574,17 +574,17 @@ export function OverviewView({
                 <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10, fontSize: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }}>
-                      <i style={{ width: 8, height: 8, borderRadius: 2, background: "#16a34a", display: "inline-block" }} />
+                      <i style={{ width: 8, height: 8, borderRadius: 2, background: "var(--color-success)", display: "inline-block" }} />
                       Collected:
                     </span>
-                    <strong style={{ color: "#16a34a" }}>{kM(collected)}</strong>
+                    <strong style={{ color: "var(--color-success)" }}>{kM(collected)}</strong>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-secondary)" }}>
-                      <i style={{ width: 8, height: 8, borderRadius: 2, background: "#ef4444", display: "inline-block" }} />
+                      <i style={{ width: 8, height: 8, borderRadius: 2, background: "var(--color-danger)", display: "inline-block" }} />
                       Outstanding:
                     </span>
-                    <strong style={{ color: "#ef4444" }}>{kM(outstanding)}</strong>
+                    <strong style={{ color: "var(--color-danger)" }}>{kM(outstanding)}</strong>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 6 }}>
                     <span style={{ color: "var(--faint)" }}>Total Billed:</span>
@@ -616,7 +616,7 @@ export function OverviewView({
                         style={{
                           width: `${pct(e.count, expiryMax)}%`,
                           height: "100%",
-                          background: e.label.includes("90+") ? "#16a34a" : e.label.includes("0-30") ? "#ef4444" : "#f59e0b",
+                          background: e.label.includes("90+") ? "var(--color-success)" : e.label.includes("0-30") ? "var(--color-danger)" : "var(--color-amber)",
                         }}
                       />
                     </div>
@@ -728,7 +728,7 @@ export function OverviewView({
           {aging.length > 0 ? (
             <div style={{ padding: "16px 18px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               {aging.map((a, idx) => {
-                const colors = ["#16a34a", "#eab308", "#ea580c", "#dc2626"];
+                const colors = ["var(--color-success)", "#eab308", "var(--color-orange)", "var(--color-danger)"];
                 const bgs = ["rgba(22,163,74,0.08)", "rgba(234,179,8,0.08)", "rgba(234,88,12,0.08)", "rgba(220,38,38,0.08)"];
                 const color = colors[idx % colors.length];
                 const bg = bgs[idx % bgs.length];
@@ -738,7 +738,7 @@ export function OverviewView({
                     onClick={() => setTab("arrears")}
                     style={{
                       background: bg,
-                      border: `1px solid ${color}40`,
+                      border: `1px solid color-mix(in srgb, ${color} 25%, transparent)`,
                       borderRadius: 10,
                       padding: "12px 14px",
                       cursor: "pointer",

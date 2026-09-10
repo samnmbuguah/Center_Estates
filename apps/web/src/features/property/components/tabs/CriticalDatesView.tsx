@@ -104,9 +104,9 @@ export function CriticalDatesView({ leases, contractors, inspections, serviceCha
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <KpiStrip>
         <KpiCard icon="📅" label="Total Dates" value={String(dates.length)} />
-        <KpiCard icon="🔴" label="Next 7 Days" value={String(next7)} borderColor="#dc2626" />
-        <KpiCard icon="🟡" label="Next 30 Days" value={String(next30)} borderColor="#f59e0b" />
-        <KpiCard icon="⚠️" label="Overdue" value={String(overdue)} borderColor="#dc2626" />
+        <KpiCard icon="🔴" label="Next 7 Days" value={String(next7)} borderColor="var(--color-danger)" />
+        <KpiCard icon="🟡" label="Next 30 Days" value={String(next30)} borderColor="var(--color-amber)" />
+        <KpiCard icon="⚠️" label="Overdue" value={String(overdue)} borderColor="var(--color-danger)" />
       </KpiStrip>
 
       <div className="row" style={{ gap: 8, flexWrap: "wrap", justifyContent: "space-between" }}>

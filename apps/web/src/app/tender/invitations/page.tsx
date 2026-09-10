@@ -80,7 +80,7 @@ export default function InvitationsPage() {
       eyebrow="Tender Pursuit"
       title="RFP Invitations"
       subtitle="Public and private tender invitations, AI requirements breakdown, bid/no-bid decisioning."
-      accent="#7c3aed"
+      accent="var(--color-violet)"
       groups={tenderNav}
       activeId="tenders"
       onSelect={(id) => {

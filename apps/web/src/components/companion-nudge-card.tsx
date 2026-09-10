@@ -112,9 +112,9 @@ export function CompanionNudgeCard({
                 px: 1.75,
                 py: 0.5,
                 boxShadow: "none",
-                bgcolor: isWellness ? "#059669" : "#4f46e5",
+                bgcolor: isWellness ? "var(--color-emerald-strong)" : "var(--color-indigo)",
                 "&:hover": {
-                  bgcolor: isWellness ? "#047857" : "#4338ca",
+                  bgcolor: isWellness ? "var(--color-emerald-deep)" : "#4338ca",
                   boxShadow: "none",
                 },
               }}

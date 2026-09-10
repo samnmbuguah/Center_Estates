@@ -193,12 +193,12 @@ export function PlannedMaintenanceView({
   return (
     <>
       <div className="fc-kpi-strip six-col">
-        <FcKpiCard icon="📊" iconBg="#e0e7ff" iconColor="#4f46e5" label="PPM Compliance" value={`${compliance}%`} sub="Schedule compliance" />
-        <FcKpiCard icon="✓" iconBg="#dcfce7" iconColor="#16a34a" label="Completed Tasks" value={String(completedTasks)} sub={`of ${scheduledTasks} scheduled`} />
-        <FcKpiCard icon="⏰" iconBg="#fef3c7" iconColor="#92400e" label="Upcoming Tasks" value={String(upcomingTasks)} sub="Next 7 days" />
-        <FcKpiCard icon="⚠" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue Tasks" value={String(overdueTasks)} sub="Require attention" />
-        <FcKpiCard icon="👷" iconBg="#f0f4ff" iconColor="#4f46e5" label="Technicians Assigned" value={String(uniqueTechnicians)} sub="Active this week" />
-        <FcKpiCard icon="💰" iconBg="#f0fdf4" iconColor="#15803d" label="Maintenance Cost (MTD)" value="—" sub="No data available" />
+        <FcKpiCard icon="📊" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="PPM Compliance" value={`${compliance}%`} sub="Schedule compliance" />
+        <FcKpiCard icon="✓" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Completed Tasks" value={String(completedTasks)} sub={`of ${scheduledTasks} scheduled`} />
+        <FcKpiCard icon="⏰" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Upcoming Tasks" value={String(upcomingTasks)} sub="Next 7 days" />
+        <FcKpiCard icon="⚠" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Overdue Tasks" value={String(overdueTasks)} sub="Require attention" />
+        <FcKpiCard icon="👷" iconBg="#f0f4ff" iconColor="var(--color-indigo)" label="Technicians Assigned" value={String(uniqueTechnicians)} sub="Active this week" />
+        <FcKpiCard icon="💰" iconBg="var(--color-green-soft)" iconColor="var(--color-success-strong)" label="Maintenance Cost (MTD)" value="—" sub="No data available" />
       </div>
 
       {/* PPM Compliance Trend — last 6 months */}
@@ -213,14 +213,14 @@ export function PlannedMaintenanceView({
               <div style={{ alignItems: "flex-end", display: "flex", gap: 10, height: 120 }}>
                 {trendMonths.map((m, i) => (
                   <div key={m} style={{ alignItems: "flex-end", display: "flex", flexDirection: "column", flex: 1, gap: 4 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: trendValues[i] >= 90 ? "#16a34a" : trendValues[i] >= 80 ? "#a16207" : "#b91c1c" }}>{trendValues[i]}%</span>
-                    <div style={{ background: trendValues[i] >= 90 ? "#22c55e" : trendValues[i] >= 80 ? "#f59e0b" : "#ef4444", borderRadius: "4px 4px 0 0", height: `${(trendValues[i] / maxVal) * 100}%`, minHeight: 4, width: "100%" }} />
+                    <span style={{ fontSize: 10, fontWeight: 700, color: trendValues[i] >= 90 ? "var(--color-success)" : trendValues[i] >= 80 ? "#a16207" : "var(--color-danger-strong)" }}>{trendValues[i]}%</span>
+                    <div style={{ background: trendValues[i] >= 90 ? "var(--color-green)" : trendValues[i] >= 80 ? "var(--color-amber)" : "var(--color-danger)", borderRadius: "4px 4px 0 0", height: `${(trendValues[i] / maxVal) * 100}%`, minHeight: 4, width: "100%" }} />
                     <span style={{ color: "var(--text-secondary)", fontSize: 9 }}>{m}</span>
                   </div>
                 ))}
                 <div style={{ position: "relative", width: "100%", height: 0, top: 0 }}>
-                  <div style={{ borderTop: "1px dashed #e23b3b", position: "absolute", top: -((90 / maxVal) * 120), left: 0, right: 0 }} />
-                  <span style={{ position: "absolute", top: -((90 / maxVal) * 120) - 14, right: 0, color: "#e23b3b", fontSize: 9, fontWeight: 700 }}>Target 90%</span>
+                  <div style={{ borderTop: "1px dashed var(--color-brand-red)", position: "absolute", top: -((90 / maxVal) * 120), left: 0, right: 0 }} />
+                  <span style={{ position: "absolute", top: -((90 / maxVal) * 120) - 14, right: 0, color: "var(--color-brand-red)", fontSize: 9, fontWeight: 700 }}>Target 90%</span>
                 </div>
               </div>
             );
@@ -247,10 +247,10 @@ export function PlannedMaintenanceView({
           <article className="data-panel">
             <div style={{ borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", padding: "14px 16px" }}>
               <strong style={{ fontSize: 13 }}>Maintenance Plans</strong>
-              <button onClick={() => setSubTab("list")} style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>View all</button>
+              <button onClick={() => setSubTab("list")} style={{ background: "none", border: 0, color: "var(--color-brand-red)", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>View all</button>
             </div>
             {maintenancePlans.map((plan) => {
-              const colors = ["#4f46e5", "#ef4444", "#f59e0b", "#3b82f6", "#a855f7", "#10b981", "#6366f1"];
+              const colors = ["var(--color-indigo)", "var(--color-danger)", "var(--color-amber)", "var(--color-blue)", "#a855f7", "var(--color-emerald)", "var(--color-indigo-strong)"];
               const ci = ["Lift", "Fire", "Generator", "Water", "Electrical", "CCTV", "Plumbing"].findIndex((k) => plan.name.includes(k));
               const col = colors[Math.max(0, ci)];
               return (
@@ -265,7 +265,7 @@ export function PlannedMaintenanceView({
                     </div>
                   </div>
                   <div style={{ alignItems: "center", display: "flex", gap: 8 }}>
-                    <div style={{ background: "#edf0f5", borderRadius: 99, flex: 1, height: 5, overflow: "hidden" }}>
+                    <div style={{ background: "var(--color-surface-alt)", borderRadius: 99, flex: 1, height: 5, overflow: "hidden" }}>
                       <i style={{ background: col, borderRadius: "inherit", display: "block", height: "100%", width: `${plan.pct}%` }} />
                     </div>
                     <span style={{ color: "var(--text-primary)", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>{plan.done}/{plan.total}</span>
@@ -276,7 +276,7 @@ export function PlannedMaintenanceView({
             })}
             {maintenancePlans.length === 0 && <EmptyState message="No maintenance plans are configured for this property." />}
             <div style={{ padding: "12px 16px" }}>
-              <button onClick={onAdd} style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Add New Maintenance Plan</button>
+              <button onClick={onAdd} style={{ background: "none", border: 0, color: "var(--color-brand-red)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Add New Maintenance Plan</button>
             </div>
           </article>
         </div>
@@ -363,10 +363,10 @@ export function PlannedMaintenanceView({
 
                 const statusColor = (s: string) => {
                   const slug = s.toLowerCase().replace(/[_\s]/g, "-");
-                  if (slug === "completed" || slug === "done") return "var(--success, #22c55e)";
-                  if (slug === "overdue" || slug === "failed") return "var(--danger, #ef4444)";
-                  if (slug === "in-progress" || slug === "in_progress") return "var(--warning, #f59e0b)";
-                  return "var(--primary, #3b82f6)";
+                  if (slug === "completed" || slug === "done") return "var(--success, var(--color-green))";
+                  if (slug === "overdue" || slug === "failed") return "var(--danger, var(--color-danger))";
+                  if (slug === "in-progress" || slug === "in_progress") return "var(--warning, var(--color-amber))";
+                  return "var(--primary, var(--color-blue))";
                 };
 
                 return (
@@ -374,10 +374,10 @@ export function PlannedMaintenanceView({
                     {/* Legend */}
                     <div style={{ display: "flex", gap: 16, marginBottom: 12, fontSize: 11, color: "var(--muted, #8a96a7)" }}>
                       {[
-                        { label: "Scheduled", color: "var(--primary, #3b82f6)" },
-                        { label: "In Progress", color: "var(--warning, #f59e0b)" },
-                        { label: "Overdue", color: "var(--danger, #ef4444)" },
-                        { label: "Completed", color: "var(--success, #22c55e)" },
+                        { label: "Scheduled", color: "var(--primary, var(--color-blue))" },
+                        { label: "In Progress", color: "var(--warning, var(--color-amber))" },
+                        { label: "Overdue", color: "var(--danger, var(--color-danger))" },
+                        { label: "Completed", color: "var(--success, var(--color-green))" },
                       ].map((item) => (
                         <span key={item.label} style={{ alignItems: "center", display: "flex", gap: 4 }}>
                           <i style={{ background: item.color, borderRadius: 2, display: "inline-block", height: 8, width: 16 }} />
@@ -394,7 +394,7 @@ export function PlannedMaintenanceView({
                     <div style={{ display: "flex", gap: 4, marginBottom: 2 }}>
                       <span style={{ minWidth: 180, maxWidth: 180 }} />
                       <div style={{ flex: 1, position: "relative", height: 2 }}>
-                        <span style={{ position: "absolute", left: `${todayOffsetPct}%`, transform: "translateX(-50%)", fontSize: 9, color: "#e23b3b", fontWeight: 700, whiteSpace: "nowrap", top: -12 }}>Today</span>
+                        <span style={{ position: "absolute", left: `${todayOffsetPct}%`, transform: "translateX(-50%)", fontSize: 9, color: "var(--color-brand-red)", fontWeight: 700, whiteSpace: "nowrap", top: -12 }}>Today</span>
                       </div>
                     </div>
                     {/* Task rows */}
@@ -445,11 +445,11 @@ export function PlannedMaintenanceView({
               <strong style={{ fontSize: 14 }}>Upcoming PPM Tasks</strong>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 {permissions.canAdminister && (
-                  <button onClick={openBulkSchedule} style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 6, color: "#92400e", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "5px 12px" }}>
+                  <button onClick={openBulkSchedule} style={{ background: "var(--color-orange-bg)", border: "1px solid #fed7aa", borderRadius: 6, color: "var(--color-amber-strong)", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "5px 12px" }}>
                     ▦ Bulk Schedule
                   </button>
                 )}
-                <button onClick={() => setSubTab("list")} style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>View all</button>
+                <button onClick={() => setSubTab("list")} style={{ background: "none", border: 0, color: "var(--color-brand-red)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>View all</button>
               </div>
             </div>
             <div className="table-scroll">
@@ -491,7 +491,7 @@ export function PlannedMaintenanceView({
                               <button
                                 aria-label={`Complete ${String(row.name ?? "maintenance task")}`}
                                 onClick={() => onAction(row, "complete")}
-                                style={{ background: "#dcfce7", border: "1px solid #86efac", borderRadius: 6, color: "#166534", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}
+                                style={{ background: "var(--color-green-bg)", border: "1px solid var(--color-green-300)", borderRadius: 6, color: "var(--color-green-text)", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}
                               >
                                 ✓ Complete
                               </button>
@@ -522,7 +522,7 @@ export function PlannedMaintenanceView({
             <p style={{ color: "var(--text-secondary)", fontSize: 12, margin: 0 }}>
               Select maintenance dates for multiple assets. The complete schedule is validated and saved together.
             </p>
-            {bulkMessage && <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8, color: "#15803d", fontSize: 12, padding: "8px 12px" }}>{bulkMessage}</div>}
+            {bulkMessage && <div style={{ background: "var(--color-green-soft)", border: "1px solid var(--color-green-200)", borderRadius: 8, color: "var(--color-success-strong)", fontSize: 12, padding: "8px 12px" }}>{bulkMessage}</div>}
             <div className="table-scroll" style={{ maxHeight: 420 }}>
               <table className="fc-data-table" style={{ minWidth: 1240 }}>
                 <thead>

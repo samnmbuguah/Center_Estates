@@ -11,7 +11,7 @@ export function ToastContainer() {
     switch (type) {
       case "success": return "var(--success)";
       case "error": return "var(--danger)";
-      case "info": return "#2563eb";
+      case "info": return "var(--color-info)";
       default: return "var(--surface-1)";
     }
   };

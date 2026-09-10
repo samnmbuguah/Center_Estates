@@ -97,7 +97,7 @@ function DocumentsInput({ helper }: { helper: string }) {
 export function AssetOnboardingModal({ assetKind = "asset", properties, onClose, onSubmit, error, creating }: { assetKind?: "asset" | "spare_part" | "consumable"; properties: Row[]; onClose: () => void; onSubmit: SubmitHandler; error: string; creating: boolean }) {
   const { tab, changeTab, formRef, submit } = useWizardForm(onSubmit);
   const kindLabel = assetKind === "spare_part" ? "Spare Part" : assetKind === "consumable" ? "Consumable" : "Asset";
-  return <Modal extraWide title={<Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}><Wrench size={22} color="#dc2626" /><Box><Typography sx={{ fontWeight: 900 }}>Add New {kindLabel}</Typography><Typography variant="caption" color="text.secondary">Create a distinct {kindLabel.toLowerCase()} stock record. Its ID and QR reference are generated automatically.</Typography></Box></Box>} onClose={onClose}>
+  return <Modal extraWide title={<Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}><Wrench size={22} color="var(--color-danger)" /><Box><Typography sx={{ fontWeight: 900 }}>Add New {kindLabel}</Typography><Typography variant="caption" color="text.secondary">Create a distinct {kindLabel.toLowerCase()} stock record. Its ID and QR reference are generated automatically.</Typography></Box></Box>} onClose={onClose}>
     <form ref={formRef} onSubmit={submit} data-save-mode="submit">
       <input type="hidden" name="inventory_type" value={assetKind} />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error} Your entered information has been retained.</Alert>}
@@ -196,7 +196,7 @@ export function AssetOnboardingModal({ assetKind = "asset", properties, onClose,
 export function ProviderOnboardingModal({ properties, onClose, onSubmit, error, creating }: { properties: Row[]; onClose: () => void; onSubmit: SubmitHandler; error: string; creating: boolean }) {
   const { tab, changeTab, formRef, submit } = useWizardForm(onSubmit);
   const propertyOptions = useMemo(() => properties.map(row => ({ id: String(row.id), name: String(row.name) })), [properties]);
-  return <Modal extraWide title={<Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}><Building2 size={22} color="#dc2626" /><Box><Typography sx={{ fontWeight: 900 }}>Add New Service Provider</Typography><Typography variant="caption" color="text.secondary">Create a contractor or supplier record for contracts, work orders, compliance, payments and performance.</Typography></Box></Box>} onClose={onClose}>
+  return <Modal extraWide title={<Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}><Building2 size={22} color="var(--color-danger)" /><Box><Typography sx={{ fontWeight: 900 }}>Add New Service Provider</Typography><Typography variant="caption" color="text.secondary">Create a contractor or supplier record for contracts, work orders, compliance, payments and performance.</Typography></Box></Box>} onClose={onClose}>
     <form ref={formRef} onSubmit={submit} data-save-mode="submit">
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error} Your entered information has been retained.</Alert>}
       <Tabs value={tab} onChange={(_, value) => changeTab(value)} variant="scrollable" scrollButtons="auto" sx={{ mb: 2, borderBottom: 1, borderColor: "divider", "& .MuiTab-root": { minHeight: 44, textTransform: "none", fontWeight: 800 } }}>{providerTabs.map((label, index) => <Tab key={label} label={`${index + 1}. ${label}`} />)}</Tabs>

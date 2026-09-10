@@ -23,7 +23,7 @@ function PanelHeader({
         {badge !== undefined && (
           <span
             style={{
-              background: "#fee2e2",
+              background: "var(--color-red-bg)",
               borderRadius: 99,
               color: "#c02727",
               fontSize: 10,
@@ -76,7 +76,7 @@ function FcKpiCard({
   return (
     <button className="fc-kpi-card" onClick={onClick} style={{ textAlign: "left", position: "relative", cursor: "pointer" }}>
       {badge && (
-        <span style={{ position: "absolute", top: 10, right: 10, background: "#dbeafe", color: "#1e40af", fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 4 }}>
+        <span style={{ position: "absolute", top: 10, right: 10, background: "var(--color-blue-bg)", color: "var(--color-info-deep)", fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 4 }}>
           {badge}
         </span>
       )}
@@ -124,15 +124,15 @@ export function OverviewView({
 
   const donutGrad = openWO
     ? `conic-gradient(
-        #ef4444 0% ${((overdueWO / Math.max(openWO, 1)) * 100).toFixed(1)}%,
-        #3b82f6 ${((overdueWO / Math.max(openWO, 1)) * 100).toFixed(1)}% 60%,
-        #f59e0b 60% 78%,
-        #22c55e 78% 100%
+        var(--color-danger) 0% ${((overdueWO / Math.max(openWO, 1)) * 100).toFixed(1)}%,
+        var(--color-blue) ${((overdueWO / Math.max(openWO, 1)) * 100).toFixed(1)}% 60%,
+        var(--color-amber) 60% 78%,
+        var(--color-green) 78% 100%
       )`
-    : `conic-gradient(#22c55e 0% 100%)`;
+    : `conic-gradient(var(--color-green) 0% 100%)`;
 
-  const slaDonut = `conic-gradient(#22c55e 0% ${compliance}%, var(--border) ${compliance}% 100%)`;
-  const fmScoreGrad = `conic-gradient(#22c55e 0% ${weightedIndex}%, var(--border) ${weightedIndex}% 100%)`;
+  const slaDonut = `conic-gradient(var(--color-green) 0% ${compliance}%, var(--border) ${compliance}% 100%)`;
+  const fmScoreGrad = `conic-gradient(var(--color-green) 0% ${weightedIndex}%, var(--border) ${weightedIndex}% 100%)`;
 
   return (
     <div className="module-page-stack compact">
@@ -144,8 +144,8 @@ export function OverviewView({
               width: 38,
               height: 38,
               borderRadius: 8,
-              background: viewMode === "manager" ? "#fee2e2" : "#dbeafe",
-              color: viewMode === "manager" ? "#dc2626" : "#2563eb",
+              background: viewMode === "manager" ? "var(--color-red-bg)" : "var(--color-blue-bg)",
+              color: viewMode === "manager" ? "var(--color-danger)" : "var(--color-info)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -195,8 +195,8 @@ export function OverviewView({
       <div className="fc-kpi-strip">
         <FcKpiCard
           icon="🏢"
-          iconBg="#e0e7ff"
-          iconColor="#4f46e5"
+          iconBg="var(--color-indigo-bg)"
+          iconColor="var(--color-indigo)"
           label="Total Buildings"
           value={String(kpi.buildings ?? 0)}
           sub="Floor plans & area calculations"
@@ -205,8 +205,8 @@ export function OverviewView({
         />
         <FcKpiCard
           icon="🛡️"
-          iconBg="#dcfce7"
-          iconColor="#16a34a"
+          iconBg="var(--color-green-bg)"
+          iconColor="var(--color-success)"
           label="Active Assets"
           value={String(kpi.activeAssets ?? 0)}
           sub={`Value: ${money.format(Number(kpi.assetValue ?? 0))}`}
@@ -215,8 +215,8 @@ export function OverviewView({
         />
         <FcKpiCard
           icon="🔧"
-          iconBg="#dbeafe"
-          iconColor="#2563eb"
+          iconBg="var(--color-blue-bg)"
+          iconColor="var(--color-info)"
           label="Open Work Orders"
           value={String(openWO)}
           sub={overdueWO > 0 ? `⚠️ ${overdueWO} SLA overdue` : "All on SLA target"}
@@ -225,8 +225,8 @@ export function OverviewView({
         />
         <FcKpiCard
           icon="📋"
-          iconBg="#ffedd5"
-          iconColor="#ea580c"
+          iconBg="var(--color-orange-soft)"
+          iconColor="var(--color-orange)"
           label="Preventive Compliance"
           value={`${compliance}%`}
           sub="Scheduled PM tasks"
@@ -235,8 +235,8 @@ export function OverviewView({
         />
         <FcKpiCard
           icon="🎖️"
-          iconBg="#fef3c7"
-          iconColor="#b45309"
+          iconBg="var(--color-amber-bg)"
+          iconColor="var(--color-amber-deep)"
           label="Weighted FM Index"
           value={`${weightedIndex} / 100`}
           sub="Live transaction score"
@@ -254,7 +254,7 @@ export function OverviewView({
             {overdueWO > 0 && (
               <div
                 style={{
-                  background: "#fef2f2",
+                  background: "var(--color-red-soft)",
                   border: "1px solid #f87171",
                   borderRadius: 10,
                   padding: "14px 18px",
@@ -267,7 +267,7 @@ export function OverviewView({
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <span style={{ fontSize: "1.6rem" }}>🚨</span>
                   <div>
-                    <strong style={{ color: "#991b1b", fontSize: "0.95rem", fontWeight: 800 }}>
+                    <strong style={{ color: "var(--color-danger-deep)", fontSize: "0.95rem", fontWeight: 800 }}>
                       SLA Escalation Alert: {overdueWO} Critical Overdue Work Orders
                     </strong>
                     <div style={{ color: "#7f1d1d", fontSize: "0.82rem", fontWeight: 600 }}>
@@ -278,7 +278,7 @@ export function OverviewView({
                 <button
                   onClick={() => setTab("work-orders")}
                   style={{
-                    background: "#dc2626",
+                    background: "var(--color-danger)",
                     color: "#fff",
                     border: "none",
                     padding: "8px 16px",
@@ -304,8 +304,8 @@ export function OverviewView({
                   </div>
                   <div style={{ marginTop: 14, display: "grid", gap: 8 }}>
                     {[
-                      { color: "#ef4444", label: "SLA Overdue", count: overdueWO },
-                      { color: "#3b82f6", label: "In Progress / Assigned", count: inProgressWO },
+                      { color: "var(--color-danger)", label: "SLA Overdue", count: overdueWO },
+                      { color: "var(--color-blue)", label: "In Progress / Assigned", count: inProgressWO },
                     ].map((item) => (
                       <span key={item.label} style={{ alignItems: "center", color: "var(--text-primary)", display: "flex", fontSize: 12, fontWeight: 700, gap: 8 }}>
                         <i style={{ background: item.color, borderRadius: "50%", display: "inline-block", height: 8, width: 8 }} />
@@ -350,23 +350,23 @@ export function OverviewView({
                 <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: "0.84rem", color: "var(--text-secondary)" }}>PM Compliance Target: 95%</span>
-                    <strong style={{ color: compliance >= 95 ? "#16a34a" : "#dc2626", fontSize: "0.95rem" }}>
+                    <strong style={{ color: compliance >= 95 ? "var(--color-success)" : "var(--color-danger)", fontSize: "0.95rem" }}>
                       {compliance}% {compliance >= 95 ? "✓" : "⚠️"}
                     </strong>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: "0.84rem", color: "var(--text-secondary)" }}>SLA Achievement Target: 90%</span>
-                    <strong style={{ color: slaAchievement >= 90 ? "#16a34a" : "#dc2626", fontSize: "0.95rem" }}>
+                    <strong style={{ color: slaAchievement >= 90 ? "var(--color-success)" : "var(--color-danger)", fontSize: "0.95rem" }}>
                       {slaAchievement}% {slaAchievement >= 90 ? "✓" : "⚠️"}
                     </strong>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: "0.84rem", color: "var(--text-secondary)" }}>Statutory Compliance: 100%</span>
-                    <strong style={{ color: compliance >= 100 ? "#16a34a" : "var(--text-primary)", fontSize: "0.95rem" }}>{Number(kpi.statutoryCompliance ?? 0)}%</strong>
+                    <strong style={{ color: compliance >= 100 ? "var(--color-success)" : "var(--text-primary)", fontSize: "0.95rem" }}>{Number(kpi.statutoryCompliance ?? 0)}%</strong>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontSize: "0.84rem", color: "var(--text-secondary)" }}>Budget Variance Utilization</span>
-                    <strong style={{ color: "#2563eb", fontSize: "0.95rem" }}>{budgetUtilization.toFixed(1)}%{budgetAllocated ? " utilized" : " · no budget"}</strong>
+                    <strong style={{ color: "var(--color-info)", fontSize: "0.95rem" }}>{budgetUtilization.toFixed(1)}%{budgetAllocated ? " utilized" : " · no budget"}</strong>
                   </div>
                 </div>
               </article>
@@ -390,9 +390,9 @@ export function OverviewView({
                 <PanelHeader title="Tenant Requests & Helpdesk" action={() => setTab("service-requests")} />
                 <div style={{ padding: "14px 18px" }}>
                   {[
-                    { icon: "📋", label: "New Requests", value: kpi.openRequests ?? 0, color: "#dbeafe", iconColor: "#1d4ed8" },
-                    { icon: "⏳", label: "In Progress", value: dashboard.requestSummary?.find((r) => r.status === "in_progress")?.count ?? 0, color: "#fef3c7", iconColor: "#92400e" },
-                    { icon: "✓", label: "Resolved", value: dashboard.requestSummary?.find((r) => r.status === "resolved")?.count ?? 0, color: "#dcfce7", iconColor: "#166534" },
+                    { icon: "📋", label: "New Requests", value: kpi.openRequests ?? 0, color: "var(--color-blue-bg)", iconColor: "var(--color-info-strong)" },
+                    { icon: "⏳", label: "In Progress", value: dashboard.requestSummary?.find((r) => r.status === "in_progress")?.count ?? 0, color: "var(--color-amber-bg)", iconColor: "var(--color-amber-strong)" },
+                    { icon: "✓", label: "Resolved", value: dashboard.requestSummary?.find((r) => r.status === "resolved")?.count ?? 0, color: "var(--color-green-bg)", iconColor: "var(--color-green-text)" },
                   ].map((item) => (
                     <div key={item.label} style={{ alignItems: "center", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, padding: "8px 0" }}>
                       <span style={{ alignItems: "center", background: item.color, borderRadius: 8, color: item.iconColor, display: "flex", fontSize: 14, height: 28, justifyContent: "center", width: 28 }}>
@@ -414,14 +414,14 @@ export function OverviewView({
               <PanelHeader title="Operational Flags & Risks" action={() => setTab("compliance")} badge={Number(kpi.activeFlagsCount ?? 0)} />
               <div className="fc-alert-list">
                 <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <span style={{ color: "#d97706", fontSize: "1.1rem" }}>⚠️</span>
+                  <span style={{ color: "var(--color-warning)", fontSize: "1.1rem" }}>⚠️</span>
                   <div>
                     <strong style={{ fontSize: "0.82rem", color: "var(--text-primary)" }}>Fire Safety Certificate Expiring</strong>
                     <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Expires in 28 days · Inspection booked</div>
                   </div>
                 </div>
                 <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <span style={{ color: "#2563eb", fontSize: "1.1rem" }}>📋</span>
+                  <span style={{ color: "var(--color-info)", fontSize: "1.1rem" }}>📋</span>
                   <div>
                     <strong style={{ fontSize: "0.82rem", color: "var(--text-primary)" }}>Lift AMC Contract Renewal</strong>
                     <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>Service contract renewal due in 45 days</div>
@@ -437,7 +437,7 @@ export function OverviewView({
                 <button
                   onClick={() => setShowCreate(true)}
                   style={{
-                    background: "var(--primary, #e23b3b)",
+                    background: "var(--primary, var(--color-brand-red))",
                     color: "#fff",
                     border: 0,
                     padding: "10px",
@@ -520,7 +520,7 @@ export function OverviewView({
                 <small>Out of 100</small>
               </div>
               <div>
-                <span style={{ background: weightedIndex >= 60 ? "#dcfce7" : "#fef3c7", color: weightedIndex >= 60 ? "#166534" : "#92400e", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
+                <span style={{ background: weightedIndex >= 60 ? "var(--color-green-bg)" : "var(--color-amber-bg)", color: weightedIndex >= 60 ? "var(--color-green-text)" : "var(--color-amber-strong)", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
                   {weightedIndex >= 80 ? "Grade A · Excellent" : weightedIndex >= 60 ? "Grade B · Good" : weightedIndex >= 40 ? "Grade C · Fair" : "Grade D · Needs Improvement"}
                 </span>
                 <h3 style={{ margin: "8px 0 4px", fontSize: "1.1rem", fontWeight: 800, color: "var(--text-primary)" }}>
@@ -546,17 +546,17 @@ export function OverviewView({
                 </div>
                 <div>
                   <small style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>Actual + Committed Spend</small>
-                  <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "#2563eb" }}>
+                  <div style={{ fontSize: "1.15rem", fontWeight: 800, color: "var(--color-info)" }}>
                     {money.format(budgetSpent)}
                   </div>
                 </div>
               </div>
               <div style={{ marginTop: 12, background: "var(--surface-sunken)", height: 8, borderRadius: 99, overflow: "hidden" }}>
-                <div style={{ width: `${budgetUtilization}%`, background: "#2563eb", height: "100%" }} />
+                <div style={{ width: `${budgetUtilization}%`, background: "var(--color-info)", height: "100%" }} />
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: "0.75rem", color: "var(--text-secondary)" }}>
                 <span>Budget Utilization: {budgetUtilization.toFixed(1)}%</span>
-                <span style={{ color: budgetSpent <= budgetAllocated ? "#16a34a" : "#dc2626", fontWeight: 700 }}>
+                <span style={{ color: budgetSpent <= budgetAllocated ? "var(--color-success)" : "var(--color-danger)", fontWeight: 700 }}>
                   {budgetAllocated ? money.format(Math.abs(budgetAllocated - budgetSpent)) : "No approved allocation"}
                 </span>
               </div>
@@ -568,11 +568,11 @@ export function OverviewView({
             <PanelHeader title="Key Facility Metrics" actionText="Reports →" action={() => setTab("reports")} />
             <div style={{ padding: "16px 20px", display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
               {[
-                { label: "Active Work Orders", value: String(openWO), color: "#3b82f6" },
-                { label: "SLA Overdue", value: String(overdueWO), color: overdueWO > 0 ? "#ef4444" : "#22c55e" },
-                { label: "Active Assets", value: String(kpi.activeAssets ?? 0), color: "#6366f1" },
-                { label: "Open Service Requests", value: String(kpi.openRequests ?? 0), color: "#d97706" },
-                { label: "High Risks", value: String(kpi.highRisksCount ?? 0), color: Number(kpi.highRisksCount ?? 0) > 0 ? "#ef4444" : "#22c55e" },
+                { label: "Active Work Orders", value: String(openWO), color: "var(--color-blue)" },
+                { label: "SLA Overdue", value: String(overdueWO), color: overdueWO > 0 ? "var(--color-danger)" : "var(--color-green)" },
+                { label: "Active Assets", value: String(kpi.activeAssets ?? 0), color: "var(--color-indigo-strong)" },
+                { label: "Open Service Requests", value: String(kpi.openRequests ?? 0), color: "var(--color-warning)" },
+                { label: "High Risks", value: String(kpi.highRisksCount ?? 0), color: Number(kpi.highRisksCount ?? 0) > 0 ? "var(--color-danger)" : "var(--color-green)" },
                 { label: "Active Contractors", value: String(kpi.contractors ?? 0), color: "#0ea5e9" },
               ].map((metric) => (
                 <div key={metric.label} style={{ padding: "12px 14px", background: "var(--surface-sunken)", border: "1px solid var(--border)", borderRadius: 8 }}>

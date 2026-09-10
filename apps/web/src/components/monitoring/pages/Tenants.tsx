@@ -26,7 +26,7 @@ export function Tenants() {
 
   // Branding
   const [brandLogo, setBrandLogo] = useState("");
-  const [brandPrimaryColor, setBrandPrimaryColor] = useState("#d92d2d");
+  const [brandPrimaryColor, setBrandPrimaryColor] = useState("var(--color-danger)");
   const [brandCompanyName, setBrandCompanyName] = useState("");
   const [brandAddress, setBrandAddress] = useState("");
   const [brandPhone, setBrandPhone] = useState("");
@@ -55,7 +55,7 @@ export function Tenants() {
       setEditSettings(JSON.stringify(d.settings ?? {}, null, 2));
       const b = d.settings?.branding ?? {};
       setBrandLogo(b.logo_url ?? "");
-      setBrandPrimaryColor(b.primary_color ?? "#d92d2d");
+      setBrandPrimaryColor(b.primary_color ?? "var(--color-danger)");
       setBrandCompanyName(b.company_name ?? "");
       setBrandAddress(b.address ?? "");
       setBrandPhone(b.phone ?? "");
@@ -177,7 +177,7 @@ export function Tenants() {
           <div className="field"><label>Primary Color</label>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="color" value={brandPrimaryColor} onChange={e => setBrandPrimaryColor(e.target.value)} style={{ width: 48, height: 36, padding: 2, cursor: "pointer" }} />
-              <input value={brandPrimaryColor} onChange={e => setBrandPrimaryColor(e.target.value)} style={{ width: 120 }} placeholder="#d92d2d" />
+              <input value={brandPrimaryColor} onChange={e => setBrandPrimaryColor(e.target.value)} style={{ width: 120 }} placeholder="var(--color-danger)" />
             </div>
           </div>
           <button className="btn primary" onClick={saveBrand}>Save Branding</button>

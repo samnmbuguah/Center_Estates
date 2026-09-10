@@ -271,11 +271,11 @@ export function CommandPalette() {
                   style={{
                     display: "flex", alignItems: "center", gap: 10, width: "100%", textAlign: "left",
                     padding: "9px 10px", borderRadius: 8, border: "none", cursor: "pointer",
-                    background: active === index ? "var(--surface-2, #f1f5f9)" : "transparent",
+                    background: active === index ? "var(--surface-2, var(--color-slate-100))" : "transparent",
                     color: "var(--text)",
                   }}
                 >
-                  <span style={{ color: "var(--primary, #ea580c)", display: "inline-flex" }}>{cmd.icon}</span>
+                  <span style={{ color: "var(--primary, var(--color-orange))", display: "inline-flex" }}>{cmd.icon}</span>
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{cmd.label}</span>
                   {cmd.hint && <span style={{ fontSize: 11, color: "var(--muted)" }}>{cmd.hint}</span>}
                   {active === index && <CornerDownLeft size={13} style={{ color: "var(--muted)" }} />}

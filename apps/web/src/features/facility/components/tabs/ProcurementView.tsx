@@ -134,7 +134,7 @@ export function ProcurementView({ rows, organizationId, reload, canApprove }: {
           {["Requisition", "Sourcing", "LPO", "Execution", "Verified"].map((label, index) => {
             const rank: Record<string, number> = { sourcing: 1, evaluation: 1, awarded: 1, lpo_issued: 2, in_execution: 3, verified: 4 };
             const complete = index <= (rank[p.status] ?? 0);
-            return <Box key={label} sx={{ borderRadius: 1.5, px: 1, py: .65, textAlign: "center", fontSize: 11, fontWeight: 800, color: complete ? "#1d4ed8" : "text.secondary", background: complete ? "rgba(37,99,235,.10)" : "action.hover", border: "1px solid", borderColor: complete ? "rgba(37,99,235,.24)" : "divider" }}>{complete ? "✓ " : ""}{label}</Box>;
+            return <Box key={label} sx={{ borderRadius: 1.5, px: 1, py: .65, textAlign: "center", fontSize: 11, fontWeight: 800, color: complete ? "var(--color-info-strong)" : "text.secondary", background: complete ? "rgba(37,99,235,.10)" : "action.hover", border: "1px solid", borderColor: complete ? "rgba(37,99,235,.24)" : "divider" }}>{complete ? "✓ " : ""}{label}</Box>;
           })}
         </Box>
         {p.quotations.length > 0 && <Stack direction="row" sx={{ gap: 1, mt: 1.5, flexWrap: "wrap" }}>{p.quotations.map((q) => <Chip key={q.id} size="small" color={q.is_awarded ? "success" : "default"} label={`${q.bidder_name} · ${money.format(Number(q.total))}`} />)}</Stack>}

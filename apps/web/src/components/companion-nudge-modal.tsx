@@ -258,7 +258,7 @@ export function CompanionNudgeModal() {
 
   const isWellness = nudge.category === "wellness";
   const isProductivity = nudge.category === "productivity";
-  const accent = isWellness ? "#059669" : isProductivity ? "#4f46e5" : "#d97706";
+  const accent = isWellness ? "var(--color-emerald-strong)" : isProductivity ? "var(--color-indigo)" : "var(--color-warning)";
   const lightAccent = isWellness ? "rgba(16,185,129,0.08)" : isProductivity ? "rgba(79,70,229,0.08)" : "rgba(217,119,6,0.08)";
 
   return (
@@ -302,7 +302,7 @@ export function CompanionNudgeModal() {
       <Box
         sx={{
           height: 5,
-          background: `linear-gradient(90deg, ${accent}, ${accent}88)`,
+          background: `linear-gradient(90deg, ${accent}, color-mix(in srgb, ${accent} 53%, transparent))`,
           backgroundSize: "200% 100%",
           animation: animateIn ? "shimmer 2.2s linear infinite" : "none",
         }}
@@ -511,7 +511,7 @@ export function CompanionNudgeModal() {
                   height: 72,
                   borderRadius: "50%",
                   background: lightAccent,
-                  border: `2px solid ${accent}22`,
+                  border: `2px solid color-mix(in srgb, ${accent} 13%, transparent)`,
                   display: "grid",
                   placeItems: "center",
                   fontSize: 34,
@@ -542,7 +542,7 @@ export function CompanionNudgeModal() {
                   py: 0.4,
                   borderRadius: 99,
                   bgcolor: lightAccent,
-                  border: `1px solid ${accent}18`,
+                  border: `1px solid color-mix(in srgb, ${accent} 9%, transparent)`,
                 }}
               >
                 <Sparkles size={12} style={{ color: accent }} />
@@ -620,7 +620,7 @@ export function CompanionNudgeModal() {
                       variant="caption"
                       sx={{
                         fontWeight: 800,
-                        color: "#d97706",
+                        color: "var(--color-warning)",
                         letterSpacing: ".04em",
                         textTransform: "uppercase",
                         fontSize: "0.68rem",
@@ -635,7 +635,7 @@ export function CompanionNudgeModal() {
                       style={{
                         background: "none",
                         border: "none",
-                        color: "#d97706",
+                        color: "var(--color-warning)",
                         fontSize: "0.72rem",
                         fontWeight: 700,
                         cursor: "pointer",
@@ -712,9 +712,9 @@ export function CompanionNudgeModal() {
                   textTransform: "none",
                   fontWeight: 800,
                   fontSize: "0.92rem",
-                  boxShadow: `0 8px 20px ${accent}30`,
+                  boxShadow: `0 8px 20px color-mix(in srgb, ${accent} 19%, transparent)`,
                   bgcolor: accent,
-                  "&:hover": { bgcolor: accent, filter: "brightness(0.92)", boxShadow: `0 10px 24px ${accent}38` },
+                  "&:hover": { bgcolor: accent, filter: "brightness(0.92)", boxShadow: `0 10px 24px color-mix(in srgb, ${accent} 22%, transparent)` },
                 }}
               >
                 {nudge.action_label || "Got it, thanks"}

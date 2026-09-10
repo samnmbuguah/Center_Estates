@@ -300,7 +300,7 @@ export default function CalendarPage() {
       </div>
 
       {error && (
-        <div style={{ padding: 12, borderRadius: 8, background: "rgba(239,68,68,0.08)", color: "#ef4444", fontSize: 13, border: "1px solid rgba(239,68,68,0.25)" }}>
+        <div style={{ padding: 12, borderRadius: 8, background: "rgba(239,68,68,0.08)", color: "var(--color-danger)", fontSize: 13, border: "1px solid rgba(239,68,68,0.25)" }}>
           {error}
         </div>
       )}
@@ -309,9 +309,9 @@ export default function CalendarPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
         {[
           { label: "Meetings Held", value: String(completedMeetings.length), sub: `${meetings.length} total meetings`, color: "var(--text)" },
-          { label: "Open Action Items", value: String(openActions.length), sub: `${actionItems.length} total actions`, color: "#f59e0b" },
-          { label: "Resolved Action Items", value: String(resolvedActions.length), sub: "Completed / closed", color: "#10b981" },
-          { label: "Upcoming Meetings", value: String(upcomingMeetings.length), sub: `${siteVisits.length} site visit(s)`, color: "#00a3ff" },
+          { label: "Open Action Items", value: String(openActions.length), sub: `${actionItems.length} total actions`, color: "var(--color-amber)" },
+          { label: "Resolved Action Items", value: String(resolvedActions.length), sub: "Completed / closed", color: "var(--color-emerald)" },
+          { label: "Upcoming Meetings", value: String(upcomingMeetings.length), sub: `${siteVisits.length} site visit(s)`, color: "var(--color-brand-blue)" },
         ].map((k) => (
           <div key={k.label} className="card" style={{ padding: 16, background: "var(--surface)", border: "1px solid var(--border)" }}>
             <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>{k.label}</div>
@@ -328,7 +328,7 @@ export default function CalendarPage() {
             <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Schedule Meeting</h3>
             <button type="button" className="btn ghost sm" onClick={() => setShowForm(false)}><X size={14} /></button>
           </div>
-          {formError && <div style={{ marginBottom: 12, fontSize: 13, color: "#ef4444" }}>{formError}</div>}
+          {formError && <div style={{ marginBottom: 12, fontSize: 13, color: "var(--color-danger)" }}>{formError}</div>}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
             <div style={{ gridColumn: "1 / -1" }}>
               <label style={{ display: "block", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>Title *</label>
@@ -533,7 +533,7 @@ export default function CalendarPage() {
           <div className="card" style={{ padding: 20, alignSelf: "start" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <h3 style={{ margin: 0, fontSize: 16, color: "var(--text)" }}>OPEN ACTIONS</h3>
-              <span style={{ fontSize: 12, color: "#00a3ff" }}>{openActions.length} open</span>
+              <span style={{ fontSize: 12, color: "var(--color-brand-blue)" }}>{openActions.length} open</span>
             </div>
             {openActions.length === 0 ? (
               <div style={{ fontSize: 13, color: "var(--muted)" }}>No open action items from meetings or visits.</div>

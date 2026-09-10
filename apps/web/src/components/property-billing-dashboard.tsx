@@ -786,12 +786,12 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
             background: "#ffffff",
             padding: "12px 18px",
             borderRadius: 12,
-            border: "1px solid #e2e8f0",
+            border: "1px solid var(--color-slate-200)",
             boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
             flexWrap: "wrap",
           }}
         >
-          <span style={{ fontSize: 11.5, fontWeight: 800, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--color-slate-600)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
             Owner Billing Type:
           </span>
           <div style={{ display: "flex", gap: 6 }}>
@@ -805,8 +805,8 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
                 fontWeight: 750,
                 border: "none",
                 cursor: "pointer",
-                background: landlordFeeType === "management" ? "#1d4ed8" : "#f1f5f9",
-                color: landlordFeeType === "management" ? "#ffffff" : "#475569",
+                background: landlordFeeType === "management" ? "var(--color-info-strong)" : "var(--color-slate-100)",
+                color: landlordFeeType === "management" ? "#ffffff" : "var(--color-slate-600)",
                 transition: "all 0.15s ease",
               }}
             >
@@ -822,8 +822,8 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
                 fontWeight: 750,
                 border: "none",
                 cursor: "pointer",
-                background: landlordFeeType === "letting" ? "#7c3aed" : "#f1f5f9",
-                color: landlordFeeType === "letting" ? "#ffffff" : "#475569",
+                background: landlordFeeType === "letting" ? "var(--color-violet)" : "var(--color-slate-100)",
+                color: landlordFeeType === "letting" ? "#ffffff" : "var(--color-slate-600)",
                 transition: "all 0.15s ease",
               }}
             >
@@ -835,15 +835,15 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
               style={{
                 padding: "6px 14px", borderRadius: 8, fontSize: 12.5, fontWeight: 750,
                 border: "none", cursor: "pointer",
-                background: landlordFeeType === "service_charge" ? "#0f766e" : "#f1f5f9",
-                color: landlordFeeType === "service_charge" ? "#ffffff" : "#475569",
+                background: landlordFeeType === "service_charge" ? "#0f766e" : "var(--color-slate-100)",
+                color: landlordFeeType === "service_charge" ? "#ffffff" : "var(--color-slate-600)",
                 transition: "all 0.15s ease",
               }}
             >
               🧾 Owner Service Charge
             </button>
           </div>
-          <span style={{ marginLeft: "auto", fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+          <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--color-slate-500)", fontWeight: 600 }}>
             {landlordFeeType === "management"
               ? "Calculated strictly per unit owner based on receipted tenant rent"
               : landlordFeeType === "letting"

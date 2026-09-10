@@ -272,7 +272,7 @@ export function HrRequestsView({
               : "21 days standard entitlement"
           }
           iconBg="rgba(16, 185, 129, 0.12)"
-          iconColor="#10b981"
+          iconColor="var(--color-emerald)"
         />
         <KpiCard
           icon="⏳"
@@ -280,7 +280,7 @@ export function HrRequestsView({
           value={String(totalPendingApprovals)}
           sub={`${pendingLeaveCount} leave, ${pendingHrCount} HR requests`}
           iconBg="rgba(245, 158, 11, 0.12)"
-          iconColor="#f59e0b"
+          iconColor="var(--color-amber)"
           borderColor={totalPendingApprovals > 0 ? "var(--warning)" : undefined}
         />
         <KpiCard
@@ -289,7 +289,7 @@ export function HrRequestsView({
           value={leaveBalance ? `${leaveBalance.taken_days.toFixed(1)} Days` : "0.0 Days"}
           sub={leaveBalance?.pending_days ? `${leaveBalance.pending_days.toFixed(1)} days pending review` : "No pending days"}
           iconBg="rgba(59, 130, 246, 0.12)"
-          iconColor="#3b82f6"
+          iconColor="var(--color-blue)"
         />
         <KpiCard
           icon="👥"
@@ -297,7 +297,7 @@ export function HrRequestsView({
           value={String(onLeaveStaff.length)}
           sub={onLeaveStaff.length > 0 ? onLeaveStaff.map((s) => s.requester_name).join(", ") : "All staff on duty"}
           iconBg="rgba(139, 92, 246, 0.12)"
-          iconColor="#8b5cf6"
+          iconColor="var(--color-violet-strong)"
         />
       </KpiStrip>
 
@@ -354,7 +354,7 @@ export function HrRequestsView({
                 <span
                   style={{
                     marginLeft: 6,
-                    background: "#ef4444",
+                    background: "var(--color-danger)",
                     color: "#fff",
                     borderRadius: 10,
                     padding: "1px 6px",
@@ -380,7 +380,7 @@ export function HrRequestsView({
           <button
             type="button"
             className="btn primary sm"
-            style={{ background: "#2563eb", borderColor: "#2563eb" }}
+            style={{ background: "var(--color-info)", borderColor: "var(--color-info)" }}
             onClick={() => setShowLeaveModal(true)}
           >
             <Plus size={14} /> Request Leave
@@ -388,7 +388,7 @@ export function HrRequestsView({
           <button
             type="button"
             className="btn primary sm"
-            style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
+            style={{ background: "var(--color-violet)", borderColor: "var(--color-violet)" }}
             onClick={() => setShowHrModal(true)}
           >
             <Plus size={14} /> Submit HR / Raise Request
@@ -559,7 +559,7 @@ export function HrRequestsView({
                             <button
                               type="button"
                               className="btn primary sm"
-                              style={{ background: "#059669", borderColor: "#059669" }}
+                              style={{ background: "var(--color-emerald-strong)", borderColor: "var(--color-emerald-strong)" }}
                               onClick={() => {
                                 setReviewingLeave(r);
                                 setDecisionAction("approved");
@@ -689,7 +689,7 @@ export function HrRequestsView({
                             <button
                               type="button"
                               className="btn primary sm"
-                              style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
+                              style={{ background: "var(--color-violet)", borderColor: "var(--color-violet)" }}
                               onClick={() => {
                                 setReviewingHr(r);
                                 setDecisionAction("approved");
@@ -728,7 +728,7 @@ export function HrRequestsView({
           <Panel title={`Pending Leave Approvals Queue (${pendingLeaveCount})`}>
             {pendingLeaveCount === 0 ? (
               <div style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>
-                <CheckCircle2 size={32} style={{ color: "#10b981", margin: "0 auto 8px" }} />
+                <CheckCircle2 size={32} style={{ color: "var(--color-emerald)", margin: "0 auto 8px" }} />
                 <div style={{ fontWeight: 600 }}>All Leave Applications are Reviewed!</div>
                 <div style={{ fontSize: 12 }}>No pending leave requests requiring decision.</div>
               </div>
@@ -787,7 +787,7 @@ export function HrRequestsView({
                         <button
                           type="button"
                           className="btn primary sm"
-                          style={{ background: "#059669", borderColor: "#059669" }}
+                          style={{ background: "var(--color-emerald-strong)", borderColor: "var(--color-emerald-strong)" }}
                           onClick={() => {
                             setReviewingLeave(r);
                             setDecisionAction("approved");
@@ -799,7 +799,7 @@ export function HrRequestsView({
                         <button
                           type="button"
                           className="btn ghost sm"
-                          style={{ color: "#dc2626" }}
+                          style={{ color: "var(--color-danger)" }}
                           onClick={() => {
                             setReviewingLeave(r);
                             setDecisionAction("rejected");
@@ -818,7 +818,7 @@ export function HrRequestsView({
           <Panel title={`Pending Salary & HR Requests Queue (${pendingHrCount})`}>
             {pendingHrCount === 0 ? (
               <div style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>
-                <CheckCircle2 size={32} style={{ color: "#10b981", margin: "0 auto 8px" }} />
+                <CheckCircle2 size={32} style={{ color: "var(--color-emerald)", margin: "0 auto 8px" }} />
                 <div style={{ fontWeight: 600 }}>All HR & Salary Requests are Reviewed!</div>
                 <div style={{ fontSize: 12 }}>No pending items requiring attention.</div>
               </div>
@@ -871,7 +871,7 @@ export function HrRequestsView({
                         <button
                           type="button"
                           className="btn primary sm"
-                          style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
+                          style={{ background: "var(--color-violet)", borderColor: "var(--color-violet)" }}
                           onClick={() => {
                             setReviewingHr(r);
                             setDecisionAction("approved");
@@ -916,7 +916,7 @@ export function HrRequestsView({
                           padding: 14,
                           borderRadius: 8,
                           background: isCurrentlyActive ? "rgba(124, 58, 237, 0.06)" : "var(--surface)",
-                          border: isCurrentlyActive ? "1px solid #7c3aed" : "1px solid var(--border)",
+                          border: isCurrentlyActive ? "1px solid var(--color-violet)" : "1px solid var(--border)",
                           display: "flex",
                           flexDirection: "column",
                           gap: 6,
@@ -1216,7 +1216,7 @@ export function HrRequestsView({
                         checked={decisionAction === "approved"}
                         onChange={() => setDecisionAction("approved")}
                       />
-                      <span style={{ color: "#10b981", fontWeight: 700 }}>✓ Approve Leave</span>
+                      <span style={{ color: "var(--color-emerald)", fontWeight: 700 }}>✓ Approve Leave</span>
                     </label>
                     <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
                       <input
@@ -1226,7 +1226,7 @@ export function HrRequestsView({
                         checked={decisionAction === "rejected"}
                         onChange={() => setDecisionAction("rejected")}
                       />
-                      <span style={{ color: "#ef4444", fontWeight: 700 }}>✕ Reject Leave</span>
+                      <span style={{ color: "var(--color-danger)", fontWeight: 700 }}>✕ Reject Leave</span>
                     </label>
                   </div>
                 </Field>
@@ -1249,8 +1249,8 @@ export function HrRequestsView({
                     type="button"
                     className="btn primary"
                     style={{
-                      background: decisionAction === "approved" ? "#059669" : "#dc2626",
-                      borderColor: decisionAction === "approved" ? "#059669" : "#dc2626",
+                      background: decisionAction === "approved" ? "var(--color-emerald-strong)" : "var(--color-danger)",
+                      borderColor: decisionAction === "approved" ? "var(--color-emerald-strong)" : "var(--color-danger)",
                     }}
                     onClick={handleConfirmLeaveDecision}
                     disabled={busy}
@@ -1347,7 +1347,7 @@ export function HrRequestsView({
                         checked={decisionAction === "approved"}
                         onChange={() => setDecisionAction("approved")}
                       />
-                      <span style={{ color: "#10b981", fontWeight: 700 }}>✓ Approve Request</span>
+                      <span style={{ color: "var(--color-emerald)", fontWeight: 700 }}>✓ Approve Request</span>
                     </label>
                     <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
                       <input
@@ -1357,7 +1357,7 @@ export function HrRequestsView({
                         checked={decisionAction === "under_review"}
                         onChange={() => setDecisionAction("under_review")}
                       />
-                      <span style={{ color: "#3b82f6", fontWeight: 700 }}>⏳ Under Consideration</span>
+                      <span style={{ color: "var(--color-blue)", fontWeight: 700 }}>⏳ Under Consideration</span>
                     </label>
                     <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
                       <input
@@ -1367,7 +1367,7 @@ export function HrRequestsView({
                         checked={decisionAction === "rejected"}
                         onChange={() => setDecisionAction("rejected")}
                       />
-                      <span style={{ color: "#ef4444", fontWeight: 700 }}>✕ Reject Request</span>
+                      <span style={{ color: "var(--color-danger)", fontWeight: 700 }}>✕ Reject Request</span>
                     </label>
                   </div>
                 </Field>
@@ -1390,8 +1390,8 @@ export function HrRequestsView({
                     type="button"
                     className="btn primary"
                     style={{
-                      background: decisionAction === "approved" ? "#059669" : decisionAction === "under_review" ? "#2563eb" : "#dc2626",
-                      borderColor: decisionAction === "approved" ? "#059669" : decisionAction === "under_review" ? "#2563eb" : "#dc2626",
+                      background: decisionAction === "approved" ? "var(--color-emerald-strong)" : decisionAction === "under_review" ? "var(--color-info)" : "var(--color-danger)",
+                      borderColor: decisionAction === "approved" ? "var(--color-emerald-strong)" : decisionAction === "under_review" ? "var(--color-info)" : "var(--color-danger)",
                     }}
                     onClick={handleConfirmHrDecision}
                     disabled={busy}

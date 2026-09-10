@@ -177,7 +177,7 @@ export function ReportsView({
       icon: "📊",
       critical: true,
       exportType: "landlord-report",
-      color: "#2563eb",
+      color: "var(--color-info)",
       tags: ["board", "kpi", "executive", "sla", "overview"],
     },
     {
@@ -189,7 +189,7 @@ export function ReportsView({
       icon: "🏗️",
       critical: true,
       exportType: "capex_lifecycle",
-      color: "#16a34a",
+      color: "var(--color-success)",
       tags: ["capex", "replacement", "useful life", "depreciation", "capital"],
     },
     {
@@ -201,7 +201,7 @@ export function ReportsView({
       icon: "📦",
       critical: false,
       exportType: "assets",
-      color: "#0891b2",
+      color: "var(--color-cyan)",
       tags: ["inventory", "equipment", "machinery", "warranty", "serials"],
     },
     {
@@ -213,7 +213,7 @@ export function ReportsView({
       icon: "🔧",
       critical: true,
       exportType: "work-orders",
-      color: "#ea580c",
+      color: "var(--color-orange)",
       tags: ["tickets", "helpdesk", "reactive", "repairs", "technicians"],
     },
     {
@@ -225,7 +225,7 @@ export function ReportsView({
       icon: "📅",
       critical: false,
       exportType: "ppm",
-      color: "#16a34a",
+      color: "var(--color-success)",
       tags: ["ppm", "preventive", "servicing", "hvac", "generators", "lifts"],
     },
     {
@@ -237,7 +237,7 @@ export function ReportsView({
       icon: "🛡️",
       critical: true,
       exportType: "statutory",
-      color: "#d97706",
+      color: "var(--color-warning)",
       tags: ["dosh", "epra", "fire safety", "nema", "insurance", "statutory", "compliance"],
     },
     {
@@ -249,7 +249,7 @@ export function ReportsView({
       icon: "🔎",
       critical: false,
       exportType: "inspections",
-      color: "#7c3aed",
+      color: "var(--color-violet)",
       tags: ["inspections", "safety", "defects", "audit", "compliance"],
     },
     {
@@ -261,7 +261,7 @@ export function ReportsView({
       icon: "⚠️",
       critical: false,
       exportType: "risks",
-      color: "#b91c1c",
+      color: "var(--color-danger-strong)",
       tags: ["risk", "hazards", "health and safety", "mitigation"],
     },
     {
@@ -273,7 +273,7 @@ export function ReportsView({
       icon: "⭐",
       critical: true,
       exportType: "contractors",
-      color: "#9333ea",
+      color: "var(--color-purple)",
       tags: ["vendors", "sla", "rating", "cleaning", "security", "lift service"],
     },
     {
@@ -285,7 +285,7 @@ export function ReportsView({
       icon: "💰",
       critical: true,
       exportType: "budgets",
-      color: "#059669",
+      color: "var(--color-emerald-strong)",
       tags: ["budget", "costs", "commitments", "variance", "financials"],
     },
     {
@@ -297,7 +297,7 @@ export function ReportsView({
       icon: "📝",
       critical: false,
       exportType: "requisitions",
-      color: "#0284c7",
+      color: "var(--color-sky)",
       tags: ["requisitions", "purchasing", "materials", "procurement"],
     },
     {
@@ -309,7 +309,7 @@ export function ReportsView({
       icon: "🧾",
       critical: false,
       exportType: "invoices",
-      color: "#6366f1",
+      color: "var(--color-indigo-strong)",
       tags: ["invoices", "expenses", "payables", "contractor billing"],
     },
     {
@@ -333,7 +333,7 @@ export function ReportsView({
       icon: "🔍",
       critical: false,
       exportType: "incidents",
-      color: "#dc2626",
+      color: "var(--color-danger)",
       tags: ["incidents", "breakdowns", "power", "water", "failures"],
     },
   ], []);
@@ -419,7 +419,7 @@ export function ReportsView({
             startIcon={<FileCheck2 size={17} />}
             onClick={() => void handleExport("landlord-report", "pdf")}
             disabled={exporting}
-            sx={{ minHeight: 40, px: 2, fontWeight: 800, bgcolor: "#2563eb", "&:hover": { bgcolor: "#1d4ed8" } }}
+            sx={{ minHeight: 40, px: 2, fontWeight: 800, bgcolor: "var(--color-info)", "&:hover": { bgcolor: "var(--color-info-strong)" } }}
           >
             ⚡ Executive Landlord Pack (PDF)
           </Button>
@@ -558,7 +558,7 @@ export function ReportsView({
               startIcon={<Download size={18} />}
               onClick={() => void handleExport("landlord-report", "pdf")}
               disabled={exporting}
-              sx={{ bgcolor: "#2563eb", "&:hover": { bgcolor: "#1d4ed8" }, fontWeight: 800, px: 3, py: 1.25 }}
+              sx={{ bgcolor: "var(--color-info)", "&:hover": { bgcolor: "var(--color-info-strong)" }, fontWeight: 800, px: 3, py: 1.25 }}
             >
               Download Executive Pack (PDF)
             </Button>
@@ -619,7 +619,7 @@ export function ReportsView({
                         display: "grid",
                         placeItems: "center",
                         fontSize: 20,
-                        bgcolor: report.color ? `${report.color}15` : "rgba(99, 102, 241, 0.12)",
+                        bgcolor: report.color ? `color-mix(in srgb, ${report.color} 8%, transparent)` : "rgba(99, 102, 241, 0.12)",
                       }}
                     >
                       {report.icon}
@@ -630,7 +630,7 @@ export function ReportsView({
                       sx={{
                         fontWeight: 800,
                         fontSize: 11,
-                        bgcolor: report.color ? `${report.color}15` : "action.hover",
+                        bgcolor: report.color ? `color-mix(in srgb, ${report.color} 8%, transparent)` : "action.hover",
                         color: report.color || "text.primary",
                       }}
                     />
@@ -668,8 +668,8 @@ export function ReportsView({
                         fontSize: 11,
                         py: 0.25,
                         px: 1.25,
-                        bgcolor: report.color || "#2563eb",
-                        "&:hover": { bgcolor: report.color || "#1d4ed8" },
+                        bgcolor: report.color || "var(--color-info)",
+                        "&:hover": { bgcolor: report.color || "var(--color-info-strong)" },
                         fontWeight: 800,
                       }}
                     >
@@ -713,7 +713,7 @@ export function ReportsView({
                     variant="contained"
                     startIcon={<Download size={15} />}
                     onClick={() => void handleExport(SECTION_EXPORT_TYPES[activeSection], "pdf")}
-                    sx={{ bgcolor: "#2563eb", "&:hover": { bgcolor: "#1d4ed8" }, fontWeight: 800 }}
+                    sx={{ bgcolor: "var(--color-info)", "&:hover": { bgcolor: "var(--color-info-strong)" }, fontWeight: 800 }}
                   >
                     Download PDF
                   </Button>

@@ -57,11 +57,11 @@ export function FMBudgetView({
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Top Budget KPIs */}
       <div className="fc-kpi-strip">
-        <FcKpiCard icon="💰" iconBg="#e0e7ff" iconColor="#4f46e5" label="Annual FM Budget" value={money.format(totalAllocated)} sub={`Financial Year ${selectedYear}`} />
-        <FcKpiCard icon="💳" iconBg="#dcfce7" iconColor="#16a34a" label="Invoiced Actual Spend" value={money.format(totalActual)} sub="Approved invoices paid" />
-        <FcKpiCard icon="🔒" iconBg="#fef3c7" iconColor="#b45309" label="Committed Spend (POs)" value={money.format(totalCommitted)} sub="Reserved on open work orders" />
-        <FcKpiCard icon="📊" iconBg="#dbeafe" iconColor="#2563eb" label="Budget Utilization" value={`${utilizationPct}%`} sub={totalAllocated ? "Actual plus committed spend" : "No approved budget yet"} />
-        <FcKpiCard icon="🛡️" iconBg="#fdf4ff" iconColor="#9333ea" label="Available Reserve" value={money.format(availableReserve)} sub="Remaining uncommitted float" />
+        <FcKpiCard icon="💰" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Annual FM Budget" value={money.format(totalAllocated)} sub={`Financial Year ${selectedYear}`} />
+        <FcKpiCard icon="💳" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Invoiced Actual Spend" value={money.format(totalActual)} sub="Approved invoices paid" />
+        <FcKpiCard icon="🔒" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-deep)" label="Committed Spend (POs)" value={money.format(totalCommitted)} sub="Reserved on open work orders" />
+        <FcKpiCard icon="📊" iconBg="var(--color-blue-bg)" iconColor="var(--color-info)" label="Budget Utilization" value={`${utilizationPct}%`} sub={totalAllocated ? "Actual plus committed spend" : "No approved budget yet"} />
+        <FcKpiCard icon="🛡️" iconBg="#fdf4ff" iconColor="var(--color-purple)" label="Available Reserve" value={money.format(availableReserve)} sub="Remaining uncommitted float" />
       </div>
 
       {/* Main Budget & Commitment Control Table */}
@@ -110,23 +110,23 @@ export function FMBudgetView({
                     <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, fontWeight: 700 }}>
                       {money.format(fld(b as Record<string, unknown>, "allocated"))}
                     </td>
-                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "#b45309" }}>
+                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "var(--color-amber-deep)" }}>
                       {money.format(fld(b as Record<string, unknown>, "committed"))}
                     </td>
-                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "#2563eb" }}>
+                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, color: "var(--color-info)" }}>
                       {money.format(fld(b as Record<string, unknown>, "actual"))}
                     </td>
                     <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, fontWeight: 800 }}>
                       {money.format(encumbered)}
                     </td>
-                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, fontWeight: 800, color: remaining >= 0 ? "#16a34a" : "#dc2626" }}>
+                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, fontWeight: 800, color: remaining >= 0 ? "var(--color-success)" : "var(--color-danger)" }}>
                       {money.format(remaining)}
                     </td>
                     <td style={{ padding: "12px 14px", textAlign: "center" }}>
                       <span
                         style={{
-                          background: pct <= 85 ? "#dcfce7" : pct <= 95 ? "#fef3c7" : "#fee2e2",
-                          color: pct <= 85 ? "#166534" : pct <= 95 ? "#92400e" : "#991b1b",
+                          background: pct <= 85 ? "var(--color-green-bg)" : pct <= 95 ? "var(--color-amber-bg)" : "var(--color-red-bg)",
+                          color: pct <= 85 ? "var(--color-green-text)" : pct <= 95 ? "var(--color-amber-strong)" : "var(--color-danger-deep)",
                           padding: "2px 8px",
                           borderRadius: 4,
                           fontSize: 11,

@@ -26,21 +26,21 @@ export function SalesBuyersKanbanView() {
   };
 
   const stages: Array<{ id: BuyerLead["stage"]; label: string; color: string }> = [
-    { id: "inquiry", label: "Lead Inquiry", color: "#64748b" },
-    { id: "visit", label: "Site Visit Scheduled", color: "#d97706" },
-    { id: "offer", label: "Offer Letter Sent", color: "#2563eb" },
-    { id: "signed", label: "Sale Agreement Signed", color: "#7c3aed" },
-    { id: "handover", label: "Title & Handover", color: "#16a34a" },
+    { id: "inquiry", label: "Lead Inquiry", color: "var(--color-slate-500)" },
+    { id: "visit", label: "Site Visit Scheduled", color: "var(--color-warning)" },
+    { id: "offer", label: "Offer Letter Sent", color: "var(--color-info)" },
+    { id: "signed", label: "Sale Agreement Signed", color: "var(--color-violet)" },
+    { id: "handover", label: "Title & Handover", color: "var(--color-success)" },
   ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
             Sales Buyer Pipeline Funnel
           </h2>
-          <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 750 }}>
+          <span style={{ fontSize: 13, color: "var(--color-slate-900)", fontWeight: 750 }}>
             Track property buyer leads from initial site visit inquiry to signed agreement and handover.
           </span>
         </div>
@@ -51,7 +51,7 @@ export function SalesBuyersKanbanView() {
           const stgLeads = leads.filter((l) => l.stage === stg.id);
 
           return (
-            <div key={stg.id} style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 12, minHeight: 480 }}>
+            <div key={stg.id} style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 12, minHeight: 480 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `2px solid ${stg.color}`, paddingBottom: 10 }}>
                 <span style={{ fontSize: 13, fontWeight: 900, color: "#000000" }}>{stg.label}</span>
                 <span style={{ background: stg.color, color: "#ffffff", padding: "2px 8px", borderRadius: 99, fontSize: 11, fontWeight: 900 }}>
@@ -61,35 +61,35 @@ export function SalesBuyersKanbanView() {
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {stgLeads.map((l) => (
-                  <div key={l.id} style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 8, boxShadow: "0 2px 4px rgba(0,0,0,0.05)" }}>
+                  <div key={l.id} style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 8, boxShadow: "0 2px 4px rgba(0,0,0,0.05)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <strong style={{ fontSize: 14, fontWeight: 900, color: "#000000" }}>{l.name}</strong>
-                      <span style={{ fontSize: 10, fontWeight: 900, background: "#fee2e2", color: "#dc2626", padding: "2px 6px", borderRadius: 4 }}>
+                      <span style={{ fontSize: 10, fontWeight: 900, background: "var(--color-red-bg)", color: "var(--color-danger)", padding: "2px 6px", borderRadius: 4 }}>
                         {l.rating}
                       </span>
                     </div>
 
-                    <small style={{ fontSize: 11, fontWeight: 700, color: "#0f172a" }}>🏢 {l.targetUnit}</small>
-                    <strong style={{ fontSize: 13, fontWeight: 900, color: "#16a34a" }}>KES {l.dealValue.toLocaleString()}</strong>
+                    <small style={{ fontSize: 11, fontWeight: 700, color: "var(--color-slate-900)" }}>🏢 {l.targetUnit}</small>
+                    <strong style={{ fontSize: 13, fontWeight: 900, color: "var(--color-success)" }}>KES {l.dealValue.toLocaleString()}</strong>
 
-                    <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 8, marginTop: 4 }}>
+                    <div style={{ borderTop: "1px solid var(--color-slate-100)", paddingTop: 8, marginTop: 4 }}>
                       {stg.id === "inquiry" && (
-                        <button onClick={() => moveStage(l.id, "visit")} style={{ width: "100%", background: "#d97706", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                        <button onClick={() => moveStage(l.id, "visit")} style={{ width: "100%", background: "var(--color-warning)", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
                           Schedule Visit →
                         </button>
                       )}
                       {stg.id === "visit" && (
-                        <button onClick={() => moveStage(l.id, "offer")} style={{ width: "100%", background: "#2563eb", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                        <button onClick={() => moveStage(l.id, "offer")} style={{ width: "100%", background: "var(--color-info)", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
                           Send Offer Letter →
                         </button>
                       )}
                       {stg.id === "offer" && (
-                        <button onClick={() => moveStage(l.id, "signed")} style={{ width: "100%", background: "#7c3aed", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                        <button onClick={() => moveStage(l.id, "signed")} style={{ width: "100%", background: "var(--color-violet)", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
                           Sign Agreement →
                         </button>
                       )}
                       {stg.id === "signed" && (
-                        <button onClick={() => moveStage(l.id, "handover")} style={{ width: "100%", background: "#16a34a", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                        <button onClick={() => moveStage(l.id, "handover")} style={{ width: "100%", background: "var(--color-success)", color: "#fff", border: 0, padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
                           Complete Handover ✓
                         </button>
                       )}

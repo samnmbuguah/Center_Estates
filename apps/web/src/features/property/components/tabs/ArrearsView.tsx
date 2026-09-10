@@ -77,7 +77,7 @@ export function ArrearsView({
                       <td>
                         <div className="row" style={{ gap: 8 }}>
                           <div style={{ flex: 1, height: 6, borderRadius: 99, background: "var(--border)", overflow: "hidden" }}>
-                            <div style={{ width: `${pct(amount, total)}%`, height: "100%", background: amount > 0 ? "#e23b3b" : "var(--border-strong)" }} />
+                            <div style={{ width: `${pct(amount, total)}%`, height: "100%", background: amount > 0 ? "var(--color-brand-red)" : "var(--border-strong)" }} />
                           </div>
                           <span className="mono" style={{ fontSize: 11, width: 40, textAlign: "right" }}>{pct(amount, total)}%</span>
                         </div>

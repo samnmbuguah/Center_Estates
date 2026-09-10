@@ -41,18 +41,18 @@ export function ValuationStepperView() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+      <div style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
             Valuation Instruction Milestone Stepper
           </h2>
-          <span style={{ fontSize: 13, color: "#0f172a", fontWeight: 750 }}>
+          <span style={{ fontSize: 13, color: "var(--color-slate-900)", fontWeight: 750 }}>
             Track real-time progress of professional valuation reports from initial site inspection to final signed dispatch.
           </span>
         </div>
 
         <div style={{ position: "relative", minWidth: 260 }}>
-          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#64748b", pointerEvents: "none" }} />
+          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--color-slate-500)", pointerEvents: "none" }} />
           <input
             type="text"
             placeholder="Search instructions..."
@@ -61,7 +61,7 @@ export function ValuationStepperView() {
             style={{
               padding: "8px 12px 8px 36px",
               borderRadius: 8,
-              border: "1px solid #cbd5e1",
+              border: "1px solid var(--color-slate-300)",
               fontSize: 13,
               fontWeight: 700,
               color: "#000000",
@@ -74,24 +74,24 @@ export function ValuationStepperView() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {paginated.map((item) => (
-          <div key={item.id} style={{ background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+          <div key={item.id} style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
               <div>
-                <span style={{ fontSize: 12, fontWeight: 900, color: "#8b5cf6", fontFamily: "ui-monospace, monospace" }}>{item.code}</span>
+                <span style={{ fontSize: 12, fontWeight: 900, color: "var(--color-violet-strong)", fontFamily: "ui-monospace, monospace" }}>{item.code}</span>
                 <h3 style={{ fontSize: 16, fontWeight: 900, color: "#000000", margin: "2px 0 0" }}>{item.property}</h3>
-                <small style={{ fontSize: 12, color: "#0f172a", fontWeight: 750 }}>{item.valuationType} • Valuer: {item.valuerName}</small>
+                <small style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>{item.valuationType} • Valuer: {item.valuerName}</small>
               </div>
 
               <div style={{ textAlign: "right" }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>Estimated Valuation</span>
-                <strong style={{ fontSize: 20, fontWeight: 900, color: "#16a34a", display: "block" }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--color-slate-500)", textTransform: "uppercase" }}>Estimated Valuation</span>
+                <strong style={{ fontSize: 20, fontWeight: 900, color: "var(--color-success)", display: "block" }}>
                   KES {item.estimatedValue.toLocaleString()}
                 </strong>
               </div>
             </div>
 
             {/* Stepper Progress Bar */}
-            <div style={{ background: "#f8fafc", padding: 16, borderRadius: 10, border: "1px solid #e2e8f0", display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
+            <div style={{ background: "var(--color-slate-50)", padding: 16, borderRadius: 10, border: "1px solid var(--color-slate-200)", display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
               {steps.map((s) => {
                 const active = item.step === s.num;
                 const completed = item.step > s.num;
@@ -103,8 +103,8 @@ export function ValuationStepperView() {
                         width: 30,
                         height: 30,
                         borderRadius: "50%",
-                        background: completed ? "#16a34a" : active ? "#8b5cf6" : "#cbd5e1",
-                        color: completed || active ? "#ffffff" : "#64748b",
+                        background: completed ? "var(--color-success)" : active ? "var(--color-violet-strong)" : "var(--color-slate-300)",
+                        color: completed || active ? "#ffffff" : "var(--color-slate-500)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
@@ -114,7 +114,7 @@ export function ValuationStepperView() {
                     >
                       {completed ? <CheckCircle2 size={18} /> : s.num}
                     </span>
-                    <span style={{ fontSize: 11, fontWeight: active || completed ? 900 : 700, color: active || completed ? "#000000" : "#64748b" }}>
+                    <span style={{ fontSize: 11, fontWeight: active || completed ? 900 : 700, color: active || completed ? "#000000" : "var(--color-slate-500)" }}>
                       {s.label}
                     </span>
                   </div>

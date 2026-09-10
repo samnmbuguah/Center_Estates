@@ -101,8 +101,8 @@ export function DeveloperReportDialog({
             width: 36,
             height: 36,
             borderRadius: 2,
-            bgcolor: "#ef444415",
-            color: "#ef4444",
+            bgcolor: "var(--color-danger)15",
+            color: "var(--color-danger)",
             display: "grid",
             placeItems: "center",
           }}

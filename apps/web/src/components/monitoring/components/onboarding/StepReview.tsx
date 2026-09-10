@@ -36,7 +36,7 @@ export function getRequirementTier(key: string, label: string) {
     return {
       tier: "CORE",
       tierName: "Non-Waivable Core Requirement",
-      color: "#ef4444",
+      color: "var(--color-danger)",
       bg: "rgba(239,68,68,0.1)",
       border: "rgba(239,68,68,0.3)",
       icon: Lock,
@@ -51,7 +51,7 @@ export function getRequirementTier(key: string, label: string) {
       tier: "MODULE",
       tierName: "Required by Safeguards Module",
       moduleName: "Environmental & Social Safeguards",
-      color: "#3b82f6",
+      color: "var(--color-blue)",
       bg: "rgba(59,130,246,0.1)",
       border: "rgba(59,130,246,0.3)",
       icon: Package,
@@ -65,7 +65,7 @@ export function getRequirementTier(key: string, label: string) {
       tier: "MODULE",
       tierName: "Required by Financial Module",
       moduleName: "Financial Monitoring & BOQs",
-      color: "#3b82f6",
+      color: "var(--color-blue)",
       bg: "rgba(59,130,246,0.1)",
       border: "rgba(59,130,246,0.3)",
       icon: Package,
@@ -79,7 +79,7 @@ export function getRequirementTier(key: string, label: string) {
       tier: "MODULE",
       tierName: "Required by BIM Module",
       moduleName: "3D BIM Integration",
-      color: "#3b82f6",
+      color: "var(--color-blue)",
       bg: "rgba(59,130,246,0.1)",
       border: "rgba(59,130,246,0.3)",
       icon: Package,
@@ -93,7 +93,7 @@ export function getRequirementTier(key: string, label: string) {
     return {
       tier: "OPTIONAL",
       tierName: "Optional Enhancement",
-      color: "#10b981",
+      color: "var(--color-emerald)",
       bg: "rgba(16,185,129,0.1)",
       border: "rgba(16,185,129,0.3)",
       icon: Sparkles,
@@ -106,7 +106,7 @@ export function getRequirementTier(key: string, label: string) {
   return {
     tier: "GOVERNANCE",
     tierName: "Waivable Governance Item",
-    color: "#f59e0b",
+    color: "var(--color-amber)",
     bg: "rgba(245,158,11,0.1)",
     border: "rgba(245,158,11,0.3)",
     icon: ShieldAlert,
@@ -197,7 +197,7 @@ export function StepReview({
             <div style={{ fontWeight: 700, fontSize: 15 }}>Onboarding Governance & Readiness</div>
             <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 2 }}>{okCount} of {totalCount} requirements met</div>
           </div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: allOk ? "#10b981" : progress > 60 ? "#f59e0b" : "#ef4444" }}>
+          <div style={{ fontSize: 28, fontWeight: 900, color: allOk ? "var(--color-emerald)" : progress > 60 ? "var(--color-amber)" : "var(--color-danger)" }}>
             {progress}%
           </div>
         </div>
@@ -205,22 +205,22 @@ export function StepReview({
           <div style={{
             height: "100%", borderRadius: 5, transition: "width 0.5s ease",
             width: `${progress}%`,
-            background: allOk ? "linear-gradient(90deg, #10b981, #34d399)" : progress > 60 ? "linear-gradient(90deg, #f59e0b, #fbbf24)" : "linear-gradient(90deg, #ef4444, #f87171)",
+            background: allOk ? "linear-gradient(90deg, var(--color-emerald), #34d399)" : progress > 60 ? "linear-gradient(90deg, var(--color-amber), var(--color-amber-400))" : "linear-gradient(90deg, var(--color-danger), #f87171)",
           }} />
         </div>
 
         {/* 4-Tier Legend Pills */}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 11, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 12, background: "rgba(239,68,68,0.1)", color: "#ef4444", fontWeight: 700 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 12, background: "rgba(239,68,68,0.1)", color: "var(--color-danger)", fontWeight: 700 }}>
             🔒 Core Non-Waivable
           </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 12, background: "rgba(59,130,246,0.1)", color: "#3b82f6", fontWeight: 700 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 12, background: "rgba(59,130,246,0.1)", color: "var(--color-blue)", fontWeight: 700 }}>
             📦 Module-Driven
           </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 12, background: "rgba(245,158,11,0.1)", color: "#f59e0b", fontWeight: 700 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 12, background: "rgba(245,158,11,0.1)", color: "var(--color-amber)", fontWeight: 700 }}>
             ⚠️ Waivable Governance
           </span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 12, background: "rgba(16,185,129,0.1)", color: "#10b981", fontWeight: 700 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 12, background: "rgba(16,185,129,0.1)", color: "var(--color-emerald)", fontWeight: 700 }}>
             💡 Optional Enhancement
           </span>
         </div>
@@ -234,7 +234,7 @@ export function StepReview({
           border: "1px solid rgba(16,185,129,0.3)", borderRadius: 12,
         }}>
           <div style={{ fontSize: 36, marginBottom: 8 }}>🎉</div>
-          <div style={{ fontWeight: 800, fontSize: 17, color: "#10b981", marginBottom: 4 }}>Your project is ready to launch!</div>
+          <div style={{ fontWeight: 800, fontSize: 17, color: "var(--color-emerald)", marginBottom: 4 }}>Your project is ready to launch!</div>
           <div style={{ fontSize: 13, color: "var(--muted)" }}>All mandatory core and module requirements are satisfied. Click "Complete Onboarding" to activate the project.</div>
         </div>
       )}
@@ -244,8 +244,8 @@ export function StepReview({
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", marginBottom: 20 }}>
           <div style={{ padding: "14px 20px", background: "rgba(239,68,68,0.05)", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <AlertCircle size={16} style={{ color: "#ef4444" }} />
-              <span style={{ fontWeight: 700, fontSize: 14, color: "#ef4444" }}>Missing Requirements ({missingItems.length})</span>
+              <AlertCircle size={16} style={{ color: "var(--color-danger)" }} />
+              <span style={{ fontWeight: 700, fontSize: 14, color: "var(--color-danger)" }}>Missing Requirements ({missingItems.length})</span>
             </div>
 
             {/* Filter Buttons */}
@@ -311,12 +311,12 @@ export function StepReview({
 
                       {info.waivable ? (
                         can("projects.requirements.waive") ? (
-                          <button className="btn ghost sm" onClick={() => setWaiverKey(c.key)} style={{ fontSize: 12, color: "#f59e0b", borderColor: "#f59e0b" }}>
+                          <button className="btn ghost sm" onClick={() => setWaiverKey(c.key)} style={{ fontSize: 12, color: "var(--color-amber)", borderColor: "var(--color-amber)" }}>
                             Waive
                           </button>
                         ) : null
                       ) : (
-                        <span style={{ fontSize: 11, color: "#ef4444", fontWeight: 700, padding: "4px 8px", background: "rgba(239,68,68,0.08)", borderRadius: 6 }}>
+                        <span style={{ fontSize: 11, color: "var(--color-danger)", fontWeight: 700, padding: "4px 8px", background: "rgba(239,68,68,0.08)", borderRadius: 6 }}>
                           Cannot be waived
                         </span>
                       )}
@@ -337,14 +337,14 @@ export function StepReview({
             background: "rgba(16,185,129,0.05)", borderBottom: "1px solid var(--border)",
             display: "flex", alignItems: "center", gap: 8, fontWeight: 700, fontSize: 14,
           }}>
-            <CheckCircle2 size={16} style={{ color: "#10b981" }} />
-            <span style={{ color: "#10b981" }}>Completed Requirements ({okItems.length})</span>
+            <CheckCircle2 size={16} style={{ color: "var(--color-emerald)" }} />
+            <span style={{ color: "var(--color-emerald)" }}>Completed Requirements ({okItems.length})</span>
           </summary>
           <div style={{ padding: "8px 12px" }}>
             {okItems.map(c => (
               <div key={c.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 8px", borderBottom: "1px solid var(--border)" }}>
                 <div style={{ width: 24, height: 24, borderRadius: "50%", background: "rgba(16,185,129,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Check size={13} style={{ color: "#10b981" }} />
+                  <Check size={13} style={{ color: "var(--color-emerald)" }} />
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 500 }}>{c.label}</div>
               </div>
@@ -356,11 +356,11 @@ export function StepReview({
       {/* Waiver Request Modal / Box */}
       {waiverKey && (
         <div style={{
-          background: "var(--surface)", border: "1px solid #f59e0b", borderRadius: 12,
+          background: "var(--surface)", border: "1px solid var(--color-amber)", borderRadius: 12,
           padding: "20px 24px", marginBottom: 20,
         }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, color: "#f59e0b" }}>
+            <div style={{ fontWeight: 700, fontSize: 14, color: "var(--color-amber)" }}>
               ⚠ Request Governance Waiver: {checklist.find(c => c.key === waiverKey)?.label}
             </div>
             <button type="button" className="btn ghost sm" onClick={() => { setWaiverKey(""); setWaiverReason(""); }}><X size={14} /></button>
@@ -415,7 +415,7 @@ export function StepReview({
           {allOk ? (project?.onboarding_complete ? "Update Onboarding" : "Complete Onboarding") : "Complete with Waivers"}
         </SubmitButton>
         {!allOk && !can("projects.requirements.waive") && (
-          <span style={{ color: "#ef4444", fontSize: 13 }}>
+          <span style={{ color: "var(--color-danger)", fontSize: 13 }}>
             Missing non-core requirements must be fulfilled or waived by an administrator. Core requirements cannot be waived.
           </span>
         )}

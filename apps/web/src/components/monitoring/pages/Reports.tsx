@@ -132,7 +132,7 @@ export function Reports() {
         </div>
 
         <div style={{ display: "flex", gap: "10px" }}>
-          <button className="btn btn-primary" style={{ background: "#d92d2d", borderColor: "#d92d2d" }} onClick={() => setShowGenerateModal(true)}>
+          <button className="btn btn-primary" style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }} onClick={() => setShowGenerateModal(true)}>
             <Plus size={15} style={{ marginRight: "4px" }} /> + Generate New Report
           </button>
         </div>
@@ -147,12 +147,12 @@ export function Reports() {
 
         <div className="card" style={{ padding: "16px", background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "4px" }}>Scheduled Auto-Distributions</div>
-          <div style={{ fontSize: "24px", fontWeight: 700, color: "#00a3ff" }}>4 Auto-Schedules</div>
+          <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--color-brand-blue)" }}>4 Auto-Schedules</div>
         </div>
 
         <div className="card" style={{ padding: "16px", background: "var(--surface)", border: "1px solid var(--border)" }}>
           <div style={{ fontSize: "12px", color: "var(--muted)", marginBottom: "4px" }}>Audit Compliance Score</div>
-          <div style={{ fontSize: "24px", fontWeight: 700, color: "#10b981" }}>100% Compliant</div>
+          <div style={{ fontSize: "24px", fontWeight: 700, color: "var(--color-emerald)" }}>100% Compliant</div>
         </div>
       </div>
 
@@ -164,7 +164,7 @@ export function Reports() {
             <div key={tpl.id} style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "8px", padding: "16px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "12px" }}>
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
-                  <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(0,163,255,0.15)", color: "#00a3ff", fontWeight: 600 }}>
+                  <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(0,163,255,0.15)", color: "var(--color-brand-blue)", fontWeight: 600 }}>
                     {tpl.badge}
                   </span>
                   <span style={{ fontSize: "11px", color: "var(--muted)" }}>{tpl.format}</span>
@@ -176,7 +176,7 @@ export function Reports() {
               <div style={{ display: "flex", gap: "8px" }}>
                 <button
                   className="btn btn-primary"
-                  style={{ flex: 1, background: "#00a3ff", borderColor: "#00a3ff", fontSize: "12px" }}
+                  style={{ flex: 1, background: "var(--color-brand-blue)", borderColor: "var(--color-brand-blue)", fontSize: "12px" }}
                   onClick={() => { setSelectedTemplate(tpl.id); setShowGenerateModal(true); }}
                 >
                   Configure & Generate →
@@ -216,21 +216,21 @@ export function Reports() {
               {generatedReports.map((rep) => (
                 <tr key={rep.id} style={{ borderBottom: "1px solid var(--border)" }}>
                   <td style={{ padding: "8px", fontWeight: 700, color: "var(--text)" }}>{rep.id}</td>
-                  <td style={{ padding: "8px", fontWeight: 600, color: "#00a3ff" }}>{rep.name}</td>
+                  <td style={{ padding: "8px", fontWeight: 600, color: "var(--color-brand-blue)" }}>{rep.name}</td>
                   <td style={{ padding: "8px", color: "var(--muted)" }}>{rep.type}</td>
                   <td style={{ padding: "8px" }}>{rep.period}</td>
                   <td style={{ padding: "8px", color: "var(--muted)" }}>{rep.generatedDate}</td>
                   <td style={{ padding: "8px", fontFamily: "IBM Plex Mono" }}>{rep.size}</td>
                   <td style={{ padding: "8px" }}>
-                    <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(16,185,129,0.15)", color: "#10b981", fontWeight: 600 }}>
+                    <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "4px", background: "rgba(16,185,129,0.15)", color: "var(--color-emerald)", fontWeight: 600 }}>
                       {rep.status}
                     </span>
                   </td>
                   <td style={{ padding: "8px", textAlign: "right", display: "flex", justifyContent: "flex-end", gap: "6px" }}>
-                    <button className="btn sm ghost" style={{ color: "#00a3ff" }} onClick={() => handleDownloadPdf()}>
+                    <button className="btn sm ghost" style={{ color: "var(--color-brand-blue)" }} onClick={() => handleDownloadPdf()}>
                       <Download size={14} style={{ marginRight: "4px" }} /> PDF
                     </button>
-                    <button className="btn sm ghost" style={{ color: "#10b981" }} onClick={() => handleDownloadExcel()}>
+                    <button className="btn sm ghost" style={{ color: "var(--color-emerald)" }} onClick={() => handleDownloadExcel()}>
                       <FileSpreadsheet size={14} style={{ marginRight: "4px" }} /> Excel
                     </button>
                   </td>

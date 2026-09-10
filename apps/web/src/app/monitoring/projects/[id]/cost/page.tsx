@@ -15,7 +15,7 @@ export default function CostPage({ params }: { params: Promise<{ id: string }> }
       eyebrow="Commercial Management"
       title="BoQ, Variations & Cost Control Engine"
       subtitle="Bill of Quantities spreadsheet ingestion, variation approval state machine, provisional sums & contingency recovery."
-      accent="#dc2626"
+      accent="var(--color-danger)"
       groups={constructionNav}
       activeId="boq"
       onSelect={(tabId) => {
@@ -25,7 +25,7 @@ export default function CostPage({ params }: { params: Promise<{ id: string }> }
     >
       <div className="property-app monitoring-app">
         <div style={{ marginBottom: 14 }}>
-          <Link href={`/monitoring/projects/${id}`} style={{ color: "#2563eb", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
+          <Link href={`/monitoring/projects/${id}`} style={{ color: "var(--color-info)", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
             $\leftarrow$ Back to Project Workspace
           </Link>
         </div>

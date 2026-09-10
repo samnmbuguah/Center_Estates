@@ -45,7 +45,7 @@ export default function SingleWorkOrderWorkspacePage({ params }: { params: Promi
       eyebrow="Work Order Dispatch Board"
       title={title}
       subtitle="Technician dispatch, labor and parts cost ledger, SLA tracking, and completion verification."
-      accent="#0284c7"
+      accent="var(--color-sky)"
       groups={facilityNav}
       activeId="work-orders"
       onSelect={(tabId) => {
@@ -57,7 +57,7 @@ export default function SingleWorkOrderWorkspacePage({ params }: { params: Promi
     >
       <div className="facility-app">
         <div style={{ marginBottom: 14 }}>
-          <Link href="/facility/work-orders" style={{ color: "#0284c7", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
+          <Link href="/facility/work-orders" style={{ color: "var(--color-sky)", textDecoration: "none", fontSize: "0.85rem", fontWeight: 600 }}>
             $\leftarrow$ Back to Work Orders Board
           </Link>
         </div>
@@ -68,29 +68,29 @@ export default function SingleWorkOrderWorkspacePage({ params }: { params: Promi
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "#64748b" }}>WO Reference</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#0284c7", fontFamily: "monospace" }}>{String(wo?.wo_number)}</h3>
+                <small style={{ color: "var(--color-slate-500)" }}>WO Reference</small>
+                <h3 style={{ margin: "4px 0 0 0", color: "var(--color-sky)", fontFamily: "monospace" }}>{String(wo?.wo_number)}</h3>
               </div>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "#64748b" }}>Assigned Technician</small>
+                <small style={{ color: "var(--color-slate-500)" }}>Assigned Technician</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--text)" }}>{String(wo?.technician_name || "Peter Mwangi")}</h3>
               </div>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "#64748b" }}>Total Labor & Parts Cost</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#16a34a" }}>{cash.format(Number(wo?.total_cost || 84000))}</h3>
+                <small style={{ color: "var(--color-slate-500)" }}>Total Labor & Parts Cost</small>
+                <h3 style={{ margin: "4px 0 0 0", color: "var(--color-success)" }}>{cash.format(Number(wo?.total_cost || 84000))}</h3>
               </div>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "#64748b" }}>Priority Level</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#dc2626" }}>HIGH PRIORITY</h3>
+                <small style={{ color: "var(--color-slate-500)" }}>Priority Level</small>
+                <h3 style={{ margin: "4px 0 0 0", color: "var(--color-danger)" }}>HIGH PRIORITY</h3>
               </div>
             </div>
 
             <div style={{ background: "var(--surface)", padding: 18, borderRadius: 10, border: "1px solid var(--line)" }}>
               <h4 style={{ margin: "0 0 10px 0", color: "var(--text)" }}>Technician Execution Timeline & Photo Proof</h4>
               <div style={{ display: "flex", gap: 10 }}>
-                <span style={{ padding: "4px 12px", borderRadius: 12, background: "#dcfce7", color: "#166534", fontWeight: "bold", fontSize: "0.75rem" }}>DISPATCHED</span>
-                <span style={{ padding: "4px 12px", borderRadius: 12, background: "#dbeafe", color: "#1e40af", fontWeight: "bold", fontSize: "0.75rem" }}>IN PROGRESS</span>
-                <span style={{ padding: "4px 12px", borderRadius: 12, background: "#fef3c7", color: "#b45309", fontWeight: "bold", fontSize: "0.75rem" }}>PARTS LOGGED</span>
+                <span style={{ padding: "4px 12px", borderRadius: 12, background: "var(--color-green-bg)", color: "var(--color-green-text)", fontWeight: "bold", fontSize: "0.75rem" }}>DISPATCHED</span>
+                <span style={{ padding: "4px 12px", borderRadius: 12, background: "var(--color-blue-bg)", color: "var(--color-info-deep)", fontWeight: "bold", fontSize: "0.75rem" }}>IN PROGRESS</span>
+                <span style={{ padding: "4px 12px", borderRadius: 12, background: "var(--color-amber-bg)", color: "var(--color-amber-deep)", fontWeight: "bold", fontSize: "0.75rem" }}>PARTS LOGGED</span>
               </div>
             </div>
           </div>

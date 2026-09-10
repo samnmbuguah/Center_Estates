@@ -12,12 +12,12 @@ export interface StepDocumentsProps {
 
 /** An upload chip shown after a file is added */
 function FileChip({ name, status, onRemove }: { name: string; status: "uploading" | "done" | "error"; onRemove?: () => void }) {
-  const color = status === "done" ? "#10b981" : status === "error" ? "#ef4444" : "var(--muted)";
+  const color = status === "done" ? "var(--color-emerald)" : status === "error" ? "var(--color-danger)" : "var(--muted)";
   const bg = status === "done" ? "rgba(16,185,129,0.08)" : status === "error" ? "rgba(239,68,68,0.08)" : "var(--surface-3)";
   return (
     <div style={{
       display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px",
-      borderRadius: 20, background: bg, border: `1px solid ${color}40`, fontSize: 12,
+      borderRadius: 20, background: bg, border: `1px solid color-mix(in srgb, ${color} 25%, transparent)`, fontSize: 12,
     }}>
       {status === "uploading" && <span style={{ color, fontSize: 10 }}>⏳</span>}
       {status === "done" && <CheckCircle2 size={12} style={{ color }} />}
@@ -268,7 +268,7 @@ export function StepDocuments({ project, hasModule, loadStatus, setError }: Step
               <div style={{
                 fontSize: 13, padding: "8px 12px", borderRadius: 8,
                 background: ingestionResult.includes("✓") ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)",
-                color: ingestionResult.includes("✓") ? "#10b981" : "#ef4444",
+                color: ingestionResult.includes("✓") ? "var(--color-emerald)" : "var(--color-danger)",
                 display: "flex", gap: 6, alignItems: "center",
               }}>
                 <FileSpreadsheet size={14} />
@@ -289,7 +289,7 @@ export function StepDocuments({ project, hasModule, loadStatus, setError }: Step
               <div style={{
                 fontSize: 13, padding: "8px 12px", borderRadius: 8,
                 background: ingestionResult.includes("✓") ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)",
-                color: ingestionResult.includes("✓") ? "#10b981" : "#ef4444",
+                color: ingestionResult.includes("✓") ? "var(--color-emerald)" : "var(--color-danger)",
                 display: "flex", gap: 6, alignItems: "center",
               }}>
                 <FileSpreadsheet size={14} />
@@ -306,7 +306,7 @@ export function StepDocuments({ project, hasModule, loadStatus, setError }: Step
           )}
 
           {ingestionResult && ingestionResult.includes("Committed") && (
-            <div style={{ marginBottom: 16, padding: "12px 16px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10, fontSize: 13, color: "#10b981", display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ marginBottom: 16, padding: "12px 16px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", borderRadius: 10, fontSize: 13, color: "var(--color-emerald)", display: "flex", gap: 8, alignItems: "center" }}>
               <CheckCircle2 size={16} /> {ingestionResult}
             </div>
           )}

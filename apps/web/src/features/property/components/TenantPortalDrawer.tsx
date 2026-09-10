@@ -143,7 +143,7 @@ function MpesaStkPushModal({
         style={{
           background: "var(--surface, #fff)", borderRadius: 16, padding: 28,
           width: "100%", maxWidth: 420, boxShadow: "0 24px 80px rgba(0,0,0,0.28)",
-          border: "1px solid var(--border, #e2e8f0)",
+          border: "1px solid var(--border, var(--color-slate-200))",
         }}
       >
         {/* Header */}
@@ -151,7 +151,7 @@ function MpesaStkPushModal({
           <div
             style={{
               width: 44, height: 44, borderRadius: 12,
-              background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
+              background: "linear-gradient(135deg, var(--color-green-brand) 0%, var(--color-green-deep) 100%)",
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 22, flexShrink: 0,
             }}
@@ -160,14 +160,14 @@ function MpesaStkPushModal({
           </div>
           <div>
             <h2 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>M-Pesa STK Push</h2>
-            <p style={{ margin: 0, fontSize: 12, color: "var(--muted, #64748b)" }}>{gateway.display_name}</p>
+            <p style={{ margin: 0, fontSize: 12, color: "var(--muted, var(--color-slate-500))" }}>{gateway.display_name}</p>
           </div>
           {status !== "polling" && (
             <button
               onClick={onClose}
               style={{
                 marginLeft: "auto", background: "none", border: "none", cursor: "pointer",
-                fontSize: 20, color: "var(--muted, #64748b)", lineHeight: 1, padding: 4,
+                fontSize: 20, color: "var(--muted, var(--color-slate-500))", lineHeight: 1, padding: 4,
               }}
               aria-label="Close"
             >×</button>
@@ -177,7 +177,7 @@ function MpesaStkPushModal({
         {/* Invoice summary */}
         <div
           style={{
-            background: "var(--surface-2, #f8fafc)", borderRadius: 10, padding: "12px 16px",
+            background: "var(--surface-2, var(--color-slate-50))", borderRadius: 10, padding: "12px 16px",
             marginBottom: 20, display: "grid", gridTemplateColumns: "1fr auto", gap: 4,
           }}
         >
@@ -205,13 +205,13 @@ function MpesaStkPushModal({
               placeholder="e.g. 0712345678 or 254712345678"
               style={{
                 width: "100%", padding: "10px 14px", borderRadius: 8, fontSize: 14,
-                border: "1.5px solid var(--border, #e2e8f0)", boxSizing: "border-box",
+                border: "1.5px solid var(--border, var(--color-slate-200))", boxSizing: "border-box",
                 fontFamily: "monospace", marginBottom: 16, outline: "none",
               }}
               autoFocus
             />
             {error && (
-              <div style={{ color: "#dc2626", fontSize: 12, marginBottom: 12, padding: "8px 12px", background: "#fef2f2", borderRadius: 8 }}>
+              <div style={{ color: "var(--color-danger)", fontSize: 12, marginBottom: 12, padding: "8px 12px", background: "var(--color-red-soft)", borderRadius: 8 }}>
                 ⚠ {error}
               </div>
             )}
@@ -220,7 +220,7 @@ function MpesaStkPushModal({
               type="submit"
               style={{
                 width: "100%", padding: "12px 0", borderRadius: 10, border: "none", cursor: "pointer",
-                background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
+                background: "linear-gradient(135deg, var(--color-green-brand) 0%, var(--color-green-deep) 100%)",
                 color: "#fff", fontWeight: 700, fontSize: 15, letterSpacing: 0.3,
               }}
             >
@@ -249,12 +249,12 @@ function MpesaStkPushModal({
             </p>
             <div
               style={{
-                height: 4, background: "var(--border, #e2e8f0)", borderRadius: 2, overflow: "hidden",
+                height: 4, background: "var(--border, var(--color-slate-200))", borderRadius: 2, overflow: "hidden",
               }}
             >
               <div
                 style={{
-                  height: "100%", width: "40%", background: "#00a651",
+                  height: "100%", width: "40%", background: "var(--color-green-brand)",
                   borderRadius: 2, animation: "slide 2s linear infinite",
                 }}
               />
@@ -274,7 +274,7 @@ function MpesaStkPushModal({
         {status === "paid" && (
           <div style={{ textAlign: "center", padding: "20px 0" }}>
             <div style={{ fontSize: 44, marginBottom: 12 }}>✅</div>
-            <p style={{ fontWeight: 700, margin: "0 0 4px", fontSize: 16, color: "#16a34a" }}>Payment Confirmed!</p>
+            <p style={{ fontWeight: 700, margin: "0 0 4px", fontSize: 16, color: "var(--color-success)" }}>Payment Confirmed!</p>
             <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>{message}</p>
           </div>
         )}
@@ -282,7 +282,7 @@ function MpesaStkPushModal({
         {(status === "failed" || status === "cancelled") && (
           <div style={{ textAlign: "center", padding: "20px 0" }}>
             <div style={{ fontSize: 44, marginBottom: 12 }}>{status === "cancelled" ? "🚫" : "❌"}</div>
-            <p style={{ fontWeight: 700, margin: "0 0 8px", color: "#dc2626", fontSize: 15 }}>
+            <p style={{ fontWeight: 700, margin: "0 0 8px", color: "var(--color-danger)", fontSize: 15 }}>
               {status === "cancelled" ? "Payment Cancelled" : "Payment Failed"}
             </p>
             <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 20px" }}>{error}</p>
@@ -291,7 +291,7 @@ function MpesaStkPushModal({
                 onClick={handleRetry}
                 style={{
                   padding: "10px 24px", borderRadius: 8, border: "none", cursor: "pointer",
-                  background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
+                  background: "linear-gradient(135deg, var(--color-green-brand) 0%, var(--color-green-deep) 100%)",
                   color: "#fff", fontWeight: 600, fontSize: 14,
                 }}
               >
@@ -301,7 +301,7 @@ function MpesaStkPushModal({
                 onClick={onClose}
                 style={{
                   padding: "10px 24px", borderRadius: 8,
-                  border: "1.5px solid var(--border, #e2e8f0)",
+                  border: "1.5px solid var(--border, var(--color-slate-200))",
                   background: "none", cursor: "pointer", fontWeight: 600, fontSize: 14,
                 }}
               >
@@ -467,11 +467,11 @@ export function TenantPortalDrawer({ tenant, organizationId, onClose }: {
                 </div>
                 <div style={{ background: "var(--surface-2)", borderRadius: 8, padding: 10 }}>
                   <small className="muted" style={{ display: "block", fontSize: 11 }}>Total Paid</small>
-                  <strong className="mono" style={{ fontSize: 13, color: "#16a34a" }}>{kM(statementPaid)}</strong>
+                  <strong className="mono" style={{ fontSize: 13, color: "var(--color-success)" }}>{kM(statementPaid)}</strong>
                 </div>
                 <div style={{ background: "var(--surface-2)", borderRadius: 8, padding: 10 }}>
                   <small className="muted" style={{ display: "block", fontSize: 11 }}>Outstanding</small>
-                  <strong className="mono" style={{ fontSize: 13, color: Number(statementBalance) > 0 ? "var(--danger)" : "#16a34a" }}>{kM(statementBalance)}</strong>
+                  <strong className="mono" style={{ fontSize: 13, color: Number(statementBalance) > 0 ? "var(--danger)" : "var(--color-success)" }}>{kM(statementBalance)}</strong>
                 </div>
               </div>
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -492,7 +492,7 @@ export function TenantPortalDrawer({ tenant, organizationId, onClose }: {
             <Panel title="Wallet & account credit" badge={walletEntries.length}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: 10, borderRadius: 8, background: "#ecfdf5", marginBottom: walletEntries.length ? 10 : 0 }}>
                 <span style={{ fontSize: 12, color: "#065f46", fontWeight: 700 }}>Available unapplied credit</span>
-                <strong style={{ color: "#047857" }}>{kM(walletCredit)}</strong>
+                <strong style={{ color: "var(--color-emerald-deep)" }}>{kM(walletCredit)}</strong>
               </div>
               {walletEntries.length > 0 && walletEntries.slice(0, 8).map((entry) => (
                 <div key={String(entry.id)} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "8px 2px", borderBottom: "1px solid var(--border)" }}>
@@ -518,15 +518,15 @@ export function TenantPortalDrawer({ tenant, organizationId, onClose }: {
             {mpesaGateway && outstanding > 0 && (
               <div
                 style={{
-                  background: "linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)",
-                  border: "1.5px solid #86efac", borderRadius: 10, padding: "10px 14px",
+                  background: "linear-gradient(135deg, var(--color-green-soft) 0%, var(--color-green-bg) 100%)",
+                  border: "1.5px solid var(--color-green-300)", borderRadius: 10, padding: "10px 14px",
                   display: "flex", alignItems: "center", gap: 10,
                 }}
               >
                 <span style={{ fontSize: 22 }}>📱</span>
                 <div style={{ flex: 1, fontSize: 12 }}>
-                  <strong style={{ color: "#166534" }}>M-Pesa STK Push enabled ({mpesaGateway.display_name})</strong>
-                  <span style={{ color: "#15803d", display: "block" }}>Click <em>Pay Now</em> on any unpaid invoice to pay directly via M-Pesa PIN prompt.</span>
+                  <strong style={{ color: "var(--color-green-text)" }}>M-Pesa STK Push enabled ({mpesaGateway.display_name})</strong>
+                  <span style={{ color: "var(--color-success-strong)", display: "block" }}>Click <em>Pay Now</em> on any unpaid invoice to pay directly via M-Pesa PIN prompt.</span>
                 </div>
               </div>
             )}
@@ -555,7 +555,7 @@ export function TenantPortalDrawer({ tenant, organizationId, onClose }: {
                             <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(inv.number ?? "—")}</td>
                             <td style={{ fontSize: 12 }}>{fmtDate(inv.due_on)}</td>
                             <td className="mono">{kM(inv.amount)}</td>
-                            <td className="mono" style={{ color: balance > 0 ? "var(--danger)" : "#16a34a" }}>{kM(inv.balance)}</td>
+                            <td className="mono" style={{ color: balance > 0 ? "var(--danger)" : "var(--color-success)" }}>{kM(inv.balance)}</td>
                             <td><StatusPill value={String(inv.status ?? "—")} /></td>
                             <td style={{ textAlign: "right" }}>
                               <div style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
@@ -576,7 +576,7 @@ export function TenantPortalDrawer({ tenant, organizationId, onClose }: {
                                     onClick={() => openStkPush(inv)}
                                     style={{
                                       padding: "4px 10px", borderRadius: 6, border: "none", cursor: "pointer",
-                                      background: "linear-gradient(135deg, #00a651 0%, #007a3d 100%)",
+                                      background: "linear-gradient(135deg, var(--color-green-brand) 0%, var(--color-green-deep) 100%)",
                                       color: "#fff", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap",
                                     }}
                                   >

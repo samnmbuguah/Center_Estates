@@ -132,7 +132,7 @@ export function WorkOrderDetail({
   const totalCost = costItems.reduce((sum, item) => sum + Number(item.total ?? 0), 0);
   const laborCost = costItems.filter((i) => i.kind === "labor").reduce((s, i) => s + Number(i.total ?? 0), 0);
   const partsCost = costItems.filter((i) => i.kind === "part").reduce((s, i) => s + Number(i.total ?? 0), 0);
-  const priorityColors: Record<string, string> = { critical: "#b91c1c", high: "#c2410c", medium: "#a16207", low: "#15803d" };
+  const priorityColors: Record<string, string> = { critical: "var(--color-danger-strong)", high: "#c2410c", medium: "#a16207", low: "var(--color-success-strong)" };
 
   return (
     <>
@@ -143,7 +143,7 @@ export function WorkOrderDetail({
         <span style={{ margin: "0 6px" }}>/</span>
         <span style={{ color: "var(--text-primary)" }}>{String(row.number ?? "—")}</span>
       </nav>
-      <button onClick={onBack} style={{ background: "none", border: 0, color: "#e23b3b", cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 16, padding: 0 }}>
+      <button onClick={onBack} style={{ background: "none", border: 0, color: "var(--color-brand-red)", cursor: "pointer", fontSize: 13, fontWeight: 700, marginBottom: 16, padding: 0 }}>
         ← Back to Work Orders
       </button>
       <div className="data-panel" style={{ padding: "16px 18px", marginBottom: 16 }}>
@@ -157,10 +157,10 @@ export function WorkOrderDetail({
         </div>
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 8px" }}>{String(row.title ?? "—")}</h2>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ alignItems: "center", background: "#f0f4ff", borderRadius: 6, color: "#4f46e5", display: "inline-flex", fontSize: 11, gap: 4, padding: "3px 10px" }}>
+          <span style={{ alignItems: "center", background: "#f0f4ff", borderRadius: 6, color: "var(--color-indigo)", display: "inline-flex", fontSize: 11, gap: 4, padding: "3px 10px" }}>
             📍 {String(row.property_name ?? "—")}
           </span>
-          <span style={{ alignItems: "center", background: "#f0fdf4", borderRadius: 6, color: "#15803d", display: "inline-flex", fontSize: 11, gap: 4, padding: "3px 10px" }}>
+          <span style={{ alignItems: "center", background: "var(--color-green-soft)", borderRadius: 6, color: "var(--color-success-strong)", display: "inline-flex", fontSize: 11, gap: 4, padding: "3px 10px" }}>
             🏗 {String(row.category ?? "General")}
           </span>
         </div>
@@ -172,7 +172,7 @@ export function WorkOrderDetail({
           { id: "parts", label: `Parts & Labor${costItems.length ? ` (${costItems.length})` : ""}` },
           { id: "media", label: `Media${attachments.length ? ` (${attachments.length})` : ""}` },
         ] as const).map((t) => (
-          <button key={t.id} role="tab" aria-selected={detailTab === t.id} onClick={() => setDetailTab(t.id)} style={{ background: "transparent", border: 0, borderBottom: detailTab === t.id ? "2px solid #e23b3b" : "2px solid transparent", color: detailTab === t.id ? "#e23b3b" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 16px", textTransform: "capitalize" }}>
+          <button key={t.id} role="tab" aria-selected={detailTab === t.id} onClick={() => setDetailTab(t.id)} style={{ background: "transparent", border: 0, borderBottom: detailTab === t.id ? "2px solid var(--color-brand-red)" : "2px solid transparent", color: detailTab === t.id ? "var(--color-brand-red)" : "#6b7280", cursor: "pointer", fontSize: 13, fontWeight: 600, padding: "12px 16px", textTransform: "capitalize" }}>
             {t.label}
           </button>
         ))}
@@ -238,7 +238,7 @@ export function WorkOrderDetail({
             ))}
             <div style={{ borderTop: "2px solid #f0f2f6", display: "flex", justifyContent: "space-between", marginTop: 4, padding: "10px 0" }}>
               <span style={{ fontSize: 13, fontWeight: 700 }}>Total Cost</span>
-              <span style={{ fontSize: 14, fontWeight: 800, color: "#e23b3b" }}>{money.format(Number(row.total_cost ?? totalCost))}</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: "var(--color-brand-red)" }}>{money.format(Number(row.total_cost ?? totalCost))}</span>
             </div>
           </div>
         </div>
@@ -252,7 +252,7 @@ export function WorkOrderDetail({
           </div>
 
           <div className="data-panel" style={{ padding: "16px 18px", border: "1px solid rgba(37,99,235,0.2)", background: "linear-gradient(135deg, rgba(37,99,235,0.04), rgba(14,165,233,0.02))" }}>
-            <strong style={{ display: "block", fontSize: 13, marginBottom: 6, color: "var(--primary, #2563eb)" }}>Procurement Escalation</strong>
+            <strong style={{ display: "block", fontSize: 13, marginBottom: 6, color: "var(--primary, var(--color-info))" }}>Procurement Escalation</strong>
             <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 10px" }}>
               Need outside contractor sourcing or spare parts purchase for this job?
             </p>
@@ -264,7 +264,7 @@ export function WorkOrderDetail({
               <button
                 type="button"
                 className="btn btn-secondary"
-                style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", cursor: "pointer", fontWeight: 600, border: "1px solid #2563eb", color: "#2563eb", background: "#fff", borderRadius: 6 }}
+                style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", cursor: "pointer", fontWeight: 600, border: "1px solid var(--color-info)", color: "var(--color-info)", background: "#fff", borderRadius: 6 }}
                 disabled={fastTracking}
                 onClick={handleFastTrackRequisition}
               >
@@ -279,8 +279,8 @@ export function WorkOrderDetail({
               {events.slice(0, 6).map((evt, i, arr) => (
                 <div key={i} style={{ display: "flex", gap: 10 }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    <div style={{ background: i === 0 ? "#e23b3b" : "#d7dce5", borderRadius: "50%", height: 8, width: 8 }} />
-                    {i < arr.length - 1 && <div style={{ background: "#edf0f5", flex: 1, width: 2, marginTop: 4 }} />}
+                    <div style={{ background: i === 0 ? "var(--color-brand-red)" : "#d7dce5", borderRadius: "50%", height: 8, width: 8 }} />
+                    {i < arr.length - 1 && <div style={{ background: "var(--color-surface-alt)", flex: 1, width: 2, marginTop: 4 }} />}
                   </div>
                   <div style={{ paddingBottom: 8 }}>
                     <strong style={{ display: "block", fontSize: 12 }}>{String(evt.event_type ?? "—").replace(/_/g, " ")}</strong>
@@ -304,8 +304,8 @@ export function WorkOrderDetail({
               {events.map((evt, i, arr) => (
                 <div key={String(evt.id ?? i)} style={{ display: "flex", gap: 10 }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    <div style={{ background: i === 0 ? "#e23b3b" : "#d7dce5", borderRadius: "50%", height: 10, width: 10 }} />
-                    {i < arr.length - 1 && <div style={{ background: "#edf0f5", flex: 1, width: 2, marginTop: 4 }} />}
+                    <div style={{ background: i === 0 ? "var(--color-brand-red)" : "#d7dce5", borderRadius: "50%", height: 10, width: 10 }} />
+                    {i < arr.length - 1 && <div style={{ background: "var(--color-surface-alt)", flex: 1, width: 2, marginTop: 4 }} />}
                   </div>
                   <div style={{ paddingBottom: 12 }}>
                     <div style={{ alignItems: "center", display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -375,7 +375,7 @@ export function WorkOrderDetail({
                 const url = String(att.file_url ?? "");
                 const isImage = /\.(png|jpe?g|gif|webp|svg|avif)(\?.*)?$/i.test(url) || String(att.media_type ?? "").startsWith("image");
                 return (
-                  <div key={String(att.id ?? idx)} style={{ background: "#f8fafc", border: "1px solid #eef1f5", borderRadius: 10, overflow: "hidden" }}>
+                  <div key={String(att.id ?? idx)} style={{ background: "var(--color-slate-50)", border: "1px solid #eef1f5", borderRadius: 10, overflow: "hidden" }}>
                     {isImage ? (
                       <div style={{ height: 120, display: "grid", placeItems: "center", background: "#eef1f5" }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -388,7 +388,7 @@ export function WorkOrderDetail({
                       <strong style={{ display: "block", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(att.file_name ?? "—")}</strong>
                       <small style={{ color: "var(--text-secondary)", fontSize: 10 }}>{String(att.caption ?? att.media_type ?? "—")}</small>
                       <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                        {url && <a href={url} target="_blank" rel="noreferrer" style={{ color: "#e23b3b", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>Open →</a>}
+                        {url && <a href={url} target="_blank" rel="noreferrer" style={{ color: "var(--color-brand-red)", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>Open →</a>}
                         <span style={{ color: "var(--text-secondary)", fontSize: 10, marginLeft: "auto" }}>{String(att.uploaded_by_name ?? "—")}</span>
                       </div>
                     </div>

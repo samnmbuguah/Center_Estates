@@ -30,10 +30,10 @@ import {
 
 const modules = [
   { slug: "property", name: "Property", icon: "🏢", accent: "var(--color-brand-red)" },
-  { slug: "facility", name: "Facility", icon: "🔧", accent: "#00a3ff" },
-  { slug: "sales", name: "Sales", icon: "💰", accent: "#10b981" },
+  { slug: "facility", name: "Facility", icon: "🔧", accent: "var(--color-brand-blue)" },
+  { slug: "sales", name: "Sales", icon: "💰", accent: "var(--color-emerald)" },
   { slug: "tender", name: "Tender", icon: "📋", accent: "var(--color-amber)" },
-  { slug: "valuation", name: "Valuation", icon: "📜", accent: "#8b5cf6" },
+  { slug: "valuation", name: "Valuation", icon: "📜", accent: "var(--color-violet-strong)" },
   { slug: "monitoring", name: "Monitoring", icon: "📊", accent: "#06b6d4" },
   { slug: "companion", name: "Companion", icon: "🧭", accent: "#ec4899" },
 ];

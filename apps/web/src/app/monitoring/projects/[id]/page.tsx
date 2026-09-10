@@ -45,7 +45,7 @@ export default function SingleProjectWorkspacePage({ params }: { params: Promise
       eyebrow="Project Command Center"
       title={projName}
       subtitle="Unified control center for site progress, financials, technical BIM/Drone records, and commercial certifications."
-      accent="#dc2626"
+      accent="var(--color-danger)"
       groups={constructionNav}
       activeId="projects"
       onSelect={(tabId) => {
@@ -55,26 +55,26 @@ export default function SingleProjectWorkspacePage({ params }: { params: Promise
     >
       <div className="property-app monitoring-app">
         {/* Project Workspace Navigation Bar */}
-        <div style={{ display: "flex", gap: 8, overflowX: "auto", borderBottom: "2px solid #e2e8f0", paddingBottom: 8, marginBottom: 16 }}>
-          <Link href={`/monitoring/projects/${id}`} style={{ padding: "8px 14px", borderRadius: 6, background: "#dc2626", color: "#fff", textDecoration: "none", fontWeight: "bold", fontSize: "0.85rem" }}>
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", borderBottom: "2px solid var(--color-slate-200)", paddingBottom: 8, marginBottom: 16 }}>
+          <Link href={`/monitoring/projects/${id}`} style={{ padding: "8px 14px", borderRadius: 6, background: "var(--color-danger)", color: "#fff", textDecoration: "none", fontWeight: "bold", fontSize: "0.85rem" }}>
             📌 Workspace Overview
           </Link>
-          <Link href={`/monitoring/projects/${id}/programme`} style={{ padding: "8px 14px", borderRadius: 6, background: "#f1f5f9", color: "#334155", textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}>
+          <Link href={`/monitoring/projects/${id}/programme`} style={{ padding: "8px 14px", borderRadius: 6, background: "var(--color-slate-100)", color: "var(--color-slate-700)", textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}>
             📊 Programme & Gantt
           </Link>
-          <Link href={`/monitoring/projects/${id}/cost`} style={{ padding: "8px 14px", borderRadius: 6, background: "#f1f5f9", color: "#334155", textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}>
+          <Link href={`/monitoring/projects/${id}/cost`} style={{ padding: "8px 14px", borderRadius: 6, background: "var(--color-slate-100)", color: "var(--color-slate-700)", textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}>
             💰 Cost & Variations
           </Link>
-          <Link href={`/monitoring/projects/${id}/ipc`} style={{ padding: "8px 14px", borderRadius: 6, background: "#f1f5f9", color: "#334155", textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}>
+          <Link href={`/monitoring/projects/${id}/ipc`} style={{ padding: "8px 14px", borderRadius: 6, background: "var(--color-slate-100)", color: "var(--color-slate-700)", textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}>
             📄 IPC & Drawdowns
           </Link>
-          <Link href={`/monitoring/projects/${id}/bim`} style={{ padding: "8px 14px", borderRadius: 6, background: "#f1f5f9", color: "#334155", textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}>
+          <Link href={`/monitoring/projects/${id}/bim`} style={{ padding: "8px 14px", borderRadius: 6, background: "var(--color-slate-100)", color: "var(--color-slate-700)", textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}>
             🏢 3D BIM Viewer
           </Link>
-          <Link href={`/monitoring/projects/[id]/risks`} style={{ padding: "8px 14px", borderRadius: 6, background: "#f1f5f9", color: "#334155", textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}>
+          <Link href={`/monitoring/projects/[id]/risks`} style={{ padding: "8px 14px", borderRadius: 6, background: "var(--color-slate-100)", color: "var(--color-slate-700)", textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}>
             ⚠️ Risk Matrix
           </Link>
-          <Link href={`/monitoring/projects/${id}/site-ops`} style={{ padding: "8px 14px", borderRadius: 6, background: "#f1f5f9", color: "#334155", textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}>
+          <Link href={`/monitoring/projects/${id}/site-ops`} style={{ padding: "8px 14px", borderRadius: 6, background: "var(--color-slate-100)", color: "var(--color-slate-700)", textDecoration: "none", fontWeight: 600, fontSize: "0.85rem" }}>
             📋 Site Logs & Quality
           </Link>
         </div>
@@ -85,52 +85,52 @@ export default function SingleProjectWorkspacePage({ params }: { params: Promise
           <div>
             {/* Quick KPI Overview */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <small style={{ color: "#64748b" }}>Project Budget</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#0f172a" }}>{cash.format(Number(project?.budget || 450000000))}</h3>
+              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
+                <small style={{ color: "var(--color-slate-500)" }}>Project Budget</small>
+                <h3 style={{ margin: "4px 0 0 0", color: "var(--color-slate-900)" }}>{cash.format(Number(project?.budget || 450000000))}</h3>
               </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <small style={{ color: "#64748b" }}>Physical Completion</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#16a34a" }}>68.4%</h3>
+              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
+                <small style={{ color: "var(--color-slate-500)" }}>Physical Completion</small>
+                <h3 style={{ margin: "4px 0 0 0", color: "var(--color-success)" }}>68.4%</h3>
               </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <small style={{ color: "#64748b" }}>Certified Value</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#2563eb" }}>{cash.format(142000000)}</h3>
+              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
+                <small style={{ color: "var(--color-slate-500)" }}>Certified Value</small>
+                <h3 style={{ margin: "4px 0 0 0", color: "var(--color-info)" }}>{cash.format(142000000)}</h3>
               </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <small style={{ color: "#64748b" }}>Open Risks / Issues</small>
-                <h3 style={{ margin: "4px 0 0 0", color: "#dc2626" }}>5 High Priority</h3>
+              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
+                <small style={{ color: "var(--color-slate-500)" }}>Open Risks / Issues</small>
+                <h3 style={{ margin: "4px 0 0 0", color: "var(--color-danger)" }}>5 High Priority</h3>
               </div>
             </div>
 
             {/* Modules Grid Quick Access */}
-            <h3 style={{ fontSize: "1.1rem", margin: "0 0 12px 0", color: "#0f172a" }}>Project Modules & Deep Workflows</h3>
+            <h3 style={{ fontSize: "1.1rem", margin: "0 0 12px 0", color: "var(--color-slate-900)" }}>Project Modules & Deep Workflows</h3>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
               <Link href={`/monitoring/projects/${id}/programme`} style={{ textDecoration: "none" }}>
-                <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 8, padding: 16, cursor: "pointer" }}>
-                  <h4 style={{ margin: "0 0 4px 0", color: "#2563eb" }}>📊 Programme & Gantt Schedule</h4>
-                  <p style={{ margin: 0, fontSize: "0.85rem", color: "#64748b" }}>Baseline vs actual progress curves, critical path analysis, S-curve graph.</p>
+                <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 16, cursor: "pointer" }}>
+                  <h4 style={{ margin: "0 0 4px 0", color: "var(--color-info)" }}>📊 Programme & Gantt Schedule</h4>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-slate-500)" }}>Baseline vs actual progress curves, critical path analysis, S-curve graph.</p>
                 </div>
               </Link>
 
               <Link href={`/monitoring/projects/${id}/cost`} style={{ textDecoration: "none" }}>
-                <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 8, padding: 16, cursor: "pointer" }}>
-                  <h4 style={{ margin: "0 0 4px 0", color: "#16a34a" }}>💰 Cost & Variations</h4>
-                  <p style={{ margin: 0, fontSize: "0.85rem", color: "#64748b" }}>BoQ line items, variation state machine, provisional sums, contingency allowances.</p>
+                <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 16, cursor: "pointer" }}>
+                  <h4 style={{ margin: "0 0 4px 0", color: "var(--color-success)" }}>💰 Cost & Variations</h4>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-slate-500)" }}>BoQ line items, variation state machine, provisional sums, contingency allowances.</p>
                 </div>
               </Link>
 
               <Link href={`/monitoring/projects/${id}/ipc`} style={{ textDecoration: "none" }}>
-                <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 8, padding: 16, cursor: "pointer" }}>
-                  <h4 style={{ margin: "0 0 4px 0", color: "#7c3aed" }}>📄 IPC & Funding Drawdowns</h4>
-                  <p style={{ margin: 0, fontSize: "0.85rem", color: "#64748b" }}>Interim payment certificate builder, retention tracking, funding drawdown requests.</p>
+                <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 16, cursor: "pointer" }}>
+                  <h4 style={{ margin: "0 0 4px 0", color: "var(--color-violet)" }}>📄 IPC & Funding Drawdowns</h4>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-slate-500)" }}>Interim payment certificate builder, retention tracking, funding drawdown requests.</p>
                 </div>
               </Link>
 
               <Link href={`/monitoring/projects/${id}/bim`} style={{ textDecoration: "none" }}>
-                <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: 8, padding: 16, cursor: "pointer" }}>
-                  <h4 style={{ margin: "0 0 4px 0", color: "#ea580c" }}>🏢 3D BIM Viewer & Models</h4>
-                  <p style={{ margin: 0, fontSize: "0.85rem", color: "#64748b" }}>WebGL 3D model navigation, IFC GUID linking to BoQ executed quantities.</p>
+                <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 16, cursor: "pointer" }}>
+                  <h4 style={{ margin: "0 0 4px 0", color: "var(--color-orange)" }}>🏢 3D BIM Viewer & Models</h4>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-slate-500)" }}>WebGL 3D model navigation, IFC GUID linking to BoQ executed quantities.</p>
                 </div>
               </Link>
             </div>

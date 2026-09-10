@@ -17,7 +17,7 @@ const SECTION_CHOICES = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: "#6b7280", issued: "#3b82f6", completed: "#22c55e", closed: "#374151", cancelled: "#ef4444",
+  draft: "#6b7280", issued: "var(--color-blue)", completed: "var(--color-green)", closed: "#374151", cancelled: "var(--color-danger)",
 };
 
 const STATUS_ICONS: Record<string, any> = {
@@ -149,17 +149,17 @@ export function Subcontractors() {
           <div className="fw-700 fs-24">{stats.totalSubs}</div>
         </div>
         
-        <div className="card card-compact" style={{ borderLeft: "4px solid #3b82f6" }}>
+        <div className="card card-compact" style={{ borderLeft: "4px solid var(--color-blue)" }}>
           <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
-            <Briefcase size={18} style={{ color: "#3b82f6" }} />
+            <Briefcase size={18} style={{ color: "var(--color-blue)" }} />
             <span className="muted fs-xs">Work Orders</span>
           </div>
           <div className="fw-700 fs-24">{stats.totalWorkOrders}</div>
         </div>
         
-        <div className="card card-compact" style={{ borderLeft: "4px solid #22c55e" }}>
+        <div className="card card-compact" style={{ borderLeft: "4px solid var(--color-green)" }}>
           <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
-            <DollarSign size={18} style={{ color: "#22c55e" }} />
+            <DollarSign size={18} style={{ color: "var(--color-green)" }} />
             <span className="muted fs-xs">Total Value</span>
           </div>
           <div className="fw-700 fs-24">{formatMoney(stats.totalValue)}</div>

@@ -128,7 +128,7 @@ export function AISidebarChat() {
                 <span style={{
                   display: "inline-block", maxWidth: "85%", padding: "8px 12px", borderRadius: 12,
                   whiteSpace: "pre-wrap", textAlign: "left", fontSize: 13, lineHeight: 1.5,
-                  background: t.role === "user" ? "var(--accent, #2563eb)" : "var(--surface-2, #1e293b)",
+                  background: t.role === "user" ? "var(--accent, var(--color-info))" : "var(--surface-2, var(--color-slate-800))",
                   color: t.role === "user" ? "#fff" : "var(--text)",
                 }}>
                   {t.content}

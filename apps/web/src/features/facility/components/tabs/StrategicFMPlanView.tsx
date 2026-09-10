@@ -37,9 +37,9 @@ export function StrategicFMPlanView({
   const activePlan = rows.find((r) => String(r.id) === String(selectedPlanId)) ?? rows[0];
 
   const ragColors: Record<string, { bg: string; text: string; label: string }> = {
-    green: { bg: "#dcfce7", text: "#166534", label: "Green · On Target" },
-    amber: { bg: "#fef3c7", text: "#92400e", label: "Amber · Monitor" },
-    red: { bg: "#fee2e2", text: "#991b1b", label: "Red · Exception Action Required" },
+    green: { bg: "var(--color-green-bg)", text: "var(--color-green-text)", label: "Green · On Target" },
+    amber: { bg: "var(--color-amber-bg)", text: "var(--color-amber-strong)", label: "Amber · Monitor" },
+    red: { bg: "var(--color-red-bg)", text: "var(--color-danger-deep)", label: "Red · Exception Action Required" },
   };
 
   return (
@@ -115,7 +115,7 @@ export function StrategicFMPlanView({
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700 }}>Preventive Maintenance</span>
-            <span style={{ background: (performanceData?.summary_kpis?.pm_compliance?.actual ?? 0) >= 80 ? "#dcfce7" : "#fef3c7", color: (performanceData?.summary_kpis?.pm_compliance?.actual ?? 0) >= 80 ? "#166534" : "#92400e", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
+            <span style={{ background: (performanceData?.summary_kpis?.pm_compliance?.actual ?? 0) >= 80 ? "var(--color-green-bg)" : "var(--color-amber-bg)", color: (performanceData?.summary_kpis?.pm_compliance?.actual ?? 0) >= 80 ? "var(--color-green-text)" : "var(--color-amber-strong)", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
               {(performanceData?.summary_kpis?.pm_compliance?.actual ?? 0) >= 80 ? "GREEN" : "AMBER"}
             </span>
           </div>
@@ -141,7 +141,7 @@ export function StrategicFMPlanView({
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700 }}>SLA Resolution Target</span>
-            <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
+            <span style={{ background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
               GREEN
             </span>
           </div>
@@ -167,11 +167,11 @@ export function StrategicFMPlanView({
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700 }}>Budget Utilization</span>
-            <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
+            <span style={{ background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
               ON BUDGET
             </span>
           </div>
-          <div style={{ fontSize: "1.4rem", fontWeight: 900, color: "#2563eb" }}>
+          <div style={{ fontSize: "1.4rem", fontWeight: 900, color: "var(--color-info)" }}>
             {performanceData?.summary_kpis?.budget_utilization?.utilization_percent ?? 0}%
           </div>
           <small style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>
@@ -193,11 +193,11 @@ export function StrategicFMPlanView({
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", fontWeight: 700 }}>Statutory Compliance</span>
-            <span style={{ background: "#dcfce7", color: "#166534", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
+            <span style={{ background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800 }}>
               100% COMPLIANT
             </span>
           </div>
-          <div style={{ fontSize: "1.4rem", fontWeight: 900, color: "#16a34a" }}>
+          <div style={{ fontSize: "1.4rem", fontWeight: 900, color: "var(--color-success)" }}>
             100%
           </div>
           <small style={{ color: "var(--text-secondary)", fontSize: "0.75rem" }}>

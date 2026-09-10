@@ -83,8 +83,8 @@ export function EmailUpdateBanner() {
       <aside
         aria-label="Email update required"
         style={{
-          background: "linear-gradient(90deg, #fffbeb 0%, #fef3c7 100%)",
-          borderBottom: "1.5px solid #fde68a",
+          background: "linear-gradient(90deg, #fffbeb 0%, var(--color-amber-bg) 100%)",
+          borderBottom: "1.5px solid var(--color-amber-200)",
           padding: "10px 20px",
           display: "flex",
           alignItems: "center",
@@ -98,10 +98,10 @@ export function EmailUpdateBanner() {
         <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
           <span style={{ fontSize: 20 }}>✉️</span>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <strong style={{ fontSize: 13, color: "#92400e", display: "inline" }}>
+            <strong style={{ fontSize: 13, color: "var(--color-amber-strong)", display: "inline" }}>
               Action Required: Set your real work email address.
             </strong>
-            <span style={{ fontSize: 12, color: "#b45309", marginLeft: 6 }}>
+            <span style={{ fontSize: 12, color: "var(--color-amber-deep)", marginLeft: 6 }}>
               You are currently using a system-generated placeholder ({profileData.email || "No email"}). Add your verified email to receive task alerts, daily briefings, and tenant messages.
             </span>
           </div>
@@ -112,7 +112,7 @@ export function EmailUpdateBanner() {
             type="button"
             onClick={() => setShowModal(true)}
             style={{
-              background: "#d97706",
+              background: "var(--color-warning)",
               color: "#ffffff",
               border: "none",
               borderRadius: 8,
@@ -132,7 +132,7 @@ export function EmailUpdateBanner() {
             style={{
               background: "none",
               border: "none",
-              color: "#b45309",
+              color: "var(--color-amber-deep)",
               fontSize: 16,
               cursor: "pointer",
               padding: "2px 6px",
@@ -152,20 +152,20 @@ export function EmailUpdateBanner() {
             </p>
 
             {error && (
-              <div style={{ padding: "10px 14px", borderRadius: 8, background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", fontSize: 12, fontWeight: 700 }}>
+              <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--color-red-soft)", border: "1px solid var(--color-red-200)", color: "var(--color-danger)", fontSize: 12, fontWeight: 700 }}>
                 {error}
               </div>
             )}
 
             {success && (
-              <div style={{ padding: "10px 14px", borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#16a34a", fontSize: 12, fontWeight: 800 }}>
+              <div style={{ padding: "10px 14px", borderRadius: 8, background: "var(--color-green-soft)", border: "1px solid var(--color-green-200)", color: "var(--color-success)", fontSize: 12, fontWeight: 800 }}>
                 ✓ Email updated successfully! You will now receive all system notifications.
               </div>
             )}
 
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 800, marginBottom: 6, color: "var(--text)" }}>
-                Verified Work Email Address <span style={{ color: "#d92d2d" }}>*</span>
+                Verified Work Email Address <span style={{ color: "var(--color-danger)" }}>*</span>
               </label>
               <input
                 type="email"
@@ -197,7 +197,7 @@ export function EmailUpdateBanner() {
                 type="submit"
                 className="btn primary"
                 disabled={saving || !newEmail.trim()}
-                style={{ background: "#d97706", borderColor: "#d97706", fontWeight: 800 }}
+                style={{ background: "var(--color-warning)", borderColor: "var(--color-warning)", fontWeight: 800 }}
               >
                 {saving ? "Saving…" : "Save & Verify Email"}
               </button>

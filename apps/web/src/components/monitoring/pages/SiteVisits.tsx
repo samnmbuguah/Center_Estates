@@ -136,18 +136,18 @@ export function SiteVisits() {
       || null;
 
     return [
-      { label: "Total Site Visits", value: String(total), sub: activeProjectId ? "Selected project" : "All projects", color: "#3b82f6" },
-      { label: "This Month", value: String(thisMonth), sub: "Scheduled or completed", color: "#10b981" },
-      { label: "Overdue", value: String(overdue), sub: overdue ? "Require attention" : "None overdue", color: overdue ? "#f59e0b" : "#10b981" },
-      { label: "Open Actions", value: String(openActions), sub: "Across all visits", color: "#8b5cf6" },
-      { label: "Completed", value: String(completed), sub: total ? `${Math.round((completed / total) * 100)}% of total` : "No visits yet", color: "#10b981" },
+      { label: "Total Site Visits", value: String(total), sub: activeProjectId ? "Selected project" : "All projects", color: "var(--color-blue)" },
+      { label: "This Month", value: String(thisMonth), sub: "Scheduled or completed", color: "var(--color-emerald)" },
+      { label: "Overdue", value: String(overdue), sub: overdue ? "Require attention" : "None overdue", color: overdue ? "var(--color-amber)" : "var(--color-emerald)" },
+      { label: "Open Actions", value: String(openActions), sub: "Across all visits", color: "var(--color-violet-strong)" },
+      { label: "Completed", value: String(completed), sub: total ? `${Math.round((completed / total) * 100)}% of total` : "No visits yet", color: "var(--color-emerald)" },
       {
         label: "Last Visit",
         value: lastVisit ? formatDate(lastVisit.start) : "—",
         sub: lastVisit ? (lastVisit.created_by || lastVisit.title) : "No visits recorded",
-        color: "#3b82f6",
+        color: "var(--color-blue)",
       },
-      { label: "Upcoming", value: String(scheduled), sub: "Scheduled ahead", color: "#00a3ff" },
+      { label: "Upcoming", value: String(scheduled), sub: "Scheduled ahead", color: "var(--color-brand-blue)" },
     ];
   }, [events, activeProjectId, now]);
 
@@ -305,7 +305,7 @@ export function SiteVisits() {
       </div>
 
       {error && (
-        <div style={{ padding: 12, borderRadius: 8, background: "rgba(239,68,68,0.08)", color: "#ef4444", fontSize: 13, border: "1px solid rgba(239,68,68,0.25)" }}>
+        <div style={{ padding: 12, borderRadius: 8, background: "rgba(239,68,68,0.08)", color: "var(--color-danger)", fontSize: 13, border: "1px solid rgba(239,68,68,0.25)" }}>
           {error}
         </div>
       )}
@@ -326,7 +326,7 @@ export function SiteVisits() {
             <button type="button" className="btn ghost sm" onClick={() => setShowForm(false)}><X size={14} /></button>
           </div>
           {formError && (
-            <div style={{ marginBottom: 12, fontSize: 13, color: "#ef4444" }}>{formError}</div>
+            <div style={{ marginBottom: 12, fontSize: 13, color: "var(--color-danger)" }}>{formError}</div>
           )}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
             <div style={{ gridColumn: "1 / -1" }}>
@@ -499,7 +499,7 @@ export function SiteVisits() {
                       style={{
                         padding: "6px 2px",
                         borderRadius: 6,
-                        background: isToday ? "#e53e3e" : hasVisit ? "var(--surface-3)" : "transparent",
+                        background: isToday ? "var(--color-danger)" : hasVisit ? "var(--surface-3)" : "transparent",
                         color: isToday ? "#fff" : "var(--text)",
                         fontWeight: isToday || hasVisit ? 700 : 400,
                       }}

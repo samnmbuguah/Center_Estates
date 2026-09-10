@@ -56,7 +56,7 @@ export default function SingleAssetWorkspacePage({ params }: { params: Promise<{
   useEffect(() => { void load(); }, [id]);
   const metadata = useMemo(() => (asset?.metadata && typeof asset.metadata === "object" ? asset.metadata as Row : {}), [asset]);
 
-  return <ModuleShell moduleKey="facility" moduleName="Facility Management" eyebrow="Digital asset passport" title={String(asset?.name ?? "Asset passport")} subtitle="One verified record for identity, maintenance, compliance, costs, documents and lifecycle history." accent="#dc2626" activeId="assets" onSelect={(next) => { window.location.assign(`/facility?tab=${next}`); }}>
+  return <ModuleShell moduleKey="facility" moduleName="Facility Management" eyebrow="Digital asset passport" title={String(asset?.name ?? "Asset passport")} subtitle="One verified record for identity, maintenance, compliance, costs, documents and lifecycle history." accent="var(--color-danger)" activeId="assets" onSelect={(next) => { window.location.assign(`/facility?tab=${next}`); }}>
     <Box className="facility-app" sx={{ display: "grid", gap: 2 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}><Button component={Link} href="/facility?tab=assets" startIcon={<ArrowLeft size={16} />}>Back to asset register</Button>{asset && <Box sx={{ display: "flex", gap: 1 }}><Button component={Link} href="/facility?tab=service-requests" variant="outlined">Report fault</Button><Button component={Link} href="/facility?tab=work-orders" variant="contained" startIcon={<Wrench size={16} />}>Create work order</Button></Box>}</Box>
       {error && <ErrorBanner message={error} onRetry={() => void load()} />}

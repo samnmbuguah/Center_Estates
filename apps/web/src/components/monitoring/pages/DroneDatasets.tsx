@@ -177,25 +177,25 @@ export function DroneDatasets() {
           <div className="fw-700 fs-24">{stats.total}</div>
         </div>
         
-        <div className="card card-compact" style={{ borderLeft: "4px solid #22c55e" }}>
+        <div className="card card-compact" style={{ borderLeft: "4px solid var(--color-green)" }}>
           <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
-            <CheckCircle2 size={20} style={{ color: "#22c55e" }} />
+            <CheckCircle2 size={20} style={{ color: "var(--color-green)" }} />
             <span className="muted fs-xs">Compliant</span>
           </div>
           <div className="fw-700 fs-24">{stats.compliant}</div>
         </div>
         
-        <div className="card card-compact" style={{ borderLeft: "4px solid #f59e0b" }}>
+        <div className="card card-compact" style={{ borderLeft: "4px solid var(--color-amber)" }}>
           <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
-            <Activity size={20} style={{ color: "#f59e0b" }} />
+            <Activity size={20} style={{ color: "var(--color-amber)" }} />
             <span className="muted fs-xs">Under Review</span>
           </div>
           <div className="fw-700 fs-24">{stats.byStatus.under_review || 0}</div>
         </div>
         
-        <div className="card card-compact" style={{ borderLeft: "4px solid #ef4444" }}>
+        <div className="card card-compact" style={{ borderLeft: "4px solid var(--color-danger)" }}>
           <div className="row" style={{ gap: 8, alignItems: "center", marginBottom: 8 }}>
-            <AlertTriangle size={20} style={{ color: "#ef4444" }} />
+            <AlertTriangle size={20} style={{ color: "var(--color-danger)" }} />
             <span className="muted fs-xs">Pending</span>
           </div>
           <div className="fw-700 fs-24">{stats.byStatus.pending || 0}</div>
@@ -310,7 +310,7 @@ export function DroneDatasets() {
                 <div className="row" style={{ gap: 8, fontSize: 11 }}>
                   <span style={{ color: "var(--muted)" }}>{d.storage_tier}</span>
                   {d.compliance_declared && (
-                    <span style={{ color: "#22c55e" }}>✓ Compliant</span>
+                    <span style={{ color: "var(--color-green)" }}>✓ Compliant</span>
                   )}
                 </div>
                 <div className="row" style={{ gap: 4 }}>

@@ -54,7 +54,7 @@ export default function Unit3DViewer({
       <Box
         sx={{
           position: "relative", width: "100%", height, borderRadius: 3, overflow: "hidden",
-          border: "1px solid var(--border)", background: "linear-gradient(135deg, #eef2ff 0%, #f8fafc 60%, #f1f5f9 100%)",
+          border: "1px solid var(--border)", background: "linear-gradient(135deg, #eef2ff 0%, var(--color-slate-50) 60%, var(--color-slate-100) 100%)",
         }}
       >
         <Unit3DScene modelUrl={activeModel?.render_url ?? null} fallback={fallback} />
@@ -77,7 +77,7 @@ export default function Unit3DViewer({
               alt={r.caption || r.title || "Unit rendering"}
               onClick={() => setActiveImage(r.render_url)}
               onError={() => setActiveImage(null)}
-              style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, cursor: "pointer", border: activeImage === r.render_url ? "2px solid #ea580c" : "1px solid var(--border)", background: "#fff" }}
+              style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, cursor: "pointer", border: activeImage === r.render_url ? "2px solid var(--color-orange)" : "1px solid var(--border)", background: "#fff" }}
             />
           ))}
           <Box sx={{ flex: 1 }} />
@@ -86,7 +86,7 @@ export default function Unit3DViewer({
 
       {activeImage && (
         <Box sx={{ mt: 1.5, borderRadius: 2, overflow: "hidden", border: "1px solid var(--border)" }}>
-          <img src={activeImage} alt="Unit rendering" style={{ width: "100%", maxHeight: 320, objectFit: "contain", display: "block", background: "#f8fafc" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+          <img src={activeImage} alt="Unit rendering" style={{ width: "100%", maxHeight: 320, objectFit: "contain", display: "block", background: "var(--color-slate-50)" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
         </Box>
       )}
     </Box>

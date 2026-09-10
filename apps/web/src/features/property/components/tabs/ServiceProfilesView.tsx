@@ -98,10 +98,10 @@ export function ServiceProfilesView({ rows, loading, search, setSearch, setTab, 
   return (
     <>
       <KpiStrip>
-        <KpiCard icon="📋" iconBg="rgba(79,70,229,0.12)" iconColor="#4f46e5" label="Total Profiles" value={String(profiles.length)} sub="Service definitions" />
-        <KpiCard icon="✓" iconBg="rgba(22,163,74,0.12)" iconColor="#16a34a" label="Active" value={String(active)} sub="Currently in use" />
-        <KpiCard icon="⚠️" iconBg="rgba(220,38,38,0.12)" iconColor="#dc2626" label="Critical" value={String(critical)} sub="High-priority services" />
-        <KpiCard icon="🔗" iconBg="rgba(217,119,6,0.12)" iconColor="#d97706" label="Unallocated" value={String(unallocated)} sub="Awaiting provider assignment" />
+        <KpiCard icon="📋" iconBg="rgba(79,70,229,0.12)" iconColor="var(--color-indigo)" label="Total Profiles" value={String(profiles.length)} sub="Service definitions" />
+        <KpiCard icon="✓" iconBg="rgba(22,163,74,0.12)" iconColor="var(--color-success)" label="Active" value={String(active)} sub="Currently in use" />
+        <KpiCard icon="⚠️" iconBg="rgba(220,38,38,0.12)" iconColor="var(--color-danger)" label="Critical" value={String(critical)} sub="High-priority services" />
+        <KpiCard icon="🔗" iconBg="rgba(217,119,6,0.12)" iconColor="var(--color-warning)" label="Unallocated" value={String(unallocated)} sub="Awaiting provider assignment" />
       </KpiStrip>
 
       <ViewToolbar title="Service Profiles" subtitle="Define what services are required, then allocate providers per property" search={search} onSearch={setSearch} placeholder="Search service profile name or category…">

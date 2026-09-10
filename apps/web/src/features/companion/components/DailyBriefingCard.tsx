@@ -157,7 +157,7 @@ export function DailyBriefingCard({
           background: "linear-gradient(135deg, rgba(13, 148, 136, 0.08) 0%, rgba(2, 132, 199, 0.08) 100%)",
           borderRadius: 14,
           padding: "20px 24px",
-          color: "var(--text, #0f172a)",
+          color: "var(--text, var(--color-slate-900))",
           border: "1px solid rgba(13, 148, 136, 0.2)",
           display: "flex",
           alignItems: "center",
@@ -165,7 +165,7 @@ export function DailyBriefingCard({
         }}
       >
         <span style={{ fontSize: 20 }}>⏳</span>
-        <span style={{ fontSize: 13, color: "var(--text-secondary, #64748b)" }}>
+        <span style={{ fontSize: 13, color: "var(--text-secondary, var(--color-slate-500))" }}>
           Quartermaster AI is checking live operations…
         </span>
       </div>
@@ -184,7 +184,7 @@ export function DailyBriefingCard({
         background: "linear-gradient(135deg, rgba(240, 253, 250, 0.95) 0%, rgba(240, 249, 255, 0.95) 100%)",
         borderRadius: 16,
         padding: "22px 26px",
-        color: "#0f172a",
+        color: "var(--color-slate-900)",
         boxShadow: "0 4px 20px rgba(0, 0, 0, 0.04)",
         border: "1px solid rgba(13, 148, 136, 0.22)",
         display: "flex",
@@ -215,9 +215,9 @@ export function DailyBriefingCard({
               <span style={{ fontSize: 11, letterSpacing: "0.08em", fontWeight: 800, color: "#0f766e", textTransform: "uppercase" }}>
                 Quartermaster AI Orchestrator
               </span>
-              <span style={{ fontSize: 11, color: "#64748b" }}>· {data.date || data.generatedAt || "Today"}</span>
+              <span style={{ fontSize: 11, color: "var(--color-slate-500)" }}>· {data.date || data.generatedAt || "Today"}</span>
             </div>
-            <h3 style={{ fontSize: 18, fontWeight: 900, margin: "2px 0 0", color: "#0f172a" }}>
+            <h3 style={{ fontSize: 18, fontWeight: 900, margin: "2px 0 0", color: "var(--color-slate-900)" }}>
               {headline}
             </h3>
           </div>
@@ -237,8 +237,8 @@ export function DailyBriefingCard({
               boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
             }}
           >
-            <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>Portfolio Health:</span>
-            <strong style={{ fontSize: 14, color: healthScore >= 80 ? "#16a34a" : "#d97706", fontWeight: 900 }}>
+            <span style={{ fontSize: 11, color: "var(--color-slate-500)", fontWeight: 600 }}>Portfolio Health:</span>
+            <strong style={{ fontSize: 14, color: healthScore >= 80 ? "var(--color-success)" : "var(--color-warning)", fontWeight: 900 }}>
               {healthScore}/100
             </strong>
           </div>
@@ -248,7 +248,7 @@ export function DailyBriefingCard({
             type="button"
             onClick={handleSpeak}
             style={{
-              background: isSpeaking ? "#ef4444" : "#ffffff",
+              background: isSpeaking ? "var(--color-danger)" : "#ffffff",
               color: isSpeaking ? "#ffffff" : "#0f766e",
               border: "1px solid rgba(13, 148, 136, 0.3)",
               borderRadius: 10,
@@ -279,7 +279,7 @@ export function DailyBriefingCard({
             border: "1px solid rgba(13, 148, 136, 0.15)",
             fontSize: 13,
             lineHeight: 1.6,
-            color: "#334155",
+            color: "var(--color-slate-700)",
           }}
         >
           {data.briefing_narrative}
@@ -290,8 +290,8 @@ export function DailyBriefingCard({
       {data.critical_alerts && data.critical_alerts.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {data.critical_alerts.map((alert, idx) => (
-            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#334155" }}>
-              <span style={{ color: "#0d9488", fontWeight: 800 }}>•</span>
+            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-slate-700)" }}>
+              <span style={{ color: "var(--color-teal)", fontWeight: 800 }}>•</span>
               <span>{alert}</span>
             </div>
           ))}
@@ -329,21 +329,21 @@ export function DailyBriefingCard({
                 >
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                      <span style={{ fontSize: 10, fontWeight: 800, color: isExecuted ? "#16a34a" : "#0f766e", textTransform: "uppercase" }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: isExecuted ? "var(--color-success)" : "#0f766e", textTransform: "uppercase" }}>
                         {act.target_module} · {act.urgency}
                       </span>
-                      {isExecuted && <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 800 }}>✓ Executed</span>}
+                      {isExecuted && <span style={{ fontSize: 11, color: "var(--color-success)", fontWeight: 800 }}>✓ Executed</span>}
                     </div>
-                    <strong style={{ fontSize: 13, color: "#0f172a", display: "block" }}>{act.title}</strong>
-                    <p style={{ fontSize: 12, color: "#64748b", margin: "4px 0 0", lineHeight: 1.4 }}>{act.description}</p>
+                    <strong style={{ fontSize: 13, color: "var(--color-slate-900)", display: "block" }}>{act.title}</strong>
+                    <p style={{ fontSize: 12, color: "var(--color-slate-500)", margin: "4px 0 0", lineHeight: 1.4 }}>{act.description}</p>
                   </div>
 
                   <div style={{ borderTop: "1px solid rgba(148, 163, 184, 0.15)", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     {isExecuted ? (
-                      <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 700 }}>Action completed successfully</span>
+                      <span style={{ fontSize: 11, color: "var(--color-success)", fontWeight: 700 }}>Action completed successfully</span>
                     ) : (
                       <>
-                        <span style={{ fontSize: 11, color: "#64748b" }}>Requires Approval</span>
+                        <span style={{ fontSize: 11, color: "var(--color-slate-500)" }}>Requires Approval</span>
                         <button
                           type="button"
                           disabled={isBusy}
@@ -376,7 +376,7 @@ export function DailyBriefingCard({
       {nudgesData && nudgesData.total_nudges > 0 && (
         <div style={{ borderTop: "1px solid rgba(13, 148, 136, 0.15)", paddingTop: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: "#7c3aed", textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "var(--color-violet)", textTransform: "uppercase", letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 6 }}>
               <span>🔔</span> Proactive AI Action Nudges ({nudgesData.total_nudges})
             </div>
             <div style={{ fontSize: 11, color: "var(--muted)" }}>
@@ -405,14 +405,14 @@ export function DailyBriefingCard({
                 >
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                      <span style={{ fontSize: 10, fontWeight: 800, color: "#dc2626", textTransform: "uppercase" }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: "var(--color-danger)", textTransform: "uppercase" }}>
                         ⚠️ Rent Arrears · {nudge.days_overdue}d Overdue
                       </span>
-                      {isDispatched && <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 800 }}>✓ Sent</span>}
+                      {isDispatched && <span style={{ fontSize: 11, color: "var(--color-success)", fontWeight: 800 }}>✓ Sent</span>}
                     </div>
                     <strong style={{ fontSize: 13, color: "var(--text-primary)" }}>{nudge.tenant_name}</strong>
                     <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
-                      Unit {nudge.unit_code} ({nudge.property_name}) · Balance: <strong style={{ color: "#dc2626" }}>KES {Number(nudge.total_balance).toLocaleString()}</strong>
+                      Unit {nudge.unit_code} ({nudge.property_name}) · Balance: <strong style={{ color: "var(--color-danger)" }}>KES {Number(nudge.total_balance).toLocaleString()}</strong>
                     </div>
                     <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 6, fontStyle: "italic", background: "var(--surface-2)", padding: "6px 8px", borderRadius: 6 }}>
                       &ldquo;{nudge.sms_draft}&rdquo;
@@ -421,7 +421,7 @@ export function DailyBriefingCard({
 
                   <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, borderTop: "1px solid var(--border)", paddingTop: 8 }}>
                     {isDispatched ? (
-                      <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 700 }}>Notification recorded</span>
+                      <span style={{ fontSize: 11, color: "var(--color-success)", fontWeight: 700 }}>Notification recorded</span>
                     ) : (
                       <>
                         <button
@@ -446,7 +446,7 @@ export function DailyBriefingCard({
                           disabled={isBusy}
                           onClick={() => void handleDispatchNudge(nudge, "sms")}
                           style={{
-                            background: "#4f46e5",
+                            background: "var(--color-indigo)",
                             color: "#ffffff",
                             border: "none",
                             borderRadius: 6,
@@ -485,27 +485,27 @@ export function DailyBriefingCard({
                 >
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                      <span style={{ fontSize: 10, fontWeight: 800, color: "#7c3aed", textTransform: "uppercase" }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: "var(--color-violet)", textTransform: "uppercase" }}>
                         📈 Rent Escalation · In {nudge.days_until}d
                       </span>
-                      {isDispatched && <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 800 }}>✓ Sent</span>}
+                      {isDispatched && <span style={{ fontSize: 11, color: "var(--color-success)", fontWeight: 800 }}>✓ Sent</span>}
                     </div>
                     <strong style={{ fontSize: 13, color: "var(--text-primary)" }}>{nudge.tenant_name}</strong>
                     <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
-                      Unit {nudge.unit_code} · KES {Number(nudge.old_rent).toLocaleString()} ➔ <strong style={{ color: "#16a34a" }}>KES {Number(nudge.new_rent).toLocaleString()}</strong> (+{nudge.escalation_percent}%)
+                      Unit {nudge.unit_code} · KES {Number(nudge.old_rent).toLocaleString()} ➔ <strong style={{ color: "var(--color-success)" }}>KES {Number(nudge.new_rent).toLocaleString()}</strong> (+{nudge.escalation_percent}%)
                     </div>
                   </div>
 
                   <div style={{ display: "flex", justifyContent: "flex-end", borderTop: "1px solid var(--border)", paddingTop: 8 }}>
                     {isDispatched ? (
-                      <span style={{ fontSize: 11, color: "#16a34a", fontWeight: 700 }}>Notice dispatched</span>
+                      <span style={{ fontSize: 11, color: "var(--color-success)", fontWeight: 700 }}>Notice dispatched</span>
                     ) : (
                       <button
                         type="button"
                         disabled={isBusy}
                         onClick={() => void handleDispatchNudge(nudge, "email")}
                         style={{
-                          background: "#7c3aed",
+                          background: "var(--color-violet)",
                           color: "#ffffff",
                           border: "none",
                           borderRadius: 6,

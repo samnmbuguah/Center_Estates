@@ -288,8 +288,8 @@ function Installments({ data }: { data: Portal }) {
                 <td style={{ fontSize: 12 }}>{String(r.description ?? "")}</td>
                 <td style={{ fontSize: 12 }}>{friendlyDate(r.due_on)}</td>
                 <td className="mono" style={{ fontSize: 12 }}>{cash.format(Number(r.amount ?? 0))}</td>
-                <td className="mono" style={{ fontSize: 12, color: "#16a34a" }}>{cash.format(Number(r.paid_amount ?? 0))}</td>
-                <td className="mono" style={{ fontSize: 12, color: Number(r.amount) - Number(r.paid_amount) > 0 ? "#d97706" : "#16a34a" }}>{cash.format(Number(r.amount ?? 0) - Number(r.paid_amount ?? 0))}</td>
+                <td className="mono" style={{ fontSize: 12, color: "var(--color-success)" }}>{cash.format(Number(r.paid_amount ?? 0))}</td>
+                <td className="mono" style={{ fontSize: 12, color: Number(r.amount) - Number(r.paid_amount) > 0 ? "var(--color-warning)" : "var(--color-success)" }}>{cash.format(Number(r.amount ?? 0) - Number(r.paid_amount ?? 0))}</td>
                 <td><Chip size="small" label={String(r.status ?? "")} color={String(r.status) === "paid" ? "success" : String(r.status) === "overdue" ? "error" : "default"} /></td>
               </tr>
             ))}

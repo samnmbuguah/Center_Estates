@@ -27,7 +27,7 @@ export function AnomalyAlertBanner() {
     return (
       <div style={{
         padding: "12px 16px", borderRadius: 8, background: "rgba(16,185,129,0.08)",
-        border: "1px solid rgba(16,185,129,0.25)", color: "#10b981", display: "flex",
+        border: "1px solid rgba(16,185,129,0.25)", color: "var(--color-emerald)", display: "flex",
         alignItems: "center", gap: 10, fontSize: 13, fontWeight: 600, marginBottom: 16,
       }}>
         <CheckCircle2 size={18} />
@@ -46,7 +46,7 @@ export function AnomalyAlertBanner() {
         style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <ShieldAlert size={20} style={{ color: "#ef4444" }} />
+          <ShieldAlert size={20} style={{ color: "var(--color-danger)" }} />
           <div>
             <strong style={{ fontSize: 14, color: "var(--text)" }}>
               AI Anomaly Detection: {anomalies.length} Potential Project Risk{anomalies.length > 1 ? "s" : ""} Flagged
@@ -56,7 +56,7 @@ export function AnomalyAlertBanner() {
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "#ef4444" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--color-danger)" }}>
           <span>{expanded ? "Hide Details" : "View Details"}</span>
           <ChevronRight size={16} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
         </div>
@@ -69,11 +69,11 @@ export function AnomalyAlertBanner() {
               key={a.id}
               style={{
                 padding: 12, borderRadius: 8, background: "var(--surface)",
-                border: "1px solid var(--border)", borderLeft: `4px solid ${a.severity === "high" ? "#ef4444" : "#f59e0b"}`,
+                border: "1px solid var(--border)", borderLeft: `4px solid ${a.severity === "high" ? "var(--color-danger)" : "var(--color-amber)"}`,
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                <AlertTriangle size={14} style={{ color: a.severity === "high" ? "#ef4444" : "#f59e0b" }} />
+                <AlertTriangle size={14} style={{ color: a.severity === "high" ? "var(--color-danger)" : "var(--color-amber)" }} />
                 <strong style={{ fontSize: 13, color: "var(--text)" }}>{a.title}</strong>
               </div>
               <p style={{ margin: 0, fontSize: 12, color: "var(--muted)", marginBottom: 6 }}>{a.description}</p>

@@ -23,13 +23,13 @@ const STATUS_META: { [K in ReconItem["status"]]: { color: string; bg: string; la
     icon: <CheckCircle size={16} />,
   },
   slightly_over: {
-    color: "#d97706",
+    color: "var(--color-warning)",
     bg: "rgba(217,119,6,0.1)",
     label: "Slightly Over",
     icon: <TrendingUp size={16} />,
   },
   significantly_over: {
-    color: "#dc2626",
+    color: "var(--color-danger)",
     bg: "rgba(220,38,38,0.1)",
     label: "Significantly Over",
     icon: <AlertTriangle size={16} />,

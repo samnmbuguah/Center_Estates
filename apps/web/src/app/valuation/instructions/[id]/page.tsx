@@ -66,7 +66,7 @@ export default function SingleValuationWorkspacePage({ params }: { params: Promi
       eyebrow="Valuation Instruction"
       title={title}
       subtitle="Site inspection evidence, comparable market sales, draft valuation report, and signed certification."
-      accent="#0891b2"
+      accent="var(--color-cyan)"
       groups={valuationNav}
       activeId="instructions"
       onSelect={(tabId) => {
@@ -86,10 +86,10 @@ export default function SingleValuationWorkspacePage({ params }: { params: Promi
         ) : row ? (
           <>
             <KpiStrip cols={4}>
-              <KpiCard icon="📋" iconBg="#e0f2fe" iconColor="#0891b2" label="Reference" value={<span className="mono">{String(row.reference ?? "—")}</span>} />
-              <KpiCard icon="💰" iconBg="#dcfce7" iconColor="#16a34a" label="Quoted Fee" value={money.format(Number(row.quoted_fee ?? 0))} />
-              <KpiCard icon="📅" iconBg="#fef3c7" iconColor="#92400e" label="Instructed On" value={fmtDate(row.instructed_on)} />
-              <KpiCard icon="⏳" iconBg="#fee2e2" iconColor="#b91c1c" label="Due On" value={fmtDate(row.due_on)} />
+              <KpiCard icon="📋" iconBg="var(--color-sky-bg)" iconColor="var(--color-cyan)" label="Reference" value={<span className="mono">{String(row.reference ?? "—")}</span>} />
+              <KpiCard icon="💰" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Quoted Fee" value={money.format(Number(row.quoted_fee ?? 0))} />
+              <KpiCard icon="📅" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Instructed On" value={fmtDate(row.instructed_on)} />
+              <KpiCard icon="⏳" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Due On" value={fmtDate(row.due_on)} />
             </KpiStrip>
 
             <div className="row" style={{ gap: 8 }}>

@@ -243,7 +243,7 @@ export function EnhancedDataTable<T extends Record<string, unknown>>({
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search size={18} style={{ color: "#64748b" }} />
+                    <Search size={18} style={{ color: "var(--color-slate-500)" }} />
                   </InputAdornment>
                 ),
               }
@@ -252,12 +252,12 @@ export function EnhancedDataTable<T extends Record<string, unknown>>({
           />
           <Tooltip title="Column filters">
             <IconButton onClick={(e) => setFilterMenuAnchor(e.currentTarget)}>
-              <Filter size={18} style={{ color: "#64748b" }} />
+              <Filter size={18} style={{ color: "var(--color-slate-500)" }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Column visibility">
             <IconButton onClick={(e) => setColumnMenuAnchor(e.currentTarget)}>
-              <Columns size={18} style={{ color: "#64748b" }} />
+              <Columns size={18} style={{ color: "var(--color-slate-500)" }} />
             </IconButton>
           </Tooltip>
         </Box>
@@ -349,7 +349,7 @@ export function EnhancedDataTable<T extends Record<string, unknown>>({
                           size={12} 
                           style={{ 
                             color: sortConfig?.key === String(column.id) && sortConfig.direction === 'asc' 
-                              ? "#4f46e5" : "#cbd5e1",
+                              ? "var(--color-indigo)" : "var(--color-slate-300)",
                             marginTop: 2
                           }} 
                         />
@@ -357,7 +357,7 @@ export function EnhancedDataTable<T extends Record<string, unknown>>({
                           size={12} 
                           style={{ 
                             color: sortConfig?.key === String(column.id) && sortConfig.direction === 'desc' 
-                              ? "#4f46e5" : "#cbd5e1",
+                              ? "var(--color-indigo)" : "var(--color-slate-300)",
                             marginTop: -2
                           }} 
                         />
