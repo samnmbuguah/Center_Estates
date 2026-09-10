@@ -486,7 +486,9 @@ class SiteVisitViewSet(SalesModelViewSet):
 
 class CommissionViewSet(SalesModelViewSet):
     write_permission = 'sales.payments'
-    queryset = AgentCommission.objects.select_related('sale__buyer', 'agent')
+    queryset = AgentCommission.objects.select_related(
+        'sale__buyer', 'sale__listing', 'agent',
+    ).prefetch_related('sale__payments')
     serializer_class = AgentCommissionSerializer
     search_fields = ('reference', 'sale__reference', 'sale__buyer__full_name', 'agent__username')
 

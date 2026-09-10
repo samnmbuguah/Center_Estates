@@ -26,58 +26,104 @@ function toneForInventory(s: string): Tone {
   return "gray";
 }
 
+const STATUS_STYLE: Record<string, { bg: string; border: string; label: string }> = {
+  available: { bg: "#dcfce7", border: "#86efac", label: "Available" },
+  reserved: { bg: "#fef3c7", border: "#fcd34d", label: "Reserved" },
+  sold: { bg: "#dbeafe", border: "#93c5fd", label: "Sold" },
+  blocked: { bg: "#f1f5f9", border: "#cbd5e1", label: "Blocked" },
+};
+
+function floorSortValue(label: string): number {
+  const match = label.match(/-?\d+/);
+  return match ? Number(match[0]) : Number.NaN;
+}
+
 export function UnitGridView({ rows, onSelect }: { rows: Row[]; onSelect: (r: Row) => void }) {
-  const [floor, setFloor] = useState("all");
-  const floors = [...new Set(rows.map((r) => String(r.floor || "Ground")))].sort();
-  const filtered = floor === "all" ? rows : rows.filter((r) => String(r.floor || "Ground") === floor);
+  const [floorFilter, setFloorFilter] = useState("all");
+  const floorKey = (r: Row) => String(r.floor || "Ground");
+  const floors = [...new Set(rows.map(floorKey))].sort((a, b) => {
+    const na = floorSortValue(a);
+    const nb = floorSortValue(b);
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return nb - na; // top floor first
+    if (!Number.isNaN(na)) return -1;
+    if (!Number.isNaN(nb)) return 1;
+    return a.localeCompare(b);
+  });
+  const visibleFloors = floorFilter === "all" ? floors : floors.filter((f) => f === floorFilter);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div className="row" style={{ gap: 16, fontSize: 12 }}>
-        <div className="row" style={{ gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: 4, background: "#dcfce7", border: "1px solid #86efac" }} /><span>Available</span></div>
-        <div className="row" style={{ gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: 4, background: "#fef3c7", border: "1px solid #fcd34d" }} /><span>Reserved</span></div>
-        <div className="row" style={{ gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: 4, background: "#dbeafe", border: "1px solid #93c5fd" }} /><span>Sold</span></div>
-        <div className="row" style={{ gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: 4, background: "#f1f5f9", border: "1px solid #cbd5e1" }} /><span>Blocked</span></div>
-      </div>
-
-      <div className="row" style={{ gap: 8 }}>
-        <button className={`btn sm ${floor === "all" ? "primary" : "ghost"}`} onClick={() => setFloor("all")}>All Floors</button>
-        {floors.map((f) => (
-          <button key={f} className={`btn sm ${floor === f ? "primary" : "ghost"}`} onClick={() => setFloor(f)}>{f}</button>
+      <div className="row" style={{ gap: 16, fontSize: 12, flexWrap: "wrap" }}>
+        {Object.entries(STATUS_STYLE).map(([key, style]) => (
+          <div key={key} className="row" style={{ gap: 6 }}>
+            <div style={{ width: 16, height: 16, borderRadius: 4, background: style.bg, border: `1px solid ${style.border}` }} />
+            <span>{style.label}</span>
+          </div>
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 8 }}>
-        {filtered.map((r, i) => {
-          const status = String(r.status || r.listing_status || "available");
-          const colors: Record<string, string> = {
-            available: "#dcfce7", reserved: "#fef3c7", sold: "#dbeafe", blocked: "#f1f5f9",
-          };
-          const borders: Record<string, string> = {
-            available: "#86efac", reserved: "#fcd34d", sold: "#93c5fd", blocked: "#cbd5e1",
-          };
-          return (
-            <div
-              key={String(r.id || i)}
-              onClick={() => onSelect(r)}
-              style={{
-                width: "100%", aspectRatio: "1", borderRadius: 10, cursor: "pointer",
-                background: colors[status] || "#dcfce7", border: `2px solid ${borders[status] || "#86efac"}`,
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                padding: 8, transition: "all 0.15s ease", textAlign: "center",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "none"; }}
-            >
-              <span className="mono" style={{ fontWeight: 700, fontSize: 13, color: "var(--text)" }}>{String(r.unit_code || r.code || `U${i + 1}`)}</span>
-              <span style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>{String(r.unit_type || r.type || "Unit")}</span>
-              <span style={{ fontSize: 10, fontWeight: 600, color: "var(--primary)", marginTop: 4 }}>KES {Number(r.list_price || r.price || 0).toLocaleString()}</span>
-            </div>
-          );
-        })}
+      <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <button className={`btn sm ${floorFilter === "all" ? "primary" : "ghost"}`} onClick={() => setFloorFilter("all")}>All Floors</button>
+        {floors.map((f) => (
+          <button key={f} className={`btn sm ${floorFilter === f ? "primary" : "ghost"}`} onClick={() => setFloorFilter(f)}>{f}</button>
+        ))}
       </div>
 
-      {filtered.length === 0 && <EmptyState icon="🏢" title="No units" description="No units match the selected floor." />}
+      {visibleFloors.length === 0 ? (
+        <EmptyState icon="🏢" title="No units" description="No units match the selected floor." />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {visibleFloors.map((floorName) => {
+            const units = rows.filter((r) => floorKey(r) === floorName);
+            const available = units.filter((r) => String(r.status ?? "") === "available").length;
+            const reserved = units.filter((r) => String(r.status ?? "") === "reserved").length;
+            const sold = units.filter((r) => String(r.status ?? "") === "sold").length;
+            return (
+              <div key={floorName} style={{ display: "flex", gap: 12, alignItems: "stretch" }}>
+                <div style={{ minWidth: 92, flex: "0 0 92px", background: "var(--surface-2, #f8fafc)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 8px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                  <strong style={{ fontSize: 12 }}>{floorName}</strong>
+                  <span style={{ fontSize: 10, color: "var(--muted)" }}>{units.length} units</span>
+                  <span style={{ fontSize: 10, color: "#16a34a" }}>{available} avail</span>
+                  {reserved > 0 && <span style={{ fontSize: 10, color: "#92400e" }}>{reserved} res</span>}
+                  {sold > 0 && <span style={{ fontSize: 10, color: "#0284c7" }}>{sold} sold</span>}
+                </div>
+                <div className="kanban-scroll" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, flex: 1 }}>
+                  {units.map((r, i) => {
+                    const status = String(r.status || r.listing_status || "available");
+                    const style = STATUS_STYLE[status] ?? STATUS_STYLE.available;
+                    const renders = (r.renders as ListingRender[] | undefined) ?? [];
+                    const thumb = renders.find((x) => x.render_kind !== "model_3d")?.render_url || renders[0]?.render_url;
+                    return (
+                      <button
+                        key={String(r.id || i)}
+                        type="button"
+                        onClick={() => onSelect(r)}
+                        title={`${String(r.unit_code ?? "")} · ${style.label}`}
+                        style={{
+                          position: "relative", minWidth: 132, width: 132, flex: "0 0 132px", borderRadius: 10, cursor: "pointer",
+                          background: style.bg, border: `2px solid ${style.border}`, overflow: "hidden",
+                          display: "flex", flexDirection: "column", textAlign: "left", padding: 0,
+                        }}
+                      >
+                        {thumb ? (
+                          <img src={thumb} alt="" style={{ width: "100%", height: 54, objectFit: "cover", display: "block", background: "#fff" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                        ) : (
+                          <div style={{ height: 54, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, opacity: 0.5 }}>🏠</div>
+                        )}
+                        <div style={{ padding: "6px 8px" }}>
+                          <div className="mono" style={{ fontWeight: 800, fontSize: 12 }}>{String(r.unit_code || r.code || `U${i + 1}`)}</div>
+                          <div style={{ fontSize: 10, color: "var(--muted)" }}>{String(r.unit_type || r.type || "Unit")}</div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--primary)", marginTop: 2 }}>{fmtMoney(r.list_price || r.price)}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -120,7 +166,7 @@ export function InventoryView({
               <div style={{ flex: 1 }} />
               <div className="fc-table-toolbar-right">
                 <div className="row" style={{ gap: 8 }}>
-                  <button className="btn sm primary" onClick={() => setViewMode("grid")}>Grid View</button>
+                  <button className="btn sm primary" onClick={() => setViewMode("grid")}>Building Map</button>
                   <button className="btn sm ghost" onClick={() => setViewMode("list")}>List View</button>
                   {canSell ? <button className="btn primary sm" onClick={openNewListing}>+ New Listing</button> : null}
                 </div>
@@ -136,7 +182,7 @@ export function InventoryView({
             chips={<FilterChips options={[{ value: "available", label: "Available" }, { value: "reserved", label: "Reserved" }, { value: "sold", label: "Sold" }, { value: "blocked", label: "Blocked" }]} value={status as "available" | "reserved" | "sold" | "blocked" | ""} onChange={(v) => setStatus(v)} />}
             actions={
               <div className="row" style={{ gap: 8 }}>
-                <button className="btn sm ghost" onClick={() => setViewMode("grid")}>Grid View</button>
+                <button className="btn sm ghost" onClick={() => setViewMode("grid")}>Building Map</button>
                 <button className="btn sm primary" onClick={() => setViewMode("list")}>List View</button>
                 {canSell ? <button className="btn primary sm" onClick={openNewListing}>+ New Listing</button> : null}
               </div>

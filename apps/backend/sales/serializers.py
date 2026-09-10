@@ -142,10 +142,27 @@ class AgentCommissionSerializer(serializers.ModelSerializer):
     sale_reference = serializers.CharField(source='sale.reference', read_only=True)
     buyer_name = serializers.CharField(source='sale.buyer.full_name', read_only=True)
     agent_name = serializers.CharField(source='agent.get_full_name', read_only=True)
+    achieved_paid_percent = serializers.SerializerMethodField()
+    achieved_construction_percent = serializers.SerializerMethodField()
+
     class Meta:
         model = AgentCommission
         exclude = ('organization',)
         read_only_fields = ('status', 'approved_at', 'paid_on')
+
+    def get_achieved_paid_percent(self, obj) -> float:
+        sale = obj.sale
+        verified = sum(
+            (p.amount for p in sale.payments.all() if p.status == SalePayment.Status.VERIFIED), 0,
+        )
+        if not sale.agreed_price:
+            return 0.0
+        return round(float(verified / sale.agreed_price * 100), 1)
+
+    def get_achieved_construction_percent(self, obj) -> float:
+        if obj.sale_id and obj.sale.listing_id and obj.sale.listing.construction_progress is not None:
+            return float(obj.sale.listing.construction_progress)
+        return 0.0
 
 
 class SaleDocumentSerializer(serializers.ModelSerializer):
