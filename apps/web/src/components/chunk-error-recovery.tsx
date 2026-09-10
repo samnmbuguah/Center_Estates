@@ -15,7 +15,9 @@ export default function ChunkErrorRecovery() {
         const now = Date.now();
         if (!lastReload || now - Number(lastReload) > 10000) {
           sessionStorage.setItem("ce_chunk_reload_ts", String(now));
-          window.location.reload();
+          const recoveryUrl = new URL(window.location.href);
+          recoveryUrl.searchParams.set("ce-recover", String(now));
+          window.location.replace(recoveryUrl.toString());
         }
       }
     };

@@ -180,12 +180,17 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     set -e
     source '${NODE_VENV}'
     cd '${FRONTEND_PATH}'
-    tar -xzf deploy-web.tar.gz
+    release_id=\$(tar -xOf deploy-web.tar.gz apps/web/.next/standalone/apps/web/.next/BUILD_ID | tr -d '\r\n')
+    test -n "\${release_id}"
+    release_root="${FRONTEND_PATH}/releases/\${release_id}"
+    rm -rf "\${release_root}"
+    mkdir -p "\${release_root}"
+    tar -xzf deploy-web.tar.gz -C "\${release_root}"
     rm -f deploy-web.tar.gz
     # Next's standalone output ships the exact runtime dependency tree. This
     # avoids cPanel's workspace/node_modules symlink limitation and removes a
     # slow npm install from every web release.
-    standalone='apps/web/.next/standalone/apps/web'
+    standalone="\${release_root}/apps/web/.next/standalone/apps/web"
     test -f "\${standalone}/server.js"
     # Next's monorepo standalone build emits an absolute node_modules symlink
     # that points at the build machine's workspace (e.g. /root/Dev/...). That
@@ -197,15 +202,25 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
       ln -s ../../node_modules "\${standalone}/node_modules"
     fi
     mkdir -p "\${standalone}/.next/static" "\${standalone}/public"
-    cp -rn apps/web/.next/static/* "\${standalone}/.next/static/" 2>/dev/null || cp -a apps/web/.next/static/* "\${standalone}/.next/static/"
-    cp -a apps/web/public/* "\${standalone}/public/" 2>/dev/null || true
+    cp -a "\${release_root}/apps/web/.next/static/." "\${standalone}/.next/static/"
+    cp -a "\${release_root}/apps/web/public/." "\${standalone}/public/" 2>/dev/null || true
+    # Preserve immutable chunks from the previous release for tabs that were
+    # already open, then switch the entire runtime atomically.
+    if [ -d current/.next/static ]; then
+      cp -an current/.next/static/. "\${standalone}/.next/static/" 2>/dev/null || true
+    elif [ -d apps/web/.next/standalone/apps/web/.next/static ]; then
+      cp -an apps/web/.next/standalone/apps/web/.next/static/. "\${standalone}/.next/static/" 2>/dev/null || true
+    fi
+    ln -sfn "\${standalone}" current.next
+    mv -Tf current.next current
+    cp "\${release_root}/app.js" app.js
     mkdir -p tmp
     touch tmp/restart.txt
     # Kill stale Next.js workers matching this application's path.
     # First try SIGTERM for graceful shutdown, then SIGKILL if needed.
     web_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == "next-server" {print \$1}')
     for web_pid in \${web_pids}; do
-      if [ "\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)" = "${FRONTEND_PATH}/apps/web/.next/standalone/apps/web" ]; then
+      if [[ "\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)" == "${FRONTEND_PATH}/releases/"*/apps/web/.next/standalone/apps/web || "\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)" = "${FRONTEND_PATH}/apps/web/.next/standalone/apps/web" ]]; then
         kill -TERM "\${web_pid}" 2>/dev/null || true
       fi
     done
@@ -213,7 +228,7 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     sleep 3
     web_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == "next-server" {print \$1}')
     for web_pid in \${web_pids}; do
-      if [ "\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)" = "${FRONTEND_PATH}/apps/web/.next/standalone/apps/web" ]; then
+      if [[ "\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)" == "${FRONTEND_PATH}/releases/"*/apps/web/.next/standalone/apps/web || "\$(readlink /proc/\${web_pid}/cwd 2>/dev/null || true)" = "${FRONTEND_PATH}/apps/web/.next/standalone/apps/web" ]]; then
         kill -9 "\${web_pid}" 2>/dev/null || true
       fi
     done

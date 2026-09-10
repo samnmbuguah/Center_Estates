@@ -48,7 +48,10 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  response.headers.set("Cache-Control", "private, no-cache, no-store, max-age=0, must-revalidate");
+  response.headers.set("CDN-Cache-Control", "no-store");
+  return response;
 }
 
 export const config = {
