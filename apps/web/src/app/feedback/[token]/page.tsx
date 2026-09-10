@@ -276,7 +276,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
         {/* Location Identity Placard */}
         {context && (
           <div style={{
-            background: "#ffffff",
+            background: "var(--surface)",
             border: "1px solid var(--color-slate-200)",
             borderRadius: 16,
             padding: "14px 18px",
@@ -321,7 +321,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
         {/* ERROR STATE */}
         {state === "error" && (
-          <div style={{ background: "#ffffff", border: "1px solid var(--color-red-200)", borderRadius: 16, padding: 32, textAlign: "center", boxShadow: "0 8px 30px rgba(0,0,0,0.06)" }}>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--color-red-200)", borderRadius: 16, padding: 32, textAlign: "center", boxShadow: "0 8px 30px rgba(0,0,0,0.06)" }}>
             <AlertCircle size={42} color="var(--color-danger)" style={{ margin: "0 auto 12px" }} />
             <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 6px", color: "var(--color-danger-deep)" }}>Helpdesk Portal Unavailable</h2>
             <p style={{ margin: 0, fontSize: 14, color: "var(--color-slate-500)" }}>{error}</p>
@@ -330,7 +330,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
         {/* LOADING STATE */}
         {state === "loading" && (
-          <div style={{ background: "#ffffff", border: "1px solid var(--color-slate-200)", borderRadius: 16, padding: 48, textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--color-slate-200)", borderRadius: 16, padding: 48, textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
             <div style={{
               display: "inline-block",
               width: 34,
@@ -350,7 +350,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
         {/* FORM CREATION STATE */}
         {state === "ready" && (
           <form onSubmit={handleSubmit} style={{
-            background: "#ffffff",
+            background: "var(--surface)",
             border: "1px solid var(--color-slate-200)",
             borderRadius: 20,
             padding: "24px 22px",
@@ -696,7 +696,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
         {/* LIVE TICKET TRACKING STATE */}
         {state === "tracking" && ticket && (
           <div style={{
-            background: "#ffffff",
+            background: "var(--surface)",
             border: "1px solid var(--color-slate-200)",
             borderRadius: 20,
             padding: "24px 22px",
@@ -728,7 +728,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                   type="button"
                   onClick={copyTicketLink}
                   style={{
-                    background: "#ffffff",
+                    background: "var(--surface)",
                     border: "1px solid var(--color-green-300)",
                     color: "var(--color-green-text)",
                     padding: "6px 14px",
@@ -846,7 +846,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                     type="button"
                     disabled={actionBusy}
                     onClick={() => handleTicketAction("reopen")}
-                    style={{ background: "#fff", color: "var(--color-danger)", border: "1px solid var(--color-danger)", padding: "10px 16px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}
+                    style={{ background: "var(--surface)", color: "var(--color-danger)", border: "1px solid var(--color-danger)", padding: "10px 16px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}
                   >
                     ↻ Reopen (Issue Persists)
                   </button>

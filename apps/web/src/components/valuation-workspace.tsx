@@ -215,7 +215,7 @@ function Donut({ segments, center }: { segments: { label: string; color: string;
   return (
     <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
       <div style={{ width: 118, height: 118, borderRadius: "50%", background: grad, display: "grid", placeItems: "center", flexShrink: 0 }}>
-        <div style={{ width: 72, height: 72, borderRadius: "50%", background: "white", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>{center}</div>
+        <div style={{ width: 72, height: 72, borderRadius: "50%", background: "var(--surface)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>{center}</div>
       </div>
       <div style={{ display: "grid", gap: 7, minWidth: 120, flex: 1 }}>
         {shown.length ? shown.map((s) => (

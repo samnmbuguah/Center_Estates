@@ -61,7 +61,7 @@ export function GuidedTenantWizardModal({
     >
       <div
         style={{
-          background: "#ffffff",
+          background: "var(--surface)",
           borderRadius: 14,
           maxWidth: 620,
           width: "100%",
@@ -131,7 +131,7 @@ export function GuidedTenantWizardModal({
               <select
                 value={formData.unitId}
                 onChange={(e) => setFormData({ ...formData, unitId: e.target.value })}
-                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000", background: "#fff" }}
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000", background: "var(--surface)" }}
               >
                 <option value="102">U-102 (Floor 1) — Westlands Business Centre</option>
                 <option value="204">U-204 (Floor 2) — Westlands Business Centre</option>
@@ -188,7 +188,7 @@ export function GuidedTenantWizardModal({
                 <select
                   value={formData.leaseMonths}
                   onChange={(e) => setFormData({ ...formData, leaseMonths: Number(e.target.value) })}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000", background: "#fff" }}
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000", background: "var(--surface)" }}
                 >
                   <option value={6}>6 Months</option>
                   <option value={12}>12 Months (1 Year)</option>

@@ -77,7 +77,7 @@ export default function Unit3DViewer({
               alt={r.caption || r.title || "Unit rendering"}
               onClick={() => setActiveImage(r.render_url)}
               onError={() => setActiveImage(null)}
-              style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, cursor: "pointer", border: activeImage === r.render_url ? "2px solid var(--color-orange)" : "1px solid var(--border)", background: "#fff" }}
+              style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8, cursor: "pointer", border: activeImage === r.render_url ? "2px solid var(--color-orange)" : "1px solid var(--border)", background: "var(--surface)" }}
             />
           ))}
           <Box sx={{ flex: 1 }} />

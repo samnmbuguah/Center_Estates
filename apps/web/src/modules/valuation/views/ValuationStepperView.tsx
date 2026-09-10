@@ -41,7 +41,7 @@ export function ValuationStepperView() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+      <div style={{ background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
             Valuation Instruction Milestone Stepper
@@ -74,7 +74,7 @@ export function ValuationStepperView() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {paginated.map((item) => (
-          <div key={item.id} style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+          <div key={item.id} style={{ background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
               <div>
                 <span style={{ fontSize: 12, fontWeight: 900, color: "var(--color-violet-strong)", fontFamily: "ui-monospace, monospace" }}>{item.code}</span>

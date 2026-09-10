@@ -498,13 +498,13 @@ export function OwnersView({
                 <div style={{ fontSize: 12, color: "var(--color-slate-600)", fontWeight: 600 }}>Loading financial ledgers...</div>
               ) : financialSummary ? (
                 <div className="grid-2" style={{ gap: 10 }}>
-                  <div style={{ padding: "12px 14px", borderRadius: 8, background: "#ffffff", border: "1px solid var(--color-slate-300)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+                  <div style={{ padding: "12px 14px", borderRadius: 8, background: "var(--surface)", border: "1px solid var(--color-slate-300)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
                     <div style={{ fontSize: 11, color: "var(--color-slate-600)", fontWeight: 750, textTransform: "uppercase", letterSpacing: "0.03em" }}>Active Rent Roll</div>
                     <div style={{ fontSize: 18, fontWeight: 900, color: "var(--color-emerald-deep)", marginTop: 2 }}>
                       {money.format(financialSummary.active_rent_roll ?? 0)}
                     </div>
                   </div>
-                  <div style={{ padding: "12px 14px", borderRadius: 8, background: "#ffffff", border: "1px solid var(--color-slate-300)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+                  <div style={{ padding: "12px 14px", borderRadius: 8, background: "var(--surface)", border: "1px solid var(--color-slate-300)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
                     <div style={{ fontSize: 11, color: "var(--color-slate-600)", fontWeight: 750, textTransform: "uppercase", letterSpacing: "0.03em" }}>Outstanding Balance</div>
                     <div style={{ fontSize: 18, fontWeight: 900, color: Number(financialSummary.outstanding_balance ?? 0) > 0 ? "var(--color-danger-strong)" : "var(--color-slate-900)", marginTop: 2 }}>
                       {money.format(financialSummary.outstanding_balance ?? 0)}
@@ -519,7 +519,7 @@ export function OwnersView({
             <div style={{
               padding: "16px",
               borderRadius: 10,
-              background: "#ffffff",
+              background: "var(--surface)",
               border: "1px solid var(--color-slate-200)",
               boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
               display: "flex",
@@ -563,7 +563,7 @@ export function OwnersView({
                       style={{
                         padding: "12px 14px",
                         borderRadius: 8,
-                        background: "#ffffff",
+                        background: "var(--surface)",
                         border: "1px solid var(--color-slate-200)",
                         display: "flex",
                         justifyContent: "space-between",
@@ -607,7 +607,7 @@ export function OwnersView({
                         style={{
                           padding: "10px 14px",
                           borderRadius: 8,
-                          background: "#ffffff",
+                          background: "var(--surface)",
                           border: "1px solid var(--color-slate-200)",
                           display: "flex",
                           justifyContent: "space-between",

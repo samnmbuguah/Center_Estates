@@ -79,7 +79,7 @@ export default function ProjectsDirectoryPage() {
               <div
                 key={String(proj.id)}
                 style={{
-                  background: "#ffffff",
+                  background: "var(--surface)",
                   borderRadius: 10,
                   border: "1px solid var(--color-slate-200)",
                   padding: 16,

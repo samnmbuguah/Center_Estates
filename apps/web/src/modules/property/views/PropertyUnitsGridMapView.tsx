@@ -48,25 +48,25 @@ export function PropertyUnitsGridMapView({
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Summary KPI Strip */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-        <div className="data-panel" style={{ padding: 18, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
+        <div className="data-panel" style={{ padding: 18, background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 900, color: "#000000", textTransform: "uppercase" }}>Total Inventory</span>
           <strong style={{ fontSize: 24, fontWeight: 900, color: "#000000", display: "block", marginTop: 4 }}>{total} Units</strong>
           <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Westlands Business Centre</span>
         </div>
 
-        <div className="data-panel" style={{ padding: 18, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
+        <div className="data-panel" style={{ padding: 18, background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 900, color: "var(--color-success)", textTransform: "uppercase" }}>Occupied ({occupancyPct}%)</span>
           <strong style={{ fontSize: 24, fontWeight: 900, color: "var(--color-success)", display: "block", marginTop: 4 }}>{occupied} Units</strong>
           <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Active leases</span>
         </div>
 
-        <div className="data-panel" style={{ padding: 18, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
+        <div className="data-panel" style={{ padding: 18, background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 900, color: "var(--color-warning)", textTransform: "uppercase" }}>Leases Expiring</span>
           <strong style={{ fontSize: 24, fontWeight: 900, color: "var(--color-warning)", display: "block", marginTop: 4 }}>{expiring} Units</strong>
           <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Requires renewal &lt; 30 days</span>
         </div>
 
-        <div className="data-panel" style={{ padding: 18, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
+        <div className="data-panel" style={{ padding: 18, background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 900, color: "var(--color-danger)", textTransform: "uppercase" }}>Vacant & Available</span>
           <strong style={{ fontSize: 24, fontWeight: 900, color: "var(--color-danger)", display: "block", marginTop: 4 }}>{vacant} Units</strong>
           <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Ready for onboarding</span>
@@ -74,7 +74,7 @@ export function PropertyUnitsGridMapView({
       </div>
 
       {/* Interactive Legend & Onboard Action */}
-      <div style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+      <div style={{ background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
           <span style={{ fontSize: 13, fontWeight: 900, color: "#000000" }}>Floorplan Status Legend:</span>
           <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, color: "#000000" }}>
@@ -118,7 +118,7 @@ export function PropertyUnitsGridMapView({
           const floorUnits = units.filter((u) => u.floor === floor);
 
           return (
-            <div key={floor} style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: 20 }}>
+            <div key={floor} style={{ background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
                 <Layers size={18} style={{ color: "var(--color-danger)" }} />
                 <h3 style={{ fontSize: 16, fontWeight: 900, color: "#000000", margin: 0 }}>

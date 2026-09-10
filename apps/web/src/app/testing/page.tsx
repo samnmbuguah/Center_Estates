@@ -463,7 +463,7 @@ export default function TestingPage() {
         ))}
 
         {!loading && visible.length === 0 && (
-          <div className="content-card" style={{ textAlign: "center", padding: 48, background: "#ffffff", borderRadius: 12, border: "1px solid var(--color-slate-200)" }}>
+          <div className="content-card" style={{ textAlign: "center", padding: 48, background: "var(--surface)", borderRadius: 12, border: "1px solid var(--color-slate-200)" }}>
             <FlaskConical size={36} color="var(--color-slate-400)" />
             <h2 style={{ fontSize: 18, margin: "12px 0 4px" }}>No workflows match the selected filter</h2>
             <p className="muted" style={{ fontSize: 14 }}>Try clearing the search query or changing the module filter.</p>
@@ -508,7 +508,7 @@ export default function TestingPage() {
       {/* Notes & Evidence Modal */}
       {editingItem && (
         <div style={{ position: "fixed", inset: 0, zIndex: 1400, background: "rgba(15, 23, 42, 0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "#ffffff", borderRadius: 12, width: "100%", maxWidth: 540, padding: 24, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.2)" }}>
+          <div style={{ background: "var(--surface)", borderRadius: 12, width: "100%", maxWidth: 540, padding: 24, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.2)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Record Evidence & Notes</h3>
               <button onClick={() => setEditingItem(null)} style={{ border: 0, background: "transparent", cursor: "pointer", color: "var(--color-slate-500)" }}><X size={20} /></button>
@@ -557,7 +557,7 @@ export default function TestingPage() {
       {/* AI QM Audit Modal */}
       {showAiModal && aiAuditData && (
         <div style={{ position: "fixed", inset: 0, zIndex: 1400, background: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div style={{ background: "#ffffff", borderRadius: 16, width: "100%", maxWidth: 680, maxHeight: "90vh", overflowY: "auto", padding: 28, boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}>
+          <div style={{ background: "var(--surface)", borderRadius: 16, width: "100%", maxWidth: 680, maxHeight: "90vh", overflowY: "auto", padding: 28, boxShadow: "0 25px 50px -12px rgba(0,0,0,0.25)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>

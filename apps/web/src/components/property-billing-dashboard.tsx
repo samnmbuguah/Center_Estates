@@ -783,7 +783,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
             display: "flex",
             gap: 12,
             alignItems: "center",
-            background: "#ffffff",
+            background: "var(--surface)",
             padding: "12px 18px",
             borderRadius: 12,
             border: "1px solid var(--color-slate-200)",

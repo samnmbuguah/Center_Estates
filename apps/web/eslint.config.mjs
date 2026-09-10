@@ -15,6 +15,20 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/purity": "warn",
       "react-hooks/preserve-manual-memoization": "warn",
+      // Design-system guard: prefer CSS variables over raw hex colours in
+      // inline styles. Pure white/black are allowed (text on coloured chrome)
+      // and SVG presentation attributes are intentionally excluded because
+      // var() does not resolve there.
+      "no-restricted-syntax": ["warn",
+        {
+          selector: "JSXAttribute[name.name='style'] Literal[value=/^#(?!(?:fff|ffffff|000|000000)$)(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]",
+          message: "Use a design token (var(--...)) instead of a raw hex colour in inline styles.",
+        },
+        {
+          selector: "JSXAttribute[name.name='sx'] Literal[value=/^#(?!(?:fff|ffffff|000|000000)$)(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]",
+          message: "Use a design token (var(--...)) instead of a raw hex colour in sx styles.",
+        },
+      ],
     },
   },
   {

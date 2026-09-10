@@ -982,7 +982,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                         <td style={{ fontSize: 12 }}>
                           <div style={{ fontWeight: 600 }}>{String(u.tenant_name || (u.metadata as Record<string, unknown> | undefined)?.tenant || "—")}</div>
                           {u.status !== "occupied" ? (
-                            <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, background: "#f1f5f9", color: "#64748b", fontSize: 10, fontWeight: 700, marginTop: 3 }}>
+                            <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, background: "var(--surface-sunken)", color: "#64748b", fontSize: 10, fontWeight: 700, marginTop: 3 }}>
                               ⚪ Vacant
                             </span>
                           ) : isDevTenanted(u) ? (

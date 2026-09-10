@@ -330,7 +330,7 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
               boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)",
             }}
           >
-            <div style={{ width: 50, height: 2, background: "#fff", position: "relative" }}>
+            <div style={{ width: 50, height: 2, background: "var(--surface)", position: "relative" }}>
               <span style={{ position: "absolute", top: -14, left: 16, fontSize: 10 }}>10m</span>
             </div>
             <span>Calibrated Scale (1:200)</span>

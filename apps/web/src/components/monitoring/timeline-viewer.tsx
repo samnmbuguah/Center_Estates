@@ -53,7 +53,7 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
   }, []);
 
   return (
-    <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid var(--color-slate-200)", padding: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+    <div style={{ background: "var(--surface)", borderRadius: 12, border: "1px solid var(--color-slate-200)", padding: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
       {/* Controls & Mode Selection */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
         <div>
@@ -100,7 +100,7 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--color-slate-300)", fontSize: "0.85rem", background: "#fff" }}
+                style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--color-slate-300)", fontSize: "0.85rem", background: "var(--surface)" }}
               >
                 <option value="all">All Statuses</option>
                 <option value="completed">Completed</option>
@@ -209,7 +209,7 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
             </span>
           </div>
 
-          <svg viewBox="0 0 700 280" style={{ width: "100%", height: 280, background: "#fafafa", borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
+          <svg viewBox="0 0 700 280" style={{ width: "100%", height: 280, background: "var(--surface-2)", borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
             {/* Grid lines */}
             {[0, 25, 50, 75, 100].map((val) => {
               const y = 240 - (val / 100) * 200;

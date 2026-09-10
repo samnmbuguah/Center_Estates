@@ -38,7 +38,7 @@ export function FacilityWorkOrdersKanbanView() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Header Toolbar */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px" }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
             Work Order Kanban Dispatch Board
@@ -85,7 +85,7 @@ export function FacilityWorkOrdersKanbanView() {
                     <div
                       key={item.id}
                       style={{
-                        background: "#ffffff",
+                        background: "var(--surface)",
                         border: "1px solid var(--color-slate-300)",
                         borderRadius: 10,
                         padding: 14,

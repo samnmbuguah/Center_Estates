@@ -264,7 +264,7 @@ export function WorkOrderDetail({
               <button
                 type="button"
                 className="btn btn-secondary"
-                style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", cursor: "pointer", fontWeight: 600, border: "1px solid var(--color-info)", color: "var(--color-info)", background: "#fff", borderRadius: 6 }}
+                style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", cursor: "pointer", fontWeight: 600, border: "1px solid var(--color-info)", color: "var(--color-info)", background: "var(--surface)", borderRadius: 6 }}
                 disabled={fastTracking}
                 onClick={handleFastTrackRequisition}
               >
@@ -377,12 +377,12 @@ export function WorkOrderDetail({
                 return (
                   <div key={String(att.id ?? idx)} style={{ background: "var(--color-slate-50)", border: "1px solid #eef1f5", borderRadius: 10, overflow: "hidden" }}>
                     {isImage ? (
-                      <div style={{ height: 120, display: "grid", placeItems: "center", background: "#eef1f5" }}>
+                      <div style={{ height: 120, display: "grid", placeItems: "center", background: "var(--surface-sunken)" }}>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={url} alt={String(att.caption ?? att.file_name ?? "attachment")} style={{ height: "100%", width: "100%", objectFit: "cover" }} />
                       </div>
                     ) : (
-                      <div style={{ height: 120, display: "grid", placeItems: "center", background: "#eef1f5", color: "var(--text-secondary)", fontSize: 32 }}>📄</div>
+                      <div style={{ height: 120, display: "grid", placeItems: "center", background: "var(--surface-sunken)", color: "var(--text-secondary)", fontSize: 32 }}>📄</div>
                     )}
                     <div style={{ padding: "10px 12px" }}>
                       <strong style={{ display: "block", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(att.file_name ?? "—")}</strong>

@@ -107,7 +107,7 @@ export function UnitGridView({ rows, onSelect }: { rows: Row[]; onSelect: (r: Ro
                         }}
                       >
                         {thumb ? (
-                          <img src={thumb} alt="" style={{ width: "100%", height: 54, objectFit: "cover", display: "block", background: "#fff" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
+                          <img src={thumb} alt="" style={{ width: "100%", height: 54, objectFit: "cover", display: "block", background: "var(--surface)" }} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                         ) : (
                           <div style={{ height: 54, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, opacity: 0.5 }}>🏠</div>
                         )}

@@ -31,7 +31,7 @@ export function BoqIngestion() {
   ];
 
   return (
-    <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid var(--color-slate-200)", padding: 20 }}>
+    <div style={{ background: "var(--surface)", borderRadius: 12, border: "1px solid var(--color-slate-200)", padding: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
           <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--color-slate-900)" }}>📥 BoQ & Work Plan Spreadsheet Ingestion</h3>
@@ -88,7 +88,7 @@ export function BoqIngestion() {
                 <select
                   value={val}
                   onChange={(e) => setMapping((prev) => ({ ...prev, [key]: e.target.value }))}
-                  style={{ background: "#fff", border: "1px solid var(--color-slate-300)", padding: 4, borderRadius: 4, fontSize: "0.8rem" }}
+                  style={{ background: "var(--surface)", border: "1px solid var(--color-slate-300)", padding: 4, borderRadius: 4, fontSize: "0.8rem" }}
                 >
                   <option>{val}</option>
                   <option>Col A (Item No)</option>

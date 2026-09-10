@@ -49,7 +49,7 @@ export function BrandLogo({
           letterSpacing: "-0.02em",
         }}
       >
-        <img src={logoUrl || "/center-estates-logo.png"} alt={brandName} width={customLogo ? Math.round(d * 3.8) : d} height={d} loading="eager" decoding="async" style={{ width: "100%", height: "100%", objectFit: customLogo ? "contain" : "cover", objectPosition: "center", borderRadius: "inherit", display: "block", background: "#fff" }} />
+        <img src={logoUrl || "/center-estates-logo.png"} alt={brandName} width={customLogo ? Math.round(d * 3.8) : d} height={d} loading="eager" decoding="async" style={{ width: "100%", height: "100%", objectFit: customLogo ? "contain" : "cover", objectPosition: "center", borderRadius: "inherit", display: "block", background: "var(--surface)" }} />
       </div>
       {showWordmark && !customLogo && (
         <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1, minWidth: 0, marginLeft: 2 }}>

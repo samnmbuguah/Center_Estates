@@ -48,7 +48,7 @@ export function IpcBuilder({ initialData }: IpcBuilderProps) {
   const [data] = useState<IpcCertificate>({ ...DEFAULT_IPC, ...initialData });
 
   return (
-    <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid var(--color-slate-200)", padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+    <div style={{ background: "var(--surface)", borderRadius: 12, border: "1px solid var(--color-slate-200)", padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
       {/* Header Actions */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, borderBottom: "1px solid var(--color-slate-200)", paddingBottom: 12 }}>
         <div>

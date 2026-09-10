@@ -83,7 +83,7 @@ export function MarketingLayout({ children }: { children?: React.ReactNode }) {
       {/* ── Nav ─────────────────────────────────── */}
       <nav className={`marketing-nav${scrolled ? " scrolled" : ""}`}>
         <Link to="/" className="nav-brand" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-          <img src="/logo.png" alt="CeEst" style={{ height: 44, width: 38, objectFit: "cover", objectPosition: "top", background: "#fff", borderRadius: 8 }} />
+          <img src="/logo.png" alt="CeEst" style={{ height: 44, width: 38, objectFit: "cover", objectPosition: "top", background: "var(--surface)", borderRadius: 8 }} />
           <span className="brand-text">CeEst <span>ERP</span></span>
         </Link>
 

@@ -56,7 +56,7 @@ export function RiskMatrix({ risks = DEFAULT_RISKS }: RiskMatrixProps) {
   };
 
   return (
-    <div style={{ background: "#ffffff", borderRadius: 12, border: "1px solid var(--color-slate-200)", padding: 16 }}>
+    <div style={{ background: "var(--surface)", borderRadius: 12, border: "1px solid var(--color-slate-200)", padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
           <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--color-slate-900)" }}>⚠️ 5x5 Visual Risk Matrix & Heatmap</h3>

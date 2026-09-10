@@ -35,7 +35,7 @@ export function SalesBuyersKanbanView() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
             Sales Buyer Pipeline Funnel
@@ -61,7 +61,7 @@ export function SalesBuyersKanbanView() {
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {stgLeads.map((l) => (
-                  <div key={l.id} style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 8, boxShadow: "0 2px 4px rgba(0,0,0,0.05)" }}>
+                  <div key={l.id} style={{ background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 8, boxShadow: "0 2px 4px rgba(0,0,0,0.05)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <strong style={{ fontSize: 14, fontWeight: 900, color: "#000000" }}>{l.name}</strong>
                       <span style={{ fontSize: 10, fontWeight: 900, background: "var(--color-red-bg)", color: "var(--color-danger)", padding: "2px 6px", borderRadius: 4 }}>

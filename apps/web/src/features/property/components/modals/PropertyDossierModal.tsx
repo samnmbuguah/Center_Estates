@@ -202,7 +202,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
       >
         <div
           style={{
-            backgroundColor: "#ffffff",
+            backgroundColor: "var(--surface)",
             color: "var(--color-slate-900)",
             borderRadius: 16,
             width: "100%",
@@ -290,7 +290,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 type="button"
                 onClick={handleExportJson}
                 style={{
-                  background: "#ffffff",
+                  background: "var(--surface)",
                   border: "1px solid var(--color-slate-300)",
                   color: "var(--color-slate-700)",
                   padding: "7px 12px",
@@ -336,7 +336,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                   type="button"
                   onClick={() => { onClose(); onEdit(prop.id); }}
                   style={{
-                    background: "#ffffff",
+                    background: "var(--surface)",
                     border: "1px solid var(--color-slate-300)",
                     color: "var(--color-slate-900)",
                     padding: "7px 12px",
@@ -383,7 +383,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
               justifyContent: "space-between",
               flexWrap: "wrap",
               gap: 12,
-              backgroundColor: "#ffffff",
+              backgroundColor: "var(--surface)",
             }}
           >
             <div style={{ display: "flex", gap: 6, background: "var(--color-slate-100)", padding: 3, borderRadius: 10 }}>
@@ -472,13 +472,13 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 {/* 4 Top KPI Cards */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
-                  <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--color-slate-200)", backgroundColor: "#ffffff", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+                  <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--color-slate-200)", backgroundColor: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
                     <div style={{ fontSize: 11, fontWeight: 800, color: "var(--color-slate-500)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Total Registered Units</div>
                     <div style={{ fontSize: 24, fontWeight: 900, marginTop: 4, color: "var(--color-slate-900)" }}>{kN(prop.units_count)}</div>
                     <div style={{ fontSize: 12, color: "var(--color-success)", fontWeight: 700, marginTop: 2 }}>{kN(prop.occupied)} Occupied ({pct(prop.occupied, prop.units_count)}%)</div>
                   </div>
 
-                  <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--color-slate-200)", backgroundColor: "#ffffff", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+                  <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--color-slate-200)", backgroundColor: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
                     <div style={{ fontSize: 11, fontWeight: 800, color: "var(--color-slate-500)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Contracted Monthly Rent</div>
                     <div style={{ fontSize: 22, fontWeight: 900, marginTop: 4, color: "var(--color-info-strong)" }}>
                       {money.format(Number(prop.monthly_rent || prop.monthlyRent || 0))}
@@ -486,7 +486,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                     <div style={{ fontSize: 12, color: "var(--color-slate-500)", fontWeight: 600, marginTop: 2 }}>Target revenue potential</div>
                   </div>
 
-                  <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--color-slate-200)", backgroundColor: "#ffffff", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+                  <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--color-slate-200)", backgroundColor: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
                     <div style={{ fontSize: 11, fontWeight: 800, color: "var(--color-slate-500)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Landlord Engagement</div>
                     <div style={{ fontSize: 13, fontWeight: 800, marginTop: 4, color: "var(--color-slate-900)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={landlord.name || meta.landlord_name || "—"}>
                       {landlord.name || meta.landlord_name || "—"}
@@ -496,7 +496,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                     </div>
                   </div>
 
-                  <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--color-slate-200)", backgroundColor: "#ffffff", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+                  <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--color-slate-200)", backgroundColor: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
                     <div style={{ fontSize: 11, fontWeight: 800, color: "var(--color-slate-500)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Operations & Compliance</div>
                     <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: "var(--color-slate-900)" }}>
                       {utilities.length} Meter(s) • {serviceProviders.length} Service Line(s)
@@ -510,7 +510,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 {/* Two Column Grid */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   {/* Property & Legal Profile */}
-                  <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: 18, backgroundColor: "#ffffff", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+                  <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: 18, backgroundColor: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
                     <h4 style={{ margin: "0 0 14px 0", fontSize: 13, fontWeight: 900, color: "var(--color-info-strong)", display: "flex", alignItems: "center", gap: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                       <Building2 size={16} /> Property & Title Particulars
                     </h4>
@@ -559,7 +559,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                   </div>
 
                   {/* Landlord & Mandate Card */}
-                  <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: 18, backgroundColor: "#ffffff", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+                  <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: 18, backgroundColor: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
                     <h4 style={{ margin: "0 0 14px 0", fontSize: 13, fontWeight: 900, color: "var(--color-info-strong)", display: "flex", alignItems: "center", gap: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                       <Landmark size={16} /> Landlord Mandate & Commercial Terms
                     </h4>
@@ -603,7 +603,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 {/* Facilities, Metering & Compliance Strip */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   {/* Utilities & Meters */}
-                  <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: 18, backgroundColor: "#ffffff", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+                  <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: 18, backgroundColor: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
                     <h4 style={{ margin: "0 0 12px 0", fontSize: 13, fontWeight: 900, color: "var(--color-info-strong)", display: "flex", alignItems: "center", gap: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                       <Zap size={16} /> Utility Meters & Infrastructure ({utilities.length})
                     </h4>
@@ -627,7 +627,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                   </div>
 
                   {/* Operational Service Lines */}
-                  <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: 18, backgroundColor: "#ffffff", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+                  <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: 18, backgroundColor: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
                     <h4 style={{ margin: "0 0 12px 0", fontSize: 13, fontWeight: 900, color: "var(--color-info-strong)", display: "flex", alignItems: "center", gap: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                       <Wrench size={16} /> Facility Service Lines ({serviceProviders.length})
                     </h4>
@@ -650,7 +650,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 </div>
 
                 {/* Compliance & Attached Documents */}
-                <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: 18, backgroundColor: "#ffffff", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
+                <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: 18, backgroundColor: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
                   <h4 style={{ margin: "0 0 12px 0", fontSize: 13, fontWeight: 900, color: "var(--color-info-strong)", display: "flex", alignItems: "center", gap: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     <FileText size={16} /> Attached Compliance & Legal Documents ({documents.length})
                   </h4>
@@ -677,7 +677,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
 
                 {/* Notes if present */}
                 {meta.notes && (
-                  <div style={{ padding: 16, borderRadius: 12, backgroundColor: "#ffffff", border: "1px solid var(--color-slate-200)" }}>
+                  <div style={{ padding: 16, borderRadius: 12, backgroundColor: "var(--surface)", border: "1px solid var(--color-slate-200)" }}>
                     <h4 style={{ margin: "0 0 6px 0", fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: "var(--color-slate-500)" }}>Onboarding Notes & Instructions</h4>
                     <p style={{ margin: 0, fontSize: 13, whiteSpace: "pre-wrap", color: "var(--color-slate-700)" }}>{meta.notes}</p>
                   </div>
@@ -751,7 +751,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 </div>
 
                 {/* Audit Items Table */}
-                <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 12, overflow: "hidden", backgroundColor: "#ffffff" }}>
+                <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 12, overflow: "hidden", backgroundColor: "var(--surface)" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, textAlign: "left" }}>
                     <thead>
                       <tr style={{ borderBottom: "1px solid var(--color-slate-200)", backgroundColor: "var(--color-slate-50)", color: "var(--color-slate-600)" }}>
@@ -810,7 +810,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              backgroundColor: "#ffffff",
+              backgroundColor: "var(--surface)",
             }}
           >
             <div style={{ fontSize: 12, color: "var(--color-slate-500)", fontWeight: 600 }}>
@@ -821,7 +821,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 type="button"
                 onClick={onClose}
                 style={{
-                  background: "#ffffff",
+                  background: "var(--surface)",
                   border: "1px solid var(--color-slate-300)",
                   color: "var(--color-slate-700)",
                   padding: "8px 16px",
@@ -1049,7 +1049,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
           </div>
 
           {/* Section 5: Sign-Off Box */}
-          <div className="avoid-break" style={{ border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 12, backgroundColor: "#fafafa" }}>
+          <div className="avoid-break" style={{ border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 12, backgroundColor: "var(--surface-2)" }}>
             <div style={{ fontSize: 11, fontWeight: 900, color: "var(--color-info-dark)", textTransform: "uppercase", marginBottom: 12 }}>
               6. Verification & Sign-Off
             </div>

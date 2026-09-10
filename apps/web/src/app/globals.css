@@ -305,100 +305,11 @@
   --text-tertiary: var(--text-muted);
 }
 
-/* Global dark mode overrides for hardcoded light backgrounds */
-[data-theme="dark"] [style*="background: #f8fafc"],
-[data-theme="dark"] [style*="background: #ffffff"],
-[data-theme="dark"] [style*="background: #edf0f5"],
-[data-theme="dark"] [style*="background: #f1f5f9"],
-[data-theme="dark"] [style*="background: #dcfce7"],
-[data-theme="dark"] [style*="background: #dbeafe"],
-[data-theme="dark"] [style*="background: #fef3c7"],
-[data-theme="dark"] [style*="background: #ede9fe"],
-[data-theme="dark"] [style*="background: #fff7ed"],
-[data-theme="dark"] [style*="background: #ffedd5"],
-[data-theme="dark"] [style*="background: #e0e7ff"],
-[data-theme="dark"] [style*="background: #e2e8f0"],
-[data-theme="dark"] [style*="background: #fafafa"],
-[data-theme="dark"] [style*="background: #f3f4f6"],
-[data-theme="dark"] [style*="background: #f9fafb"],
-[data-theme="dark"] [style*="background: #fff"],
-[data-theme="dark"] [style*="background: #fee2e2"],
-[data-theme="dark"] [style*="background: #fee2e2"],
-[data-theme="dark"] [style*="background: #fecaca"],
-[data-theme="dark"] [style*="background: #bbf7d0"],
-[data-theme="dark"] [style*="background: #86efac"],
-[data-theme="dark"] [style*="background: #93c5fd"],
-[data-theme="dark"] [style*="background: #bfdbfe"],
-[data-theme="dark"] [style*="background: #fcd34d"],
-[data-theme="dark"] [style*="background: #fde68a"],
-[data-theme="dark"] [style*="background: #ddd6fe"],
-[data-theme="dark"] [style*="background: #c4b5fd"],
-[data-theme="dark"] [style*="background: #fed7aa"],
-[data-theme="dark"] [style*="background: #fdba74"] {
-  background: var(--bg-surface) !important;
-}
-
-[data-theme="dark"] [style*="border: #e2e8f0"],
-[data-theme="dark"] [style*="border: #cbd5e1"],
-[data-theme="dark"] [style*="border: #f1f5f9"],
-[data-theme="dark"] [style*="border: #e5e7eb"],
-[data-theme="dark"] [style*="border: #d1d5db"],
-[data-theme="dark"] [style*="border: #e0e7ff"],
-[data-theme="dark"] [style*="border: #dbeafe"],
-[data-theme="dark"] [style*="border: #dcfce7"],
-[data-theme="dark"] [style*="border: #fef3c7"],
-[data-theme="dark"] [style*="border: #ede9fe"],
-[data-theme="dark"] [style*="border: #fff7ed"] {
-  border-color: var(--border-color) !important;
-}
-
-/* Fix text colors in dark mode — Ensure all hardcoded black/dark text becomes crisp and legible */
-[data-theme="dark"] [style*="color: #000000"],
-[data-theme="dark"] [style*="color: #000"],
-[data-theme="dark"] [style*="color: black"],
-[data-theme="dark"] [style*="color:#000000"],
-[data-theme="dark"] [style*="color:#000"],
-[data-theme="dark"] [style*="color: #0f172a"],
-[data-theme="dark"] [style*="color:#0f172a"],
-[data-theme="dark"] [style*="color: #1e293b"],
-[data-theme="dark"] [style*="color:#1e293b"],
-[data-theme="dark"] [style*="color: #334155"],
-[data-theme="dark"] [style*="color:#334155"],
-[data-theme="dark"] [style*="color: #475569"],
-[data-theme="dark"] [style*="color:#475569"],
-[data-theme="dark"] [style*="color: #111827"],
-[data-theme="dark"] [style*="color:#111827"],
-[data-theme="dark"] [style*="color: #1f2937"],
-[data-theme="dark"] [style*="color:#1f2937"],
-[data-theme="dark"] [style*="color: #374151"],
-[data-theme="dark"] [style*="color:#374151"] {
-  color: var(--text-primary) !important;
-}
-
-[data-theme="dark"] [style*="color: #64748b"],
-[data-theme="dark"] [style*="color:#64748b"],
-[data-theme="dark"] [style*="color: #94a3b8"],
-[data-theme="dark"] [style*="color:#94a3b8"],
-[data-theme="dark"] [style*="color: #8a96a7"],
-[data-theme="dark"] [style*="color:#8a96a7"],
-[data-theme="dark"] [style*="color: #6b7280"],
-[data-theme="dark"] [style*="color:#6b7280"],
-[data-theme="dark"] [style*="color: #4b5563"],
-[data-theme="dark"] [style*="color:#4b5563"],
-[data-theme="dark"] [style*="color: #667084"],
-[data-theme="dark"] [style*="color:#667084"],
-[data-theme="dark"] [style*="color: #5a6478"],
-[data-theme="dark"] [style*="color:#5a6478"],
-[data-theme="dark"] [style*="color: #69738a"],
-[data-theme="dark"] [style*="color:#69738a"],
-[data-theme="dark"] [style*="color: #3b465d"],
-[data-theme="dark"] [style*="color:#3b465d"],
-[data-theme="dark"] [style*="color: #566177"],
-[data-theme="dark"] [style*="color:#566177"] {
-  color: var(--text-secondary) !important;
-}
-
-/* Headings, strong, labels in dark mode */
+/* Dark-mode component chrome.
+   Earlier revisions patched hardcoded inline colours with fragile
+   `[style*="background: #..."]` attribute selectors. Components now consume
+   design tokens, so those attribute hacks have been retired in favour of the
+   structural rules below. */
 [data-theme="dark"] h1,
 [data-theme="dark"] h2,
 [data-theme="dark"] h3,
@@ -1585,17 +1496,6 @@ html {
 [data-theme="dark"] .sidebar,
 [data-theme="dark"] .mobile-bottom-nav {
   background: var(--sidebar) !important;
-}
-
-/* Fix light backgrounds in dark mode */
-[data-theme="dark"] [style*="background: #ffffff"],
-[data-theme="dark"] [style*="background: #f8fafc"],
-[data-theme="dark"] [style*="background: #f1f5f9"] {
-  background: var(--surface-2) !important;
-}
-
-[data-theme="dark"] [style*="background: white"] {
-  background: var(--surface) !important;
 }
 
 /* Consistent Design System - Button Styles */

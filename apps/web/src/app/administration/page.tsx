@@ -1635,7 +1635,7 @@ function AdministrationContent() {
             >
               <div
                 style={{
-                  background: "#ffffff",
+                  background: "var(--surface)",
                   borderRadius: 14,
                   maxWidth: 440,
                   width: "100%",
@@ -1760,7 +1760,7 @@ function AdministrationContent() {
                 type="button"
                 onClick={() => applySmtpPreset("cpanel")}
                 className="btn ghost sm"
-                style={{ background: "#ffffff", border: "1px solid var(--color-blue-200)", color: "var(--color-info-deep)", fontWeight: 700, fontSize: 12, borderRadius: 6 }}
+                style={{ background: "var(--surface)", border: "1px solid var(--color-blue-200)", color: "var(--color-info-deep)", fontWeight: 700, fontSize: 12, borderRadius: 6 }}
               >
                 🚀 Center Estates Webmail (mail.centerestates.com : 465 SSL)
               </button>
@@ -1768,7 +1768,7 @@ function AdministrationContent() {
                 type="button"
                 onClick={() => applySmtpPreset("gmail")}
                 className="btn ghost sm"
-                style={{ background: "#ffffff", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-700)", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
+                style={{ background: "var(--surface)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-700)", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
               >
                 🌐 Google Workspace (smtp.gmail.com : 587 TLS)
               </button>
@@ -1776,7 +1776,7 @@ function AdministrationContent() {
                 type="button"
                 onClick={() => applySmtpPreset("m365")}
                 className="btn ghost sm"
-                style={{ background: "#ffffff", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-700)", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
+                style={{ background: "var(--surface)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-700)", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
               >
                 💼 Microsoft 365 (smtp.office365.com : 587 TLS)
               </button>
@@ -1796,7 +1796,7 @@ function AdministrationContent() {
               <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, 1fr) minmax(240px, 2fr)", gap: 12 }}>
                 <label style={{ display: "grid", gap: 6, fontSize: 12, fontWeight: 800 }}>
                   Delivery mode
-                  <select value={smtpDeliveryMode} onChange={(event) => setSmtpDeliveryMode(event.target.value === "live" ? "live" : "test")} style={{ padding: "10px 12px", borderRadius: 7, border: "1px solid #fdba74", background: "#fff" }}>
+                  <select value={smtpDeliveryMode} onChange={(event) => setSmtpDeliveryMode(event.target.value === "live" ? "live" : "test")} style={{ padding: "10px 12px", borderRadius: 7, border: "1px solid #fdba74", background: "var(--surface)" }}>
                     <option value="test">Test inbox only — safe</option>
                     <option value="live">Live recipients</option>
                   </select>
@@ -1979,7 +1979,7 @@ function AdministrationContent() {
                   value={testEmailAddress}
                   onChange={(e) => setTestEmailAddress(e.target.value)}
                   placeholder={`Recipient email (defaults to ${session?.user.email || "samnmbuguah@gmail.com"})`}
-                  style={{ flex: 1, minWidth: 260, padding: "8px 12px", borderRadius: 6, border: "1px solid var(--color-green-300)", background: "#fff", fontSize: 13 }}
+                  style={{ flex: 1, minWidth: 260, padding: "8px 12px", borderRadius: 6, border: "1px solid var(--color-green-300)", background: "var(--surface)", fontSize: 13 }}
                 />
                 <button
                   type="button"
@@ -2119,7 +2119,7 @@ function AdministrationContent() {
                   Live Navigation & Loader Preview:
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 24, padding: "14px 20px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8 }}>
-                  <div style={{ width: 140, height: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", borderRadius: 6, border: "1px solid var(--border)", overflow: "hidden", padding: 6 }}>
+                  <div style={{ width: 140, height: 48, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--surface)", borderRadius: 6, border: "1px solid var(--border)", overflow: "hidden", padding: 6 }}>
                     {brandLogoUrl ? (
                       <img src={brandLogoUrl} alt={brandOrgName} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                     ) : (

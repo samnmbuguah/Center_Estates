@@ -85,19 +85,19 @@ export default function SingleProjectWorkspacePage({ params }: { params: Promise
           <div>
             {/* Quick KPI Overview */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
+              <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
                 <small style={{ color: "var(--color-slate-500)" }}>Project Budget</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--color-slate-900)" }}>{cash.format(Number(project?.budget || 450000000))}</h3>
               </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
+              <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
                 <small style={{ color: "var(--color-slate-500)" }}>Physical Completion</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--color-success)" }}>68.4%</h3>
               </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
+              <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
                 <small style={{ color: "var(--color-slate-500)" }}>Certified Value</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--color-info)" }}>{cash.format(142000000)}</h3>
               </div>
-              <div style={{ background: "#ffffff", padding: 14, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
+              <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
                 <small style={{ color: "var(--color-slate-500)" }}>Open Risks / Issues</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--color-danger)" }}>5 High Priority</h3>
               </div>

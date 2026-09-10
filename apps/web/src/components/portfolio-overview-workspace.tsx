@@ -215,7 +215,7 @@ export function PortfolioOverviewWorkspace() {
 
       {/* Portfolio Glance Statistics Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
-        <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12 }}>
+        <article className="data-panel" style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
             <span style={{ background: "var(--color-red-bg)", color: "var(--color-danger)", padding: 8, borderRadius: 8, display: "flex" }}>
               <Building2 size={20} />
@@ -228,7 +228,7 @@ export function PortfolioOverviewWorkspace() {
           <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Active real estate assets</span>
         </article>
 
-        <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12 }}>
+        <article className="data-panel" style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
             <span style={{ background: "var(--color-green-bg)", color: "var(--color-success)", padding: 8, borderRadius: 8, display: "flex" }}>
               <Users size={20} />
@@ -241,7 +241,7 @@ export function PortfolioOverviewWorkspace() {
           <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Total units: {totalUnits}</span>
         </article>
 
-        <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12 }}>
+        <article className="data-panel" style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
             <span style={{ background: "var(--color-amber-bg)", color: "var(--color-warning)", padding: 8, borderRadius: 8, display: "flex" }}>
               <DollarSign size={20} />
@@ -254,7 +254,7 @@ export function PortfolioOverviewWorkspace() {
           <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Current billing period</span>
         </article>
 
-        <article className="data-panel" style={{ padding: 20, background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12 }}>
+        <article className="data-panel" style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
             <span style={{ background: "var(--color-blue-bg)", color: "var(--color-info)", padding: 8, borderRadius: 8, display: "flex" }}>
               <Wrench size={20} />
@@ -269,8 +269,8 @@ export function PortfolioOverviewWorkspace() {
       </div>
 
       {/* PRIMARY SECTION: Properties Register (Placed at the top as requested) */}
-      <article className="data-panel" style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, overflow: "hidden", marginBottom: 28, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
-        <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--color-slate-200)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, background: "#fafafa" }}>
+      <article className="data-panel" style={{ background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 12, overflow: "hidden", marginBottom: 28, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--color-slate-200)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, background: "var(--surface-2)" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
@@ -331,7 +331,7 @@ export function PortfolioOverviewWorkspace() {
                   fontSize: 12,
                   fontWeight: 600,
                   color: "var(--color-slate-900)",
-                  background: "#ffffff",
+                  background: "var(--surface)",
                   width: "100%",
                   boxSizing: "border-box",
                   outline: "none",
@@ -419,7 +419,7 @@ export function PortfolioOverviewWorkspace() {
                           href={`/property-onboarding?edit=${prop.id}`}
                           onClick={(e) => e.stopPropagation()}
                           style={{
-                            background: "#ffffff",
+                            background: "var(--surface)",
                             border: "1px solid var(--color-slate-300)",
                             color: "#000000",
                             padding: "6px 12px",
@@ -484,7 +484,7 @@ export function PortfolioOverviewWorkspace() {
         >
           <div
             style={{
-              background: "#ffffff",
+              background: "var(--surface)",
               borderRadius: 12,
               maxWidth: 540,
               width: "100%",
@@ -553,7 +553,7 @@ export function PortfolioOverviewWorkspace() {
                   <select
                     name="property_type"
                     defaultValue={editingProperty.property_type || "commercial"}
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000", background: "#fff" }}
+                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 800, color: "#000000", background: "var(--surface)" }}
                   >
                     <option value="commercial">Commercial Office</option>
                     <option value="residential">Residential Apartments</option>

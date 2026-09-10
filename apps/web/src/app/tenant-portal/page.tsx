@@ -453,7 +453,7 @@ export default function TenantPortalPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {previewTenants.length > 1 && (
               <select
-                style={{ background: "#ffffff", color: "var(--color-slate-800)", padding: "6px 12px", borderRadius: 6, fontWeight: 600, fontSize: 13, border: "none", cursor: "pointer" }}
+                style={{ background: "var(--surface)", color: "var(--color-slate-800)", padding: "6px 12px", borderRadius: 6, fontWeight: 600, fontSize: 13, border: "none", cursor: "pointer" }}
                 value={activeTenantId || data.tenant.code}
                 onChange={(e) => {
                   setActiveTenantId(e.target.value);

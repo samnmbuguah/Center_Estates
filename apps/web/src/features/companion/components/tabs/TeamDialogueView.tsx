@@ -288,7 +288,7 @@ export function TeamDialogueView({
           justifyContent: "space-between",
           flexWrap: "wrap",
           gap: 12,
-          background: "#ffffff",
+          background: "var(--surface)",
           border: "1px solid var(--border)",
           borderRadius: 8,
         }}
@@ -318,7 +318,7 @@ export function TeamDialogueView({
               padding: "8px 12px 8px 34px",
               borderRadius: 6,
               border: "1px solid var(--border)",
-              background: "#ffffff",
+              background: "var(--surface)",
               fontSize: 13,
               color: "var(--text)",
             }}
@@ -342,7 +342,7 @@ export function TeamDialogueView({
                 padding: "6px 12px",
                 borderRadius: 6,
                 border: "1px solid var(--border)",
-                background: "#ffffff",
+                background: "var(--surface)",
                 fontSize: 13,
                 fontWeight: 500,
                 color: "var(--text)",
@@ -371,7 +371,7 @@ export function TeamDialogueView({
                 padding: "6px 12px",
                 borderRadius: 6,
                 border: "1px solid var(--border)",
-                background: "#ffffff",
+                background: "var(--surface)",
                 fontSize: 13,
                 fontWeight: 500,
                 color: "var(--text)",
@@ -412,7 +412,7 @@ export function TeamDialogueView({
       <div
         className="card"
         style={{
-          background: "#ffffff",
+          background: "var(--surface)",
           border: "1px solid var(--border)",
           borderRadius: 8,
           overflow: "hidden",
@@ -619,7 +619,7 @@ export function TeamDialogueView({
             justifyContent: "space-between",
             flexWrap: "wrap",
             gap: 12,
-            background: "#ffffff",
+            background: "var(--surface)",
           }}
         >
           <div style={{ fontSize: 12, color: "var(--muted)" }}>
@@ -680,7 +680,7 @@ export function TeamDialogueView({
                 borderRadius: 4,
                 border: "1px solid var(--border)",
                 fontSize: 12,
-                background: "#ffffff",
+                background: "var(--surface)",
                 color: "var(--text)",
               }}
             >
@@ -986,7 +986,7 @@ export function TeamDialogueView({
                   borderRadius: 6,
                   border: "1px solid var(--border)",
                   fontSize: 13,
-                  background: "#ffffff",
+                  background: "var(--surface)",
                 }}
               />
 

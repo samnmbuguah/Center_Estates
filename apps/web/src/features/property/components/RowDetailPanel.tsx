@@ -166,7 +166,7 @@ export function RowDetailPanel({
             <button
               className="btn ghost sm"
               onClick={() => setConfirmDelete(false)}
-              style={{ background: "#fff", color: "#333" }}
+              style={{ background: "var(--surface)", color: "#333" }}
             >
               Cancel
             </button>

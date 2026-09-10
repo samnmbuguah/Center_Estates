@@ -318,7 +318,7 @@ export default function OwnerPortalPage() {
           </div>
 
           {/* Profile Card */}
-          <div className="tenant-sidebar-profile" style={{ background: "#ffffff", border: "1px solid var(--color-slate-200)" }}>
+          <div className="tenant-sidebar-profile" style={{ background: "var(--surface)", border: "1px solid var(--color-slate-200)" }}>
             <div className="tenant-sidebar-profile-top">
               <div
                 className="tenant-avatar-circle"
@@ -439,7 +439,7 @@ export default function OwnerPortalPage() {
 
           {/* Footer Care & Support Card */}
           <div className="tenant-sidebar-footer" style={{ borderTopColor: "var(--color-slate-200)" }}>
-            <div className="tenant-support-card" style={{ background: "#ffffff", border: "1px solid var(--color-slate-200)" }}>
+            <div className="tenant-support-card" style={{ background: "var(--surface)", border: "1px solid var(--color-slate-200)" }}>
               <strong style={{ color: "var(--color-slate-900)", fontSize: 13, fontWeight: 800 }}>Estate Management Office</strong>
               <p style={{ color: "var(--color-slate-600)", fontSize: 12, lineHeight: 1.4, margin: "4px 0 8px" }}>
                 Questions on rent reconciliations, tenant tenancies, or bank remittances?
@@ -466,7 +466,7 @@ export default function OwnerPortalPage() {
           <section
             className="tenant-portal-hero"
             style={{
-              background: "#ffffff",
+              background: "var(--surface)",
               border: "1px solid var(--color-slate-200)",
               borderRadius: 16,
               boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
@@ -543,7 +543,7 @@ export default function OwnerPortalPage() {
             <div
               className="kpi-card"
               style={{
-                background: "#ffffff",
+                background: "var(--surface)",
                 border: "1px solid var(--color-slate-200)",
                 borderRadius: 14,
                 padding: "20px",
@@ -564,7 +564,7 @@ export default function OwnerPortalPage() {
             <div
               className="kpi-card"
               style={{
-                background: "#ffffff",
+                background: "var(--surface)",
                 border: "1px solid var(--color-slate-200)",
                 borderRadius: 14,
                 padding: "20px",
@@ -585,7 +585,7 @@ export default function OwnerPortalPage() {
             <div
               className="kpi-card"
               style={{
-                background: "#ffffff",
+                background: "var(--surface)",
                 border: "1px solid var(--color-slate-200)",
                 borderRadius: 14,
                 padding: "20px",
@@ -606,7 +606,7 @@ export default function OwnerPortalPage() {
             <div
               className="kpi-card"
               style={{
-                background: "#ffffff",
+                background: "var(--surface)",
                 border: "1px solid var(--color-slate-200)",
                 borderRadius: 14,
                 padding: "20px",
@@ -635,7 +635,7 @@ export default function OwnerPortalPage() {
 
           {/* Estate relationship: charges owed by the owner to estate management. */}
           {activeTab === "estate" && (
-            <div className="data-panel" style={{ background: "#ffffff", borderRadius: 14, border: "1px solid var(--color-slate-200)", padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+            <div className="data-panel" style={{ background: "var(--surface)", borderRadius: 14, border: "1px solid var(--color-slate-200)", padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
                 <div>
                   <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 850 }}>Estate Management</h3>
@@ -666,7 +666,7 @@ export default function OwnerPortalPage() {
               <div
                 className="data-panel"
                 style={{
-                  background: "#ffffff",
+                  background: "var(--surface)",
                   borderRadius: 14,
                   border: "1px solid var(--color-slate-200)",
                   padding: "22px",
@@ -740,7 +740,7 @@ export default function OwnerPortalPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <div
                   style={{
-                    background: "#ffffff",
+                    background: "var(--surface)",
                     borderRadius: 14,
                     border: "1px solid var(--color-slate-200)",
                     padding: "20px",
@@ -813,7 +813,7 @@ export default function OwnerPortalPage() {
             <div
               className="data-panel"
               style={{
-                background: "#ffffff",
+                background: "var(--surface)",
                 borderRadius: 14,
                 border: "1px solid var(--color-slate-200)",
                 padding: "22px",
@@ -880,7 +880,7 @@ export default function OwnerPortalPage() {
             <div
               className="data-panel"
               style={{
-                background: "#ffffff",
+                background: "var(--surface)",
                 borderRadius: 14,
                 border: "1px solid var(--color-slate-200)",
                 padding: "24px",
@@ -1034,7 +1034,7 @@ export default function OwnerPortalPage() {
             <div
               className="data-panel"
               style={{
-                background: "#ffffff",
+                background: "var(--surface)",
                 borderRadius: 14,
                 border: "1px solid var(--color-slate-200)",
                 padding: "24px",
@@ -1189,7 +1189,7 @@ export default function OwnerPortalPage() {
                                   padding: "5px 10px",
                                   borderRadius: 6,
                                   border: "1px solid var(--color-slate-300)",
-                                  background: "#ffffff",
+                                  background: "var(--surface)",
                                   color: "var(--color-info-strong)",
                                   fontSize: 11.5,
                                   fontWeight: 750,
@@ -1219,7 +1219,7 @@ export default function OwnerPortalPage() {
             <div
               className="data-panel"
               style={{
-                background: "#ffffff",
+                background: "var(--surface)",
                 borderRadius: 14,
                 border: "1px solid var(--color-slate-200)",
                 padding: "24px",

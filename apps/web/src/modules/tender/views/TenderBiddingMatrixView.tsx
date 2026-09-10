@@ -27,7 +27,7 @@ export function TenderBiddingMatrixView() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+      <div style={{ background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 12, padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
             Tender Vendor Bidding Comparison Matrix
@@ -58,7 +58,7 @@ export function TenderBiddingMatrixView() {
         </div>
       </div>
 
-      <div className="data-panel" style={{ background: "#ffffff", border: "1px solid var(--color-slate-300)", borderRadius: 12, overflow: "hidden" }}>
+      <div className="data-panel" style={{ background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 12, overflow: "hidden" }}>
         <div className="table-scroll">
           <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
