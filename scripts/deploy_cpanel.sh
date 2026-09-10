@@ -214,13 +214,16 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     fi
     test "\$(cat "\${standalone}/.next/BUILD_ID")" = "\${release_id}"
     missing_assets=0
+    manifest_assets=\$(mktemp)
+    grep -Rho 'static/chunks/[^" ]*\.js' "\${standalone}/.next"/*.json "\${standalone}/.next/server"/*.json 2>/dev/null | sort -u > "\${manifest_assets}" || true
     while IFS= read -r asset; do
       [ -z "\${asset}" ] && continue
       if [ ! -f "\${standalone}/.next/\${asset}" ]; then
         echo "Missing staged Next.js asset: \${asset}" >&2
         missing_assets=1
       fi
-    done < <(grep -Rho 'static/chunks/[^" ]*\.js' "\${standalone}/.next"/*.json "\${standalone}/.next/server"/*.json 2>/dev/null | sort -u)
+    done < "\${manifest_assets}"
+    rm -f "\${manifest_assets}"
     test "\${missing_assets}" = 0
     ln -sfn "\${standalone}" current.next
     mv -Tf current.next current
@@ -259,6 +262,8 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
       release_valid=0
     fi
     if [ "\${release_valid}" = 1 ]; then
+      live_assets=\$(mktemp)
+      grep -oE '(src|href)="[^"]+\.js[^"]*"' "\${live_html}" | sed -E 's/^(src|href)="([^"]+)"$/\2/' | sort -u > "\${live_assets}" || true
       while IFS= read -r asset; do
         [ -z "\${asset}" ] && continue
         if ! curl --fail --silent --show-error --max-time 30 "https://${DOMAIN}\${asset}" >/dev/null; then
@@ -266,7 +271,8 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
           release_valid=0
           break
         fi
-      done < <(grep -oE '(src|href)="[^"]+\.js[^"]*"' "\${live_html}" | sed -E 's/^(src|href)="([^"]+)"$/\2/' | sort -u)
+      done < "\${live_assets}"
+      rm -f "\${live_assets}"
     fi
     rm -f "\${live_html}"
     if [ "\${release_valid}" != 1 ]; then
