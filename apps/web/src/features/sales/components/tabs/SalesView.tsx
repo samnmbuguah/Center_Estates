@@ -19,10 +19,10 @@ function toneForSale(s: string): Tone {
 
 const PIPELINE_STAGES: { key: string; label: string; color: string }[] = [
   { key: "draft", label: "Draft", color: "#64748b" },
-  { key: "reserved", label: "Reserved", color: "#d97706" },
-  { key: "contracted", label: "Contracted", color: "#2563eb" },
-  { key: "completed", label: "Completed", color: "#16a34a" },
-  { key: "cancelled", label: "Cancelled", color: "#b91c1c" },
+  { key: "reserved", label: "Reserved", color: "var(--color-warning)" },
+  { key: "contracted", label: "Contracted", color: "var(--color-info)" },
+  { key: "completed", label: "Completed", color: "var(--color-success)" },
+  { key: "cancelled", label: "Cancelled", color: "var(--color-danger-strong)" },
 ];
 
 export function SalesView({
@@ -66,11 +66,11 @@ export function SalesView({
   return (
     <>
       <KpiStrip cols={5}>
-        <KpiCard icon="📋" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Sales" value={number.format(rows.length)} sub="All pipeline records" />
-        <KpiCard icon="💼" iconBg="#fff7ed" iconColor="#ea580c" label="Pipeline Value" value={fmtMoney(pipelineValue)} sub={`${number.format(pipelineDeals)} active deals`} />
-        <KpiCard icon="🔒" iconBg="#fef3c7" iconColor="#92400e" label="Reserved" value={number.format(countBy(rows, ["reserved"]))} sub="Under reservation" onClick={() => setStatus(status === "reserved" ? "" : "reserved")} />
-        <KpiCard icon="📝" iconBg="#e0f2fe" iconColor="#0284c7" label="Contracted" value={number.format(countBy(rows, ["contracted"]))} sub="Agreements signed" onClick={() => setStatus(status === "contracted" ? "" : "contracted")} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Completed" value={number.format(countBy(rows, ["completed"]))} sub="Fully paid & closed" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
+        <KpiCard icon="📋" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Sales" value={number.format(rows.length)} sub="All pipeline records" />
+        <KpiCard icon="💼" iconBg="var(--color-orange-bg)" iconColor="var(--color-orange)" label="Pipeline Value" value={fmtMoney(pipelineValue)} sub={`${number.format(pipelineDeals)} active deals`} />
+        <KpiCard icon="🔒" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Reserved" value={number.format(countBy(rows, ["reserved"]))} sub="Under reservation" onClick={() => setStatus(status === "reserved" ? "" : "reserved")} />
+        <KpiCard icon="📝" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky)" label="Contracted" value={number.format(countBy(rows, ["contracted"]))} sub="Agreements signed" onClick={() => setStatus(status === "contracted" ? "" : "contracted")} />
+        <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Completed" value={number.format(countBy(rows, ["completed"]))} sub="Fully paid & closed" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
       </KpiStrip>
 
       <Panel title="Sales Pipeline" badge={rows.length}>
@@ -89,7 +89,7 @@ export function SalesView({
                 const items = rows.filter((r) => String(r.status ?? "") === stage.key);
                 const stageValue = items.reduce((s, r) => s + Number(r.agreed_price ?? 0), 0);
                 return (
-                  <div key={stage.key} style={{ minWidth: 264, flex: "0 0 264px", background: "var(--surface-2, #f8fafc)", border: "1px solid var(--border)", borderRadius: 12, padding: 10 }}>
+                  <div key={stage.key} style={{ minWidth: 264, flex: "0 0 264px", background: "var(--surface-2, var(--color-slate-50))", border: "1px solid var(--border)", borderRadius: 12, padding: 10 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12 }}>
                         <i style={{ width: 8, height: 8, borderRadius: "50%", background: stage.color, display: "inline-block" }} />
@@ -119,7 +119,7 @@ export function SalesView({
                               {String(r.project_name ?? "—")}{r.unit_code ? ` · ${String(r.unit_code)}` : ""}
                             </div>
                             <div className="mono" style={{ fontSize: 12, fontWeight: 700 }}>{fmtMoney(price)}</div>
-                            <div style={{ background: "var(--surface-sunken, #eef2f7)", borderRadius: 99, height: 6, margin: "8px 0 4px", overflow: "hidden" }}>
+                            <div style={{ background: "var(--surface-sunken, var(--surface-sunken))", borderRadius: 99, height: 6, margin: "8px 0 4px", overflow: "hidden" }}>
                               <i style={{ display: "block", height: "100%", width: `${pct}%`, background: stage.color }} />
                             </div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--muted)" }}>
@@ -154,8 +154,8 @@ export function SalesView({
                       {r.unit_code ? <div className="mono" style={{ fontSize: 10 }}>{String(r.unit_code)}</div> : null}
                     </td>
                     <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(price)}</td>
-                    <td className="mono" style={{ fontSize: 12, color: "#16a34a" }}>{fmtMoney(paid)}</td>
-                    <td className="mono" style={{ fontSize: 12, color: paid >= price ? "#16a34a" : "#b91c1c" }}>{fmtMoney(price - paid)}</td>
+                    <td className="mono" style={{ fontSize: 12, color: "var(--color-success)" }}>{fmtMoney(paid)}</td>
+                    <td className="mono" style={{ fontSize: 12, color: paid >= price ? "var(--color-success)" : "var(--color-danger-strong)" }}>{fmtMoney(price - paid)}</td>
                     <td style={{ fontSize: 11, color: "var(--muted)" }}>{price ? `${Math.round((paid / price) * 100)}% paid` : "—"}</td>
                     <td><StatusPill value={String(r.status ?? "")} tone={toneForSale(String(r.status ?? ""))} /></td>
                     <td style={{ fontSize: 11, color: "var(--muted)" }}>{fmtDate(r.contracted_on ?? r.reserved_at ?? r.created_at)}</td>

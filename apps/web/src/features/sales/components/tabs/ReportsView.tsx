@@ -93,10 +93,10 @@ export function ReportsView({
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") openReport(key, name); }}
-                        style={{ padding: 18, cursor: "pointer", border: isActive ? "2px solid #ea580c" : "1px solid var(--border)" }}
+                        style={{ padding: 18, cursor: "pointer", border: isActive ? "2px solid var(--color-orange)" : "1px solid var(--border)" }}
                       >
                         <div style={{ alignItems: "center", display: "flex", gap: 10, marginBottom: 10 }}>
-                          <span className="fc-asset-icon" style={{ background: "#fff7ed", color: "#ea580c" }}>{icon}</span>
+                          <span className="fc-asset-icon" style={{ background: "var(--color-orange-bg)", color: "var(--color-orange)" }}>{icon}</span>
                           <strong style={{ fontSize: 13 }}>{name}</strong>
                         </div>
                         <p className="muted" style={{ fontSize: 12, lineHeight: 1.5, margin: "0 0 14px", minHeight: 36 }}>{r.description ?? "Exports the current sales dataset."}</p>

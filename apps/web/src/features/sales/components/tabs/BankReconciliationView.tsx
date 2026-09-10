@@ -53,17 +53,17 @@ export function BankReconciliationView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="🏦" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Transactions" value={number.format(total)} sub="From payment records" />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Matched" value={number.format(matched)} sub="Verified & reconciled" />
-        <KpiCard icon="⚠️" iconBg="#fef3c7" iconColor="#92400e" label="Unmatched" value={number.format(unmatched)} sub="Pending verification" />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Total Reconciled" value={fmtMoney(totalReconciled)} sub={`${matchedPct}% matched`} />
+        <KpiCard icon="🏦" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Transactions" value={number.format(total)} sub="From payment records" />
+        <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Matched" value={number.format(matched)} sub="Verified & reconciled" />
+        <KpiCard icon="⚠️" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Unmatched" value={number.format(unmatched)} sub="Pending verification" />
+        <KpiCard icon="💰" iconBg="var(--color-orange-bg)" iconColor="var(--color-orange)" label="Total Reconciled" value={fmtMoney(totalReconciled)} sub={`${matchedPct}% matched`} />
       </KpiStrip>
 
       <div className="grid-2" style={{ gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start" }}>
         <Panel title="Bank Statement Import">
           <div
             style={{
-              border: `2px dashed ${dragOver ? "#ea580c" : "var(--border)"}`,
+              border: `2px dashed ${dragOver ? "var(--color-orange)" : "var(--border)"}`,
               borderRadius: 10,
               padding: 36,
               textAlign: "center",
@@ -89,14 +89,14 @@ export function BankReconciliationView({
               <span style={{ fontSize: 13, color: "var(--muted)" }}>Match Rate</span>
               <strong className="mono" style={{ fontSize: 13 }}>{matchedPct}%</strong>
             </div>
-            <ProgressBar pct={matchedPct} color={matchedPct >= 80 ? "#16a34a" : matchedPct >= 50 ? "#f59e0b" : "#b91c1c"} />
+            <ProgressBar pct={matchedPct} color={matchedPct >= 80 ? "var(--color-success)" : matchedPct >= 50 ? "var(--color-amber)" : "var(--color-danger-strong)"} />
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16, marginBottom: 8 }}>
               <span style={{ fontSize: 13, color: "var(--muted)" }}>Unmatched Amount</span>
-              <strong className="mono" style={{ fontSize: 13, color: "#b91c1c" }}>{fmtMoney(unmatchedAmount)}</strong>
+              <strong className="mono" style={{ fontSize: 13, color: "var(--color-danger-strong)" }}>{fmtMoney(unmatchedAmount)}</strong>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
               <span style={{ fontSize: 13, color: "var(--muted)" }}>Total Reconciled</span>
-              <strong className="mono" style={{ fontSize: 13, color: "#16a34a" }}>{fmtMoney(totalReconciled)}</strong>
+              <strong className="mono" style={{ fontSize: 13, color: "var(--color-success)" }}>{fmtMoney(totalReconciled)}</strong>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <span style={{ fontSize: 13, color: "var(--muted)" }}>Transactions</span>
@@ -140,7 +140,7 @@ export function BankReconciliationView({
                           <button className="btn ghost sm" style={{ marginLeft: 4 }} onClick={() => { setAdjustRow(r); setAdjustReason("Adjustment needed"); setShowAdjustment(true); }}>Adjust</button>
                         </>
                       )}
-                      {st === "verified" && <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Reconciled</span>}
+                      {st === "verified" && <span style={{ fontSize: 11, color: "var(--color-success)" }}>✓ Reconciled</span>}
                     </td>
                   </tr>
                 );

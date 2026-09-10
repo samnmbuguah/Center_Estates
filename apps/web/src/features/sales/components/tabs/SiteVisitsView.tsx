@@ -35,10 +35,10 @@ export function SiteVisitsView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="📍" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Visits" value={number.format(rows.length)} sub="Clerk-recorded visits" />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Converted" value={number.format(converted)} sub="Became buyers" />
-        <KpiCard icon="⏰" iconBg="#fee2e2" iconColor="#b91c1c" label="Follow-up Due" value={number.format(followDue)} sub="Needs client follow-up" />
-        <KpiCard icon="📅" iconBg="#e0f2fe" iconColor="#0284c7" label="Scheduled" value={number.format(rows.length - converted - followDue)} sub="Upcoming presentations" />
+        <KpiCard icon="📍" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Visits" value={number.format(rows.length)} sub="Clerk-recorded visits" />
+        <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Converted" value={number.format(converted)} sub="Became buyers" />
+        <KpiCard icon="⏰" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Follow-up Due" value={number.format(followDue)} sub="Needs client follow-up" />
+        <KpiCard icon="📅" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky)" label="Scheduled" value={number.format(rows.length - converted - followDue)} sub="Upcoming presentations" />
       </KpiStrip>
 
       <Panel title="Site Visits & Presentations" badge={rows.length}>

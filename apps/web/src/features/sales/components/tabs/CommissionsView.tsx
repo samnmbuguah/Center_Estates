@@ -20,10 +20,10 @@ function GateBar({ achieved, required, label }: { achieved: number; required: nu
     <div style={{ marginTop: 6 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--muted)" }}>
         <span>{label}</span>
-        <span className="mono" style={{ color: met ? "#16a34a" : "#92400e", fontWeight: 700 }}>{achieved}% / {required}%</span>
+        <span className="mono" style={{ color: met ? "var(--color-success)" : "var(--color-amber-strong)", fontWeight: 700 }}>{achieved}% / {required}%</span>
       </div>
-      <div style={{ background: "var(--surface-sunken, #eef2f7)", borderRadius: 99, height: 6, marginTop: 3, overflow: "hidden" }}>
-        <i style={{ display: "block", height: "100%", width: `${pct}%`, background: met ? "#16a34a" : "#f59e0b" }} />
+      <div style={{ background: "var(--surface-sunken, var(--surface-sunken))", borderRadius: 99, height: 6, marginTop: 3, overflow: "hidden" }}>
+        <i style={{ display: "block", height: "100%", width: `${pct}%`, background: met ? "var(--color-success)" : "var(--color-amber)" }} />
       </div>
     </div>
   );
@@ -53,11 +53,11 @@ export function CommissionsView({
   return (
     <>
       <KpiStrip cols={5}>
-        <KpiCard icon="🧾" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Commissions" value={number.format(rows.length)} sub="All agent records" />
-        <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="Awaiting Gates" value={number.format(awaiting.length)} sub="Not yet eligible" onClick={() => setStatus(status === "pending" ? "" : "pending")} />
-        <KpiCard icon="🧪" iconBg="#e0f2fe" iconColor="#0284c7" label="Ready to Approve" value={number.format(eligible.length)} sub="Gates passed" onClick={() => setStatus(status === "eligible" ? "" : "eligible")} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Approved" value={number.format(approved.length)} sub="Approved for payout" onClick={() => setStatus(status === "approved" ? "" : "approved")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Payable" value={fmtMoney(payable)} sub={`of ${fmtMoney(totalValue)} total`} />
+        <KpiCard icon="🧾" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Commissions" value={number.format(rows.length)} sub="All agent records" />
+        <KpiCard icon="⏳" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Awaiting Gates" value={number.format(awaiting.length)} sub="Not yet eligible" onClick={() => setStatus(status === "pending" ? "" : "pending")} />
+        <KpiCard icon="🧪" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky)" label="Ready to Approve" value={number.format(eligible.length)} sub="Gates passed" onClick={() => setStatus(status === "eligible" ? "" : "eligible")} />
+        <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Approved" value={number.format(approved.length)} sub="Approved for payout" onClick={() => setStatus(status === "approved" ? "" : "approved")} />
+        <KpiCard icon="💰" iconBg="var(--color-orange-bg)" iconColor="var(--color-orange)" label="Payable" value={fmtMoney(payable)} sub={`of ${fmtMoney(totalValue)} total`} />
       </KpiStrip>
 
       {(eligible.length > 0 || awaiting.length > 0) && (
@@ -70,7 +70,7 @@ export function CommissionsView({
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {eligible.map((r) => (
-                    <article key={String(r.id)} style={{ border: "1px solid var(--border)", borderLeft: "3px solid #2563eb", borderRadius: 10, padding: 12, background: "var(--surface)" }}>
+                    <article key={String(r.id)} style={{ border: "1px solid var(--border)", borderLeft: "3px solid var(--color-info)", borderRadius: 10, padding: 12, background: "var(--surface)" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                         <strong style={{ fontSize: 13 }}>{String(r.agent_name ?? "—")}</strong>
                         <span className="mono" style={{ fontSize: 14, fontWeight: 800 }}>{fmtMoney(r.amount)}</span>
@@ -95,7 +95,7 @@ export function CommissionsView({
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {awaiting.map((r) => (
-                    <article key={String(r.id)} style={{ border: "1px solid var(--border)", borderLeft: "3px solid #d97706", borderRadius: 10, padding: 12, background: "var(--surface)" }}>
+                    <article key={String(r.id)} style={{ border: "1px solid var(--border)", borderLeft: "3px solid var(--color-warning)", borderRadius: 10, padding: 12, background: "var(--surface)" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                         <strong style={{ fontSize: 13 }}>{String(r.agent_name ?? "—")}</strong>
                         <span className="mono" style={{ fontSize: 13 }}>{fmtMoney(r.amount)}</span>

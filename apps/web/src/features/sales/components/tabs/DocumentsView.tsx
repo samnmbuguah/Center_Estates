@@ -19,9 +19,9 @@ export function DocumentsView({
   return (
     <>
       <KpiStrip cols={3}>
-        <KpiCard icon="📄" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Documents" value={number.format(rows.length)} sub="All legal records" />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Final Versions" value={number.format(finals)} sub="Checksum-immutable" />
-        <KpiCard icon="📝" iconBg="#fef3c7" iconColor="#92400e" label="Draft Versions" value={number.format(rows.length - finals)} sub="Awaiting finalisation" />
+        <KpiCard icon="📄" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Documents" value={number.format(rows.length)} sub="All legal records" />
+        <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Final Versions" value={number.format(finals)} sub="Checksum-immutable" />
+        <KpiCard icon="📝" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Draft Versions" value={number.format(rows.length - finals)} sub="Awaiting finalisation" />
       </KpiStrip>
 
       <Panel title="Legal Documents" badge={rows.length}>

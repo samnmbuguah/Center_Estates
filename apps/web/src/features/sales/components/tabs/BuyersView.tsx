@@ -244,7 +244,7 @@ export function BuyersView({
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#e0e7ff", color: "#4f46e5",
+            p: 2, borderRadius: 2, bgcolor: "var(--color-indigo-bg)", color: "var(--color-indigo)",
             textAlign: "center"
           }}>
             <Users size={24} style={{ marginBottom: 8 }} />
@@ -254,7 +254,7 @@ export function BuyersView({
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#dcfce7", color: "#16a34a",
+            p: 2, borderRadius: 2, bgcolor: "var(--color-green-bg)", color: "var(--color-success)",
             textAlign: "center"
           }}>
             <CheckCircle size={24} style={{ marginBottom: 8 }} />
@@ -264,7 +264,7 @@ export function BuyersView({
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#fef3c7", color: "#92400e",
+            p: 2, borderRadius: 2, bgcolor: "var(--color-amber-bg)", color: "var(--color-amber-strong)",
             textAlign: "center"
           }}>
             <Magnet size={24} style={{ marginBottom: 8 }} />
@@ -274,7 +274,7 @@ export function BuyersView({
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#e0f2fe", color: "#0284c7",
+            p: 2, borderRadius: 2, bgcolor: "var(--color-sky-bg)", color: "var(--color-sky)",
             textAlign: "center"
           }}>
             <GraduationCap size={24} style={{ marginBottom: 8 }} />

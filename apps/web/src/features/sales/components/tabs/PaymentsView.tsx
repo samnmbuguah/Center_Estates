@@ -33,17 +33,17 @@ export function PaymentsView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="Pending Verification" value={number.format(countBy(rows, ["pending"]))} sub="Awaiting approval" onClick={() => setStatus(status === "pending" ? "" : "pending")} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Verified" value={number.format(countBy(rows, ["verified", "partial"]))} sub="Approved & applied" onClick={() => setStatus(status === "verified" ? "" : "verified")} />
-        <KpiCard icon="✖️" iconBg="#fee2e2" iconColor="#b91c1c" label="Rejected" value={number.format(countBy(rows, ["rejected"]))} sub="Needs resubmission" onClick={() => setStatus(status === "rejected" ? "" : "rejected")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Total Collected" value={fmtMoney(verifiedTotal)} sub="Verified amount" />
+        <KpiCard icon="⏳" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Pending Verification" value={number.format(countBy(rows, ["pending"]))} sub="Awaiting approval" onClick={() => setStatus(status === "pending" ? "" : "pending")} />
+        <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Verified" value={number.format(countBy(rows, ["verified", "partial"]))} sub="Approved & applied" onClick={() => setStatus(status === "verified" ? "" : "verified")} />
+        <KpiCard icon="✖️" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Rejected" value={number.format(countBy(rows, ["rejected"]))} sub="Needs resubmission" onClick={() => setStatus(status === "rejected" ? "" : "rejected")} />
+        <KpiCard icon="💰" iconBg="var(--color-orange-bg)" iconColor="var(--color-orange)" label="Total Collected" value={fmtMoney(verifiedTotal)} sub="Verified amount" />
       </KpiStrip>
 
       {pending.length > 0 && (
         <Panel title="Verification Queue" badge={pending.length}>
           <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
             {pending.map((r) => (
-              <article key={String(r.id)} style={{ border: "1px solid var(--border)", borderLeft: "3px solid #d97706", borderRadius: 10, padding: 12, background: "var(--surface)" }}>
+              <article key={String(r.id)} style={{ border: "1px solid var(--border)", borderLeft: "3px solid var(--color-warning)", borderRadius: 10, padding: 12, background: "var(--surface)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                   <strong style={{ fontSize: 13 }}>{String(r.buyer_name ?? "—")}</strong>
                   <RefText value={r.reference} />

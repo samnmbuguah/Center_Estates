@@ -37,7 +37,7 @@ export function SaleAgreementView({
     const html = `<!DOCTYPE html>
 <html><head><title>Sale Agreement - ${String(sale.reference ?? "")}</title>
 <style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;color:#222;line-height:1.6}
-h1{font-size:20px;border-bottom:2px solid #ea580c;padding-bottom:8px}
+h1{font-size:20px;border-bottom:2px solid var(--color-orange);padding-bottom:8px}
 table{width:100%;border-collapse:collapse;margin:16px 0}
 td{padding:8px 12px;border-bottom:1px solid #eee}
 td:first-child{font-weight:600;width:40%;color:#555}
@@ -104,8 +104,8 @@ td:first-child{font-weight:600;width:40%;color:#555}
           <div className="fc-detail-grid">
             <DField label="Agreed Price" value={<span className="mono" style={{ fontWeight: 700 }}>{fmtMoney(price)}</span>} />
             <DField label="Deposit" value={<span className="mono">{fmtMoney(deposit)}</span>} />
-            <DField label="Paid to Date" value={<span className="mono" style={{ color: "#16a34a" }}>{fmtMoney(paid)}</span>} />
-            <DField label="Balance Due" value={<span className="mono" style={{ color: balance > 0 ? "#b91c1c" : "#16a34a", fontWeight: 700 }}>{fmtMoney(balance)}</span>} />
+            <DField label="Paid to Date" value={<span className="mono" style={{ color: "var(--color-success)" }}>{fmtMoney(paid)}</span>} />
+            <DField label="Balance Due" value={<span className="mono" style={{ color: balance > 0 ? "var(--color-danger-strong)" : "var(--color-success)", fontWeight: 700 }}>{fmtMoney(balance)}</span>} />
           </div>
           <div style={{ padding: "12px 18px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>

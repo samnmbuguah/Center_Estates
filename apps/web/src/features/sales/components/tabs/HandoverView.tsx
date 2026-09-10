@@ -56,10 +56,10 @@ export function HandoverView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="🏠" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Units" value={number.format(totalUnits)} sub="Completed sales eligible" />
-        <KpiCard icon="📦" iconBg="#dcfce7" iconColor="#16a34a" label="Ready for Handover" value={number.format(readyCount)} sub="Awaiting handover completion" />
-        <KpiCard icon="✅" iconBg="#e0f2fe" iconColor="#0284c7" label="Handed Over" value={number.format(handedOverCount)} sub="Units fully delivered" />
-        <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="Pending Inspection" value={number.format(pendingCount)} sub="Not yet ready" />
+        <KpiCard icon="🏠" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Units" value={number.format(totalUnits)} sub="Completed sales eligible" />
+        <KpiCard icon="📦" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Ready for Handover" value={number.format(readyCount)} sub="Awaiting handover completion" />
+        <KpiCard icon="✅" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky)" label="Handed Over" value={number.format(handedOverCount)} sub="Units fully delivered" />
+        <KpiCard icon="⏳" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Pending Inspection" value={number.format(pendingCount)} sub="Not yet ready" />
       </KpiStrip>
 
       <Panel title="Unit Handover" badge={rows.length}>
@@ -87,7 +87,7 @@ export function HandoverView({
                     <td>
                       {st === "pending" && <button className="btn ghost sm" onClick={() => markReady(String(r.id))}>Mark Ready for Handover</button>}
                       {st === "ready" && <button className="btn primary sm" onClick={() => completeHandover(String(r.id))}>Complete Handover</button>}
-                      {st === "handed_over" && <span style={{ fontSize: 11, color: "#16a34a" }}>✓ Done</span>}
+                      {st === "handed_over" && <span style={{ fontSize: 11, color: "var(--color-success)" }}>✓ Done</span>}
                     </td>
                   </tr>
                 );

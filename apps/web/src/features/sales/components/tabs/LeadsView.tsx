@@ -39,26 +39,26 @@ export function LeadsView({
   const cancelledCount = countBy(rows, ["cancelled"]);
 
   const funnelStages = [
-    { label: "New", count: newCount, color: "#2563eb" },
+    { label: "New", count: newCount, color: "var(--color-info)" },
     { label: "Contacted", count: 0, color: "#0891b2" },
-    { label: "Site Visit", count: 0, color: "#7c3aed" },
-    { label: "Interested", count: qualifiedCount, color: "#f59e0b" },
-    { label: "Reserved", count: activeCount, color: "#ea580c" },
-    { label: "Converted", count: completedCount, color: "#16a34a" },
-    { label: "Lost", count: cancelledCount, color: "#b91c1c" },
+    { label: "Site Visit", count: 0, color: "var(--color-violet)" },
+    { label: "Interested", count: qualifiedCount, color: "var(--color-amber)" },
+    { label: "Reserved", count: activeCount, color: "var(--color-orange)" },
+    { label: "Converted", count: completedCount, color: "var(--color-success)" },
+    { label: "Lost", count: cancelledCount, color: "var(--color-danger-strong)" },
   ];
   const maxFunnel = Math.max(...funnelStages.map((s) => s.count), 1);
 
   return (
     <>
       <KpiStrip cols={7}>
-        <KpiCard icon="📊" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Leads" value={number.format(total)} sub="All pipeline leads" onClick={() => setStatus("")} />
-        <KpiCard icon="🆕" iconBg="#dbeafe" iconColor="#2563eb" label="New" value={number.format(newCount)} sub="Awaiting first contact" onClick={() => setStatus(status === "lead" ? "" : "lead")} />
-        <KpiCard icon="📞" iconBg="#e0f2fe" iconColor="#0891b2" label="Contacted" value="0" sub="No data available" />
-        <KpiCard icon="🏠" iconBg="#ede9fe" iconColor="#7c3aed" label="Site Visits" value="0" sub="No data available" />
-        <KpiCard icon="⭐" iconBg="#fef3c7" iconColor="#f59e0b" label="Interested" value={number.format(qualifiedCount)} sub="Qualified leads" onClick={() => setStatus(status === "qualified" ? "" : "qualified")} />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Converted" value={number.format(completedCount)} sub="Closed deals" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
-        <KpiCard icon="❌" iconBg="#fee2e2" iconColor="#b91c1c" label="Lost" value={number.format(cancelledCount)} sub="Dropped leads" onClick={() => setStatus(status === "cancelled" ? "" : "cancelled")} />
+        <KpiCard icon="📊" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Leads" value={number.format(total)} sub="All pipeline leads" onClick={() => setStatus("")} />
+        <KpiCard icon="🆕" iconBg="var(--color-blue-bg)" iconColor="var(--color-info)" label="New" value={number.format(newCount)} sub="Awaiting first contact" onClick={() => setStatus(status === "lead" ? "" : "lead")} />
+        <KpiCard icon="📞" iconBg="var(--color-sky-bg)" iconColor="#0891b2" label="Contacted" value="0" sub="No data available" />
+        <KpiCard icon="🏠" iconBg="var(--color-violet-bg)" iconColor="var(--color-violet)" label="Site Visits" value="0" sub="No data available" />
+        <KpiCard icon="⭐" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber)" label="Interested" value={number.format(qualifiedCount)} sub="Qualified leads" onClick={() => setStatus(status === "qualified" ? "" : "qualified")} />
+        <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Converted" value={number.format(completedCount)} sub="Closed deals" onClick={() => setStatus(status === "completed" ? "" : "completed")} />
+        <KpiCard icon="❌" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Lost" value={number.format(cancelledCount)} sub="Dropped leads" onClick={() => setStatus(status === "cancelled" ? "" : "cancelled")} />
       </KpiStrip>
 
       <Panel title="Lead Funnel">
@@ -69,7 +69,7 @@ export function LeadsView({
                 <span>{stage.label}</span>
                 <span className="mono" style={{ fontWeight: 700 }}>{number.format(stage.count)}</span>
               </div>
-              <div style={{ background: "#edf0f5", borderRadius: 4, height: 22, overflow: "hidden" }}>
+              <div style={{ background: "var(--color-surface-alt)", borderRadius: 4, height: 22, overflow: "hidden" }}>
                 <div style={{ background: stage.color, height: "100%", width: `${(stage.count / maxFunnel) * 100}%`, borderRadius: 4, transition: "width 0.3s ease", minWidth: stage.count > 0 ? 2 : 0 }} />
               </div>
             </div>

@@ -40,7 +40,7 @@ export function SalesFeaturePage({ initialTab = "overview" }: { initialTab?: str
       eyebrow="Sales & Marketing Workspace"
       title="Sales Management"
       subtitle="Multi-project unit sales, buyer onboarding, payments, site visits & commissions."
-      accent="#ea580c"
+      accent="var(--color-orange)"
       activeId={logic.tab}
       onSelect={logic.selectTab}
     >

@@ -80,10 +80,10 @@ export function DField({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-export function ProgressBar({ pct, color = "#ea580c" }: { pct: number; color?: string }) {
+export function ProgressBar({ pct, color = "var(--color-orange)" }: { pct: number; color?: string }) {
   return (
     <div style={{ alignItems: "center", display: "flex", gap: 8 }}>
-      <div style={{ background: "#edf0f5", borderRadius: 99, flex: 1, height: 6, minWidth: 60, overflow: "hidden" }}>
+      <div style={{ background: "var(--color-surface-alt)", borderRadius: 99, flex: 1, height: 6, minWidth: 60, overflow: "hidden" }}>
         <i style={{ background: color, borderRadius: "inherit", display: "block", height: "100%", width: `${Math.max(0, Math.min(100, pct))}%` }} />
       </div>
       <span style={{ fontSize: 11, fontWeight: 700 }}>{Math.round(pct)}%</span>

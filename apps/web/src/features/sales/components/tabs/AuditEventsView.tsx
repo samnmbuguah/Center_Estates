@@ -20,10 +20,10 @@ export function AuditEventsView({
   return (
     <>
       <KpiStrip cols={4}>
-        <KpiCard icon="🕘" iconBg="#e0e7ff" iconColor="#4f46e5" label="Audit Events" value={number.format(rows.length)} sub="Immutable activity log" />
-        <KpiCard icon="💳" iconBg="#fef3c7" iconColor="#92400e" label="Payment Events" value={number.format(paymentEvents)} sub="Submissions & verification" />
-        <KpiCard icon="🔀" iconBg="#e0f2fe" iconColor="#0284c7" label="Status Changes" value={number.format(statusChanges)} sub="Sale & commission moves" />
-        <KpiCard icon="🧾" iconBg="#dcfce7" iconColor="#16a34a" label="Verified" value={number.format(rows.filter((r) => String(r.event_type).includes("verified")).length)} sub="Payments approved" />
+        <KpiCard icon="🕘" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Audit Events" value={number.format(rows.length)} sub="Immutable activity log" />
+        <KpiCard icon="💳" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Payment Events" value={number.format(paymentEvents)} sub="Submissions & verification" />
+        <KpiCard icon="🔀" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky)" label="Status Changes" value={number.format(statusChanges)} sub="Sale & commission moves" />
+        <KpiCard icon="🧾" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Verified" value={number.format(rows.filter((r) => String(r.event_type).includes("verified")).length)} sub="Payments approved" />
       </KpiStrip>
 
       <Panel title="Audit Trail" badge={rows.length}>

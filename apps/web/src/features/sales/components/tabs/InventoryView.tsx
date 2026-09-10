@@ -28,10 +28,10 @@ function toneForInventory(s: string): Tone {
 }
 
 const STATUS_STYLE: Record<string, { bg: string; border: string; label: string }> = {
-  available: { bg: "#dcfce7", border: "#86efac", label: "Available" },
-  reserved: { bg: "#fef3c7", border: "#fcd34d", label: "Reserved" },
-  sold: { bg: "#dbeafe", border: "#93c5fd", label: "Sold" },
-  blocked: { bg: "#f1f5f9", border: "#cbd5e1", label: "Blocked" },
+  available: { bg: "var(--color-green-bg)", border: "#86efac", label: "Available" },
+  reserved: { bg: "var(--color-amber-bg)", border: "#fcd34d", label: "Reserved" },
+  sold: { bg: "var(--color-blue-bg)", border: "#93c5fd", label: "Sold" },
+  blocked: { bg: "var(--surface-sunken)", border: "#cbd5e1", label: "Blocked" },
 };
 
 function floorSortValue(label: string): number {
@@ -81,12 +81,12 @@ export function UnitGridView({ rows, onSelect }: { rows: Row[]; onSelect: (r: Ro
             const sold = units.filter((r) => String(r.status ?? "") === "sold").length;
             return (
               <div key={floorName} style={{ display: "flex", gap: 12, alignItems: "stretch" }}>
-                <div style={{ minWidth: 92, flex: "0 0 92px", background: "var(--surface-2, #f8fafc)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 8px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                <div style={{ minWidth: 92, flex: "0 0 92px", background: "var(--surface-2, var(--color-slate-50))", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 8px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
                   <strong style={{ fontSize: 12 }}>{floorName}</strong>
                   <span style={{ fontSize: 10, color: "var(--muted)" }}>{units.length} units</span>
-                  <span style={{ fontSize: 10, color: "#16a34a" }}>{available} avail</span>
-                  {reserved > 0 && <span style={{ fontSize: 10, color: "#92400e" }}>{reserved} res</span>}
-                  {sold > 0 && <span style={{ fontSize: 10, color: "#0284c7" }}>{sold} sold</span>}
+                  <span style={{ fontSize: 10, color: "var(--color-success)" }}>{available} avail</span>
+                  {reserved > 0 && <span style={{ fontSize: 10, color: "var(--color-amber-strong)" }}>{reserved} res</span>}
+                  {sold > 0 && <span style={{ fontSize: 10, color: "var(--color-sky)" }}>{sold} sold</span>}
                 </div>
                 <div className="kanban-scroll" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, flex: 1 }}>
                   {units.map((r, i) => {
@@ -153,11 +153,11 @@ export function InventoryView({
   return (
     <>
       <KpiStrip cols={5}>
-        <KpiCard icon="🏢" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Listings" value={number.format(rows.length)} sub="Across all projects" />
-        <KpiCard icon="🏠" iconBg="#dcfce7" iconColor="#16a34a" label="Available" value={number.format(countBy(rows, ["available"]))} sub="Open for sale" onClick={() => setStatus(status === "available" ? "" : "available")} />
-        <KpiCard icon="🔒" iconBg="#fef3c7" iconColor="#92400e" label="Reserved" value={number.format(countBy(rows, ["reserved"]))} sub="Held on reservations" onClick={() => setStatus(status === "reserved" ? "" : "reserved")} />
-        <KpiCard icon="✅" iconBg="#e0f2fe" iconColor="#0284c7" label="Sold" value={number.format(countBy(rows, ["sold"]))} sub="Completed sales" onClick={() => setStatus(status === "sold" ? "" : "sold")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Portfolio Value" value={fmtMoney(totalValue)} sub="Sum of list prices" />
+        <KpiCard icon="🏢" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Listings" value={number.format(rows.length)} sub="Across all projects" />
+        <KpiCard icon="🏠" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Available" value={number.format(countBy(rows, ["available"]))} sub="Open for sale" onClick={() => setStatus(status === "available" ? "" : "available")} />
+        <KpiCard icon="🔒" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Reserved" value={number.format(countBy(rows, ["reserved"]))} sub="Held on reservations" onClick={() => setStatus(status === "reserved" ? "" : "reserved")} />
+        <KpiCard icon="✅" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky)" label="Sold" value={number.format(countBy(rows, ["sold"]))} sub="Completed sales" onClick={() => setStatus(status === "sold" ? "" : "sold")} />
+        <KpiCard icon="💰" iconBg="var(--color-orange-bg)" iconColor="var(--color-orange)" label="Portfolio Value" value={fmtMoney(totalValue)} sub="Sum of list prices" />
       </KpiStrip>
 
       <Panel title="Projects & Units" badge={rows.length}>

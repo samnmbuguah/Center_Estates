@@ -575,7 +575,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                       border: 0,
                       cursor: isPending ? "wait" : "pointer",
                       background: isActive ? "rgba(16, 185, 129, 0.15)" : "rgba(220, 38, 38, 0.15)",
-                      color: isActive ? "var(--success)" : "#dc2626",
+                      color: isActive ? "var(--success)" : "var(--color-danger)",
                     }}
                   >
                     {isPending ? "Updating…" : isActive ? "✓ Active" : "✕ Disabled"}

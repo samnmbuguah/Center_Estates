@@ -75,7 +75,7 @@ export function RegisterBuyerModal({
                   justifyContent: "center",
                   fontSize: 12,
                   fontWeight: 700,
-                  background: i + 1 <= step ? "#ea580c" : "#edf0f5",
+                  background: i + 1 <= step ? "var(--color-orange)" : "var(--color-surface-alt)",
                   color: i + 1 <= step ? "#fff" : "var(--muted)",
                   transition: "all 0.15s ease",
                 }}
@@ -85,7 +85,7 @@ export function RegisterBuyerModal({
               <span style={{ fontSize: 12, fontWeight: i + 1 === step ? 700 : 400, color: i + 1 === step ? "var(--text)" : "var(--muted)" }}>{label}</span>
             </div>
             {i < stepLabels.length - 1 && (
-              <div style={{ flex: 1, height: 2, background: i + 1 < step ? "#ea580c" : "#edf0f5", margin: "0 12px", borderRadius: 1 }} />
+              <div style={{ flex: 1, height: 2, background: i + 1 < step ? "var(--color-orange)" : "var(--color-surface-alt)", margin: "0 12px", borderRadius: 1 }} />
             )}
           </div>
         ))}

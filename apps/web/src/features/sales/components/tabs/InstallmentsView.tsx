@@ -17,10 +17,10 @@ type Aging = {
 };
 
 const BUCKET_COLORS: Record<string, string> = {
-  current: "#16a34a",
-  d1_30: "#f59e0b",
+  current: "var(--color-success)",
+  d1_30: "var(--color-amber)",
   d31_60: "#f97316",
-  d61_90: "#ef4444",
+  d61_90: "var(--color-danger)",
   d90_plus: "#991b1b",
 };
 
@@ -77,11 +77,11 @@ export function InstallmentsView({
   return (
     <>
       <KpiStrip cols={5}>
-        <KpiCard icon="🗓️" iconBg="#e0e7ff" iconColor="#4f46e5" label="Total Installments" value={number.format(rows.length)} sub="Across all sales" />
-        <KpiCard icon="✅" iconBg="#dcfce7" iconColor="#16a34a" label="Paid" value={number.format(countBy(rows, ["paid"]))} sub="Settled in full" onClick={() => setStatus(status === "paid" ? "" : "paid")} />
-        <KpiCard icon="⏳" iconBg="#fef3c7" iconColor="#92400e" label="Pending" value={number.format(countBy(rows, ["upcoming", "due", "partial"]))} sub="Due or partly paid" onClick={() => setStatus(status === "due" ? "" : "due")} />
-        <KpiCard icon="⚠️" iconBg="#fee2e2" iconColor="#b91c1c" label="Overdue" value={number.format(overdue)} sub="Past due date" onClick={() => setStatus(status === "overdue" ? "" : "overdue")} />
-        <KpiCard icon="💰" iconBg="#fff7ed" iconColor="#ea580c" label="Outstanding" value={fmtMoney(outstanding)} sub="Total unpaid balance" />
+        <KpiCard icon="🗓️" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Installments" value={number.format(rows.length)} sub="Across all sales" />
+        <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Paid" value={number.format(countBy(rows, ["paid"]))} sub="Settled in full" onClick={() => setStatus(status === "paid" ? "" : "paid")} />
+        <KpiCard icon="⏳" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Pending" value={number.format(countBy(rows, ["upcoming", "due", "partial"]))} sub="Due or partly paid" onClick={() => setStatus(status === "due" ? "" : "due")} />
+        <KpiCard icon="⚠️" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Overdue" value={number.format(overdue)} sub="Past due date" onClick={() => setStatus(status === "overdue" ? "" : "overdue")} />
+        <KpiCard icon="💰" iconBg="var(--color-orange-bg)" iconColor="var(--color-orange)" label="Outstanding" value={fmtMoney(outstanding)} sub="Total unpaid balance" />
       </KpiStrip>
 
       {aging && (
@@ -90,26 +90,26 @@ export function InstallmentsView({
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div className="row" style={{ gap: 20, flexWrap: "wrap" }}>
                 <Metric label="Expected" value={fmtMoney(aging.totals.expected)} />
-                <Metric label="Collected" value={fmtMoney(aging.totals.collected)} tone="#16a34a" />
-                <Metric label="Outstanding" value={fmtMoney(aging.totals.outstanding)} tone="#b91c1c" />
-                <Metric label="Overdue" value={fmtMoney(aging.totals.overdue)} tone="#92400e" />
-                <Metric label="Collection rate" value={`${aging.totals.collectionRate}%`} tone="#4f46e5" />
+                <Metric label="Collected" value={fmtMoney(aging.totals.collected)} tone="var(--color-success)" />
+                <Metric label="Outstanding" value={fmtMoney(aging.totals.outstanding)} tone="var(--color-danger-strong)" />
+                <Metric label="Overdue" value={fmtMoney(aging.totals.overdue)} tone="var(--color-amber-strong)" />
+                <Metric label="Collection rate" value={`${aging.totals.collectionRate}%`} tone="var(--color-indigo)" />
               </div>
 
               <div>
-                <div style={{ display: "flex", height: 16, borderRadius: 99, overflow: "hidden", background: "var(--surface-sunken, #eef2f7)" }}>
+                <div style={{ display: "flex", height: 16, borderRadius: 99, overflow: "hidden", background: "var(--surface-sunken, var(--surface-sunken))" }}>
                   {aging.buckets.map((b) => (
                     <i
                       key={b.key}
                       title={`${b.label}: ${fmtMoney(b.amount)}`}
-                      style={{ display: "block", height: "100%", width: bucketTotal > 0 ? `${(Number(b.amount) / bucketTotal) * 100}%` : "0%", background: BUCKET_COLORS[b.key] ?? "#94a3b8" }}
+                      style={{ display: "block", height: "100%", width: bucketTotal > 0 ? `${(Number(b.amount) / bucketTotal) * 100}%` : "0%", background: BUCKET_COLORS[b.key] ?? "var(--color-slate-400)" }}
                     />
                   ))}
                 </div>
                 <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 10 }}>
                   {aging.buckets.map((b) => (
                     <span key={b.key} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11 }}>
-                      <i style={{ width: 9, height: 9, borderRadius: "50%", background: BUCKET_COLORS[b.key] ?? "#94a3b8", display: "inline-block" }} />
+                      <i style={{ width: 9, height: 9, borderRadius: "50%", background: BUCKET_COLORS[b.key] ?? "var(--color-slate-400)", display: "inline-block" }} />
                       {b.label}
                       <b className="mono">{fmtMoney(b.amount)}</b>
                       <span style={{ color: "var(--muted)" }}>({b.count})</span>
@@ -133,7 +133,7 @@ export function InstallmentsView({
                           <td className="mono" style={{ fontSize: 12 }}>{e.sale}</td>
                           <td style={{ fontSize: 12 }}>{e.buyer}</td>
                           <td style={{ fontSize: 12 }}>{e.project || "—"}</td>
-                          <td className="mono" style={{ fontSize: 12, color: "#b91c1c" }}>{fmtMoney(e.outstanding)}</td>
+                          <td className="mono" style={{ fontSize: 12, color: "var(--color-danger-strong)" }}>{fmtMoney(e.outstanding)}</td>
                           <td style={{ fontSize: 12 }}>
                             <StatusPill value={`${e.oldest_days}d`} tone={e.oldest_days > 90 ? "red" : e.oldest_days > 30 ? "yellow" : "gray"} />
                           </td>
@@ -150,7 +150,7 @@ export function InstallmentsView({
 
       {clipNotice && (
         <div className="card" style={{ background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.35)", padding: "10px 14px", marginBottom: 0 }}>
-          <span style={{ color: "#15803d", fontSize: 13 }}>✓ {clipNotice}</span>
+          <span style={{ color: "var(--color-success-strong)", fontSize: 13 }}>✓ {clipNotice}</span>
         </div>
       )}
 
@@ -175,8 +175,8 @@ export function InstallmentsView({
                     <td><strong style={{ fontSize: 12 }}>{String(r.buyer_name ?? "—")}</strong></td>
                     <td style={{ fontSize: 12 }}>{fmtDate(r.due_on)}</td>
                     <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(amt)}</td>
-                    <td className="mono" style={{ fontSize: 12, color: "#16a34a" }}>{fmtMoney(paid)}</td>
-                    <td className="mono" style={{ fontSize: 12, color: paid >= amt ? "#16a34a" : "#b91c1c" }}>{fmtMoney(amt - paid)}</td>
+                    <td className="mono" style={{ fontSize: 12, color: "var(--color-success)" }}>{fmtMoney(paid)}</td>
+                    <td className="mono" style={{ fontSize: 12, color: paid >= amt ? "var(--color-success)" : "var(--color-danger-strong)" }}>{fmtMoney(amt - paid)}</td>
                     <td><StatusPill value={String(r.status ?? "")} tone={toneForInstallment(String(r.status ?? ""))} /></td>
                     <td>
                       <button className="btn ghost sm" onClick={() => copyLink(r)}>Copy Link</button>

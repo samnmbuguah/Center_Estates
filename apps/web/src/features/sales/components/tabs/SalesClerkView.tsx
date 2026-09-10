@@ -28,14 +28,14 @@ export function SalesClerkView({
     .slice(0, 6);
 
   const actions = [
-    { key: "visit", label: "Record Site Visit", detail: "Log a prospect visit & agent", icon: "📍", bg: "#dcfce7", fg: "#15803d", onClick: openRecordVisit, enabled: canVisit },
-    { key: "buyer", label: "Register Buyer", detail: "Capture buyer details & KYC", icon: "👥", bg: "#dbeafe", fg: "#1d4ed8", onClick: openRegisterBuyer, enabled: canSell },
-    { key: "sale", label: "Reserve / New Sale", detail: "Attach a buyer to a unit", icon: "🤝", bg: "#ffedd5", fg: "#c2410c", onClick: openNewSale, enabled: canSell },
+    { key: "visit", label: "Record Site Visit", detail: "Log a prospect visit & agent", icon: "📍", bg: "var(--color-green-bg)", fg: "var(--color-success-strong)", onClick: openRecordVisit, enabled: canVisit },
+    { key: "buyer", label: "Register Buyer", detail: "Capture buyer details & KYC", icon: "👥", bg: "var(--color-blue-bg)", fg: "#1d4ed8", onClick: openRegisterBuyer, enabled: canSell },
+    { key: "sale", label: "Reserve / New Sale", detail: "Attach a buyer to a unit", icon: "🤝", bg: "var(--color-orange-soft)", fg: "#c2410c", onClick: openNewSale, enabled: canSell },
   ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <section className="data-panel" style={{ padding: 18, borderLeft: "3px solid #ea580c" }}>
+      <section className="data-panel" style={{ padding: 18, borderLeft: "3px solid var(--color-orange)" }}>
         <h3 style={{ margin: 0, fontSize: 16 }}>Field capture</h3>
         <p style={{ margin: "4px 0 14px", fontSize: 12, color: "var(--muted)" }}>
           Built for phones and tablets at the site — capture visits, buyers and reservations in seconds.
@@ -50,7 +50,7 @@ export function SalesClerkView({
               style={{
                 display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6,
                 padding: 16, minHeight: 108, borderRadius: 14, cursor: a.enabled ? "pointer" : "not-allowed",
-                border: "1px solid var(--border)", background: a.enabled ? "var(--surface)" : "var(--surface-sunken, #f1f5f9)",
+                border: "1px solid var(--border)", background: a.enabled ? "var(--surface)" : "var(--surface-sunken, var(--surface-sunken))",
                 opacity: a.enabled ? 1 : 0.6, textAlign: "left",
               }}
             >
@@ -89,7 +89,7 @@ export function SalesClerkView({
 
 function VisitCard({ visit, showFollowUp = false }: { visit: Row; showFollowUp?: boolean }) {
   return (
-    <article style={{ border: "1px solid var(--border)", borderLeft: "3px solid #16a34a", borderRadius: 10, padding: 12, background: "var(--surface)" }}>
+    <article style={{ border: "1px solid var(--border)", borderLeft: "3px solid var(--color-success)", borderRadius: 10, padding: 12, background: "var(--surface)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
         <strong style={{ fontSize: 13 }}>{String(visit.visitor_name ?? "Visitor")}</strong>
         <RefText value={visit.reference} />

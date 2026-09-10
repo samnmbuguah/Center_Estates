@@ -29,10 +29,10 @@ import {
 } from "@mui/material";
 
 const modules = [
-  { slug: "property", name: "Property", icon: "🏢", accent: "#e23b3b" },
+  { slug: "property", name: "Property", icon: "🏢", accent: "var(--color-brand-red)" },
   { slug: "facility", name: "Facility", icon: "🔧", accent: "#00a3ff" },
   { slug: "sales", name: "Sales", icon: "💰", accent: "#10b981" },
-  { slug: "tender", name: "Tender", icon: "📋", accent: "#f59e0b" },
+  { slug: "tender", name: "Tender", icon: "📋", accent: "var(--color-amber)" },
   { slug: "valuation", name: "Valuation", icon: "📜", accent: "#8b5cf6" },
   { slug: "monitoring", name: "Monitoring", icon: "📊", accent: "#06b6d4" },
   { slug: "companion", name: "Companion", icon: "🧭", accent: "#ec4899" },
@@ -155,7 +155,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
               flexDirection: "column",
               alignItems: "center",
               gap: 4,
-              color: (pathname === "/workspaces" || pathname === "/") ? "#e23b3b" : "#ffffff",
+              color: (pathname === "/workspaces" || pathname === "/") ? "var(--color-brand-red)" : "#ffffff",
               textDecoration: "none",
               fontSize: 12,
               fontWeight: (pathname === "/workspaces" || pathname === "/") ? 700 : 600,
@@ -197,7 +197,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                 flexDirection: "column",
                 alignItems: "center",
                 gap: 4,
-                color: pathname.startsWith("/companion") ? "#e23b3b" : "#ffffff",
+                color: pathname.startsWith("/companion") ? "var(--color-brand-red)" : "#ffffff",
                 textDecoration: "none",
                 fontSize: 12,
                 fontWeight: pathname.startsWith("/companion") ? 700 : 600,
@@ -261,7 +261,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
           alignSelf: "flex-start",
           top: 0,
           left: isMobile ? (menuOpen ? 0 : "-100%") : 0,
-          background: "var(--bg-sidebar, #0f172a)",
+          background: "var(--bg-sidebar, var(--color-slate-900))",
           borderRight: "1px solid rgba(255,255,255,0.08)",
           display: "flex",
           flexDirection: "column",
@@ -371,8 +371,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                 padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
                 justifyContent: collapsed ? "center" : "flex-start",
                 borderRadius: 6,
-                background: (pathname === "/workspaces" || pathname === "/") ? "var(--brand-primary, #e23b3b)" : "transparent",
-                color: (pathname === "/workspaces" || pathname === "/") ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                background: (pathname === "/workspaces" || pathname === "/") ? "var(--brand-primary, var(--color-brand-red))" : "transparent",
+                color: (pathname === "/workspaces" || pathname === "/") ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, var(--color-slate-300))",
                 fontWeight: (pathname === "/workspaces" || pathname === "/") ? 700 : 500,
                 textDecoration: "none",
                 fontSize: isMobile ? 15 : 13,
@@ -398,8 +398,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                 padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
                 justifyContent: collapsed ? "center" : "flex-start",
                 borderRadius: 6,
-                background: pathname === "/overview" ? "var(--brand-primary, #e23b3b)" : "transparent",
-                color: pathname === "/overview" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                background: pathname === "/overview" ? "var(--brand-primary, var(--color-brand-red))" : "transparent",
+                color: pathname === "/overview" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, var(--color-slate-300))",
                 fontWeight: pathname === "/overview" ? 700 : 500,
                 textDecoration: "none",
                 fontSize: isMobile ? 15 : 13,
@@ -428,8 +428,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                     padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
                     justifyContent: collapsed ? "center" : "flex-start",
                     borderRadius: 6,
-                    background: pathname === "/tickets" ? "var(--brand-primary, #e23b3b)" : "transparent",
-                    color: pathname === "/tickets" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                    background: pathname === "/tickets" ? "var(--brand-primary, var(--color-brand-red))" : "transparent",
+                    color: pathname === "/tickets" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, var(--color-slate-300))",
                     fontWeight: pathname === "/tickets" ? 700 : 500,
                     textDecoration: "none",
                     fontSize: isMobile ? 15 : 13,
@@ -454,8 +454,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                     padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
                     justifyContent: collapsed ? "center" : "flex-start",
                     borderRadius: 6,
-                    background: pathname === "/calendar" ? "var(--brand-primary, #e23b3b)" : "transparent",
-                    color: pathname === "/calendar" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                    background: pathname === "/calendar" ? "var(--brand-primary, var(--color-brand-red))" : "transparent",
+                    color: pathname === "/calendar" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, var(--color-slate-300))",
                     fontWeight: pathname === "/calendar" ? 700 : 500,
                     textDecoration: "none",
                     fontSize: isMobile ? 15 : 13,
@@ -485,8 +485,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                   padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
                   justifyContent: collapsed ? "center" : "flex-start",
                   borderRadius: 6,
-                  background: pathname === "/property-onboarding" ? "var(--brand-primary, #e23b3b)" : "transparent",
-                  color: pathname === "/property-onboarding" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                  background: pathname === "/property-onboarding" ? "var(--brand-primary, var(--color-brand-red))" : "transparent",
+                  color: pathname === "/property-onboarding" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, var(--color-slate-300))",
                   fontWeight: pathname === "/property-onboarding" ? 700 : 500,
                   textDecoration: "none",
                   fontSize: isMobile ? 15 : 13,
@@ -494,7 +494,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                 }}
               >
                 <span style={{ fontSize: isMobile ? 18 : 15, display: "flex", alignItems: "center" }}>
-                  <Building2 size={isMobile ? 20 : 17} color="#f59e0b" />
+                  <Building2 size={isMobile ? 20 : 17} color="var(--color-amber)" />
                 </span>
                 {!collapsed && <span>Property onboarding</span>}
               </Link>
@@ -515,8 +515,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                   padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
                   justifyContent: collapsed ? "center" : "flex-start",
                   borderRadius: 6,
-                  background: pathname === "/analytics" ? "var(--brand-primary, #e23b3b)" : "transparent",
-                  color: pathname === "/analytics" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                  background: pathname === "/analytics" ? "var(--brand-primary, var(--color-brand-red))" : "transparent",
+                  color: pathname === "/analytics" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, var(--color-slate-300))",
                   fontWeight: pathname === "/analytics" ? 700 : 500,
                   textDecoration: "none",
                   fontSize: isMobile ? 15 : 13,
@@ -546,8 +546,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                   padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
                   justifyContent: collapsed ? "center" : "flex-start",
                   borderRadius: 6,
-                  background: pathname === "/tenant-portal" ? "var(--brand-primary, #e23b3b)" : "transparent",
-                  color: pathname === "/tenant-portal" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, #cbd5e1)",
+                  background: pathname === "/tenant-portal" ? "var(--brand-primary, var(--color-brand-red))" : "transparent",
+                  color: pathname === "/tenant-portal" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, var(--color-slate-300))",
                   fontWeight: pathname === "/tenant-portal" ? 700 : 500,
                   textDecoration: "none",
                   fontSize: isMobile ? 15 : 13,
@@ -589,7 +589,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                   justifyContent: collapsed ? "center" : "space-between",
                   borderRadius: 6,
                   background: pathname.startsWith("/settings") ? "rgba(226, 59, 59, 0.15)" : "transparent",
-                  color: pathname.startsWith("/settings") ? "#ffffff" : "#cbd5e1",
+                  color: pathname.startsWith("/settings") ? "#ffffff" : "var(--color-slate-300)",
                   transition: "all 0.15s ease",
                   cursor: "pointer",
                   padding: isMobile ? "12px 14px" : (collapsed ? "10px 0" : "8px 10px"),
@@ -616,7 +616,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                 {!collapsed && (
                   <div
                     style={{
-                      color: "#94a3b8",
+                      color: "var(--color-slate-400)",
                       display: "flex",
                       alignItems: "center",
                       paddingLeft: 4,
@@ -655,8 +655,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                           borderRadius: 5,
                           fontSize: 12,
                           textDecoration: "none",
-                          background: isItemActive ? "#e23b3b" : "transparent",
-                          color: isItemActive ? "#ffffff" : "#94a3b8",
+                          background: isItemActive ? "var(--color-brand-red)" : "transparent",
+                          color: isItemActive ? "#ffffff" : "var(--color-slate-400)",
                           fontWeight: isItemActive ? 700 : 500,
                           transition: "all 0.12s ease",
                         }}
@@ -698,7 +698,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                     justifyContent: collapsed ? "center" : "space-between",
                     borderRadius: 6,
                     background: pathname.startsWith("/administration") ? "rgba(226, 59, 59, 0.15)" : "transparent",
-                    color: pathname.startsWith("/administration") ? "#ffffff" : "#cbd5e1",
+                    color: pathname.startsWith("/administration") ? "#ffffff" : "var(--color-slate-300)",
                     transition: "all 0.15s ease",
                     cursor: "pointer",
                     padding: isMobile ? "12px 14px" : (collapsed ? "10px 0" : "8px 10px"),
@@ -725,7 +725,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                   {!collapsed && (
                     <div
                       style={{
-                        color: "#94a3b8",
+                        color: "var(--color-slate-400)",
                         display: "flex",
                         alignItems: "center",
                         paddingLeft: 4,
@@ -764,8 +764,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                             borderRadius: 5,
                             fontSize: 12,
                             textDecoration: "none",
-                            background: isItemActive ? "#e23b3b" : "transparent",
-                            color: isItemActive ? "#ffffff" : "#94a3b8",
+                            background: isItemActive ? "var(--color-brand-red)" : "transparent",
+                            color: isItemActive ? "#ffffff" : "var(--color-slate-400)",
                             fontWeight: isItemActive ? 700 : 500,
                             transition: "all 0.12s ease",
                           }}

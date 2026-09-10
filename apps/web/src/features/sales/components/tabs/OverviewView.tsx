@@ -39,10 +39,10 @@ export function OverviewView({
   const salesByProject = dashboard.salesByProject ?? [];
 
   const stageColors: Record<string, string> = {
-    available: "#16a34a",
-    reserved: "#f59e0b",
-    sold: "#0284c7",
-    pending: "#7c3aed",
+    available: "var(--color-success)",
+    reserved: "var(--color-amber)",
+    sold: "var(--color-sky)",
+    pending: "var(--color-violet)",
     blocked: "#64748b",
   };
   const stageLabels: Record<string, string> = {
@@ -57,7 +57,7 @@ export function OverviewView({
   const segs: StageRow[] = stage.map((s, i) => {
     const pct = (Number(s.count ?? 0) / stageTotal) * 100;
     const start = stage.slice(0, i).reduce((acc, x) => acc + (Number(x.count ?? 0) / stageTotal) * 100, 0);
-    const seg = `${stageColors[String(s.status ?? "")] ?? "#94a3b8"} ${start.toFixed(2)}% ${(start + pct).toFixed(2)}%`;
+    const seg = `${stageColors[String(s.status ?? "")] ?? "var(--color-slate-400)"} ${start.toFixed(2)}% ${(start + pct).toFixed(2)}%`;
     return { ...s, pct, seg } as StageRow;
   });
   const donutBg = segs.length
@@ -82,7 +82,7 @@ export function OverviewView({
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#dcfce7", color: "#16a34a",
+            p: 2, borderRadius: 2, bgcolor: "var(--color-green-bg)", color: "var(--color-success)",
             textAlign: "center"
           }}>
             <Building2 size={24} style={{ marginBottom: 8 }} />
@@ -92,7 +92,7 @@ export function OverviewView({
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#dbeafe", color: "#2563eb",
+            p: 2, borderRadius: 2, bgcolor: "var(--color-blue-bg)", color: "var(--color-info)",
             textAlign: "center"
           }}>
             <TrendingUp size={24} style={{ marginBottom: 8 }} />
@@ -102,7 +102,7 @@ export function OverviewView({
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#e0f2fe", color: "#0284c7",
+            p: 2, borderRadius: 2, bgcolor: "var(--color-sky-bg)", color: "var(--color-sky)",
             textAlign: "center"
           }}>
             <CheckCircle size={24} style={{ marginBottom: 8 }} />
@@ -112,7 +112,7 @@ export function OverviewView({
         </Grid>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Box sx={{ 
-            p: 2, borderRadius: 2, bgcolor: "#ffedd5", color: "#ea580c",
+            p: 2, borderRadius: 2, bgcolor: "var(--color-orange-soft)", color: "var(--color-orange)",
             textAlign: "center"
           }}>
             <DollarSign size={24} style={{ marginBottom: 8 }} />
@@ -123,10 +123,10 @@ export function OverviewView({
       </Grid>
 
       <KpiStrip cols={4}>
-        <KpiCard icon="💳" iconBg="#f0fdf4" iconColor="#15803d" label="Total Revenue" value={fmtMoney(kpis.verifiedPayments)} sub={`${number.format(Number(kpis.pendingPayments ?? 0))} awaiting verification`} link="View payments" onClick={() => setTab("payments")} />
-        <KpiCard icon="📉" iconBg="#fee2e2" iconColor="#b91c1c" label="Total Outstanding" value={fmtMoney(outstanding)} sub="Uncollected balance" onClick={() => setTab("payments")} />
-        <KpiCard icon="📊" iconBg="#ede9fe" iconColor="#7c3aed" label="Collection Rate" value={`${collectionRate}%`} sub={`${fmtMoney(verifiedPayments)} of ${fmtMoney(salesValue)}`} onClick={() => setTab("payments")} />
-        <KpiCard icon="🏗️" iconBg="#fef3c7" iconColor="#92400e" label="Units in Progress" value={number.format(reserved)} sub="Reserved units" link="View inventory" onClick={() => setTab("inventory")} />
+        <KpiCard icon="💳" iconBg="#f0fdf4" iconColor="var(--color-success-strong)" label="Total Revenue" value={fmtMoney(kpis.verifiedPayments)} sub={`${number.format(Number(kpis.pendingPayments ?? 0))} awaiting verification`} link="View payments" onClick={() => setTab("payments")} />
+        <KpiCard icon="📉" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Total Outstanding" value={fmtMoney(outstanding)} sub="Uncollected balance" onClick={() => setTab("payments")} />
+        <KpiCard icon="📊" iconBg="var(--color-violet-bg)" iconColor="var(--color-violet)" label="Collection Rate" value={`${collectionRate}%`} sub={`${fmtMoney(verifiedPayments)} of ${fmtMoney(salesValue)}`} onClick={() => setTab("payments")} />
+        <KpiCard icon="🏗️" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Units in Progress" value={number.format(reserved)} sub="Reserved units" link="View inventory" onClick={() => setTab("inventory")} />
       </KpiStrip>
 
       <div className="grid-2" style={{ gridTemplateColumns: "minmax(0, 1.9fr) minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
@@ -144,7 +144,7 @@ export function OverviewView({
                     {s.unit_code ? <div className="mono" style={{ fontSize: 10 }}>{String(s.unit_code)}</div> : null}
                   </td>
                   <td className="mono" style={{ fontSize: 12 }}>{fmtMoney(s.agreed_price)}</td>
-                  <td className="mono" style={{ fontSize: 12, color: "#16a34a" }}>{fmtMoney(s.paid_amount)}</td>
+                  <td className="mono" style={{ fontSize: 12, color: "var(--color-success)" }}>{fmtMoney(s.paid_amount)}</td>
                   <td><StatusPill value={String(s.status ?? "")} /></td>
                   <td style={{ fontSize: 11, color: "var(--muted)" }}>{fmtDate(s.contracted_on ?? s.created_at)}</td>
                 </tr>
@@ -177,8 +177,8 @@ export function OverviewView({
                   width: 36, 
                   height: 36, 
                   borderRadius: "50%", 
-                  background: "#ffedd5", 
-                  color: "#ea580c",
+                  background: "var(--color-orange-soft)", 
+                  color: "var(--color-orange)",
                   fontSize: 18
                 }}>👥</span>
                 <div>
@@ -208,8 +208,8 @@ export function OverviewView({
                   width: 36, 
                   height: 36, 
                   borderRadius: "50%", 
-                  background: "#dbeafe", 
-                  color: "#2563eb",
+                  background: "var(--color-blue-bg)", 
+                  color: "var(--color-info)",
                   fontSize: 18
                 }}>📝</span>
                 <div>
@@ -239,8 +239,8 @@ export function OverviewView({
                   width: 36, 
                   height: 36, 
                   borderRadius: "50%", 
-                  background: "#dcfce7", 
-                  color: "#16a34a",
+                  background: "var(--color-green-bg)", 
+                  color: "var(--color-success)",
                   fontSize: 18
                 }}>📍</span>
                 <div>
@@ -270,8 +270,8 @@ export function OverviewView({
                   width: 36, 
                   height: 36, 
                   borderRadius: "50%", 
-                  background: "#fef3c7", 
-                  color: "#92400e",
+                  background: "var(--color-amber-bg)", 
+                  color: "var(--color-amber-strong)",
                   fontSize: 18
                 }}>💳</span>
                 <div>
@@ -292,7 +292,7 @@ export function OverviewView({
                 {segs.length === 0 && <span style={{ color: "var(--muted)", fontSize: 12 }}>No inventory staged yet.</span>}
                 {segs.map((s) => (
                   <span key={String(s.status)}>
-                    <i style={{ background: stageColors[String(s.status ?? "")] ?? "#94a3b8" }} />
+                    <i style={{ background: stageColors[String(s.status ?? "")] ?? "var(--color-slate-400)" }} />
                     {stageLabels[String(s.status ?? "")] ?? String(s.status ?? "—")}
                     <b>{number.format(Number(s.count ?? 0))}</b>
                   </span>
@@ -331,10 +331,10 @@ export function OverviewView({
                     <div key={name} style={{ marginBottom: 8 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
                         <span style={{ fontWeight: 600 }}>{name}</span>
-                        <span className="mono" style={{ fontWeight: 700, color: "#ea580c" }}>{number.format(count)} sales</span>
+                        <span className="mono" style={{ fontWeight: 700, color: "var(--color-orange)" }}>{number.format(count)} sales</span>
                       </div>
-                      <div style={{ background: "#edf0f5", borderRadius: 4, height: 18, overflow: "hidden" }}>
-                        <div style={{ background: "linear-gradient(90deg, #ea580c, #f59e0b)", height: "100%", width: `${pct}%`, borderRadius: 4, transition: "width 0.3s ease", minWidth: count > 0 ? 4 : 0 }} />
+                      <div style={{ background: "var(--color-surface-alt)", borderRadius: 4, height: 18, overflow: "hidden" }}>
+                        <div style={{ background: "linear-gradient(90deg, var(--color-orange), var(--color-amber))", height: "100%", width: `${pct}%`, borderRadius: 4, transition: "width 0.3s ease", minWidth: count > 0 ? 4 : 0 }} />
                       </div>
                     </div>
                   );

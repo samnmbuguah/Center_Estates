@@ -42,7 +42,7 @@ export function SalesOnboardingChecklist({
   };
 
   return (
-    <section className="data-panel" style={{ padding: 18, borderLeft: "3px solid #ea580c" }}>
+    <section className="data-panel" style={{ padding: 18, borderLeft: "3px solid var(--color-orange)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
         <div>
           <h3 style={{ margin: 0, fontSize: 15 }}>Get your sales pipeline ready</h3>
@@ -55,8 +55,8 @@ export function SalesOnboardingChecklist({
         </button>
       </div>
 
-      <div style={{ background: "var(--surface-sunken, #eef2f7)", borderRadius: 99, height: 6, margin: "12px 0 14px", overflow: "hidden" }}>
-        <i style={{ display: "block", height: "100%", width: `${(completed / steps.length) * 100}%`, background: "#ea580c" }} />
+      <div style={{ background: "var(--surface-sunken, var(--surface-sunken))", borderRadius: 99, height: 6, margin: "12px 0 14px", overflow: "hidden" }}>
+        <i style={{ display: "block", height: "100%", width: `${(completed / steps.length) * 100}%`, background: "var(--color-orange)" }} />
       </div>
 
       <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
@@ -70,7 +70,7 @@ export function SalesOnboardingChecklist({
               border: "1px solid var(--border)", borderRadius: 10, padding: 12, background: "var(--surface)",
             }}
           >
-            {s.done ? <CheckCircle2 size={18} style={{ color: "#16a34a", flexShrink: 0, marginTop: 1 }} /> : <Circle size={18} style={{ color: "var(--muted)", flexShrink: 0, marginTop: 1 }} />}
+            {s.done ? <CheckCircle2 size={18} style={{ color: "var(--color-success)", flexShrink: 0, marginTop: 1 }} /> : <Circle size={18} style={{ color: "var(--muted)", flexShrink: 0, marginTop: 1 }} />}
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, textDecoration: s.done ? "line-through" : "none", color: s.done ? "var(--muted)" : "var(--text)" }}>{s.title}</div>
               <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{s.detail}</div>
