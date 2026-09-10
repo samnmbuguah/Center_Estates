@@ -183,6 +183,7 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     release_id=\$(tar -xOf deploy-web.tar.gz apps/web/.next/standalone/apps/web/.next/BUILD_ID | tr -d '\r\n')
     test -n "\${release_id}"
     release_root="${FRONTEND_PATH}/releases/\${release_id}"
+    previous_target=\$(readlink -f current 2>/dev/null || true)
     rm -rf "\${release_root}"
     mkdir -p "\${release_root}"
     tar -xzf deploy-web.tar.gz -C "\${release_root}"
@@ -211,6 +212,16 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     elif [ -d apps/web/.next/standalone/apps/web/.next/static ]; then
       cp -an apps/web/.next/standalone/apps/web/.next/static/. "\${standalone}/.next/static/" 2>/dev/null || true
     fi
+    test "\$(cat "\${standalone}/.next/BUILD_ID")" = "\${release_id}"
+    missing_assets=0
+    while IFS= read -r asset; do
+      [ -z "\${asset}" ] && continue
+      if [ ! -f "\${standalone}/.next/\${asset}" ]; then
+        echo "Missing staged Next.js asset: \${asset}" >&2
+        missing_assets=1
+      fi
+    done < <(grep -Rho 'static/chunks/[^" ]*\.js' "\${standalone}/.next"/*.json "\${standalone}/.next/server"/*.json 2>/dev/null | sort -u)
+    test "\${missing_assets}" = 0
     ln -sfn "\${standalone}" current.next
     mv -Tf current.next current
     cp "\${release_root}/app.js" app.js
@@ -237,6 +248,36 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     curl -sf https://${DOMAIN}/ > /dev/null 2>&1 || true
     new_pids=\$(ps -u \$(id -u) -o pid=,comm= | awk '\$2 == "next-server" {print \$1}' | wc -l)
     echo "Active next-server workers after restart: \${new_pids}"
+    live_check="https://${DOMAIN}/property?deployment-check=\${release_id}"
+    live_html=\$(mktemp)
+    release_valid=1
+    if ! curl --fail --silent --show-error --max-time 30 "\${live_check}" -o "\${live_html}"; then
+      release_valid=0
+    fi
+    if [ "\${release_valid}" = 1 ] && ! curl --silent --show-error --head --max-time 30 "\${live_check}" | tr -d '\r' | grep -qi '^cache-control:.*no-store'; then
+      echo 'Live application HTML is missing the required no-store policy.' >&2
+      release_valid=0
+    fi
+    if [ "\${release_valid}" = 1 ]; then
+      while IFS= read -r asset; do
+        [ -z "\${asset}" ] && continue
+        if ! curl --fail --silent --show-error --max-time 30 "https://${DOMAIN}\${asset}" >/dev/null; then
+          echo "Live chunk failed validation: \${asset}" >&2
+          release_valid=0
+          break
+        fi
+      done < <(grep -oE '(src|href)="[^"]+\.js[^"]*"' "\${live_html}" | sed -E 's/^(src|href)="([^"]+)"$/\2/' | sort -u)
+    fi
+    rm -f "\${live_html}"
+    if [ "\${release_valid}" != 1 ]; then
+      if [ -n "\${previous_target}" ] && [ -d "\${previous_target}" ]; then
+        echo "Release validation failed; rolling back to \${previous_target}." >&2
+        ln -sfn "\${previous_target}" current.rollback
+        mv -Tf current.rollback current
+        touch tmp/restart.txt
+      fi
+      exit 1
+    fi
 EOF
   # Gate the release on the frontend actually serving traffic. A broken
   # standalone runtime (e.g. an unresolved node_modules symlink) can start
