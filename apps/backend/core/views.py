@@ -11,6 +11,7 @@ from django.utils.decorators import method_decorator
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt, csrf_protect
+import logging
 import re
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
@@ -35,6 +36,8 @@ VISIBLE_DEMO_IDENTITIES = {
     'role-operations-staff',
     'role-read-only',
 }
+
+logger = logging.getLogger(__name__)
 
 
 # Comprehensive acceptance catalogue covering all 36 core system features across 10 functional modules.
@@ -109,7 +112,16 @@ def auto_detect_organization_activity(organization, user=None):
     
     try:
         from properties.models import Property, Unit, Tenant, Lease, Owner, Invoice, CreditNote, Receipt, BankTransaction, Expense, Budget, ServiceChargeAllocation, ServiceChargeReconciliation, RentSchedule, BillingCandidate
-        from facilities.models import Asset, MeterReading, ServiceRequest, WorkOrder, PPMPlan, PurchaseRequisition, Contractor, Incident
+        from facilities.models import (
+            Contractor,
+            FacilityAsset,
+            FacilityIncident,
+            MeterReading,
+            PreventiveSchedule,
+            RepairRequisition,
+            ServiceRequest,
+            WorkOrder,
+        )
         from companion.models import Task, QmConversation, CompanionAnnouncement
         from audit.models import AuditEvent
 
@@ -178,7 +190,7 @@ def auto_detect_organization_activity(organization, user=None):
             detected['service_charge.reconciliation'] = f"Auto-verified: {scr_count} service charge audit reconciliation(s) executed."
 
         # 5. Facility Operations
-        asset_count = Asset.objects.filter(organization=organization).count()
+        asset_count = FacilityAsset.objects.filter(organization=organization).count()
         if asset_count > 0:
             detected['facility.assets'] = f"Auto-verified: {asset_count} equipment asset(s) tagged in registry."
 
@@ -194,11 +206,11 @@ def auto_detect_organization_activity(organization, user=None):
         if wo_count > 0:
             detected['facility.work_orders'] = f"Auto-verified: {wo_count} maintenance work order job card(s) dispatched."
 
-        ppm_count = PPMPlan.objects.filter(organization=organization).count()
+        ppm_count = PreventiveSchedule.objects.filter(organization=organization).count()
         if ppm_count > 0:
             detected['facility.ppm'] = f"Auto-verified: {ppm_count} planned preventive maintenance schedule(s) active."
 
-        req_count = PurchaseRequisition.objects.filter(organization=organization).count()
+        req_count = RepairRequisition.objects.filter(organization=organization).count()
         if req_count > 0:
             detected['facility.procurement'] = f"Auto-verified: {req_count} purchase requisition(s) / LPO(s) generated."
 
@@ -206,7 +218,7 @@ def auto_detect_organization_activity(organization, user=None):
         if sp_count > 0:
             detected['facility.contractors'] = f"Auto-verified: {sp_count} approved contractor profile(s) engaged."
 
-        inc_count = Incident.objects.filter(organization=organization).count()
+        inc_count = FacilityIncident.objects.filter(organization=organization).count()
         if inc_count > 0:
             detected['facility.incidents'] = f"Auto-verified: {inc_count} safety incident report(s) documented."
 
@@ -230,8 +242,12 @@ def auto_detect_organization_activity(organization, user=None):
         if audit_count > 0:
             detected['admin.security_audit'] = f"Auto-verified: {audit_count} immutable security audit events recorded."
 
-    except Exception as exc:
-        pass
+    except Exception:
+        logger.exception(
+            "System usage auto-scan failed for organization %s",
+            organization.pk,
+        )
+        raise
 
     return detected
 

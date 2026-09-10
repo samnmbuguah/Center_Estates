@@ -113,6 +113,33 @@ class TestingChecklistTests(TestCase):
         response = client.get('/api/v1/testing/checklist/', HTTP_X_ORGANIZATION_ID=str(organization.id))
         self.assertEqual(response.status_code, 403)
 
+    def test_auto_scan_detects_live_organization_activity(self):
+        Property.objects.create(
+            organization=self.organization,
+            name='Auto Scan Property',
+            code='AUTO-SCAN',
+        )
+
+        response = self.client.post('/api/v1/testing/auto-scan/', {}, format='json', **self.headers)
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['status'], 'success')
+        self.assertGreaterEqual(response.data['detected_features'], 2)
+        self.assertTrue(
+            FeatureTestProgress.objects.filter(
+                organization=self.organization,
+                feature_key='property.onboarding',
+                status=FeatureTestProgress.Status.PASSED,
+            ).exists()
+        )
+        self.assertTrue(
+            FeatureTestProgress.objects.filter(
+                organization=self.organization,
+                feature_key='admin.organization',
+                status=FeatureTestProgress.Status.PASSED,
+            ).exists()
+        )
+
 
 @override_settings(ALLOWED_HOSTS=['testserver'], SECURE_SSL_REDIRECT=False)
 class ApiSchemaAuthenticationTests(TestCase):
