@@ -40,7 +40,7 @@ export function LeadsView({
 
   const funnelStages = [
     { label: "New", count: newCount, color: "var(--color-info)" },
-    { label: "Contacted", count: 0, color: "#0891b2" },
+    { label: "Contacted", count: 0, color: "var(--color-cyan)" },
     { label: "Site Visit", count: 0, color: "var(--color-violet)" },
     { label: "Interested", count: qualifiedCount, color: "var(--color-amber)" },
     { label: "Reserved", count: activeCount, color: "var(--color-orange)" },
@@ -54,7 +54,7 @@ export function LeadsView({
       <KpiStrip cols={7}>
         <KpiCard icon="📊" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Leads" value={number.format(total)} sub="All pipeline leads" onClick={() => setStatus("")} />
         <KpiCard icon="🆕" iconBg="var(--color-blue-bg)" iconColor="var(--color-info)" label="New" value={number.format(newCount)} sub="Awaiting first contact" onClick={() => setStatus(status === "lead" ? "" : "lead")} />
-        <KpiCard icon="📞" iconBg="var(--color-sky-bg)" iconColor="#0891b2" label="Contacted" value="0" sub="No data available" />
+        <KpiCard icon="📞" iconBg="var(--color-sky-bg)" iconColor="var(--color-cyan)" label="Contacted" value="0" sub="No data available" />
         <KpiCard icon="🏠" iconBg="var(--color-violet-bg)" iconColor="var(--color-violet)" label="Site Visits" value="0" sub="No data available" />
         <KpiCard icon="⭐" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber)" label="Interested" value={number.format(qualifiedCount)} sub="Qualified leads" onClick={() => setStatus(status === "qualified" ? "" : "qualified")} />
         <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Converted" value={number.format(completedCount)} sub="Closed deals" onClick={() => setStatus(status === "completed" ? "" : "completed")} />

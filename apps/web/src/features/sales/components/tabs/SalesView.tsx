@@ -18,7 +18,7 @@ function toneForSale(s: string): Tone {
 }
 
 const PIPELINE_STAGES: { key: string; label: string; color: string }[] = [
-  { key: "draft", label: "Draft", color: "#64748b" },
+  { key: "draft", label: "Draft", color: "var(--color-slate-500)" },
   { key: "reserved", label: "Reserved", color: "var(--color-warning)" },
   { key: "contracted", label: "Contracted", color: "var(--color-info)" },
   { key: "completed", label: "Completed", color: "var(--color-success)" },

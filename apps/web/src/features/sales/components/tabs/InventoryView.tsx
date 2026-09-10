@@ -28,10 +28,10 @@ function toneForInventory(s: string): Tone {
 }
 
 const STATUS_STYLE: Record<string, { bg: string; border: string; label: string }> = {
-  available: { bg: "var(--color-green-bg)", border: "#86efac", label: "Available" },
+  available: { bg: "var(--color-green-bg)", border: "var(--color-green-300)", label: "Available" },
   reserved: { bg: "var(--color-amber-bg)", border: "#fcd34d", label: "Reserved" },
   sold: { bg: "var(--color-blue-bg)", border: "#93c5fd", label: "Sold" },
-  blocked: { bg: "var(--surface-sunken)", border: "#cbd5e1", label: "Blocked" },
+  blocked: { bg: "var(--surface-sunken)", border: "var(--color-slate-300)", label: "Blocked" },
 };
 
 function floorSortValue(label: string): number {

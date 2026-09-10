@@ -29,7 +29,7 @@ export function SalesClerkView({
 
   const actions = [
     { key: "visit", label: "Record Site Visit", detail: "Log a prospect visit & agent", icon: "📍", bg: "var(--color-green-bg)", fg: "var(--color-success-strong)", onClick: openRecordVisit, enabled: canVisit },
-    { key: "buyer", label: "Register Buyer", detail: "Capture buyer details & KYC", icon: "👥", bg: "var(--color-blue-bg)", fg: "#1d4ed8", onClick: openRegisterBuyer, enabled: canSell },
+    { key: "buyer", label: "Register Buyer", detail: "Capture buyer details & KYC", icon: "👥", bg: "var(--color-blue-bg)", fg: "var(--color-info-strong)", onClick: openRegisterBuyer, enabled: canSell },
     { key: "sale", label: "Reserve / New Sale", detail: "Attach a buyer to a unit", icon: "🤝", bg: "var(--color-orange-soft)", fg: "#c2410c", onClick: openNewSale, enabled: canSell },
   ];
 

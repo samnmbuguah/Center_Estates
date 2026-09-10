@@ -21,7 +21,7 @@ const BUCKET_COLORS: Record<string, string> = {
   d1_30: "var(--color-amber)",
   d31_60: "#f97316",
   d61_90: "var(--color-danger)",
-  d90_plus: "#991b1b",
+  d90_plus: "var(--color-danger-deep)",
 };
 
 function toneForInstallment(s: string): Tone {

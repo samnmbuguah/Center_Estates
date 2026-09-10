@@ -166,6 +166,37 @@
   --color-red-bg: #fee2e2;
   --color-surface-alt: #edf0f5;
   --color-brand-red: #e23b3b;
+  --color-info-strong: #1d4ed8;
+  --color-emerald: #10b981;
+  --color-emerald-strong: #059669;
+  --color-brand-blue: #00a3ff;
+  --color-slate-100: #f1f5f9;
+  --color-blue: #3b82f6;
+  --color-green: #22c55e;
+  --color-danger-deep: #991b1b;
+  --color-amber-deep: #b45309;
+  --color-indigo-strong: #6366f1;
+  --color-green-soft: #f0fdf4;
+  --color-violet-strong: #8b5cf6;
+  --color-green-brand: #00a651;
+  --color-info-deep: #1e40af;
+  --color-emerald-deep: #047857;
+  --color-green-300: #86efac;
+  --color-blue-soft: #eff6ff;
+  --color-cyan: #0891b2;
+  --color-teal: #0d9488;
+  --color-red-soft: #fef2f2;
+  --color-green-200: #bbf7d0;
+  --color-red-200: #fecaca;
+  --color-amber-200: #fde68a;
+  --color-red-300: #fca5a5;
+  --color-blue-200: #bfdbfe;
+  --color-sky-deep: #0369a1;
+  --color-info-dark: #1e3a8a;
+  --color-indigo-300: #818cf8;
+  --color-green-deep: #007a3d;
+  --color-amber-400: #fbbf24;
+  --color-purple: #9333ea;
 }
 
 /* Dark Theme Overrides - Semantic Design Tokens */

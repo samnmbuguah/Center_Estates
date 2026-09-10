@@ -43,7 +43,7 @@ export function OverviewView({
     reserved: "var(--color-amber)",
     sold: "var(--color-sky)",
     pending: "var(--color-violet)",
-    blocked: "#64748b",
+    blocked: "var(--color-slate-500)",
   };
   const stageLabels: Record<string, string> = {
     available: "Available",
@@ -123,7 +123,7 @@ export function OverviewView({
       </Grid>
 
       <KpiStrip cols={4}>
-        <KpiCard icon="💳" iconBg="#f0fdf4" iconColor="var(--color-success-strong)" label="Total Revenue" value={fmtMoney(kpis.verifiedPayments)} sub={`${number.format(Number(kpis.pendingPayments ?? 0))} awaiting verification`} link="View payments" onClick={() => setTab("payments")} />
+        <KpiCard icon="💳" iconBg="var(--color-green-soft)" iconColor="var(--color-success-strong)" label="Total Revenue" value={fmtMoney(kpis.verifiedPayments)} sub={`${number.format(Number(kpis.pendingPayments ?? 0))} awaiting verification`} link="View payments" onClick={() => setTab("payments")} />
         <KpiCard icon="📉" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Total Outstanding" value={fmtMoney(outstanding)} sub="Uncollected balance" onClick={() => setTab("payments")} />
         <KpiCard icon="📊" iconBg="var(--color-violet-bg)" iconColor="var(--color-violet)" label="Collection Rate" value={`${collectionRate}%`} sub={`${fmtMoney(verifiedPayments)} of ${fmtMoney(salesValue)}`} onClick={() => setTab("payments")} />
         <KpiCard icon="🏗️" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Units in Progress" value={number.format(reserved)} sub="Reserved units" link="View inventory" onClick={() => setTab("inventory")} />

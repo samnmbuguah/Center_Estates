@@ -37,7 +37,7 @@ export function SaleAgreementView({
     const html = `<!DOCTYPE html>
 <html><head><title>Sale Agreement - ${String(sale.reference ?? "")}</title>
 <style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;color:#222;line-height:1.6}
-h1{font-size:20px;border-bottom:2px solid var(--color-orange);padding-bottom:8px}
+h1{font-size:20px;border-bottom:2px solid #ea580c;padding-bottom:8px}
 table{width:100%;border-collapse:collapse;margin:16px 0}
 td{padding:8px 12px;border-bottom:1px solid #eee}
 td:first-child{font-weight:600;width:40%;color:#555}
