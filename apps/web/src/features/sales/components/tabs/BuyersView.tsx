@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { Row, Tone } from "../../types/sales.types";
 import { countBy, fmtDate, fmtDateTime, fmtMoney, toneForAudit } from "../../utils/sales.utils";
 import { DataTable, DField, FilterChips, RefText, TableChrome } from "../SalesUiComponents";
+import { SavedViews } from "../SavedViews";
 import { Box, Grid, Typography } from "@mui/material";
 import { Users, CheckCircle, Magnet, GraduationCap, DollarSign } from "lucide-react";
 
@@ -289,7 +290,7 @@ export function BuyersView({
           setSearch={setSearch}
           placeholder="Search name, reference, ID, email…"
           chips={<FilterChips options={[{ value: "lead", label: "Leads" }, { value: "qualified", label: "Qualified" }, { value: "active", label: "Active" }, { value: "completed", label: "Completed" }, { value: "cancelled", label: "Cancelled" }]} value={status as "lead" | "qualified" | "active" | "completed" | "cancelled" | ""} onChange={(v) => setStatus(v)} />}
-          actions={canSell ? <button className="btn primary sm" onClick={openRegisterBuyer}>+ Register Buyer</button> : undefined}
+          actions={<div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}><SavedViews scope="buyers" current={{ status, search }} onApply={(f) => { setStatus(f.status); setSearch(f.search); }} />{canSell ? <button className="btn primary sm" onClick={openRegisterBuyer}>+ Register Buyer</button> : null}</div>}
         >
           {rows.length === 0 ? (
             <EmptyState icon="👥" title="No buyers registered" description="Register your first buyer to attach units, installments and payments." action={canSell ? <button className="btn primary sm" onClick={openRegisterBuyer}>+ Register Buyer</button> : undefined} />

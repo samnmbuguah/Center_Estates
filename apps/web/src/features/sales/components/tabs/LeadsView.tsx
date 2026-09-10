@@ -4,6 +4,7 @@ import { KpiCard, KpiStrip, number, Panel, StatusPill, EmptyState } from "@/comp
 import { Row, Tone } from "../../types/sales.types";
 import { countBy, fmtMoney } from "../../utils/sales.utils";
 import { DataTable, FilterChips, TableChrome } from "../SalesUiComponents";
+import { SavedViews } from "../SavedViews";
 
 function toneForBuyer(s: string): Tone {
   if (s === "active" || s === "completed") return "green";
@@ -82,7 +83,7 @@ export function LeadsView({
           setSearch={setSearch}
           placeholder="Search name, phone, agent…"
           chips={<FilterChips options={[{ value: "lead", label: "New" }, { value: "qualified", label: "Interested" }, { value: "active", label: "Reserved" }, { value: "completed", label: "Converted" }, { value: "cancelled", label: "Lost" }]} value={status as "lead" | "qualified" | "active" | "completed" | "cancelled" | ""} onChange={(v) => setStatus(v)} />}
-          actions={<button className="btn primary sm" onClick={openRegisterBuyer}>+ New Lead</button>}
+          actions={<div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}><SavedViews scope="leads" current={{ status, search }} onApply={(f) => { setStatus(f.status); setSearch(f.search); }} /><button className="btn primary sm" onClick={openRegisterBuyer}>+ New Lead</button></div>}
         >
           {rows.length === 0 ? (
             <EmptyState icon="🧲" title="No leads found" description="Register your first lead to start tracking the sales pipeline." action={<button className="btn primary sm" onClick={openRegisterBuyer}>+ New Lead</button>} />

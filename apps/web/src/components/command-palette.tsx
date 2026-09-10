@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, CornerDownLeft, Building2, Users, FileText, Compass } from "lucide-react";
+import { Search, CornerDownLeft, Building2, Users, FileText, Compass, Wrench, Home, History } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch } from "@/lib/api";
 
+type Recent = { id: string; label: string; hint: string; group: string; path: string };
 type Command = {
   id: string;
   label: string;
@@ -13,6 +14,7 @@ type Command = {
   group: string;
   icon: React.ReactNode;
   action: () => void;
+  recent?: Recent;
 };
 
 const MODULE_ROUTES: { slug: string; label: string }[] = [
@@ -37,6 +39,8 @@ const PAGE_ROUTES: { path: string; label: string }[] = [
   { path: "/agent-portal", label: "Agent Portal" },
 ];
 
+const RECENTS_KEY = "ce_cmd_recents";
+
 export function CommandPalette() {
   const { session } = useAuth();
   const router = useRouter();
@@ -49,12 +53,19 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [results, setResults] = useState<Command[]>([]);
+  const [recents, setRecents] = useState<Recent[]>([]);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const close = useCallback(() => { setOpen(false); setQuery(""); setActive(0); }, []);
 
-  // Global shortcut: Cmd/Ctrl+K opens, Escape closes.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(RECENTS_KEY);
+      if (raw) setRecents(JSON.parse(raw) as Recent[]);
+    } catch { /* ignore */ }
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -98,7 +109,6 @@ export function CommandPalette() {
     return cmds;
   }, [allowedSlugs, router]);
 
-  // Search sales entities when the user types.
   useEffect(() => {
     if (!open || !organizationId) return;
     const q = query.trim();
@@ -106,35 +116,62 @@ export function CommandPalette() {
     let cancelled = false;
     setLoading(true);
     const timer = window.setTimeout(async () => {
+      const toRows = async (res: Response) => {
+        if (!res.ok) return [] as Record<string, unknown>[];
+        const data = await res.json();
+        return (Array.isArray(data) ? data : data.results ?? []) as Record<string, unknown>[];
+      };
+      const get = (path: string) => apiFetch(`${path}?search=${encodeURIComponent(q)}`, {}, organizationId);
       try {
-        const [buyersRes, salesRes, listingsRes] = await Promise.all([
-          apiFetch(`/sales/buyers/?search=${encodeURIComponent(q)}`, {}, organizationId),
-          apiFetch(`/sales/sales/?search=${encodeURIComponent(q)}`, {}, organizationId),
-          apiFetch(`/sales/inventory/?search=${encodeURIComponent(q)}`, {}, organizationId),
+        const [buyers, sales, listings, tenants, leases, assets, workOrders] = await Promise.all([
+          get("/sales/buyers/").then(toRows),
+          get("/sales/sales/").then(toRows),
+          get("/sales/inventory/").then(toRows),
+          get("/property/tenants/").then(toRows),
+          get("/property/leases/").then(toRows),
+          get("/facility/assets/").then(toRows),
+          get("/facility/work-orders/").then(toRows),
         ]);
         if (cancelled) return;
-        const toRows = async (res: Response) => {
-          if (!res.ok) return [] as Record<string, unknown>[];
-          const data = await res.json();
-          return (Array.isArray(data) ? data : data.results ?? []) as Record<string, unknown>[];
-        };
-        const [buyers, sales, listings] = await Promise.all([toRows(buyersRes), toRows(salesRes), toRows(listingsRes)]);
-        if (cancelled) return;
         const cmds: Command[] = [];
-        buyers.slice(0, 4).forEach((b) => cmds.push({
+        const push = (cmd: Command) => cmds.push(cmd);
+
+        buyers.slice(0, 4).forEach((b) => push({
           id: `buyer:${b.id}`, label: String(b.full_name ?? b.reference ?? "Buyer"),
           hint: `${String(b.reference ?? "")} · ${String(b.status ?? "")}`, group: "Buyers",
           icon: <Users size={15} />, action: () => router.push(`/sales/buyers/${String(b.id)}`),
+          recent: { id: `buyer:${b.id}`, label: String(b.full_name ?? "Buyer"), hint: "Buyer", group: "Buyers", path: `/sales/buyers/${String(b.id)}` },
         }));
-        sales.slice(0, 4).forEach((s) => cmds.push({
+        sales.slice(0, 4).forEach((s) => push({
           id: `sale:${s.id}`, label: String(s.reference ?? "Sale"),
-          hint: `${String(s.buyer_name ?? "")} · ${String(s.unit_code ?? "")} · ${String(s.status ?? "")}`, group: "Sales",
-          icon: <FileText size={15} />, action: () => router.push(`/sales?tab=sales`),
+          hint: `${String(s.buyer_name ?? "")} · ${String(s.unit_code ?? "")}`, group: "Sales",
+          icon: <FileText size={15} />, action: () => router.push("/sales?tab=sales"),
         }));
-        listings.slice(0, 4).forEach((l) => cmds.push({
+        listings.slice(0, 4).forEach((l) => push({
           id: `listing:${l.id}`, label: `Unit ${String(l.unit_code ?? l.code ?? "")}`,
           hint: `${String(l.project_name ?? "")} · ${String(l.status ?? "")}`, group: "Units",
-          icon: <Building2 size={15} />, action: () => router.push(`/sales?tab=inventory`),
+          icon: <Building2 size={15} />, action: () => router.push("/sales?tab=inventory"),
+        }));
+        tenants.slice(0, 4).forEach((t) => push({
+          id: `tenant:${t.id}`, label: String(t.name ?? t.code ?? "Tenant"),
+          hint: `${String(t.code ?? "")} · ${String(t.status ?? "")}`, group: "Tenants",
+          icon: <Home size={15} />, action: () => router.push("/property?tab=tenants"),
+          recent: { id: `tenant:${t.id}`, label: String(t.name ?? "Tenant"), hint: "Tenant", group: "Tenants", path: "/property?tab=tenants" },
+        }));
+        leases.slice(0, 4).forEach((l) => push({
+          id: `lease:${l.id}`, label: `Lease ${String(l.reference ?? "")}`,
+          hint: `${String(l.tenant_name ?? "")} · ${String(l.unit_code ?? "")}`, group: "Leases",
+          icon: <FileText size={15} />, action: () => router.push("/property?tab=leases"),
+        }));
+        assets.slice(0, 4).forEach((a) => push({
+          id: `asset:${a.id}`, label: String(a.name ?? a.code ?? "Asset"),
+          hint: `${String(a.code ?? "")} · ${String(a.category ?? "")}`, group: "Assets",
+          icon: <Wrench size={15} />, action: () => router.push("/facility?tab=assets"),
+        }));
+        workOrders.slice(0, 4).forEach((w) => push({
+          id: `wo:${w.id}`, label: String(w.number ?? w.title ?? "Work order"),
+          hint: `${String(w.title ?? "")} · ${String(w.status ?? "")}`, group: "Work Orders",
+          icon: <Wrench size={15} />, action: () => router.push("/facility?tab=work-orders"),
         }));
         setResults(cmds);
       } catch {
@@ -146,18 +183,30 @@ export function CommandPalette() {
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [open, query, organizationId, router]);
 
+  const recentCommands = useMemo<Command[]>(() => recents.map((r) => ({
+    id: `recent:${r.id}`, label: r.label, hint: r.hint, group: "Recent",
+    icon: <History size={15} />, action: () => router.push(r.path),
+  })), [recents, router]);
+
   const commands = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const nav = q.length === 0
-      ? navigationCommands
-      : navigationCommands.filter((c) => c.label.toLowerCase().includes(q) || c.group.toLowerCase().includes(q));
+    if (q.length === 0) return [...recentCommands, ...navigationCommands];
+    const nav = navigationCommands.filter((c) => c.label.toLowerCase().includes(q) || c.group.toLowerCase().includes(q));
     return [...nav, ...results];
-  }, [navigationCommands, results, query]);
+  }, [navigationCommands, results, recentCommands, query]);
 
   useEffect(() => { setActive(0); }, [commands.length]);
 
+  const rememberRecent = (cmd: Command) => {
+    if (!cmd.recent) return;
+    const next = [cmd.recent, ...recents.filter((r) => r.id !== cmd.recent!.id)].slice(0, 5);
+    setRecents(next);
+    try { localStorage.setItem(RECENTS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+  };
+
   const run = (cmd: Command | undefined) => {
     if (!cmd) return;
+    rememberRecent(cmd);
     close();
     cmd.action();
   };
@@ -170,7 +219,6 @@ export function CommandPalette() {
 
   if (!open) return null;
 
-  // Group commands for display while keeping a flat index for keyboard nav.
   const groups: { name: string; items: { cmd: Command; index: number }[] }[] = [];
   commands.forEach((cmd, index) => {
     let group = groups.find((g) => g.name === cmd.group);
@@ -197,7 +245,7 @@ export function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search buyers, sales, units or jump to a page…"
+            placeholder="Search buyers, sales, units, tenants, leases, assets or jump to a page…"
             aria-label="Command palette search"
             style={{ flex: 1, border: "none", outline: "none", fontSize: 15, background: "transparent", color: "var(--text)" }}
           />

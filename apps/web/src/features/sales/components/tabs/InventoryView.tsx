@@ -7,6 +7,7 @@ import { Row, Tone } from "../../types/sales.types";
 import { countBy, fmtDateTime, fmtMoney, sumBy } from "../../utils/sales.utils";
 import { DataTable, DField, FilterChips, ProgressBar, RefText, TableChrome } from "../SalesUiComponents";
 import Unit3DViewer from "@/components/sales-unit3d/Unit3DViewer";
+import { SavedViews } from "../SavedViews";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 
@@ -181,7 +182,8 @@ export function InventoryView({
             placeholder="Search unit code, type or project…"
             chips={<FilterChips options={[{ value: "available", label: "Available" }, { value: "reserved", label: "Reserved" }, { value: "sold", label: "Sold" }, { value: "blocked", label: "Blocked" }]} value={status as "available" | "reserved" | "sold" | "blocked" | ""} onChange={(v) => setStatus(v)} />}
             actions={
-              <div className="row" style={{ gap: 8 }}>
+              <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <SavedViews scope="inventory" current={{ status, search }} onApply={(f) => { setStatus(f.status); setSearch(f.search); }} />
                 <button className="btn sm ghost" onClick={() => setViewMode("grid")}>Building Map</button>
                 <button className="btn sm primary" onClick={() => setViewMode("list")}>List View</button>
                 {canSell ? <button className="btn primary sm" onClick={openNewListing}>+ New Listing</button> : null}
