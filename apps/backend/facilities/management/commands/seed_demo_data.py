@@ -515,14 +515,16 @@ class Command(BaseCommand):
                         'contracted_on': (TODAY - timedelta(days=70)) if status == PropertySale.Status.CONTRACTED else None,
                     },
                 )
-                if not created:
-                    continue
-                count += 1
+                if created:
+                    count += 1
                 if listing.status == SaleListing.Status.AVAILABLE:
                     listing.status = SaleListing.Status.RESERVED
                     listing.save(update_fields=('status', 'updated_at'))
 
-                # Installment plan: 25% deposit + three tranches.
+                # Installment plan: 25% deposit + three tranches. The contracted
+                # sale carries a paid deposit and an overdue tranche; the
+                # reserved sale carries a past-due deposit, so the collections
+                # cockpit shows a realistic aging spread.
                 deposit = (agreed * Decimal('0.25')).quantize(Decimal('0.01'))
                 tranche = ((agreed - deposit) / 3).quantize(Decimal('0.01'))
                 plan = [
@@ -531,18 +533,32 @@ class Command(BaseCommand):
                     (3, 'Second tranche', tranche),
                     (4, 'Balance on completion', agreed - deposit - tranche * 2),
                 ]
+                due_offsets = (
+                    {1: -75, 2: -40, 3: 30, 4: 90}
+                    if status == PropertySale.Status.CONTRACTED
+                    else {1: -20, 2: 40, 3: 80, 4: 120}
+                )
                 installments = []
                 for seq, desc, amount in plan:
-                    inst, _ = Installment.objects.get_or_create(
+                    due_on = TODAY + timedelta(days=due_offsets[seq])
+                    inst_status = (
+                        Installment.Status.OVERDUE if due_on < TODAY
+                        else Installment.Status.DUE if due_on == TODAY
+                        else Installment.Status.UPCOMING
+                    )
+                    inst, inst_created = Installment.objects.get_or_create(
                         organization=org, sale=sale, sequence=seq,
                         defaults={
-                            'description': desc,
-                            'due_on': TODAY + timedelta(days=45 * (seq - 1)),
-                            'amount': amount,
-                            'status': Installment.Status.UPCOMING,
-                            'milestone': desc,
+                            'description': desc, 'due_on': due_on, 'amount': amount,
+                            'status': inst_status, 'milestone': desc,
                         },
                     )
+                    # Converge demo data: backdate an unpaid installment whose
+                    # schedule drifted from the seeded plan.
+                    if not inst_created and inst.paid_amount == 0 and inst.due_on != due_on:
+                        inst.due_on = due_on
+                        inst.status = inst_status
+                        inst.save(update_fields=('due_on', 'status', 'updated_at'))
                     installments.append(inst)
 
                 if status == PropertySale.Status.CONTRACTED:
