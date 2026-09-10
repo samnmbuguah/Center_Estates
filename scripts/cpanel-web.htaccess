@@ -11,6 +11,7 @@ RewriteRule ^ https://centerestates.com%{REQUEST_URI} [R=301,L,NE]
   SetEnvIf Request_URI "^/_next/static/" ce_static_asset=1
   Header always set Cache-Control "private, no-cache, no-store, max-age=0, must-revalidate" env=!ce_static_asset
   Header always set CDN-Cache-Control "no-store" env=!ce_static_asset
+  Header always set Cache-Control "public, max-age=31536000, immutable" env=ce_static_asset
 </IfModule>
 
 # BEGIN cPanel-generated php ini directives, do not edit

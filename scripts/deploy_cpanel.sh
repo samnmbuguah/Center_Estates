@@ -227,6 +227,12 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     test "\${missing_assets}" = 0
     ln -sfn "\${standalone}" current.next
     mv -Tf current.next current
+    # Serve immutable Next.js assets directly from LiteSpeed. Routing dozens
+    # of browser chunks through Passenger makes page startup depend on the
+    # Node worker and causes ChunkLoadError timeouts during host contention.
+    mkdir -p _next
+    ln -sfn "\${standalone}/.next/static" _next/static.next
+    mv -Tf _next/static.next _next/static
     cp "\${release_root}/app.js" app.js
     mkdir -p tmp
     touch tmp/restart.txt
