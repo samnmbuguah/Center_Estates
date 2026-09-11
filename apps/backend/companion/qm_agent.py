@@ -9,6 +9,7 @@ import os
 import urllib.request
 import logging
 import re
+import uuid
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
@@ -185,8 +186,10 @@ def execute_system_tool(
 class QMAgentOrchestrator:
     """Enterprise Model Gateway and Tool Orchestrator for Center Estates ERP."""
 
-    def __init__(self, organization_name: str = "Center Estates"):
+    def __init__(self, organization_name: str = "Center Estates", session_id: str = ""):
         self.organization_name = organization_name
+        # OpenCode Go requires a stable per-conversation session id.
+        self.session_id = (session_id or "").strip() or f"ce-{uuid.uuid4().hex}"
         
         # Support generic AI gateway env vars with provider-specific fallbacks
         self.api_key = (
@@ -312,6 +315,7 @@ class QMAgentOrchestrator:
                     'Content-Type': 'application/json',
                     'Authorization': f'Bearer {self.api_key}',
                     'User-Agent': 'CenterEstates-ERP/1.0',
+                    'x-opencode-session': self.session_id,
                 },
                 method='POST'
             )
@@ -416,6 +420,7 @@ class QMAgentOrchestrator:
                         'Content-Type': 'application/json',
                         'Authorization': f'Bearer {self.api_key}',
                         'User-Agent': 'CenterEstates-ERP/1.0',
+                        'x-opencode-session': self.session_id,
                     },
                     method='POST'
                 )

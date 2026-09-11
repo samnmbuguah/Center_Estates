@@ -2472,7 +2472,7 @@ class StreamingChatView(APIView):
                 import logging
                 logging.getLogger(__name__).warning("Streaming: context ingestion failed", exc_info=True)
 
-        gateway = LLMGateway()
+        gateway = LLMGateway(session_id=f"user-{request.user.id}")
         system_prompt = (
             f"You are Quartermaster, the AI Operations Agent for {organization.name if organization else 'Center Estates'}.\n\n"
             + (f"LIVE GROUNDED SYSTEM DATA:\n{grounded_facts}\n\n" if grounded_facts else "")
@@ -2539,7 +2539,7 @@ class DocumentExtractView(APIView):
             except Exception:
                 text = ""
 
-        gateway = LLMGateway()
+        gateway = LLMGateway(session_id=f"user-{request.user.id}")
         result = extract_lease_data(text, gateway=gateway)
         status_code = 200 if result.get('success') else 400
         return Response(result, status=status_code)

@@ -1,5 +1,6 @@
 import os
 import json
+import uuid
 import logging
 from typing import Any, Dict, List, Optional
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, BaseMessage
@@ -19,8 +20,11 @@ class LLMGateway:
     6. Deterministic Rule-Based Fallback (Zero cost / Offline resilience)
     """
 
-    def __init__(self):
+    def __init__(self, session_id: str = ""):
         self.provider = os.getenv("AI_PROVIDER", "auto").lower()
+        # OpenCode Go requires a stable per-conversation session id so it can
+        # route and cache prompts efficiently.
+        self.session_id = (session_id or "").strip() or f"ce-{uuid.uuid4().hex}"
         self.deepseek_key = os.getenv("DEEPSEEK_API_KEY", "")
         self.openai_key = os.getenv("OPENAI_API_KEY", "")
         self.anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
@@ -58,6 +62,10 @@ class LLMGateway:
                     base_url=base_url,
                     temperature=0.3,
                     timeout=llm_timeout,
+                    default_headers={
+                        "x-opencode-session": self.session_id,
+                        "User-Agent": "CenterEstates-ERP/1.0",
+                    },
                 )
 
             # 1. DeepSeek Provider

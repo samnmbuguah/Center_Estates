@@ -101,7 +101,7 @@ def synthesize_and_explain_node(state: AgentState) -> Dict[str, Any]:
     health_status = "Optimal" if score >= 85 else "Action Required" if score >= 70 else "Critical Attention Needed"
 
     # LLM Prompt Synthesis
-    gateway = LLMGateway()
+    gateway = LLMGateway(session_id=f"user-{state.get('user_id', '')}")
     system_prompt = (
         "You are Quartermaster, the senior AI Operations Orchestrator for Center Estates ERP. "
         "Provide an authoritative, crisp executive daily briefing highlighting key financial arrears, maintenance alerts, "
@@ -188,7 +188,7 @@ def chat_and_respond_node(state: AgentState) -> Dict[str, Any]:
     conversational answer to the operator's query.
     """
     import json
-    gateway = LLMGateway()
+    gateway = LLMGateway(session_id=f"user-{state.get('user_id', '')}")
     raw_findings = state.get("raw_findings", {})
     query = state.get("input_query", "")
     user_name = state.get("user_name", "Operator")
