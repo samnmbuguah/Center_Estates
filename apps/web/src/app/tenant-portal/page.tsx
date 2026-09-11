@@ -152,9 +152,11 @@ export default function TenantPortalPage() {
       const response = await apiFetch(endpoint, {}, organizationId);
       if (!response.ok) {
         if (response.status === 403 && !targetTenantId) {
-          // Check if current user is admin/staff who can preview tenant portals
+          // Check if current user is admin/staff who can preview tenant portals.
+          // List across the whole portfolio (not just the active property) so a
+          // property with no tenants never hides a valid preview.
           try {
-            const tenantsRes = await apiFetch("/property/tenants/", {}, organizationId);
+            const tenantsRes = await apiFetch("/property/tenants/", { headers: { "X-Property-Scope": "portfolio" } }, organizationId);
             if (tenantsRes.ok) {
               const tenantsList = await tenantsRes.json();
               const results: { id: string; name: string; code: string }[] = Array.isArray(tenantsList)
