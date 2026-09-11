@@ -18,7 +18,7 @@ from .models import (
     DocumentVersion, DrawdownRequest, EvidenceFile, MaterialDelivery,
     MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument,
     ProjectMembership, ProvisionalSum, PurchaseOrder, RequirementWaiver, Requisition, Risk, StockMovement, StoreItem,
-    StoreSupplier, SubmissionRecord, Ticket, TicketComment, Variation,
+    StoreSupplier, SubmissionRecord, Ticket, TicketComment, Variation, MaterialRequisition,
 )
 
 
@@ -344,6 +344,42 @@ class ConstructionApiTests(TestCase):
         listed = self.client.get("/api/v1/construction/store-items/", **self.headers)
         self.assertEqual([row["code"] for row in listed.data], ["REB-001"])
         self.assertFalse(StockMovement.objects.filter(item=hidden).exists())
+
+    def test_material_requisition_workflow_issues_stock_on_fulfilment(self):
+        item = StoreItem.objects.create(organization=self.organization, code="CEM-002", name="Cement", unit="bag", quantity_on_hand=Decimal("100"), created_at=1)
+        created = self.client.post("/api/v1/construction/material-requisitions/", {
+            "project": self.project.id, "reference": "MR-001",
+            "lines": [{"item": item.id, "quantity": "30"}],
+        }, format="json", **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        requisition = MaterialRequisition.objects.get(reference="MR-001")
+        self.assertEqual(requisition.status, "submitted")
+        # Cannot fulfil before approval.
+        self.assertEqual(self.client.post(f"/api/v1/construction/material-requisitions/{requisition.id}/fulfill/", {}, format="json", **self.headers).status_code, 400)
+        approved = self.client.post(f"/api/v1/construction/material-requisitions/{requisition.id}/approve/", {}, format="json", **self.headers)
+        self.assertEqual(approved.status_code, 200, approved.data)
+        requisition.refresh_from_db(); self.assertEqual(requisition.status, "approved")
+        fulfilled = self.client.post(f"/api/v1/construction/material-requisitions/{requisition.id}/fulfill/", {}, format="json", **self.headers)
+        self.assertEqual(fulfilled.status_code, 200, fulfilled.data)
+        item.refresh_from_db(); requisition.refresh_from_db()
+        self.assertEqual(item.quantity_on_hand, Decimal("70"))
+        self.assertEqual(requisition.status, "fulfilled")
+        movement = StockMovement.objects.get(item=item, movement_type="issue")
+        self.assertEqual(movement.quantity, Decimal("-30"))
+
+    def test_material_requisition_fulfilment_blocks_when_stock_short(self):
+        item = StoreItem.objects.create(organization=self.organization, code="CEM-003", name="Cement", unit="bag", quantity_on_hand=Decimal("5"), created_at=1)
+        self.client.post("/api/v1/construction/material-requisitions/", {
+            "project": self.project.id, "reference": "MR-002",
+            "lines": [{"item": item.id, "quantity": "20"}],
+        }, format="json", **self.headers)
+        requisition = MaterialRequisition.objects.get(reference="MR-002")
+        self.client.post(f"/api/v1/construction/material-requisitions/{requisition.id}/approve/", {}, format="json", **self.headers)
+        blocked = self.client.post(f"/api/v1/construction/material-requisitions/{requisition.id}/fulfill/", {}, format="json", **self.headers)
+        self.assertEqual(blocked.status_code, 400)
+        item.refresh_from_db(); requisition.refresh_from_db()
+        self.assertEqual(item.quantity_on_hand, Decimal("5"))
+        self.assertEqual(requisition.status, "approved")
 
     def test_document_versions_are_append_only_and_tenant_scoped(self):
         document = ProjectDocument.objects.create(organization=self.organization, project=self.project, title="Structural drawings", discipline="Structural", created_at=1)

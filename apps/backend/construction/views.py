@@ -872,6 +872,52 @@ class MaterialRequisitionViewSet(ConstructionScopedViewSet):
         if "lines" in serializer.validated_data: raise ValidationError({"lines": "Submitted requisition lines are immutable."})
         super().perform_update(serializer)
 
+    def _transition(self, request, pk, allowed, target, label):
+        organization = get_active_organization(request)
+        requisition = MaterialRequisition.objects.select_for_update().filter(pk=pk, organization=organization).first()
+        if not requisition:
+            return Response({"detail": "Material requisition not found."}, status=404)
+        if requisition.status not in allowed:
+            raise ValidationError({"status": f"Only {label} requisitions can move to {target}."})
+        requisition.status = target
+        requisition.save(update_fields=("status",))
+        return Response(self.get_serializer(requisition).data)
+
+    @action(detail=True, methods=("post",))
+    @transaction.atomic
+    def approve(self, request, pk=None):
+        return self._transition(request, pk, ("submitted",), "approved", "submitted")
+
+    @action(detail=True, methods=("post",))
+    @transaction.atomic
+    def reject(self, request, pk=None):
+        return self._transition(request, pk, ("submitted", "approved"), "rejected", "submitted or approved")
+
+    @action(detail=True, methods=("post",))
+    @transaction.atomic
+    def fulfill(self, request, pk=None):
+        organization = get_active_organization(request)
+        requisition = MaterialRequisition.objects.select_for_update().prefetch_related("lines__item").filter(pk=pk, organization=organization).first()
+        if not requisition:
+            return Response({"detail": "Material requisition not found."}, status=404)
+        if requisition.status != "approved":
+            raise ValidationError({"status": "Only approved requisitions can be fulfilled."})
+        now = int(time() * 1000)
+        for line in requisition.lines.all():
+            item = StoreItem.objects.select_for_update().get(pk=line.item_id)
+            if item.quantity_on_hand < line.quantity:
+                raise ValidationError({"stock": f"Insufficient stock for {item.name}: {item.quantity_on_hand} available, {line.quantity} requested."})
+            item.quantity_on_hand -= line.quantity
+            item.save(update_fields=("quantity_on_hand",))
+            StockMovement.objects.create(
+                organization=organization, project=requisition.project, item=item,
+                movement_type="issue", quantity=-line.quantity, reference=requisition.reference,
+                created_by=request.user, created_at=now,
+            )
+        requisition.status = "fulfilled"
+        requisition.save(update_fields=("status",))
+        return Response(self.get_serializer(requisition).data)
+
 
 class PurchaseOrderViewSet(ConstructionScopedViewSet):
     write_permission = 'monitoring.procurement'

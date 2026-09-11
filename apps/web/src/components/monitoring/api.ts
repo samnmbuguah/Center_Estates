@@ -573,6 +573,9 @@ export const deleteSupplier = (id: number) => del(`/store-suppliers/${id}`);
 
 export const fetchMaterialRequisitions = () => get<MaterialRequisition[]>("/material-requisitions");
 export const createMaterialRequisition = (b: unknown) => post<MaterialRequisition>("/material-requisitions", b);
+export const approveMaterialRequisition = (id: number) => post<MaterialRequisition>(`/material-requisitions/${id}/approve`, {});
+export const rejectMaterialRequisition = (id: number) => post<MaterialRequisition>(`/material-requisitions/${id}/reject`, {});
+export const fulfillMaterialRequisition = (id: number) => post<MaterialRequisition>(`/material-requisitions/${id}/fulfill`, {});
 
 export const fetchPurchaseOrders = () => get<PurchaseOrder[]>("/purchase-orders");
 export const createPurchaseOrder = (b: unknown) => post<PurchaseOrder>("/purchase-orders", b);

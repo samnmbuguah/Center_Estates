@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, ClipboardList } from "lucide-react";
-import { fetchMaterialRequisitions, createMaterialRequisition, fetchProjects, fetchItems } from "../api";
+import { Plus, Trash2, ClipboardList, Check, X, PackageCheck } from "lucide-react";
+import { fetchMaterialRequisitions, createMaterialRequisition, fetchProjects, fetchItems, approveMaterialRequisition, rejectMaterialRequisition, fulfillMaterialRequisition } from "../api";
 import { ErrorBanner } from "../components";
 import type { MaterialRequisition, StoreItem } from "../api-types";
 
@@ -58,6 +58,11 @@ export function MaterialRequisitions() {
 
   const filtered = rows.filter((r) => !statusFilter || r.status === statusFilter);
 
+  const act = async (fn: () => Promise<unknown>) => {
+    setError(null);
+    try { await fn(); load(); } catch (e) { setError((e as Error).message); }
+  };
+
   return (
     <div>
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
@@ -110,7 +115,7 @@ export function MaterialRequisitions() {
       {loading ? <p className="muted">Loading...</p> : (
         <div className="card">
           <table>
-            <thead><tr><th>Reference</th><th>Project</th><th>Items</th><th>Status</th><th>Raised by</th><th>Date</th></tr></thead>
+            <thead><tr><th>Reference</th><th>Project</th><th>Items</th><th>Status</th><th>Raised by</th><th>Date</th><th></th></tr></thead>
             <tbody>
               {filtered.map((r) => (
                 <tr key={r.id}>
@@ -122,9 +127,23 @@ export function MaterialRequisitions() {
                   <td><span className="badge" style={{ background: STATUS_TONE[r.status] || "var(--muted)" }}>{r.status}</span></td>
                   <td style={{ fontSize: 12 }}>{r.raised_by_name || "—"}</td>
                   <td className="mono" style={{ fontSize: 12 }}>{r.created_at ? new Date(r.created_at).toLocaleDateString() : "—"}</td>
+                  <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                    {r.status === "submitted" && (
+                      <>
+                        <button className="btn sm" onClick={() => act(() => approveMaterialRequisition(r.id))}><Check size={14} /> Approve</button>
+                        <button className="btn ghost sm" style={{ color: "var(--color-danger)" }} onClick={() => act(() => rejectMaterialRequisition(r.id))}><X size={14} /></button>
+                      </>
+                    )}
+                    {r.status === "approved" && (
+                      <>
+                        <button className="btn sm" onClick={() => act(() => fulfillMaterialRequisition(r.id))}><PackageCheck size={14} /> Fulfill</button>
+                        <button className="btn ghost sm" style={{ color: "var(--color-danger)" }} onClick={() => act(() => rejectMaterialRequisition(r.id))}><X size={14} /></button>
+                      </>
+                    )}
+                  </td>
                 </tr>
               ))}
-              {filtered.length === 0 && <tr><td colSpan={6} className="empty"><ClipboardList size={16} /> No material requisitions found.</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={7} className="empty"><ClipboardList size={16} /> No material requisitions found.</td></tr>}
             </tbody>
           </table>
         </div>
