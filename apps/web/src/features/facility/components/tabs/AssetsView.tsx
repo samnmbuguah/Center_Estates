@@ -654,7 +654,7 @@ export function AssetsView({
                 <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 900, color: "var(--text-primary)" }}>
                   🖨️ Batch Asset QR Code Tag Sheet (Avery / Label Print Ready)
                 </h2>
-                <small style={{ color: "var(--color-slate-500)", fontSize: "0.8rem" }}>
+                <small style={{ color: "var(--text-faint)", fontSize: "0.8rem" }}>
                   Generating {selectedIds.size} tags · Formatted with high-contrast QR scan targets for mobile maintenance
                 </small>
               </div>
@@ -667,7 +667,7 @@ export function AssetsView({
                 </button>
                 <button
                   onClick={() => setShowQrModal(false)}
-                  style={{ background: "var(--color-slate-100)", color: "var(--color-slate-700)", border: "1px solid var(--color-slate-300)", padding: "8px 14px", borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                  style={{ background: "var(--color-slate-100)", color: "var(--text-muted)", border: "1px solid var(--color-slate-300)", padding: "8px 14px", borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
                 >
                   Close
                 </button>
@@ -693,7 +693,7 @@ export function AssetsView({
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--color-slate-500)" }}>
+                      <span style={{ fontSize: 9, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-faint)" }}>
                         CENTER ESTATES FM
                       </span>
                       <span style={{ background: "var(--color-slate-900)", color: "#fff", padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 800 }}>
@@ -710,7 +710,7 @@ export function AssetsView({
                         <strong style={{ display: "block", color: "var(--text-primary)", fontSize: 12, lineHeight: 1.2 }}>
                           {String(asset.name)}
                         </strong>
-                        <div style={{ color: "var(--color-slate-500)", marginTop: 2 }}>{String(asset.building_name ?? "Tower A")}</div>
+                        <div style={{ color: "var(--text-faint)", marginTop: 2 }}>{String(asset.building_name ?? "Tower A")}</div>
                         <small style={{ color: "var(--color-info)", fontWeight: 700 }}>Scan for Ticket / SOP</small>
                       </div>
                     </div>

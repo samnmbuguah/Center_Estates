@@ -390,7 +390,7 @@ export default function UsageAnalyticsPage() {
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {modules.map(([modKey, count]) => {
-                  const meta = moduleMeta[modKey] || { label: modKey, icon: "📦", color: "var(--color-slate-500)", desc: "" };
+                  const meta = moduleMeta[modKey] || { label: modKey, icon: "📦", color: "var(--text-faint)", desc: "" };
                   const percentage = totalEvents > 0 ? Math.round((count / totalEvents) * 100) : 0;
                   return (
                     <div key={modKey} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -658,7 +658,7 @@ export default function UsageAnalyticsPage() {
       {activeTab === "modules" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
           {modules.map(([modKey, count]) => {
-            const meta = moduleMeta[modKey] || { label: modKey, icon: "📦", color: "var(--color-slate-500)", desc: "Operational workflows" };
+            const meta = moduleMeta[modKey] || { label: modKey, icon: "📦", color: "var(--text-faint)", desc: "Operational workflows" };
             const percentage = totalEvents > 0 ? Math.round((count / totalEvents) * 100) : 0;
             const moduleActiveUsers = users.filter(u => u.modules.includes(modKey)).length;
             return (

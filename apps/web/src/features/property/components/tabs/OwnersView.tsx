@@ -362,25 +362,25 @@ export function OwnersView({
                       <span style={{ fontWeight: 750, color: "var(--color-info-strong)", fontFamily: "monospace" }}>{o.code || "—"}</span>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 750, color: "var(--color-slate-900)", fontSize: 13.5 }}>{o.name}</div>
+                      <div style={{ fontWeight: 750, color: "var(--text-primary)", fontSize: 13.5 }}>{o.name}</div>
                     </td>
                     <td>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-slate-900)" }}>{o.email || "—"}</div>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-slate-600)" }}>{o.phone || "—"}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{o.email || "—"}</div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-soft)" }}>{o.phone || "—"}</div>
                     </td>
                     <td>
-                      <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "var(--color-slate-900)" }}>{o.pin_number || "—"}</div>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-slate-600)" }}>{o.id_or_registration_number || ""}</div>
+                      <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{o.pin_number || "—"}</div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-soft)" }}>{o.id_or_registration_number || ""}</div>
                     </td>
                     <td>
                       <span className="badge badge-purple" style={{ fontWeight: 700 }}>{o.units_count ?? (o.units_list?.length ?? 0)} Units</span>
                     </td>
                     <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--color-slate-900)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>
                         <Landmark size={14} color="var(--color-info)" />
                         <span>{o.settlement_bank_name || "NCBA Bank"}</span>
                       </div>
-                      <div style={{ fontSize: 11, color: "var(--color-slate-600)", fontWeight: 600, fontFamily: "monospace" }}>
+                      <div style={{ fontSize: 11, color: "var(--text-soft)", fontWeight: 600, fontFamily: "monospace" }}>
                         {o.settlement_bank_account || o.settlement_paybill_or_till || "Not Configured"}
                       </div>
                     </td>
@@ -447,8 +447,8 @@ export function OwnersView({
                 <Users size={18} />
               </div>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 16, color: "var(--color-slate-900)" }}>{selectedOwner.name}</div>
-                <div style={{ fontSize: 12, color: "var(--color-slate-600)", fontWeight: 600 }}>{selectedOwner.code} • Landlord Profile</div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: "var(--text-primary)" }}>{selectedOwner.name}</div>
+                <div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 600 }}>{selectedOwner.code} • Landlord Profile</div>
               </div>
             </div>
           }
@@ -495,17 +495,17 @@ export function OwnersView({
               </div>
 
               {summaryLoading ? (
-                <div style={{ fontSize: 12, color: "var(--color-slate-600)", fontWeight: 600 }}>Loading financial ledgers...</div>
+                <div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 600 }}>Loading financial ledgers...</div>
               ) : financialSummary ? (
                 <div className="grid-2" style={{ gap: 10 }}>
                   <div style={{ padding: "12px 14px", borderRadius: 8, background: "var(--surface)", border: "1px solid var(--color-slate-300)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
-                    <div style={{ fontSize: 11, color: "var(--color-slate-600)", fontWeight: 750, textTransform: "uppercase", letterSpacing: "0.03em" }}>Active Rent Roll</div>
+                    <div style={{ fontSize: 11, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase", letterSpacing: "0.03em" }}>Active Rent Roll</div>
                     <div style={{ fontSize: 18, fontWeight: 900, color: "var(--color-emerald-deep)", marginTop: 2 }}>
                       {money.format(financialSummary.active_rent_roll ?? 0)}
                     </div>
                   </div>
                   <div style={{ padding: "12px 14px", borderRadius: 8, background: "var(--surface)", border: "1px solid var(--color-slate-300)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
-                    <div style={{ fontSize: 11, color: "var(--color-slate-600)", fontWeight: 750, textTransform: "uppercase", letterSpacing: "0.03em" }}>Outstanding Balance</div>
+                    <div style={{ fontSize: 11, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase", letterSpacing: "0.03em" }}>Outstanding Balance</div>
                     <div style={{ fontSize: 18, fontWeight: 900, color: Number(financialSummary.outstanding_balance ?? 0) > 0 ? "var(--color-danger-strong)" : "var(--color-slate-900)", marginTop: 2 }}>
                       {money.format(financialSummary.outstanding_balance ?? 0)}
                     </div>
@@ -527,32 +527,32 @@ export function OwnersView({
               gap: 12,
               fontSize: 13,
             }}>
-              <div style={{ fontWeight: 800, fontSize: 13.5, color: "var(--color-slate-900)", display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ fontWeight: 800, fontSize: 13.5, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
                 <Landmark size={16} color="var(--color-info)" /> Settlement / Remittance Details
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                <span style={{ color: "var(--color-slate-600)", fontWeight: 600 }}>Bank Name:</span>
-                <span style={{ fontWeight: 750, color: "var(--color-slate-900)" }}>{selectedOwner.settlement_bank_name || "NCBA Bank"}</span>
+                <span style={{ color: "var(--text-soft)", fontWeight: 600 }}>Bank Name:</span>
+                <span style={{ fontWeight: 750, color: "var(--text-primary)" }}>{selectedOwner.settlement_bank_name || "NCBA Bank"}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                <span style={{ color: "var(--color-slate-600)", fontWeight: 600 }}>Account Number:</span>
-                <span style={{ fontWeight: 750, color: "var(--color-slate-900)", fontFamily: "monospace" }}>{selectedOwner.settlement_bank_account || "Not Configured"}</span>
+                <span style={{ color: "var(--text-soft)", fontWeight: 600 }}>Account Number:</span>
+                <span style={{ fontWeight: 750, color: "var(--text-primary)", fontFamily: "monospace" }}>{selectedOwner.settlement_bank_account || "Not Configured"}</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                <span style={{ color: "var(--color-slate-600)", fontWeight: 600 }}>Branch:</span>
-                <span style={{ fontWeight: 750, color: "var(--color-slate-900)" }}>{selectedOwner.settlement_bank_branch || "Nairobi Main"}</span>
+                <span style={{ color: "var(--text-soft)", fontWeight: 600 }}>Branch:</span>
+                <span style={{ fontWeight: 750, color: "var(--text-primary)" }}>{selectedOwner.settlement_bank_branch || "Nairobi Main"}</span>
               </div>
               {selectedOwner.settlement_paybill_or_till && (
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "var(--color-slate-600)", fontWeight: 600 }}>Paybill / Till:</span>
-                  <span style={{ fontWeight: 750, color: "var(--color-slate-900)" }}>{selectedOwner.settlement_paybill_or_till}</span>
+                  <span style={{ color: "var(--text-soft)", fontWeight: 600 }}>Paybill / Till:</span>
+                  <span style={{ fontWeight: 750, color: "var(--text-primary)" }}>{selectedOwner.settlement_paybill_or_till}</span>
                 </div>
               )}
             </div>
 
             {/* Owned Units List */}
             <div>
-              <div style={{ fontWeight: 800, fontSize: 13.5, color: "var(--color-slate-900)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ fontWeight: 800, fontSize: 13.5, color: "var(--text-primary)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
                 <KeyRound size={16} color="var(--color-info)" /> Units Owned ({selectedOwner.units_list?.length ?? selectedOwner.units_count ?? 0})
               </div>
               {selectedOwner.units_list && selectedOwner.units_list.length > 0 ? (
@@ -572,8 +572,8 @@ export function OwnersView({
                       }}
                     >
                       <div>
-                        <div style={{ fontWeight: 800, color: "var(--color-slate-900)" }}>Unit {u.code}</div>
-                        <div style={{ fontSize: 12, color: "var(--color-slate-600)", fontWeight: 600, marginTop: 2 }}>
+                        <div style={{ fontWeight: 800, color: "var(--text-primary)" }}>Unit {u.code}</div>
+                        <div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 600, marginTop: 2 }}>
                           {u.property_name} • {u.sectional_title_number || "No Deed Number"}
                         </div>
                       </div>
@@ -584,7 +584,7 @@ export function OwnersView({
                   ))}
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: "var(--color-slate-500)", fontStyle: "italic" }}>
+                <div style={{ fontSize: 12, color: "var(--text-faint)", fontStyle: "italic" }}>
                   No individual sectional units mapped yet.
                 </div>
               )}
@@ -592,11 +592,11 @@ export function OwnersView({
 
             {/* Commission Invoices */}
             <div style={{ marginTop: 12 }}>
-                <div style={{ fontWeight: 800, fontSize: 13.5, color: "var(--color-slate-900)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ fontWeight: 800, fontSize: 13.5, color: "var(--text-primary)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
                   <FileText size={16} color="var(--color-info)" /> Commission & Fee Invoices ({ownerInvoices.length})
                 </div>
                 {ownerInvoices.length === 0 ? (
-                  <div style={{ padding: "14px", background: "var(--color-slate-50)", borderRadius: 8, border: "1px dashed var(--color-slate-300)", fontSize: 12.5, color: "var(--color-slate-500)", textAlign: "center" }}>
+                  <div style={{ padding: "14px", background: "var(--color-slate-50)", borderRadius: 8, border: "1px dashed var(--color-slate-300)", fontSize: 12.5, color: "var(--text-faint)", textAlign: "center" }}>
                     No commission or letting invoices generated yet for this owner.
                   </div>
                 ) : (
@@ -617,7 +617,7 @@ export function OwnersView({
                       >
                         <div>
                           <div style={{ fontWeight: 800, color: "var(--color-info-strong)", fontFamily: "monospace" }}>{inv.number}</div>
-                          <div style={{ fontSize: 11.5, color: "var(--color-slate-600)" }}>
+                          <div style={{ fontSize: 11.5, color: "var(--text-soft)" }}>
                             Period: <strong>{inv.billing_period}</strong> · Fee: <strong>{money.format(Number(inv.total_amount || 0))}</strong>
                           </div>
                         </div>

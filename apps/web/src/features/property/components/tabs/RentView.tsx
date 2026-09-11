@@ -229,7 +229,7 @@ export function RentView({
       case "management_fee":
         return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(245, 158, 11, 0.12)", color: "var(--color-warning)", fontWeight: 700, fontSize: 11 }}>Mgmt Fee</span>;
       default:
-        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(100, 116, 139, 0.12)", color: "var(--color-slate-600)", fontWeight: 700, fontSize: 11 }}>{rawType || "Invoice"}</span>;
+        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(100, 116, 139, 0.12)", color: "var(--text-soft)", fontWeight: 700, fontSize: 11 }}>{rawType || "Invoice"}</span>;
     }
   };
 

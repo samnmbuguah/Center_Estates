@@ -616,7 +616,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                 {!collapsed && (
                   <div
                     style={{
-                      color: "var(--color-slate-400)",
+                      color: "var(--text-ghost)",
                       display: "flex",
                       alignItems: "center",
                       paddingLeft: 4,
@@ -725,7 +725,7 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                   {!collapsed && (
                     <div
                       style={{
-                        color: "var(--color-slate-400)",
+                        color: "var(--text-ghost)",
                         display: "flex",
                         alignItems: "center",
                         paddingLeft: 4,

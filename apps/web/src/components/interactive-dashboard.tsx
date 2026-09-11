@@ -114,7 +114,7 @@ export function InteractiveDashboard({
             )}
           </Box>
           
-          <Typography variant="caption" sx={{ color: "var(--color-slate-500)", fontWeight: 600, mb: 0.5 }}>
+          <Typography variant="caption" sx={{ color: "var(--text-faint)", fontWeight: 600, mb: 0.5 }}>
             {kpi.title}
           </Typography>
           
@@ -123,7 +123,7 @@ export function InteractiveDashboard({
           </Typography>
           
           {kpi.previousValue && (
-            <Typography variant="caption" sx={{ color: "var(--color-slate-400)" }}>
+            <Typography variant="caption" sx={{ color: "var(--text-ghost)" }}>
               vs {kpi.previousValue.toLocaleString()} {kpi.suffix || ""} previous period
             </Typography>
           )}

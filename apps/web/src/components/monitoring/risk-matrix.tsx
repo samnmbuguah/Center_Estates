@@ -59,14 +59,14 @@ export function RiskMatrix({ risks = DEFAULT_RISKS }: RiskMatrixProps) {
     <div style={{ background: "var(--surface)", borderRadius: 12, border: "1px solid var(--color-slate-200)", padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--color-slate-900)" }}>⚠️ 5x5 Visual Risk Matrix & Heatmap</h3>
-          <small style={{ color: "var(--color-slate-500)" }}>Click any cell to filter the active risk register below</small>
+          <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--text-primary)" }}>⚠️ 5x5 Visual Risk Matrix & Heatmap</h3>
+          <small style={{ color: "var(--text-faint)" }}>Click any cell to filter the active risk register below</small>
         </div>
 
         {selectedCell && (
           <button
             onClick={() => setSelectedCell(null)}
-            style={{ background: "var(--color-slate-100)", color: "var(--color-slate-600)", border: "1px solid var(--color-slate-300)", padding: "4px 10px", borderRadius: 6, fontSize: "0.8rem", cursor: "pointer" }}
+            style={{ background: "var(--color-slate-100)", color: "var(--text-soft)", border: "1px solid var(--color-slate-300)", padding: "4px 10px", borderRadius: 6, fontSize: "0.8rem", cursor: "pointer" }}
           >
             Clear Matrix Filter ({selectedCell.l}L × {selectedCell.i}I)
           </button>
@@ -76,7 +76,7 @@ export function RiskMatrix({ risks = DEFAULT_RISKS }: RiskMatrixProps) {
       <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", gap: 20 }}>
         {/* 5x5 Matrix Visual Heatmap */}
         <div>
-          <div style={{ textAlign: "center", fontSize: "0.75rem", fontWeight: "bold", color: "var(--color-slate-500)", marginBottom: 4 }}>
+          <div style={{ textAlign: "center", fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-faint)", marginBottom: 4 }}>
             IMPACT $\rightarrow$ (1: Minimal to 5: Critical)
           </div>
 
@@ -127,14 +127,14 @@ export function RiskMatrix({ risks = DEFAULT_RISKS }: RiskMatrixProps) {
               })
             )}
           </div>
-          <div style={{ textAlign: "center", fontSize: "0.75rem", fontWeight: "bold", color: "var(--color-slate-500)", marginTop: 4 }}>
+          <div style={{ textAlign: "center", fontSize: "0.75rem", fontWeight: "bold", color: "var(--text-faint)", marginTop: 4 }}>
             $\uparrow$ LIKELIHOOD (1: Low to 5: High)
           </div>
         </div>
 
         {/* Filtered Risk Register List */}
         <div>
-          <h4 style={{ margin: "0 0 10px 0", fontSize: "0.95rem", color: "var(--color-slate-900)" }}>
+          <h4 style={{ margin: "0 0 10px 0", fontSize: "0.95rem", color: "var(--text-primary)" }}>
             Risk Register {selectedCell ? `(Filtered Matrix Cell ${selectedCell.l}L × ${selectedCell.i}I)` : `(${risks.length} Total Risks)`}
           </h4>
 
@@ -157,7 +157,7 @@ export function RiskMatrix({ risks = DEFAULT_RISKS }: RiskMatrixProps) {
                       <td style={{ padding: 8, fontWeight: "bold", fontFamily: "monospace" }}>{r.reference}</td>
                       <td style={{ padding: 8 }}>
                         <div style={{ fontWeight: 600 }}>{r.description}</div>
-                        <small style={{ color: "var(--color-slate-500)" }}>Category: {r.category} | Owner: {r.owner}</small>
+                        <small style={{ color: "var(--text-faint)" }}>Category: {r.category} | Owner: {r.owner}</small>
                       </td>
                       <td style={{ padding: 8, textAlign: "center" }}>
                         <span style={{
@@ -168,7 +168,7 @@ export function RiskMatrix({ risks = DEFAULT_RISKS }: RiskMatrixProps) {
                           {r.likelihood}L × {r.impact}I ({score})
                         </span>
                       </td>
-                      <td style={{ padding: 8, color: "var(--color-slate-700)", fontSize: "0.8rem" }}>{r.mitigation}</td>
+                      <td style={{ padding: 8, color: "var(--text-muted)", fontSize: "0.8rem" }}>{r.mitigation}</td>
                       <td style={{ padding: 8 }}>
                         <span style={{
                           padding: "2px 8px", borderRadius: 12, fontSize: "0.75rem", fontWeight: "bold",

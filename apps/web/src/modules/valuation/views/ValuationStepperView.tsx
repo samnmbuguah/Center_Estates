@@ -46,13 +46,13 @@ export function ValuationStepperView() {
           <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
             Valuation Instruction Milestone Stepper
           </h2>
-          <span style={{ fontSize: 13, color: "var(--color-slate-900)", fontWeight: 750 }}>
+          <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 750 }}>
             Track real-time progress of professional valuation reports from initial site inspection to final signed dispatch.
           </span>
         </div>
 
         <div style={{ position: "relative", minWidth: 260 }}>
-          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--color-slate-500)", pointerEvents: "none" }} />
+          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)", pointerEvents: "none" }} />
           <input
             type="text"
             placeholder="Search instructions..."
@@ -79,11 +79,11 @@ export function ValuationStepperView() {
               <div>
                 <span style={{ fontSize: 12, fontWeight: 900, color: "var(--color-violet-strong)", fontFamily: "ui-monospace, monospace" }}>{item.code}</span>
                 <h3 style={{ fontSize: 16, fontWeight: 900, color: "#000000", margin: "2px 0 0" }}>{item.property}</h3>
-                <small style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>{item.valuationType} • Valuer: {item.valuerName}</small>
+                <small style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 750 }}>{item.valuationType} • Valuer: {item.valuerName}</small>
               </div>
 
               <div style={{ textAlign: "right" }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--color-slate-500)", textTransform: "uppercase" }}>Estimated Valuation</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text-faint)", textTransform: "uppercase" }}>Estimated Valuation</span>
                 <strong style={{ fontSize: 20, fontWeight: 900, color: "var(--color-success)", display: "block" }}>
                   KES {item.estimatedValue.toLocaleString()}
                 </strong>

@@ -466,7 +466,7 @@ export function Timeline() {
       { label: "On Track / Done", count: onTrack, color: "var(--color-emerald)" },
       { label: "At Risk", count: risk, color: "var(--color-amber)" },
       { label: "Delayed / Critical", count: delayed, color: "var(--color-danger)" },
-      { label: "Not Started", count: idle, color: "var(--color-slate-400)" },
+      { label: "Not Started", count: idle, color: "var(--text-ghost)" },
     ];
     let acc = 0;
     const stops: string[] = [];

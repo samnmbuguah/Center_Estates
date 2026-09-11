@@ -237,7 +237,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
       flexDirection: "column",
       alignItems: "center",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-      color: "var(--color-slate-900)"
+      color: "var(--text-primary)"
     }}>
       {/* Centered Luxury Container */}
       <div style={{ width: "100%", maxWidth: 680 }}>
@@ -263,10 +263,10 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             <span>CeEst Smart Concierge</span>
           </div>
 
-          <h1 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--color-slate-900)" }}>
+          <h1 style={{ margin: "0 0 6px", fontSize: 24, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>
             {state === "tracking" ? "Live Ticket Tracking" : "Report an Issue or Service Request"}
           </h1>
-          <p style={{ margin: 0, fontSize: 14, color: "var(--color-slate-500)" }}>
+          <p style={{ margin: 0, fontSize: 14, color: "var(--text-faint)" }}>
             {state === "tracking"
               ? "Real-time dispatch and resolution progress for your request"
               : "Scan-to-log helpdesk · Direct technician dispatch · No login required"}
@@ -302,18 +302,18 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 16, fontWeight: 800, color: "var(--color-slate-900)" }}>{context.property}</span>
+                <span style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)" }}>{context.property}</span>
                 <span style={{ fontSize: 10, fontWeight: 800, background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "2px 8px", borderRadius: 12 }}>
                   Verified Location
                 </span>
               </div>
-              <div style={{ fontSize: 13, color: "var(--color-slate-500)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 3 }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, color: "var(--color-slate-700)" }}>
+              <div style={{ fontSize: 13, color: "var(--text-faint)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 3 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 600, color: "var(--text-muted)" }}>
                   <MapPin size={13} color="var(--color-danger)" /> {context.label}
                 </span>
-                {context.building && <span style={{ color: "var(--color-slate-400)" }}>• {context.building}</span>}
-                {context.floor && <span style={{ color: "var(--color-slate-400)" }}>• Floor {context.floor}</span>}
-                {context.unit && <span style={{ color: "var(--color-slate-400)" }}>• Unit {context.unit}</span>}
+                {context.building && <span style={{ color: "var(--text-ghost)" }}>• {context.building}</span>}
+                {context.floor && <span style={{ color: "var(--text-ghost)" }}>• Floor {context.floor}</span>}
+                {context.unit && <span style={{ color: "var(--text-ghost)" }}>• Unit {context.unit}</span>}
               </div>
             </div>
           </div>
@@ -324,7 +324,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
           <div style={{ background: "var(--surface)", border: "1px solid var(--color-red-200)", borderRadius: 16, padding: 32, textAlign: "center", boxShadow: "0 8px 30px rgba(0,0,0,0.06)" }}>
             <AlertCircle size={42} color="var(--color-danger)" style={{ margin: "0 auto 12px" }} />
             <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 6px", color: "var(--color-danger-deep)" }}>Helpdesk Portal Unavailable</h2>
-            <p style={{ margin: 0, fontSize: 14, color: "var(--color-slate-500)" }}>{error}</p>
+            <p style={{ margin: 0, fontSize: 14, color: "var(--text-faint)" }}>{error}</p>
           </div>
         )}
 
@@ -341,7 +341,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
               animation: "spin 0.8s linear infinite",
               marginBottom: 14
             }} />
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--color-slate-600)" }}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--text-soft)" }}>
               Connecting to Smart Helpdesk…
             </p>
           </div>
@@ -369,11 +369,11 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             {/* Step 1: Category Grid */}
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <label style={{ fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", display: "flex", alignItems: "center", gap: 6 }}>
+                <label style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
                   <span>1. What needs attention?</span>
                   <span style={{ color: "var(--color-danger)" }}>*</span>
                 </label>
-                <span style={{ fontSize: 12, color: "var(--color-slate-500)" }}>Select category</span>
+                <span style={{ fontSize: 12, color: "var(--text-faint)" }}>Select category</span>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
@@ -432,7 +432,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
             {/* Step 2: Description */}
             <div>
-              <label style={{ display: "block", fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 6 }}>
+              <label style={{ display: "block", fontSize: 14, fontWeight: 800, color: "var(--text-primary)", marginBottom: 6 }}>
                 2. Describe the Issue / Maintenance Details <span style={{ color: "var(--color-danger)" }}>*</span>
               </label>
               <textarea
@@ -459,7 +459,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
             {/* Step 3: Priority & SLA */}
             <div>
-              <label style={{ display: "block", fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 8 }}>
+              <label style={{ display: "block", fontSize: 14, fontWeight: 800, color: "var(--text-primary)", marginBottom: 8 }}>
                 3. Urgency &amp; Target SLA Response
               </label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -482,7 +482,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                   <div style={{ fontSize: 13, fontWeight: 800, color: priority === "normal" ? "var(--color-sky-deep)" : "var(--color-slate-800)" }}>
                     🟢 Normal Priority
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--color-slate-500)" }}>
+                  <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
                     Standard ~24h resolution SLA
                   </div>
                 </button>
@@ -506,7 +506,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                   <div style={{ fontSize: 13, fontWeight: 800, color: priority === "urgent" ? "var(--color-danger-deep)" : "var(--color-slate-800)" }}>
                     🔴 Urgent / Emergency
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--color-slate-500)" }}>
+                  <div style={{ fontSize: 11, color: "var(--text-faint)" }}>
                     Priority express ~4h response SLA
                   </div>
                 </button>
@@ -515,7 +515,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
             {/* Step 4: Photo Attachment */}
             <div>
-              <label style={{ display: "block", fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 6 }}>
+              <label style={{ display: "block", fontSize: 14, fontWeight: 800, color: "var(--text-primary)", marginBottom: 6 }}>
                 4. Attach Photo or Video Evidence (Optional)
               </label>
 
@@ -547,7 +547,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                     flexDirection: "column",
                     alignItems: "center",
                     gap: 8,
-                    color: "var(--color-slate-600)",
+                    color: "var(--text-soft)",
                     transition: "all 0.15s ease"
                   }}
                 >
@@ -555,7 +555,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                   <div style={{ fontSize: 13, fontWeight: 700 }}>
                     {uploadingPhoto ? "Uploading image to secure cloud…" : "Take a Photo or Choose from Device"}
                   </div>
-                  <div style={{ fontSize: 11, color: "var(--color-slate-400)" }}>
+                  <div style={{ fontSize: 11, color: "var(--text-ghost)" }}>
                     Supports JPG, PNG, WEBP (Max 25 MB)
                   </div>
                 </button>
@@ -588,14 +588,14 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
             {/* Step 5: Contact Info */}
             <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", borderRadius: 14, padding: "16px 18px" }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
                 <User size={16} color="var(--color-sky)" />
                 <span>5. Where should we send updates?</span>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--color-slate-600)", marginBottom: 4 }}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--text-soft)", marginBottom: 4 }}>
                     Your Name (Optional)
                   </label>
                   <input
@@ -608,7 +608,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                 </div>
 
                 <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--color-slate-600)", marginBottom: 6 }}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--text-soft)", marginBottom: 6 }}>
                     Notification Channel
                   </label>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
@@ -756,7 +756,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
                 <AlertCircle size={16} /> The ticket is safely recorded, but its acknowledgement email could not be sent. Keep the reference above and ask the property team to verify outbound email settings.
               </div>
             ) : ticket.acknowledgement_email_status === "not_requested" ? (
-              <div style={{ padding: "11px 14px", borderRadius: 10, background: "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-600)", fontSize: 13, fontWeight: 700 }}>
+              <div style={{ padding: "11px 14px", borderRadius: 10, background: "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", color: "var(--text-soft)", fontSize: 13, fontWeight: 700 }}>
                 No email acknowledgement was requested for this ticket.
               </div>
             ) : null}
@@ -764,17 +764,17 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             {/* SLA & Team Assignment Info */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: "12px 16px" }}>
-                <div style={{ fontSize: 11, color: "var(--color-slate-500)", fontWeight: 700, textTransform: "uppercase" }}>Dispatched Team</div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", marginTop: 2 }}>{ticket.assigned_team}</div>
-                <div style={{ fontSize: 12, color: "var(--color-slate-600)" }}>{ticket.assigned_to || "Field Technician"}</div>
+                <div style={{ fontSize: 11, color: "var(--text-faint)", fontWeight: 700, textTransform: "uppercase" }}>Dispatched Team</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)", marginTop: 2 }}>{ticket.assigned_team}</div>
+                <div style={{ fontSize: 12, color: "var(--text-soft)" }}>{ticket.assigned_to || "Field Technician"}</div>
               </div>
 
               <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", borderRadius: 12, padding: "12px 16px" }}>
-                <div style={{ fontSize: 11, color: "var(--color-slate-500)", fontWeight: 700, textTransform: "uppercase" }}>Status &amp; Target SLA</div>
+                <div style={{ fontSize: 11, color: "var(--text-faint)", fontWeight: 700, textTransform: "uppercase" }}>Status &amp; Target SLA</div>
                 <div style={{ fontSize: 14, fontWeight: 800, color: ticket.status === "resolved" ? "var(--color-success)" : ticket.status === "closed" ? "var(--color-slate-600)" : "var(--color-sky)", marginTop: 2, textTransform: "uppercase" }}>
                   {ticket.status.replace("_", " ")} ({ticket.priority})
                 </div>
-                <div style={{ fontSize: 12, color: "var(--color-slate-500)" }}>
+                <div style={{ fontSize: 12, color: "var(--text-faint)" }}>
                   {ticket.sla_due_at ? `Due: ${new Date(ticket.sla_due_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Within 24 Hours"}
                 </div>
               </div>
@@ -782,7 +782,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
 
             {/* Progress Lifecycle Stepper */}
             <div style={{ padding: "10px 6px" }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--color-slate-600)", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text-soft)", marginBottom: 14 }}>
                 Resolution Lifecycle:
               </div>
 
@@ -863,18 +863,18 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
             {/* Activity History */}
             {ticket.messages && ticket.messages.length > 0 && (
               <div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
                   <MessageSquare size={16} color="var(--color-sky)" />
                   <span>Activity &amp; Dialogue Timeline</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 240, overflowY: "auto" }}>
                   {ticket.messages.map((m, i) => (
                     <div key={i} style={{ background: m.is_developer_response ? "#f0f9ff" : "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", borderRadius: 10, padding: "10px 14px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--color-slate-500)", marginBottom: 3 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text-faint)", marginBottom: 3 }}>
                         <strong style={{ color: m.is_developer_response ? "var(--color-sky-deep)" : "var(--color-slate-900)" }}>{m.sender}</strong>
                         <span>{new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                       </div>
-                      <div style={{ fontSize: 13, color: "var(--color-slate-800)", lineHeight: 1.4 }}>{m.message}</div>
+                      <div style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.4 }}>{m.message}</div>
                     </div>
                   ))}
                 </div>
@@ -902,7 +902,7 @@ export default function PublicFeedbackPage({ params }: { params: Promise<{ token
         )}
 
         {/* Footer */}
-        <footer style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: "var(--color-slate-400)" }}>
+        <footer style={{ textAlign: "center", marginTop: 24, fontSize: 12, color: "var(--text-ghost)" }}>
           Powered by CeEst ERP Smart Property Helpdesk
         </footer>
       </div>

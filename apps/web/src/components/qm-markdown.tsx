@@ -104,7 +104,7 @@ export function QmMarkdown({ text }: { text: string }) {
             margin: "10px 0 4px",
             fontSize: "1.05rem",
             fontWeight: 800,
-            color: "var(--color-slate-900)",
+            color: "var(--text-primary)",
             borderBottom: "1.5px solid rgba(13, 148, 136, 0.3)",
             paddingBottom: 4,
           }}
@@ -191,7 +191,7 @@ export function QmMarkdown({ text }: { text: string }) {
             background: "rgba(13, 148, 136, 0.06)",
             borderRadius: "0 6px 6px 0",
             fontSize: "0.85rem",
-            color: "var(--color-slate-700)",
+            color: "var(--text-muted)",
             fontStyle: "italic",
           }}
         >

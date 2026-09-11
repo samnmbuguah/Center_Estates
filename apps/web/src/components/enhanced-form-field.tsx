@@ -143,7 +143,7 @@ export function EnhancedFormField({
         {tooltip && (
           <Tooltip title={tooltip} arrow>
             <IconButton size="small" sx={{ p: 0.2 }}>
-              <Info size={14} style={{ color: "var(--color-slate-500)" }} />
+              <Info size={14} style={{ color: "var(--text-faint)" }} />
             </IconButton>
           </Tooltip>
         )}

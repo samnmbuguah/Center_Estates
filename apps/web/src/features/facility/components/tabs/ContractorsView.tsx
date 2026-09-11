@@ -166,7 +166,7 @@ function SpiderRadarChart({ pillars }: { pillars: { name: string; weight: number
         <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--color-info)", fontWeight: 700 }}>
           <span style={{ width: 10, height: 10, background: "rgba(37,99,235,0.4)", border: "1.5px solid var(--color-info)", borderRadius: 2 }} /> Provider Score
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--color-slate-500)" }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--text-faint)" }}>
           <span style={{ width: 10, height: 2, background: "var(--color-slate-400)" }} /> 85% Target Benchmark
         </span>
       </div>

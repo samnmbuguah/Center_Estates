@@ -243,7 +243,7 @@ export function EnhancedDataTable<T extends Record<string, unknown>>({
               input: {
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search size={18} style={{ color: "var(--color-slate-500)" }} />
+                    <Search size={18} style={{ color: "var(--text-faint)" }} />
                   </InputAdornment>
                 ),
               }
@@ -252,12 +252,12 @@ export function EnhancedDataTable<T extends Record<string, unknown>>({
           />
           <Tooltip title="Column filters">
             <IconButton onClick={(e) => setFilterMenuAnchor(e.currentTarget)}>
-              <Filter size={18} style={{ color: "var(--color-slate-500)" }} />
+              <Filter size={18} style={{ color: "var(--text-faint)" }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Column visibility">
             <IconButton onClick={(e) => setColumnMenuAnchor(e.currentTarget)}>
-              <Columns size={18} style={{ color: "var(--color-slate-500)" }} />
+              <Columns size={18} style={{ color: "var(--text-faint)" }} />
             </IconButton>
           </Tooltip>
         </Box>

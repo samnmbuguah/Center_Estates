@@ -32,13 +32,13 @@ export function TenderBiddingMatrixView() {
           <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
             Tender Vendor Bidding Comparison Matrix
           </h2>
-          <span style={{ fontSize: 13, color: "var(--color-slate-900)", fontWeight: 750 }}>
+          <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 750 }}>
             Side-by-side comparative analysis of incoming contractor bids highlighting price, timeline, and rating.
           </span>
         </div>
 
         <div style={{ position: "relative", minWidth: 260 }}>
-          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--color-slate-500)", pointerEvents: "none" }} />
+          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)", pointerEvents: "none" }} />
           <input
             type="text"
             placeholder="Search contractors..."

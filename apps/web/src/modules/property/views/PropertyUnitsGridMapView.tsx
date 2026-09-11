@@ -51,25 +51,25 @@ export function PropertyUnitsGridMapView({
         <div className="data-panel" style={{ padding: 18, background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 900, color: "#000000", textTransform: "uppercase" }}>Total Inventory</span>
           <strong style={{ fontSize: 24, fontWeight: 900, color: "#000000", display: "block", marginTop: 4 }}>{total} Units</strong>
-          <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Westlands Business Centre</span>
+          <span style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 750 }}>Westlands Business Centre</span>
         </div>
 
         <div className="data-panel" style={{ padding: 18, background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 900, color: "var(--color-success)", textTransform: "uppercase" }}>Occupied ({occupancyPct}%)</span>
           <strong style={{ fontSize: 24, fontWeight: 900, color: "var(--color-success)", display: "block", marginTop: 4 }}>{occupied} Units</strong>
-          <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Active leases</span>
+          <span style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 750 }}>Active leases</span>
         </div>
 
         <div className="data-panel" style={{ padding: 18, background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 900, color: "var(--color-warning)", textTransform: "uppercase" }}>Leases Expiring</span>
           <strong style={{ fontSize: 24, fontWeight: 900, color: "var(--color-warning)", display: "block", marginTop: 4 }}>{expiring} Units</strong>
-          <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Requires renewal &lt; 30 days</span>
+          <span style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 750 }}>Requires renewal &lt; 30 days</span>
         </div>
 
         <div className="data-panel" style={{ padding: 18, background: "var(--surface)", border: "1px solid var(--color-slate-300)", borderRadius: 10 }}>
           <span style={{ fontSize: 11, fontWeight: 900, color: "var(--color-danger)", textTransform: "uppercase" }}>Vacant & Available</span>
           <strong style={{ fontSize: 24, fontWeight: 900, color: "var(--color-danger)", display: "block", marginTop: 4 }}>{vacant} Units</strong>
-          <span style={{ fontSize: 12, color: "var(--color-slate-900)", fontWeight: 750 }}>Ready for onboarding</span>
+          <span style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 750 }}>Ready for onboarding</span>
         </div>
       </div>
 
@@ -165,11 +165,11 @@ export function PropertyUnitsGridMapView({
                         </span>
                       </div>
 
-                      <div style={{ fontSize: 12, fontWeight: 750, color: "var(--color-slate-900)" }}>
+                      <div style={{ fontSize: 12, fontWeight: 750, color: "var(--text-primary)" }}>
                         {u.tenantName ? (
                           <span style={{ fontWeight: 900, color: "#000000" }}>👤 {u.tenantName}</span>
                         ) : (
-                          <span style={{ color: "var(--color-slate-500)" }}>⚪ Unoccupied Unit</span>
+                          <span style={{ color: "var(--text-faint)" }}>⚪ Unoccupied Unit</span>
                         )}
                       </div>
 

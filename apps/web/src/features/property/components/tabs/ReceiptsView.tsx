@@ -35,7 +35,7 @@ function ChargeTypeBadge({ chargeType }: { chargeType?: string }) {
     service_charge: { bg: "rgba(139,92,246,0.12)",  color: "var(--color-violet)" },
     utility:        { bg: "rgba(20,184,166,0.12)",  color: "var(--color-teal)" },
     management_fee: { bg: "rgba(245,158,11,0.12)",  color: "var(--color-warning)" },
-    other:          { bg: "rgba(100,116,139,0.12)", color: "var(--color-slate-600)" },
+    other:          { bg: "rgba(100,116,139,0.12)", color: "var(--text-soft)" },
   };
   const s = styles[norm] ?? styles.other;
   return (

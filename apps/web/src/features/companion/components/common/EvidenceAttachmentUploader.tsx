@@ -118,7 +118,7 @@ export function EvidenceAttachmentUploader({
               fontSize: 12,
             }}
           >
-            {isImage ? <ImageIcon size={14} style={{ color: "var(--color-blue)" }} /> : isVideo ? <span style={{ fontSize: 13 }}>📹</span> : <FileText size={14} style={{ color: "var(--color-slate-500)" }} />}
+            {isImage ? <ImageIcon size={14} style={{ color: "var(--color-blue)" }} /> : isVideo ? <span style={{ fontSize: 13 }}>📹</span> : <FileText size={14} style={{ color: "var(--text-faint)" }} />}
             <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>
               {attachment.name}
             </span>

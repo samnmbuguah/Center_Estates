@@ -68,19 +68,19 @@ export default function SingleWorkOrderWorkspacePage({ params }: { params: Promi
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "var(--color-slate-500)" }}>WO Reference</small>
+                <small style={{ color: "var(--text-faint)" }}>WO Reference</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--color-sky)", fontFamily: "monospace" }}>{String(wo?.wo_number)}</h3>
               </div>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "var(--color-slate-500)" }}>Assigned Technician</small>
+                <small style={{ color: "var(--text-faint)" }}>Assigned Technician</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--text)" }}>{String(wo?.technician_name || "Peter Mwangi")}</h3>
               </div>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "var(--color-slate-500)" }}>Total Labor & Parts Cost</small>
+                <small style={{ color: "var(--text-faint)" }}>Total Labor & Parts Cost</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--color-success)" }}>{cash.format(Number(wo?.total_cost || 84000))}</h3>
               </div>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "var(--color-slate-500)" }}>Priority Level</small>
+                <small style={{ color: "var(--text-faint)" }}>Priority Level</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--color-danger)" }}>HIGH PRIORITY</h3>
               </div>
             </div>

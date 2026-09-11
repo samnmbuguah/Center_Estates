@@ -276,8 +276,8 @@ export default function OwnerPortalPage() {
       <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--color-slate-50)" }}>
         <div style={{ textAlign: "center" }}>
           <div className="spinner" style={{ width: 40, height: 40, margin: "0 auto 14px", borderTopColor: "var(--color-info)" }} />
-          <div style={{ fontSize: 14, color: "var(--color-slate-900)", fontWeight: 750 }}>Opening Unit Owner & Landlord Portal…</div>
-          <div style={{ fontSize: 12, color: "var(--color-slate-600)", marginTop: 4 }}>Loading property mandates and live financial ledgers</div>
+          <div style={{ fontSize: 14, color: "var(--text-primary)", fontWeight: 750 }}>Opening Unit Owner & Landlord Portal…</div>
+          <div style={{ fontSize: 12, color: "var(--text-soft)", marginTop: 4 }}>Loading property mandates and live financial ledgers</div>
         </div>
       </div>
     );
@@ -288,7 +288,7 @@ export default function OwnerPortalPage() {
   const propertyName = units[0]?.property_name || "Managed Estates";
 
   return (
-    <div className="tenant-portal-page" style={{ minHeight: "100vh", background: "var(--color-slate-50)", color: "var(--color-slate-900)" }}>
+    <div className="tenant-portal-page" style={{ minHeight: "100vh", background: "var(--color-slate-50)", color: "var(--text-primary)" }}>
       {/* Mobile top bar toggle */}
       <div className="tenant-portal-mobile-bar" style={{ display: "none" }}>
         <button
@@ -333,10 +333,10 @@ export default function OwnerPortalPage() {
                 👑
               </div>
               <div className="tenant-sidebar-user-meta">
-                <span className="tenant-sidebar-name" style={{ color: "var(--color-slate-900)", fontWeight: 800, fontSize: 14 }}>
+                <span className="tenant-sidebar-name" style={{ color: "var(--text-primary)", fontWeight: 800, fontSize: 14 }}>
                   {activeOwner?.name}
                 </span>
-                <span className="tenant-sidebar-code" style={{ color: "var(--color-slate-600)", fontWeight: 700, fontSize: 11 }}>
+                <span className="tenant-sidebar-code" style={{ color: "var(--text-soft)", fontWeight: 700, fontSize: 11 }}>
                   {activeOwner?.code} • Sectional Owner
                 </span>
               </div>
@@ -347,7 +347,7 @@ export default function OwnerPortalPage() {
               <span className="tenant-sidebar-unit" style={{ color: "var(--color-info-strong)", fontWeight: 800 }}>
                 {unitsCount} Unit{unitsCount === 1 ? "" : "s"}
               </span>
-              <span className="tenant-sidebar-property" style={{ color: "var(--color-slate-600)", fontWeight: 600 }}>
+              <span className="tenant-sidebar-property" style={{ color: "var(--text-soft)", fontWeight: 600 }}>
                 {propertyName}
               </span>
             </div>
@@ -355,7 +355,7 @@ export default function OwnerPortalPage() {
             {/* Quick Switcher dropdown for administrators or multi-owner accounts */}
             {owners.length > 1 && (
               <div style={{ marginTop: 6, paddingTop: 8, borderTop: "1px dashed var(--color-slate-200)" }}>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 750, color: "var(--color-slate-600)", textTransform: "uppercase", marginBottom: 4 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 750, color: "var(--text-soft)", textTransform: "uppercase", marginBottom: 4 }}>
                   Switch Landlord
                 </label>
                 <select
@@ -377,7 +377,7 @@ export default function OwnerPortalPage() {
                     background: "var(--color-slate-50)",
                     fontSize: 12,
                     fontWeight: 700,
-                    color: "var(--color-slate-900)",
+                    color: "var(--text-primary)",
                   }}
                 >
                   {owners.map((o) => (
@@ -414,7 +414,7 @@ export default function OwnerPortalPage() {
                   style={
                     isActive
                       ? { background: "var(--color-blue-soft)", color: "var(--color-info-strong)", fontWeight: 800, borderLeft: "3px solid var(--color-info)" }
-                      : { color: "var(--color-slate-700)", fontWeight: 600 }
+                      : { color: "var(--text-muted)", fontWeight: 600 }
                   }
                 >
                   <span className="tenant-nav-icon">{item.icon}</span>
@@ -440,8 +440,8 @@ export default function OwnerPortalPage() {
           {/* Footer Care & Support Card */}
           <div className="tenant-sidebar-footer" style={{ borderTopColor: "var(--color-slate-200)" }}>
             <div className="tenant-support-card" style={{ background: "var(--surface)", border: "1px solid var(--color-slate-200)" }}>
-              <strong style={{ color: "var(--color-slate-900)", fontSize: 13, fontWeight: 800 }}>Estate Management Office</strong>
-              <p style={{ color: "var(--color-slate-600)", fontSize: 12, lineHeight: 1.4, margin: "4px 0 8px" }}>
+              <strong style={{ color: "var(--text-primary)", fontSize: 13, fontWeight: 800 }}>Estate Management Office</strong>
+              <p style={{ color: "var(--text-soft)", fontSize: 12, lineHeight: 1.4, margin: "4px 0 8px" }}>
                 Questions on rent reconciliations, tenant tenancies, or bank remittances?
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11, fontWeight: 700, color: "var(--color-info)" }}>
@@ -478,13 +478,13 @@ export default function OwnerPortalPage() {
               <p className="eyebrow" style={{ color: "var(--color-info)", fontWeight: 800, letterSpacing: "0.06em", fontSize: 11 }}>
                 👑 Unit Owner & Landlord Self-Service
               </p>
-              <h1 style={{ color: "var(--color-slate-900)", fontSize: 28, fontWeight: 850, letterSpacing: "-0.02em", margin: "4px 0 8px" }}>
+              <h1 style={{ color: "var(--text-primary)", fontSize: 28, fontWeight: 850, letterSpacing: "-0.02em", margin: "4px 0 8px" }}>
                 Good day, {firstName}.
               </h1>
-              <p style={{ color: "var(--color-slate-700)", fontSize: 14, lineHeight: 1.5, margin: 0, fontWeight: 500 }}>
+              <p style={{ color: "var(--text-muted)", fontSize: 14, lineHeight: 1.5, margin: 0, fontWeight: 500 }}>
                 Track live unit occupancy, collected rent rolls, management commission deductions, and official bank remittances in one secure portal.
               </p>
-              <div className="tenant-premises" style={{ color: "var(--color-slate-600)", marginTop: 12, fontWeight: 700 }}>
+              <div className="tenant-premises" style={{ color: "var(--text-soft)", marginTop: 12, fontWeight: 700 }}>
                 <Building2 size={16} color="var(--color-info)" /> {propertyName} · {unitsCount} Unit{unitsCount === 1 ? "" : "s"}
                 <Chip size="small" label="100% Active Mandate" color="success" sx={{ fontWeight: 800, ml: 1 }} />
               </div>
@@ -511,7 +511,7 @@ export default function OwnerPortalPage() {
                 startIcon={<Printer size={16} />}
                 onClick={() => window.print()}
                 sx={{
-                  color: "var(--color-slate-900)",
+                  color: "var(--text-primary)",
                   borderColor: "var(--color-slate-300)",
                   "&:hover": { borderColor: "var(--color-slate-400)", bgcolor: "var(--color-slate-50)" },
                   fontWeight: 750,
@@ -550,10 +550,10 @@ export default function OwnerPortalPage() {
                 boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
               }}
             >
-              <div className="kpi-label" style={{ color: "var(--color-slate-600)", fontWeight: 750, fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              <div className="kpi-label" style={{ color: "var(--text-soft)", fontWeight: 750, fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                 Total Managed Units
               </div>
-              <div className="kpi-value" style={{ color: "var(--color-slate-900)", fontSize: 28, fontWeight: 900, margin: "6px 0" }}>
+              <div className="kpi-value" style={{ color: "var(--text-primary)", fontSize: 28, fontWeight: 900, margin: "6px 0" }}>
                 {unitsCount}
               </div>
               <div className="kpi-note" style={{ color: "var(--color-emerald-deep)", fontWeight: 750, fontSize: 12, display: "flex", alignItems: "center", gap: 5 }}>
@@ -571,13 +571,13 @@ export default function OwnerPortalPage() {
                 boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
               }}
             >
-              <div className="kpi-label" style={{ color: "var(--color-slate-600)", fontWeight: 750, fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              <div className="kpi-label" style={{ color: "var(--text-soft)", fontWeight: 750, fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                 Active Rent Roll
               </div>
-              <div className="kpi-value" style={{ color: "var(--color-slate-900)", fontSize: 28, fontWeight: 900, margin: "6px 0" }}>
+              <div className="kpi-value" style={{ color: "var(--text-primary)", fontSize: 28, fontWeight: 900, margin: "6px 0" }}>
                 {cash.format(financialSummary?.active_rent_roll ?? 0)}
               </div>
-              <div className="kpi-note" style={{ color: "var(--color-slate-700)", fontWeight: 650, fontSize: 12 }}>
+              <div className="kpi-note" style={{ color: "var(--text-muted)", fontWeight: 650, fontSize: 12 }}>
                 Contracted monthly lease commitments
               </div>
             </div>
@@ -592,7 +592,7 @@ export default function OwnerPortalPage() {
                 boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
               }}
             >
-              <div className="kpi-label" style={{ color: "var(--color-slate-600)", fontWeight: 750, fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              <div className="kpi-label" style={{ color: "var(--text-soft)", fontWeight: 750, fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                 Gross Rent Collected
               </div>
               <div className="kpi-value" style={{ color: "var(--color-emerald-deep)", fontSize: 28, fontWeight: 900, margin: "6px 0" }}>
@@ -613,7 +613,7 @@ export default function OwnerPortalPage() {
                 boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
               }}
             >
-              <div className="kpi-label" style={{ color: "var(--color-slate-600)", fontWeight: 750, fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              <div className="kpi-label" style={{ color: "var(--text-soft)", fontWeight: 750, fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                 Outstanding Rent Arrears
               </div>
               <div
@@ -639,21 +639,21 @@ export default function OwnerPortalPage() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
                 <div>
                   <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 850 }}>Estate Management</h3>
-                  <p style={{ margin: 0, fontSize: 13, color: "var(--color-slate-600)" }}>Service-charge invoices, payments and the owner&apos;s estate account balance.</p>
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--text-soft)" }}>Service-charge invoices, payments and the owner&apos;s estate account balance.</p>
                 </div>
                 <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 8, background: "var(--color-slate-100)" }}>
                   {(["invoices", "statement"] as const).map(view => <button key={view} type="button" onClick={() => setEstateBillingView(view)} style={{ border: 0, borderRadius: 6, padding: "6px 11px", cursor: "pointer", fontWeight: 800, background: estateBillingView === view ? "var(--color-info)" : "transparent", color: estateBillingView === view ? "#fff" : "var(--color-slate-600)" }}>{view === "invoices" ? "Invoices" : "Statement of Account"}</button>)}
                 </div>
               </div>
               {propertyChargeInvoices.length === 0 ? (
-                <div style={{ padding: 34, textAlign: "center", color: "var(--color-slate-600)", fontWeight: 650 }}>No estate or service-charge invoices have been issued to {activeOwner?.name}.</div>
+                <div style={{ padding: 34, textAlign: "center", color: "var(--text-soft)", fontWeight: 650 }}>No estate or service-charge invoices have been issued to {activeOwner?.name}.</div>
               ) : (
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead><tr style={{ borderBottom: "1px solid var(--color-slate-200)", textAlign: "left", color: "var(--color-slate-600)" }}><th style={{ padding: 10 }}>Date</th><th style={{ padding: 10 }}>Reference</th><th style={{ padding: 10 }}>Charge</th><th style={{ padding: 10, textAlign: "right" }}>Debit</th><th style={{ padding: 10, textAlign: "right" }}>Balance</th><th style={{ padding: 10 }}>Status</th><th style={{ padding: 10 }}>Document</th></tr></thead>
+                    <thead><tr style={{ borderBottom: "1px solid var(--color-slate-200)", textAlign: "left", color: "var(--text-soft)" }}><th style={{ padding: 10 }}>Date</th><th style={{ padding: 10 }}>Reference</th><th style={{ padding: 10 }}>Charge</th><th style={{ padding: 10, textAlign: "right" }}>Debit</th><th style={{ padding: 10, textAlign: "right" }}>Balance</th><th style={{ padding: 10 }}>Status</th><th style={{ padding: 10 }}>Document</th></tr></thead>
                     <tbody>{propertyChargeInvoices.map((inv: any) => <tr key={inv.id} style={{ borderBottom: "1px solid var(--color-slate-100)" }}><td style={{ padding: 12 }}>{inv.issued_on || inv.due_on || "—"}</td><td style={{ padding: 12, fontWeight: 800 }}>{inv.number}</td><td style={{ padding: 12 }}>{String(inv.invoice_type || inv.charge_type || "Service charge").replaceAll("_", " ")}</td><td style={{ padding: 12, textAlign: "right", fontWeight: 800 }}>{cash.format(Number(inv.amount || 0))}</td><td style={{ padding: 12, textAlign: "right", fontWeight: 850, color: Number(inv.balance || 0) > 0 ? "var(--color-danger-strong)" : "var(--color-emerald-deep)" }}>{cash.format(Number(inv.balance || 0))}</td><td style={{ padding: 12 }}>{inv.status}</td><td style={{ padding: 12 }}><Button size="small" variant="outlined" onClick={() => void handleDownloadPropertyInvoicePdf(inv)}>PDF</Button></td></tr>)}</tbody>
                   </table>
-                  {estateBillingView === "statement" && <p style={{ margin: "14px 0 0", color: "var(--color-slate-600)", fontSize: 12 }}>Statement view lists every estate charge chronologically with its outstanding balance.</p>}
+                  {estateBillingView === "statement" && <p style={{ margin: "14px 0 0", color: "var(--text-soft)", fontSize: 12 }}>Statement view lists every estate charge chronologically with its outstanding balance.</p>}
                 </div>
               )}
             </div>
@@ -675,10 +675,10 @@ export default function OwnerPortalPage() {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--color-slate-900)" }}>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "var(--text-primary)" }}>
                       Allocated Property Units
                     </h3>
-                    <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--color-slate-700)", fontWeight: 500 }}>
+                    <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>
                       Physical units under your ownership and management agreement
                     </p>
                   </div>
@@ -692,14 +692,14 @@ export default function OwnerPortalPage() {
                 </div>
 
                 {units.length === 0 ? (
-                  <div style={{ padding: "36px", textAlign: "center", color: "var(--color-slate-600)", fontSize: 13, fontWeight: 600 }}>
+                  <div style={{ padding: "36px", textAlign: "center", color: "var(--text-soft)", fontSize: 13, fontWeight: 600 }}>
                     No units mapped to this profile yet. Contact the estate manager to register unit ownership.
                   </div>
                 ) : (
                   <div style={{ overflowX: "auto" }}>
                     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                       <thead>
-                        <tr style={{ borderBottom: "1px solid var(--color-slate-200)", textAlign: "left", color: "var(--color-slate-600)" }}>
+                        <tr style={{ borderBottom: "1px solid var(--color-slate-200)", textAlign: "left", color: "var(--text-soft)" }}>
                           <th style={{ padding: "10px 12px", fontWeight: 750 }}>Unit Code</th>
                           <th style={{ padding: "10px 12px", fontWeight: 750 }}>Property</th>
                           <th style={{ padding: "10px 12px", fontWeight: 750 }}>Status</th>
@@ -709,8 +709,8 @@ export default function OwnerPortalPage() {
                       <tbody>
                         {units.map((u) => (
                           <tr key={u.id} style={{ borderBottom: "1px solid var(--color-slate-100)" }}>
-                            <td style={{ padding: "12px", fontWeight: 800, color: "var(--color-slate-900)" }}>Unit {u.code || u.name}</td>
-                            <td style={{ padding: "12px", color: "var(--color-slate-700)", fontWeight: 600 }}>{u.property_name || propertyName}</td>
+                            <td style={{ padding: "12px", fontWeight: 800, color: "var(--text-primary)" }}>Unit {u.code || u.name}</td>
+                            <td style={{ padding: "12px", color: "var(--text-muted)", fontWeight: 600 }}>{u.property_name || propertyName}</td>
                             <td style={{ padding: "12px" }}>
                               <span
                                 style={{
@@ -725,7 +725,7 @@ export default function OwnerPortalPage() {
                                 ● Occupied
                               </span>
                             </td>
-                            <td style={{ padding: "12px", textAlign: "right", fontWeight: 800, color: "var(--color-slate-900)", fontFamily: "monospace" }}>
+                            <td style={{ padding: "12px", textAlign: "right", fontWeight: 800, color: "var(--text-primary)", fontFamily: "monospace" }}>
                               {cash.format(Number(u.target_rent || u.monthly_rent || 0))}
                             </td>
                           </tr>
@@ -747,27 +747,27 @@ export default function OwnerPortalPage() {
                     boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
                   }}
                 >
-                  <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "var(--color-slate-900)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <h3 style={{ margin: "0 0 14px", fontSize: 15, fontWeight: 800, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
                     <Landmark size={17} color="var(--color-info)" /> Payout & Settlement Channel
                   </h3>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                      <span style={{ color: "var(--color-slate-600)", fontWeight: 600 }}>Settlement Bank</span>
-                      <strong style={{ color: "var(--color-slate-900)", fontWeight: 800 }}>{activeOwner?.settlement_bank_name || "NCBA Bank"}</strong>
+                      <span style={{ color: "var(--text-soft)", fontWeight: 600 }}>Settlement Bank</span>
+                      <strong style={{ color: "var(--text-primary)", fontWeight: 800 }}>{activeOwner?.settlement_bank_name || "NCBA Bank"}</strong>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                      <span style={{ color: "var(--color-slate-600)", fontWeight: 600 }}>Account Number</span>
-                      <span style={{ fontFamily: "monospace", fontWeight: 800, color: "var(--color-slate-900)" }}>
+                      <span style={{ color: "var(--text-soft)", fontWeight: 600 }}>Account Number</span>
+                      <span style={{ fontFamily: "monospace", fontWeight: 800, color: "var(--text-primary)" }}>
                         {activeOwner?.settlement_bank_account || "Not Configured"}
                       </span>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                      <span style={{ color: "var(--color-slate-600)", fontWeight: 600 }}>Branch</span>
-                      <strong style={{ color: "var(--color-slate-900)" }}>{activeOwner?.settlement_bank_branch || "Nairobi Main"}</strong>
+                      <span style={{ color: "var(--text-soft)", fontWeight: 600 }}>Branch</span>
+                      <strong style={{ color: "var(--text-primary)" }}>{activeOwner?.settlement_bank_branch || "Nairobi Main"}</strong>
                     </div>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
-                      <span style={{ color: "var(--color-slate-600)", fontWeight: 600 }}>KRA PIN</span>
-                      <span style={{ fontFamily: "monospace", fontWeight: 800, color: "var(--color-slate-900)" }}>
+                      <span style={{ color: "var(--text-soft)", fontWeight: 600 }}>KRA PIN</span>
+                      <span style={{ fontFamily: "monospace", fontWeight: 800, color: "var(--text-primary)" }}>
                         {activeOwner?.pin_number || "—"}
                       </span>
                     </div>
@@ -820,17 +820,17 @@ export default function OwnerPortalPage() {
                 boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
               }}
             >
-              <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 850, color: "var(--color-slate-900)" }}>
+              <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 850, color: "var(--text-primary)" }}>
                 Sectional Units Register
               </h3>
-              <p style={{ margin: "0 0 18px", fontSize: 13, color: "var(--color-slate-700)", fontWeight: 500 }}>
+              <p style={{ margin: "0 0 18px", fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>
                 Comprehensive list of registered units, current occupants, and contracted rental values
               </p>
 
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
-                    <tr style={{ borderBottom: "1px solid var(--color-slate-200)", textAlign: "left", color: "var(--color-slate-600)" }}>
+                    <tr style={{ borderBottom: "1px solid var(--color-slate-200)", textAlign: "left", color: "var(--text-soft)" }}>
                       <th style={{ padding: "12px", fontWeight: 750 }}>Unit Code</th>
                       <th style={{ padding: "12px", fontWeight: 750 }}>Property Location</th>
                       <th style={{ padding: "12px", fontWeight: 750 }}>Sectional Title Deed</th>
@@ -841,13 +841,13 @@ export default function OwnerPortalPage() {
                   <tbody>
                     {units.map((u) => (
                       <tr key={u.id} style={{ borderBottom: "1px solid var(--color-slate-100)" }}>
-                        <td style={{ padding: "14px 12px", fontWeight: 800, color: "var(--color-slate-900)", fontSize: 14 }}>
+                        <td style={{ padding: "14px 12px", fontWeight: 800, color: "var(--text-primary)", fontSize: 14 }}>
                           Unit {u.code || u.name}
                         </td>
-                        <td style={{ padding: "14px 12px", color: "var(--color-slate-700)", fontWeight: 600 }}>
+                        <td style={{ padding: "14px 12px", color: "var(--text-muted)", fontWeight: 600 }}>
                           {u.property_name || propertyName}
                         </td>
-                        <td style={{ padding: "14px 12px", fontFamily: "monospace", color: "var(--color-slate-600)", fontWeight: 650 }}>
+                        <td style={{ padding: "14px 12px", fontFamily: "monospace", color: "var(--text-soft)", fontWeight: 650 }}>
                           {u.sectional_title_number || "Deed On File"}
                         </td>
                         <td style={{ padding: "14px 12px" }}>
@@ -864,7 +864,7 @@ export default function OwnerPortalPage() {
                             ● Occupied
                           </span>
                         </td>
-                        <td style={{ padding: "14px 12px", textAlign: "right", fontWeight: 850, color: "var(--color-slate-900)", fontFamily: "monospace", fontSize: 14 }}>
+                        <td style={{ padding: "14px 12px", textAlign: "right", fontWeight: 850, color: "var(--text-primary)", fontFamily: "monospace", fontSize: 14 }}>
                           {cash.format(Number(u.target_rent || u.monthly_rent || 0))}
                         </td>
                       </tr>
@@ -889,10 +889,10 @@ export default function OwnerPortalPage() {
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 14, marginBottom: 20 }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 850, color: "var(--color-slate-900)" }}>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 850, color: "var(--text-primary)" }}>
                     Monthly Remittance & Commission Statement
                   </h3>
-                  <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--color-slate-700)", fontWeight: 500 }}>
+                  <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>
                     Consolidated statement of rent collections, service charge, management and letting fees, payments, and net payouts
                   </p>
                 </div>
@@ -901,7 +901,7 @@ export default function OwnerPortalPage() {
                   <select
                     value={remittancePeriod.month}
                     onChange={(e) => setRemittancePeriod((p) => ({ ...p, month: Number(e.target.value) }))}
-                    style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 750, color: "var(--color-slate-900)" }}
+                    style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 750, color: "var(--text-primary)" }}
                   >
                     {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                       <option key={m} value={m}>
@@ -913,7 +913,7 @@ export default function OwnerPortalPage() {
                   <select
                     value={remittancePeriod.year}
                     onChange={(e) => setRemittancePeriod((p) => ({ ...p, year: Number(e.target.value) }))}
-                    style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 750, color: "var(--color-slate-900)" }}
+                    style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid var(--color-slate-300)", fontSize: 13, fontWeight: 750, color: "var(--text-primary)" }}
                   >
                     {[2024, 2025, 2026, 2027].map((y) => (
                       <option key={y} value={y}>{y}</option>
@@ -944,19 +944,19 @@ export default function OwnerPortalPage() {
                   >
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 18 }}>
                       <div>
-                        <div style={{ fontSize: 12, color: "var(--color-slate-600)", fontWeight: 750, textTransform: "uppercase" }}>Gross Collected Rent</div>
-                        <div style={{ fontSize: 22, fontWeight: 900, color: "var(--color-slate-900)", marginTop: 4 }}>
+                        <div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Gross Collected Rent</div>
+                        <div style={{ fontSize: 22, fontWeight: 900, color: "var(--text-primary)", marginTop: 4 }}>
                           {cash.format(remittanceData.total_gross_collected ?? 0)}
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 12, color: "var(--color-slate-600)", fontWeight: 750, textTransform: "uppercase" }}>Commission Fee Deducted</div>
+                        <div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Commission Fee Deducted</div>
                         <div style={{ fontSize: 22, fontWeight: 900, color: "var(--color-danger-strong)", marginTop: 4 }}>
                           - {cash.format(remittanceData.total_commission_deducted ?? 0)}
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 12, color: "var(--color-slate-600)", fontWeight: 750, textTransform: "uppercase" }}>Repairs / Operational Deductions</div>
+                        <div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Repairs / Operational Deductions</div>
                         <div style={{ fontSize: 22, fontWeight: 900, color: "var(--color-danger-strong)", marginTop: 4 }}>
                           - {cash.format((remittanceData.total_maintenance_deducted ?? 0) + (remittanceData.total_service_charge_deducted ?? 0))}
                         </div>
@@ -977,9 +977,9 @@ export default function OwnerPortalPage() {
                       </div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 14, marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--color-slate-200)" }}>
-                      <div><div style={{ fontSize: 12, color: "var(--color-slate-600)", fontWeight: 750, textTransform: "uppercase" }}>Management Fees Charged / Paid</div><strong>{cash.format(Number(remittanceData.total_management_fees_charged || 0))} / {cash.format(Number(remittanceData.total_management_fees_paid || 0))}</strong></div>
-                      <div><div style={{ fontSize: 12, color: "var(--color-slate-600)", fontWeight: 750, textTransform: "uppercase" }}>Letting Fees Charged / Paid</div><strong>{cash.format(Number(remittanceData.total_letting_fees_charged || 0))} / {cash.format(Number(remittanceData.total_letting_fees_paid || 0))}</strong></div>
-                      <div><div style={{ fontSize: 12, color: "var(--color-slate-600)", fontWeight: 750, textTransform: "uppercase" }}>Service Charge Deducted</div><strong>{cash.format(Number(remittanceData.total_service_charge_deducted || 0))}</strong></div>
+                      <div><div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Management Fees Charged / Paid</div><strong>{cash.format(Number(remittanceData.total_management_fees_charged || 0))} / {cash.format(Number(remittanceData.total_management_fees_paid || 0))}</strong></div>
+                      <div><div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Letting Fees Charged / Paid</div><strong>{cash.format(Number(remittanceData.total_letting_fees_charged || 0))} / {cash.format(Number(remittanceData.total_letting_fees_paid || 0))}</strong></div>
+                      <div><div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Service Charge Deducted</div><strong>{cash.format(Number(remittanceData.total_service_charge_deducted || 0))}</strong></div>
                     </div>
                   </div>
 
@@ -988,7 +988,7 @@ export default function OwnerPortalPage() {
                     <div style={{ overflowX: "auto" }}>
                       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                         <thead>
-                          <tr style={{ borderBottom: "1px solid var(--color-slate-200)", textAlign: "left", color: "var(--color-slate-600)" }}>
+                          <tr style={{ borderBottom: "1px solid var(--color-slate-200)", textAlign: "left", color: "var(--text-soft)" }}>
                             <th style={{ padding: "10px 12px", fontWeight: 750 }}>Unit</th>
                             <th style={{ padding: "10px 12px", fontWeight: 750 }}>Occupant</th>
                             <th style={{ padding: "10px 12px", fontWeight: 750, textAlign: "right" }}>Collected</th>
@@ -999,9 +999,9 @@ export default function OwnerPortalPage() {
                         <tbody>
                           {remittanceData.unit_statements.map((u: any, idx: number) => (
                             <tr key={idx} style={{ borderBottom: "1px solid var(--color-slate-100)" }}>
-                              <td style={{ padding: "12px", fontWeight: 800, color: "var(--color-slate-900)" }}>Unit {u.unit_code}</td>
-                              <td style={{ padding: "12px", color: "var(--color-slate-700)", fontWeight: 600 }}>{u.tenant_name}</td>
-                              <td style={{ padding: "12px", textAlign: "right", fontWeight: 850, color: "var(--color-slate-900)", fontFamily: "monospace" }}>
+                              <td style={{ padding: "12px", fontWeight: 800, color: "var(--text-primary)" }}>Unit {u.unit_code}</td>
+                              <td style={{ padding: "12px", color: "var(--text-muted)", fontWeight: 600 }}>{u.tenant_name}</td>
+                              <td style={{ padding: "12px", textAlign: "right", fontWeight: 850, color: "var(--text-primary)", fontFamily: "monospace" }}>
                                 {cash.format(Number(u.gross_collected || 0))}
                               </td>
                               <td style={{ padding: "12px", textAlign: "right", color: "var(--color-danger-strong)", fontWeight: 750, fontFamily: "monospace" }}>
@@ -1016,13 +1016,13 @@ export default function OwnerPortalPage() {
                       </table>
                     </div>
                   ) : (
-                    <div style={{ padding: "20px", textAlign: "center", color: "var(--color-slate-600)", fontWeight: 600 }}>
+                    <div style={{ padding: "20px", textAlign: "center", color: "var(--text-soft)", fontWeight: 600 }}>
                       No statement records for this billing cycle yet.
                     </div>
                   )}
                 </div>
               ) : (
-                <div style={{ padding: "36px", textAlign: "center", color: "var(--color-slate-600)", fontWeight: 600 }}>
+                <div style={{ padding: "36px", textAlign: "center", color: "var(--text-soft)", fontWeight: 600 }}>
                   Select the billing month and click &quot;Recalculate&quot; to generate the remittance ledger.
                 </div>
               )}
@@ -1043,10 +1043,10 @@ export default function OwnerPortalPage() {
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12, marginBottom: 18 }}>
                 <div>
-                  <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 850, color: "var(--color-slate-900)" }}>
+                  <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 850, color: "var(--text-primary)" }}>
                     Commission & Fee Invoices
                   </h3>
-                  <p style={{ margin: 0, fontSize: 13, color: "var(--color-slate-700)", fontWeight: 500 }}>
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>
                     Agency tax invoices plus service-charge and other property invoices billed to this owner
                   </p>
                 </div>
@@ -1104,7 +1104,7 @@ export default function OwnerPortalPage() {
               </div>
 
               {filteredOwnerInvoices.length === 0 ? (
-                <div style={{ padding: "36px", textAlign: "center", color: "var(--color-slate-600)", fontWeight: 600 }}>
+                <div style={{ padding: "36px", textAlign: "center", color: "var(--text-soft)", fontWeight: 600 }}>
                   {ownerInvoices.length === 0
                     ? `No commission or letting invoices generated yet for ${activeOwner?.name}.`
                     : `No ${feeTypeFilter} invoices found.`}
@@ -1113,7 +1113,7 @@ export default function OwnerPortalPage() {
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
-                      <tr style={{ borderBottom: "1px solid var(--color-slate-200)", textAlign: "left", color: "var(--color-slate-600)" }}>
+                      <tr style={{ borderBottom: "1px solid var(--color-slate-200)", textAlign: "left", color: "var(--text-soft)" }}>
                         <th style={{ padding: "10px 12px", fontWeight: 750 }}>Invoice #</th>
                         <th style={{ padding: "10px 12px", fontWeight: 750 }}>Fee Category</th>
                         <th style={{ padding: "10px 12px", fontWeight: 750 }}>Billing Period</th>
@@ -1151,13 +1151,13 @@ export default function OwnerPortalPage() {
                                 {isLetting ? "🔑 Letting Fee" : "🏢 Management Fee"}
                               </span>
                             </td>
-                            <td style={{ padding: "12px", color: "var(--color-slate-900)", fontWeight: 700 }}>
+                            <td style={{ padding: "12px", color: "var(--text-primary)", fontWeight: 700 }}>
                               {inv.billing_period}
                             </td>
                             <td style={{ padding: "12px", fontFamily: "monospace", fontWeight: 750 }}>
                               {cash.format(Number(inv.gross_collections || 0))}
                             </td>
-                            <td style={{ padding: "12px", color: "var(--color-slate-600)", fontWeight: 700 }}>
+                            <td style={{ padding: "12px", color: "var(--text-soft)", fontWeight: 700 }}>
                               {isLetting ? "Fixed" : `${inv.fee_rate}%`}
                             </td>
                             <td style={{ padding: "12px", textAlign: "right", color: "var(--color-danger-strong)", fontWeight: 800, fontFamily: "monospace" }}>
@@ -1226,10 +1226,10 @@ export default function OwnerPortalPage() {
                 boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
               }}
             >
-              <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 850, color: "var(--color-slate-900)" }}>
+              <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 850, color: "var(--text-primary)" }}>
                 Settlement Banking & Payout Configuration
               </h3>
-              <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--color-slate-700)", fontWeight: 500 }}>
+              <p style={{ margin: "0 0 20px", fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>
                 Direct bank settlement instructions and mobile money payout channels
               </p>
 
@@ -1240,18 +1240,18 @@ export default function OwnerPortalPage() {
                   </div>
                   <div style={{ display: "grid", gap: 10, fontSize: 13 }}>
                     <div>
-                      <span style={{ color: "var(--color-slate-600)", display: "block", fontSize: 11, fontWeight: 750, textTransform: "uppercase" }}>Bank Name</span>
-                      <strong style={{ color: "var(--color-slate-900)", fontSize: 14 }}>{activeOwner?.settlement_bank_name || "NCBA Bank"}</strong>
+                      <span style={{ color: "var(--text-soft)", display: "block", fontSize: 11, fontWeight: 750, textTransform: "uppercase" }}>Bank Name</span>
+                      <strong style={{ color: "var(--text-primary)", fontSize: 14 }}>{activeOwner?.settlement_bank_name || "NCBA Bank"}</strong>
                     </div>
                     <div>
-                      <span style={{ color: "var(--color-slate-600)", display: "block", fontSize: 11, fontWeight: 750, textTransform: "uppercase" }}>Account Number</span>
-                      <strong style={{ fontFamily: "monospace", fontSize: 14, color: "var(--color-slate-900)" }}>
+                      <span style={{ color: "var(--text-soft)", display: "block", fontSize: 11, fontWeight: 750, textTransform: "uppercase" }}>Account Number</span>
+                      <strong style={{ fontFamily: "monospace", fontSize: 14, color: "var(--text-primary)" }}>
                         {activeOwner?.settlement_bank_account || "Not Configured"}
                       </strong>
                     </div>
                     <div>
-                      <span style={{ color: "var(--color-slate-600)", display: "block", fontSize: 11, fontWeight: 750, textTransform: "uppercase" }}>Branch</span>
-                      <strong style={{ color: "var(--color-slate-900)", fontSize: 14 }}>{activeOwner?.settlement_bank_branch || "Nairobi Main Branch"}</strong>
+                      <span style={{ color: "var(--text-soft)", display: "block", fontSize: 11, fontWeight: 750, textTransform: "uppercase" }}>Branch</span>
+                      <strong style={{ color: "var(--text-primary)", fontSize: 14 }}>{activeOwner?.settlement_bank_branch || "Nairobi Main Branch"}</strong>
                     </div>
                   </div>
                 </div>
@@ -1262,20 +1262,20 @@ export default function OwnerPortalPage() {
                   </div>
                   <div style={{ display: "grid", gap: 10, fontSize: 13 }}>
                     <div>
-                      <span style={{ color: "var(--color-slate-600)", display: "block", fontSize: 11, fontWeight: 750, textTransform: "uppercase" }}>M-Pesa Till / Paybill</span>
-                      <strong style={{ fontFamily: "monospace", fontSize: 14, color: "var(--color-slate-900)" }}>
+                      <span style={{ color: "var(--text-soft)", display: "block", fontSize: 11, fontWeight: 750, textTransform: "uppercase" }}>M-Pesa Till / Paybill</span>
+                      <strong style={{ fontFamily: "monospace", fontSize: 14, color: "var(--text-primary)" }}>
                         {activeOwner?.settlement_paybill_or_till || "Not Configured"}
                       </strong>
                     </div>
                     <div>
-                      <span style={{ color: "var(--color-slate-600)", display: "block", fontSize: 11, fontWeight: 750, textTransform: "uppercase" }}>KRA PIN</span>
-                      <strong style={{ fontFamily: "monospace", fontSize: 14, color: "var(--color-slate-900)" }}>
+                      <span style={{ color: "var(--text-soft)", display: "block", fontSize: 11, fontWeight: 750, textTransform: "uppercase" }}>KRA PIN</span>
+                      <strong style={{ fontFamily: "monospace", fontSize: 14, color: "var(--text-primary)" }}>
                         {activeOwner?.pin_number || "—"}
                       </strong>
                     </div>
                     <div>
-                      <span style={{ color: "var(--color-slate-600)", display: "block", fontSize: 11, fontWeight: 750, textTransform: "uppercase" }}>National ID / Company Reg</span>
-                      <strong style={{ color: "var(--color-slate-900)", fontSize: 14 }}>
+                      <span style={{ color: "var(--text-soft)", display: "block", fontSize: 11, fontWeight: 750, textTransform: "uppercase" }}>National ID / Company Reg</span>
+                      <strong style={{ color: "var(--text-primary)", fontSize: 14 }}>
                         {activeOwner?.id_or_registration_number || "—"}
                       </strong>
                     </div>

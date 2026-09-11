@@ -85,12 +85,12 @@ export function BreadcrumbNavigation({
     <Box sx={{ mb: 3 }}>
       {/* Breadcrumbs */}
       <Breadcrumbs 
-        separator={<ChevronRight size={16} style={{ color: "var(--color-slate-400)" }} />}
+        separator={<ChevronRight size={16} style={{ color: "var(--text-ghost)" }} />}
         sx={{ mb: 2 }}
       >
-        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 0.5, textDecoration: "none", color: "var(--color-slate-500)" }}>
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: 0.5, textDecoration: "none", color: "var(--text-faint)" }}>
           <Home size={16} />
-          <Typography variant="body2" sx={{ color: "var(--color-slate-500)" }}>
+          <Typography variant="body2" sx={{ color: "var(--text-faint)" }}>
             Home
           </Typography>
         </Link>
@@ -128,7 +128,7 @@ export function BreadcrumbNavigation({
                   }}
                   onClick={item.action}
                 >
-                  <Typography variant="body2" sx={{ color: "var(--color-slate-900)", fontWeight: 600 }}>
+                  <Typography variant="body2" sx={{ color: "var(--text-primary)", fontWeight: 600 }}>
                     {item.label}
                   </Typography>
                 </Box>
@@ -153,12 +153,12 @@ export function BreadcrumbNavigation({
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Search size={18} style={{ color: "var(--color-slate-500)" }} />
+                        <Search size={18} style={{ color: "var(--text-faint)" }} />
                       </InputAdornment>
                     ),
                     endAdornment: (
                       <InputAdornment position="end">
-                        <Keyboard size={16} style={{ color: "var(--color-slate-400)" }} />
+                        <Keyboard size={16} style={{ color: "var(--text-ghost)" }} />
                       </InputAdornment>
                     ),
                   }
@@ -189,7 +189,7 @@ export function BreadcrumbNavigation({
                   }}
                 >
                   <Box sx={{ p: 2 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--color-slate-500)", mb: 1 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--text-faint)", mb: 1 }}>
                       SEARCH RESULTS
                     </Typography>
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -210,7 +210,7 @@ export function BreadcrumbNavigation({
                 size="small" 
                 onClick={(e) => setShortcutsMenuAnchor(e.currentTarget as HTMLElement)}
               >
-                <Keyboard size={18} style={{ color: "var(--color-slate-500)" }} />
+                <Keyboard size={18} style={{ color: "var(--text-faint)" }} />
               </IconButton>
             </Tooltip>
           )}
@@ -253,7 +253,7 @@ export function BreadcrumbNavigation({
                   height: 24, 
                   fontSize: 11,
                   bgcolor: "var(--color-slate-100)",
-                  color: "var(--color-slate-500)"
+                  color: "var(--text-faint)"
                 }} 
               />
             </Box>

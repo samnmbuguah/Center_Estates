@@ -57,8 +57,8 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
       {/* Controls & Mode Selection */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--color-slate-900)" }}>📊 Programme & Gantt Schedule</h3>
-          <small style={{ color: "var(--color-slate-500)" }}>{projectName} — Baseline vs Actual progress tracking</small>
+          <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--text-primary)" }}>📊 Programme & Gantt Schedule</h3>
+          <small style={{ color: "var(--text-faint)" }}>{projectName} — Baseline vs Actual progress tracking</small>
         </div>
 
         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -141,11 +141,11 @@ export function TimelineViewer({ projectName = "Active Construction Project", ta
                 <tr key={t.id} style={{ borderBottom: "1px solid var(--color-slate-100)", background: t.criticalPath ? "#fff5f5" : "#ffffff" }}>
                   <td style={{ padding: 10, fontFamily: "monospace", fontWeight: "bold" }}>{t.wbs}</td>
                   <td style={{ padding: 10 }}>
-                    <div style={{ fontWeight: 600, color: "var(--color-slate-900)" }}>{t.name}</div>
-                    <small style={{ color: "var(--color-slate-500)" }}>Owner: {t.responsible}</small>
+                    <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t.name}</div>
+                    <small style={{ color: "var(--text-faint)" }}>Owner: {t.responsible}</small>
                   </td>
-                  <td style={{ padding: 10, color: "var(--color-slate-600)" }}>{t.startDate}</td>
-                  <td style={{ padding: 10, color: "var(--color-slate-600)" }}>{t.endDate}</td>
+                  <td style={{ padding: 10, color: "var(--text-soft)" }}>{t.startDate}</td>
+                  <td style={{ padding: 10, color: "var(--text-soft)" }}>{t.endDate}</td>
                   <td style={{ padding: 10, textAlign: "center", fontWeight: "bold" }}>{t.durationDays}d</td>
                   <td style={{ padding: 10, textAlign: "center" }}>
                     <span

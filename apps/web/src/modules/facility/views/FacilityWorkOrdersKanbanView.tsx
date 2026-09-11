@@ -43,7 +43,7 @@ export function FacilityWorkOrdersKanbanView() {
           <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
             Work Order Kanban Dispatch Board
           </h2>
-          <span style={{ fontSize: 13, color: "var(--color-slate-900)", fontWeight: 750 }}>
+          <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 750 }}>
             Drag and track work order progression across real-time technician status columns.
           </span>
         </div>
@@ -118,7 +118,7 @@ export function FacilityWorkOrdersKanbanView() {
                         {item.title}
                       </strong>
 
-                      <small style={{ fontSize: 11, fontWeight: 700, color: "var(--color-slate-900)" }}>
+                      <small style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>
                         🏢 {item.property}
                       </small>
 

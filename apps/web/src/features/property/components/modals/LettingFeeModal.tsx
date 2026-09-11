@@ -326,10 +326,10 @@ export function LettingFeeModal({
                 gap: 1.5,
               }}
             >
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--color-slate-900)" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--text-primary)" }}>
                 Official Document Ready
               </Typography>
-              <Typography variant="body2" sx={{ color: "var(--color-slate-600)" }}>
+              <Typography variant="body2" sx={{ color: "var(--text-soft)" }}>
                 The KRA Tax Invoice <strong>{createdInvoice.number}</strong> is ready. You can view or download the branded PDF document immediately.
               </Typography>
               <Box sx={{ display: "flex", gap: 1.5, mt: 1 }}>

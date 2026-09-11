@@ -52,7 +52,7 @@ export function IpcBuilder({ initialData }: IpcBuilderProps) {
       {/* Header Actions */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, borderBottom: "1px solid var(--color-slate-200)", paddingBottom: 12 }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: "1.2rem", color: "var(--color-slate-900)", display: "flex", alignItems: "center", gap: 8 }}>
+          <h3 style={{ margin: 0, fontSize: "1.2rem", color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8 }}>
             <span>📄 Interim Payment Certificate (IPC)</span>
             <span style={{
               fontSize: "0.75rem", padding: "2px 10px", borderRadius: 12, fontWeight: "bold",
@@ -62,7 +62,7 @@ export function IpcBuilder({ initialData }: IpcBuilderProps) {
               {data.status.toUpperCase()}
             </span>
           </h3>
-          <small style={{ color: "var(--color-slate-500)" }}>Certificate #{data.certificateNumber} — Valuation Period Ending {data.periodEnding}</small>
+          <small style={{ color: "var(--text-faint)" }}>Certificate #{data.certificateNumber} — Valuation Period Ending {data.periodEnding}</small>
         </div>
 
         <div style={{ display: "flex", gap: 8 }}>
@@ -78,17 +78,17 @@ export function IpcBuilder({ initialData }: IpcBuilderProps) {
       {/* Contract & Party Summary Cards */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
         <div style={{ background: "var(--color-slate-50)", padding: 12, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
-          <small style={{ color: "var(--color-slate-500)", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: "bold" }}>Project Name</small>
-          <div style={{ fontWeight: "bold", color: "var(--color-slate-900)", marginTop: 2, fontSize: "0.9rem" }}>{data.projectName}</div>
+          <small style={{ color: "var(--text-faint)", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: "bold" }}>Project Name</small>
+          <div style={{ fontWeight: "bold", color: "var(--text-primary)", marginTop: 2, fontSize: "0.9rem" }}>{data.projectName}</div>
         </div>
 
         <div style={{ background: "var(--color-slate-50)", padding: 12, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
-          <small style={{ color: "var(--color-slate-500)", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: "bold" }}>Main Contractor</small>
-          <div style={{ fontWeight: "bold", color: "var(--color-slate-900)", marginTop: 2, fontSize: "0.9rem" }}>{data.contractorName}</div>
+          <small style={{ color: "var(--text-faint)", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: "bold" }}>Main Contractor</small>
+          <div style={{ fontWeight: "bold", color: "var(--text-primary)", marginTop: 2, fontSize: "0.9rem" }}>{data.contractorName}</div>
         </div>
 
         <div style={{ background: "var(--color-slate-50)", padding: 12, borderRadius: 8, border: "1px solid var(--color-slate-200)" }}>
-          <small style={{ color: "var(--color-slate-500)", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: "bold" }}>Revised Contract Sum</small>
+          <small style={{ color: "var(--text-faint)", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: "bold" }}>Revised Contract Sum</small>
           <div style={{ fontWeight: "bold", color: "var(--color-info)", marginTop: 2, fontSize: "0.95rem" }}>{cash.format(data.revisedContractSum)}</div>
         </div>
       </div>
@@ -106,17 +106,17 @@ export function IpcBuilder({ initialData }: IpcBuilderProps) {
           <tr style={{ borderBottom: "1px solid var(--color-slate-200)" }}>
             <td style={{ padding: 10, fontWeight: 600 }}>1. Original Contract Sum</td>
             <td style={{ padding: 10, textAlign: "right" }}>{cash.format(data.originalContractSum)}</td>
-            <td style={{ padding: 10, textAlign: "right", color: "var(--color-slate-400)" }}>—</td>
+            <td style={{ padding: 10, textAlign: "right", color: "var(--text-ghost)" }}>—</td>
           </tr>
           <tr style={{ borderBottom: "1px solid var(--color-slate-200)" }}>
             <td style={{ padding: 10, fontWeight: 600 }}>2. Approved Net Variations</td>
             <td style={{ padding: 10, textAlign: "right", color: "var(--color-success)" }}>+{cash.format(data.approvedVariationsSum)}</td>
-            <td style={{ padding: 10, textAlign: "right", color: "var(--color-slate-400)" }}>—</td>
+            <td style={{ padding: 10, textAlign: "right", color: "var(--text-ghost)" }}>—</td>
           </tr>
           <tr style={{ borderBottom: "2px solid var(--color-slate-900)", background: "var(--color-slate-50)" }}>
             <td style={{ padding: 10, fontWeight: "bold" }}>REVISED CONTRACT VALUE</td>
             <td style={{ padding: 10, textAlign: "right", fontWeight: "bold" }}>{cash.format(data.revisedContractSum)}</td>
-            <td style={{ padding: 10, textAlign: "right", color: "var(--color-slate-400)" }}>—</td>
+            <td style={{ padding: 10, textAlign: "right", color: "var(--text-ghost)" }}>—</td>
           </tr>
 
           <tr style={{ borderBottom: "1px solid var(--color-slate-200)" }}>
@@ -150,18 +150,18 @@ export function IpcBuilder({ initialData }: IpcBuilderProps) {
       {/* Signatures & Certification block */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginTop: 24, paddingTop: 16, borderTop: "1px dashed var(--color-slate-300)" }}>
         <div style={{ textAlign: "center", borderTop: "1px solid var(--color-slate-400)", paddingTop: 8 }}>
-          <small style={{ color: "var(--color-slate-500)" }}>Quantity Surveyor Certification</small>
-          <div style={{ fontWeight: "bold", color: "var(--color-slate-900)", marginTop: 4 }}>Registered QS #QS-8821</div>
+          <small style={{ color: "var(--text-faint)" }}>Quantity Surveyor Certification</small>
+          <div style={{ fontWeight: "bold", color: "var(--text-primary)", marginTop: 4 }}>Registered QS #QS-8821</div>
         </div>
 
         <div style={{ textAlign: "center", borderTop: "1px solid var(--color-slate-400)", paddingTop: 8 }}>
-          <small style={{ color: "var(--color-slate-500)" }}>Project Architect Approval</small>
-          <div style={{ fontWeight: "bold", color: "var(--color-slate-900)", marginTop: 4 }}>Lead Architect #ARC-1092</div>
+          <small style={{ color: "var(--text-faint)" }}>Project Architect Approval</small>
+          <div style={{ fontWeight: "bold", color: "var(--text-primary)", marginTop: 4 }}>Lead Architect #ARC-1092</div>
         </div>
 
         <div style={{ textAlign: "center", borderTop: "1px solid var(--color-slate-400)", paddingTop: 8 }}>
-          <small style={{ color: "var(--color-slate-500)" }}>Client Representative Authorization</small>
-          <div style={{ fontWeight: "bold", color: "var(--color-slate-900)", marginTop: 4 }}>Center Estates Finance Dir</div>
+          <small style={{ color: "var(--text-faint)" }}>Client Representative Authorization</small>
+          <div style={{ fontWeight: "bold", color: "var(--text-primary)", marginTop: 4 }}>Center Estates Finance Dir</div>
         </div>
       </div>
     </div>

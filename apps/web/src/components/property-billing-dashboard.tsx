@@ -791,7 +791,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
             flexWrap: "wrap",
           }}
         >
-          <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--color-slate-600)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+          <span style={{ fontSize: 11.5, fontWeight: 800, color: "var(--text-soft)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
             Owner Billing Type:
           </span>
           <div style={{ display: "flex", gap: 6 }}>
@@ -843,7 +843,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
               🧾 Owner Service Charge
             </button>
           </div>
-          <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--color-slate-500)", fontWeight: 600 }}>
+          <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>
             {landlordFeeType === "management"
               ? "Calculated strictly per unit owner based on receipted tenant rent"
               : landlordFeeType === "letting"

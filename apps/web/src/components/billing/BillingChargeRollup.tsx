@@ -68,7 +68,7 @@ export function BillingChargeRollup({
       { type: "rent", label: "Rent", icon: <Building2 size={17} />, color: "var(--color-blue)" },
       { type: "service_charge", label: "Service charge", icon: <ReceiptText size={17} />, color: "var(--color-violet-strong)" },
       { type: "utility", label: "Utilities", icon: <Droplets size={17} />, color: "#06b6d4" },
-      { type: "other", label: "Other charges", icon: <ListChecks size={17} />, color: "var(--color-slate-500)" },
+      { type: "other", label: "Other charges", icon: <ListChecks size={17} />, color: "var(--text-faint)" },
     ];
 
     return typeConfigs.map((config) => {

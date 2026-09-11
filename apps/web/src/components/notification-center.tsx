@@ -391,13 +391,13 @@ export function NotificationCenter() {
               <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "#ffffff", mb: 0.3 }}>
                 Enable Desktop Notifications
               </Typography>
-              <Typography variant="caption" sx={{ color: "var(--color-slate-400)", lineHeight: 1.4, display: "block" }}>
+              <Typography variant="caption" sx={{ color: "var(--text-ghost)", lineHeight: 1.4, display: "block" }}>
                 Get immediate alerts for incoming M-Pesa payments, task SLA escalations, and urgent facility tickets.
               </Typography>
             </Box>
           </Box>
           <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
-            <Button size="small" onClick={dismissPermissionBanner} sx={{ color: "var(--color-slate-400)", fontSize: 11, textTransform: "none" }}>
+            <Button size="small" onClick={dismissPermissionBanner} sx={{ color: "var(--text-ghost)", fontSize: 11, textTransform: "none" }}>
               Maybe Later
             </Button>
             <Button

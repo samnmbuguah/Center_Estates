@@ -199,7 +199,7 @@ export function GuidedTenantWizardModal({
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 12 }}>
-              <button type="button" onClick={onClose} style={{ background: "var(--color-slate-100)", border: 0, color: "var(--color-slate-900)", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
+              <button type="button" onClick={onClose} style={{ background: "var(--color-slate-100)", border: 0, color: "var(--text-primary)", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer" }}>
                 Cancel
               </button>
               <button type="submit" style={{ background: "var(--color-danger)", border: 0, color: "#ffffff", padding: "10px 22px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -302,7 +302,7 @@ export function GuidedTenantWizardModal({
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
-              <button type="button" onClick={() => setStep(1)} style={{ background: "var(--color-slate-100)", border: 0, color: "var(--color-slate-900)", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <button type="button" onClick={() => setStep(1)} style={{ background: "var(--color-slate-100)", border: 0, color: "var(--text-primary)", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <ArrowLeft size={16} />
                 <span>Back</span>
               </button>
@@ -323,12 +323,12 @@ export function GuidedTenantWizardModal({
               </h4>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13 }}>
-                <div><span style={{ color: "var(--color-slate-500)" }}>Tenant Name:</span> <strong style={{ color: "#000000" }}>{formData.tenantName || "John Doe"}</strong></div>
-                <div><span style={{ color: "var(--color-slate-500)" }}>Assigned Unit:</span> <strong style={{ color: "#000000" }}>{formData.unitCode}</strong></div>
-                <div><span style={{ color: "var(--color-slate-500)" }}>Monthly Rent:</span> <strong style={{ color: "#000000" }}>KES {formData.monthlyRent.toLocaleString()}</strong></div>
-                <div><span style={{ color: "var(--color-slate-500)" }}>Security Deposit:</span> <strong style={{ color: "#000000" }}>KES {formData.deposit.toLocaleString()}</strong></div>
-                <div><span style={{ color: "var(--color-slate-500)" }}>Commencement:</span> <strong style={{ color: "#000000" }}>{formData.startDate}</strong></div>
-                <div><span style={{ color: "var(--color-slate-500)" }}>Lease Term:</span> <strong style={{ color: "#000000" }}>{formData.leaseMonths} Months</strong></div>
+                <div><span style={{ color: "var(--text-faint)" }}>Tenant Name:</span> <strong style={{ color: "#000000" }}>{formData.tenantName || "John Doe"}</strong></div>
+                <div><span style={{ color: "var(--text-faint)" }}>Assigned Unit:</span> <strong style={{ color: "#000000" }}>{formData.unitCode}</strong></div>
+                <div><span style={{ color: "var(--text-faint)" }}>Monthly Rent:</span> <strong style={{ color: "#000000" }}>KES {formData.monthlyRent.toLocaleString()}</strong></div>
+                <div><span style={{ color: "var(--text-faint)" }}>Security Deposit:</span> <strong style={{ color: "#000000" }}>KES {formData.deposit.toLocaleString()}</strong></div>
+                <div><span style={{ color: "var(--text-faint)" }}>Commencement:</span> <strong style={{ color: "#000000" }}>{formData.startDate}</strong></div>
+                <div><span style={{ color: "var(--text-faint)" }}>Lease Term:</span> <strong style={{ color: "#000000" }}>{formData.leaseMonths} Months</strong></div>
               </div>
 
               <div style={{ borderTop: "1px solid var(--color-slate-300)", marginTop: 14, paddingTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -350,7 +350,7 @@ export function GuidedTenantWizardModal({
             </label>
 
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
-              <button type="button" onClick={() => setStep(2)} style={{ background: "var(--color-slate-100)", border: 0, color: "var(--color-slate-900)", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <button type="button" onClick={() => setStep(2)} style={{ background: "var(--color-slate-100)", border: 0, color: "var(--text-primary)", padding: "10px 18px", borderRadius: 8, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <ArrowLeft size={16} />
                 <span>Back</span>
               </button>

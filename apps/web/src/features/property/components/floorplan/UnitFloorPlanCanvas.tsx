@@ -403,7 +403,7 @@ export function UnitFloorPlanCanvas({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "var(--color-slate-400)",
+                color: "var(--text-ghost)",
               }}
             >
               <Typography variant="body2">Architectural floor plan canvas grid</Typography>

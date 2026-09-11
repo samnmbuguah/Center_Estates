@@ -34,8 +34,8 @@ export function BoqIngestion() {
     <div style={{ background: "var(--surface)", borderRadius: 12, border: "1px solid var(--color-slate-200)", padding: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--color-slate-900)" }}>📥 BoQ & Work Plan Spreadsheet Ingestion</h3>
-          <small style={{ color: "var(--color-slate-500)" }}>Upload Excel (.xlsx) or CSV files to auto-extract BoQ line items and work plan schedules</small>
+          <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--text-primary)" }}>📥 BoQ & Work Plan Spreadsheet Ingestion</h3>
+          <small style={{ color: "var(--text-faint)" }}>Upload Excel (.xlsx) or CSV files to auto-extract BoQ line items and work plan schedules</small>
         </div>
 
         {/* Step Indicator */}
@@ -65,8 +65,8 @@ export function BoqIngestion() {
           }}
         >
           <div style={{ fontSize: "2.5rem", marginBottom: 8 }}>📁</div>
-          <strong style={{ color: "var(--color-slate-900)", fontSize: "1rem" }}>Drag & Drop BoQ Excel / CSV file here</strong>
-          <p style={{ color: "var(--color-slate-500)", fontSize: "0.85rem", margin: "4px 0 12px 0" }}>Supports .xlsx, .xls, .csv files up to 25MB</p>
+          <strong style={{ color: "var(--text-primary)", fontSize: "1rem" }}>Drag & Drop BoQ Excel / CSV file here</strong>
+          <p style={{ color: "var(--text-faint)", fontSize: "0.85rem", margin: "4px 0 12px 0" }}>Supports .xlsx, .xls, .csv files up to 25MB</p>
           <button style={{ background: "var(--color-info)", color: "#fff", border: "none", padding: "8px 18px", borderRadius: 6, fontWeight: 600, fontSize: "0.85rem", cursor: "pointer" }}>
             Select File from Device
           </button>
@@ -79,12 +79,12 @@ export function BoqIngestion() {
             📄 File Loaded: <strong>{fileName}</strong> (4 Sheet Tabs Found: &quot;Summary&quot;, &quot;Substructure&quot;, &quot;Superstructure&quot;, &quot;Finishes&quot;)
           </div>
 
-          <h4 style={{ margin: "0 0 10px 0", fontSize: "0.9rem", color: "var(--color-slate-900)" }}>Map Excel Columns to Database Attributes</h4>
+          <h4 style={{ margin: "0 0 10px 0", fontSize: "0.9rem", color: "var(--text-primary)" }}>Map Excel Columns to Database Attributes</h4>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
             {Object.entries(mapping).map(([key, val]) => (
               <div key={key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--color-slate-50)", padding: 8, borderRadius: 6, border: "1px solid var(--color-slate-200)" }}>
-                <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--color-slate-700)", textTransform: "capitalize" }}>{key.replace(/([A-Z])/g, ' $1')}</span>
+                <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)", textTransform: "capitalize" }}>{key.replace(/([A-Z])/g, ' $1')}</span>
                 <select
                   value={val}
                   onChange={(e) => setMapping((prev) => ({ ...prev, [key]: e.target.value }))}
@@ -103,7 +103,7 @@ export function BoqIngestion() {
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            <button onClick={() => setStep("upload")} style={{ background: "var(--color-slate-100)", color: "var(--color-slate-600)", border: "1px solid var(--color-slate-300)", padding: "6px 14px", borderRadius: 6, fontSize: "0.85rem", cursor: "pointer" }}>Back</button>
+            <button onClick={() => setStep("upload")} style={{ background: "var(--color-slate-100)", color: "var(--text-soft)", border: "1px solid var(--color-slate-300)", padding: "6px 14px", borderRadius: 6, fontSize: "0.85rem", cursor: "pointer" }}>Back</button>
             <button onClick={() => setStep("preview")} style={{ background: "var(--color-info)", color: "#fff", border: "none", padding: "6px 16px", borderRadius: 6, fontWeight: 600, fontSize: "0.85rem", cursor: "pointer" }}>Continue to Preview $\rightarrow$</button>
           </div>
         </div>
@@ -111,7 +111,7 @@ export function BoqIngestion() {
 
       {step === "preview" && (
         <div>
-          <h4 style={{ margin: "0 0 10px 0", fontSize: "0.9rem", color: "var(--color-slate-900)" }}>Ingestion Preview & Baseline Validation (4 Line Items Extracted)</h4>
+          <h4 style={{ margin: "0 0 10px 0", fontSize: "0.9rem", color: "var(--text-primary)" }}>Ingestion Preview & Baseline Validation (4 Line Items Extracted)</h4>
 
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem", marginBottom: 16 }}>
             <thead>
@@ -141,7 +141,7 @@ export function BoqIngestion() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontSize: "0.85rem", color: "var(--color-green-text)", fontWeight: 600 }}>✓ Validation passed: 0 missing rates, 0 formatting errors</span>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setStep("map")} style={{ background: "var(--color-slate-100)", color: "var(--color-slate-600)", border: "1px solid var(--color-slate-300)", padding: "6px 14px", borderRadius: 6, fontSize: "0.85rem", cursor: "pointer" }}>Back to Mapping</button>
+              <button onClick={() => setStep("map")} style={{ background: "var(--color-slate-100)", color: "var(--text-soft)", border: "1px solid var(--color-slate-300)", padding: "6px 14px", borderRadius: 6, fontSize: "0.85rem", cursor: "pointer" }}>Back to Mapping</button>
               <button onClick={() => alert("BoQ data successfully ingested into project baseline!")} style={{ background: "var(--color-success)", color: "#fff", border: "none", padding: "6px 16px", borderRadius: 6, fontWeight: 600, fontSize: "0.85rem", cursor: "pointer" }}>Confirm & Commit Ingestion</button>
             </div>
           </div>

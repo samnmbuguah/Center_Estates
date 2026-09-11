@@ -203,7 +203,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
         <div
           style={{
             backgroundColor: "var(--surface)",
-            color: "var(--color-slate-900)",
+            color: "var(--text-primary)",
             borderRadius: 16,
             width: "100%",
             maxWidth: 1140,
@@ -246,7 +246,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
               </div>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 900, color: "var(--color-slate-900)", letterSpacing: "-0.01em" }}>
+                  <h2 style={{ margin: 0, fontSize: 19, fontWeight: 900, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
                     {prop.name}
                   </h2>
                   <span
@@ -270,7 +270,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                       padding: "2px 8px",
                       borderRadius: 12,
                       backgroundColor: "var(--color-slate-100)",
-                      color: "var(--color-slate-700)",
+                      color: "var(--text-muted)",
                       border: "1px solid var(--color-slate-200)",
                       textTransform: "capitalize",
                     }}
@@ -278,7 +278,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                     {prop.property_type || "Commercial"}
                   </span>
                 </div>
-                <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--color-slate-500)", fontWeight: 600 }}>
+                <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>
                   Code: <strong style={{ color: "var(--color-info-strong)", fontFamily: "monospace" }}>{prop.code || "—"}</strong> • {prop.address}, {prop.city}
                 </p>
               </div>
@@ -292,7 +292,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 style={{
                   background: "var(--surface)",
                   border: "1px solid var(--color-slate-300)",
-                  color: "var(--color-slate-700)",
+                  color: "var(--text-muted)",
                   padding: "7px 12px",
                   borderRadius: 8,
                   fontSize: 12,
@@ -338,7 +338,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                   style={{
                     background: "var(--surface)",
                     border: "1px solid var(--color-slate-300)",
-                    color: "var(--color-slate-900)",
+                    color: "var(--text-primary)",
                     padding: "7px 12px",
                     borderRadius: 8,
                     fontSize: 12,
@@ -361,7 +361,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                   border: "none",
                   cursor: "pointer",
                   padding: 6,
-                  color: "var(--color-slate-500)",
+                  color: "var(--text-faint)",
                   borderRadius: 8,
                   display: "flex",
                   alignItems: "center",
@@ -445,7 +445,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
             <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 280 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 800, marginBottom: 4 }}>
-                  <span style={{ color: "var(--color-slate-600)" }}>Onboarding Readiness</span>
+                  <span style={{ color: "var(--text-soft)" }}>Onboarding Readiness</span>
                   <span style={{ color: score >= 80 ? "var(--color-success-strong)" : score >= 50 ? "var(--color-amber-deep)" : "var(--color-danger-strong)" }}>
                     {score}% ({providedCount}/{totalCount} verified)
                   </span>
@@ -473,22 +473,22 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 {/* 4 Top KPI Cards */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
                   <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--color-slate-200)", backgroundColor: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: "var(--color-slate-500)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Total Registered Units</div>
-                    <div style={{ fontSize: 24, fontWeight: 900, marginTop: 4, color: "var(--color-slate-900)" }}>{kN(prop.units_count)}</div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Total Registered Units</div>
+                    <div style={{ fontSize: 24, fontWeight: 900, marginTop: 4, color: "var(--text-primary)" }}>{kN(prop.units_count)}</div>
                     <div style={{ fontSize: 12, color: "var(--color-success)", fontWeight: 700, marginTop: 2 }}>{kN(prop.occupied)} Occupied ({pct(prop.occupied, prop.units_count)}%)</div>
                   </div>
 
                   <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--color-slate-200)", backgroundColor: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: "var(--color-slate-500)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Contracted Monthly Rent</div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Contracted Monthly Rent</div>
                     <div style={{ fontSize: 22, fontWeight: 900, marginTop: 4, color: "var(--color-info-strong)" }}>
                       {money.format(Number(prop.monthly_rent || prop.monthlyRent || 0))}
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--color-slate-500)", fontWeight: 600, marginTop: 2 }}>Target revenue potential</div>
+                    <div style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600, marginTop: 2 }}>Target revenue potential</div>
                   </div>
 
                   <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--color-slate-200)", backgroundColor: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: "var(--color-slate-500)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Landlord Engagement</div>
-                    <div style={{ fontSize: 13, fontWeight: 800, marginTop: 4, color: "var(--color-slate-900)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={landlord.name || meta.landlord_name || "—"}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Landlord Engagement</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, marginTop: 4, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={landlord.name || meta.landlord_name || "—"}>
                       {landlord.name || meta.landlord_name || "—"}
                     </div>
                     <div style={{ fontSize: 11, color: "var(--color-info-strong)", fontWeight: 700, marginTop: 2, textTransform: "capitalize" }}>
@@ -497,8 +497,8 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                   </div>
 
                   <div style={{ padding: 16, borderRadius: 12, border: "1px solid var(--color-slate-200)", backgroundColor: "var(--surface)", boxShadow: "0 1px 2px rgba(0,0,0,0.03)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: "var(--color-slate-500)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Operations & Compliance</div>
-                    <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: "var(--color-slate-900)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Operations & Compliance</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, marginTop: 4, color: "var(--text-primary)" }}>
                       {utilities.length} Meter(s) • {serviceProviders.length} Service Line(s)
                     </div>
                     <div style={{ fontSize: 12, color: documents.length > 0 ? "var(--color-success)" : "var(--color-warning)", fontWeight: 700, marginTop: 2 }}>
@@ -516,14 +516,14 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                     </h4>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                        <span style={{ color: "var(--color-slate-500)", fontWeight: 600 }}>LR / Title Number:</span>
+                        <span style={{ color: "var(--text-faint)", fontWeight: 600 }}>LR / Title Number:</span>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <strong style={{ fontFamily: "monospace", color: "var(--color-slate-900)" }}>{meta.lr_number || "—"}</strong>
+                          <strong style={{ fontFamily: "monospace", color: "var(--text-primary)" }}>{meta.lr_number || "—"}</strong>
                           {meta.lr_number && (
                             <button
                               type="button"
                               onClick={() => copyToClipboard(meta.lr_number, "lr")}
-                              style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--color-slate-400)" }}
+                              style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "var(--text-ghost)" }}
                               title="Copy LR Number"
                             >
                               {copiedField === "lr" ? <CheckCheck size={14} color="var(--color-success)" /> : <Copy size={14} />}
@@ -532,26 +532,26 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                         </div>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                        <span style={{ color: "var(--color-slate-500)", fontWeight: 600 }}>Property Tax PIN:</span>
-                        <strong style={{ fontFamily: "monospace", color: "var(--color-slate-900)" }}>{meta.pin_number || "—"}</strong>
+                        <span style={{ color: "var(--text-faint)", fontWeight: 600 }}>Property Tax PIN:</span>
+                        <strong style={{ fontFamily: "monospace", color: "var(--text-primary)" }}>{meta.pin_number || "—"}</strong>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                        <span style={{ color: "var(--color-slate-500)", fontWeight: 600 }}>Title Ownership Type:</span>
-                        <strong style={{ textTransform: "capitalize", color: "var(--color-slate-900)" }}>{meta.title_type || "Freehold"}</strong>
+                        <span style={{ color: "var(--text-faint)", fontWeight: 600 }}>Title Ownership Type:</span>
+                        <strong style={{ textTransform: "capitalize", color: "var(--text-primary)" }}>{meta.title_type || "Freehold"}</strong>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                        <span style={{ color: "var(--color-slate-500)", fontWeight: 600 }}>Year Built:</span>
-                        <strong style={{ color: "var(--color-slate-900)" }}>{meta.year_built && Number(meta.year_built) > 0 ? meta.year_built : "—"}</strong>
+                        <span style={{ color: "var(--text-faint)", fontWeight: 600 }}>Year Built:</span>
+                        <strong style={{ color: "var(--text-primary)" }}>{meta.year_built && Number(meta.year_built) > 0 ? meta.year_built : "—"}</strong>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                        <span style={{ color: "var(--color-slate-500)", fontWeight: 600 }}>Land Area / Built Area:</span>
-                        <strong style={{ color: "var(--color-slate-900)" }}>
+                        <span style={{ color: "var(--text-faint)", fontWeight: 600 }}>Land Area / Built Area:</span>
+                        <strong style={{ color: "var(--text-primary)" }}>
                           {meta.land_size_sqft ? `${meta.land_size_sqft} sq ft` : "—"} / {meta.built_up_area_sqft ? `${meta.built_up_area_sqft} sq ft` : "—"}
                         </strong>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ color: "var(--color-slate-500)", fontWeight: 600 }}>Location Coordinates:</span>
-                        <span style={{ color: "var(--color-slate-900)", fontSize: 12 }}>
+                        <span style={{ color: "var(--text-faint)", fontWeight: 600 }}>Location Coordinates:</span>
+                        <span style={{ color: "var(--text-primary)", fontSize: 12 }}>
                           {meta.latitude && meta.longitude ? `${meta.latitude}, ${meta.longitude}` : "Not pinned"}
                         </span>
                       </div>
@@ -565,34 +565,34 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                     </h4>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                        <span style={{ color: "var(--color-slate-500)", fontWeight: 600 }}>Landlord / Owner:</span>
-                        <strong style={{ color: "var(--color-slate-900)" }}>{landlord.name || meta.landlord_name || "—"}</strong>
+                        <span style={{ color: "var(--text-faint)", fontWeight: 600 }}>Landlord / Owner:</span>
+                        <strong style={{ color: "var(--text-primary)" }}>{landlord.name || meta.landlord_name || "—"}</strong>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                        <span style={{ color: "var(--color-slate-500)", fontWeight: 600 }}>Landlord KRA PIN:</span>
-                        <strong style={{ fontFamily: "monospace", color: "var(--color-slate-900)" }}>{landlord.pin || "—"}</strong>
+                        <span style={{ color: "var(--text-faint)", fontWeight: 600 }}>Landlord KRA PIN:</span>
+                        <strong style={{ fontFamily: "monospace", color: "var(--text-primary)" }}>{landlord.pin || "—"}</strong>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                        <span style={{ color: "var(--color-slate-500)", fontWeight: 600 }}>VAT Registration:</span>
+                        <span style={{ color: "var(--text-faint)", fontWeight: 600 }}>VAT Registration:</span>
                         <span style={{ fontWeight: 700, color: landlord.vat_registered ? "var(--color-success)" : "var(--color-slate-500)" }}>
                           {landlord.vat_registered ? `VAT Registered (${landlord.vat_number || 'Recorded'})` : "Not Registered"}
                         </span>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                        <span style={{ color: "var(--color-slate-500)", fontWeight: 600 }}>Engagement Type:</span>
+                        <span style={{ color: "var(--text-faint)", fontWeight: 600 }}>Engagement Type:</span>
                         <span style={{ textTransform: "capitalize", fontWeight: 800, color: "var(--color-info-strong)" }}>
                           {String(landlordEng.engagement_type || "management").replace(/_/g, " ")}
                         </span>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 6 }}>
-                        <span style={{ color: "var(--color-slate-500)", fontWeight: 600 }}>Management Fee Model:</span>
-                        <strong style={{ color: "var(--color-slate-900)" }}>
+                        <span style={{ color: "var(--text-faint)", fontWeight: 600 }}>Management Fee Model:</span>
+                        <strong style={{ color: "var(--text-primary)" }}>
                           {landlordEng.management_fee_rate ? `${landlordEng.management_fee_rate} (${landlordEng.management_fee_basis || 'standard'})` : "—"}
                         </strong>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span style={{ color: "var(--color-slate-500)", fontWeight: 600 }}>Letting Fee Model:</span>
-                        <span style={{ color: "var(--color-slate-900)", textTransform: "capitalize" }}>
+                        <span style={{ color: "var(--text-faint)", fontWeight: 600 }}>Letting Fee Model:</span>
+                        <span style={{ color: "var(--text-primary)", textTransform: "capitalize" }}>
                           {landlordEng.letting_fee_type ? String(landlordEng.letting_fee_type).replace(/_/g, " ") : "—"}
                         </span>
                       </div>
@@ -608,16 +608,16 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                       <Zap size={16} /> Utility Meters & Infrastructure ({utilities.length})
                     </h4>
                     {utilities.length === 0 ? (
-                      <p style={{ margin: 0, fontSize: 12, color: "var(--color-slate-500)", fontStyle: "italic" }}>No utility meters registered yet.</p>
+                      <p style={{ margin: 0, fontSize: 12, color: "var(--text-faint)", fontStyle: "italic" }}>No utility meters registered yet.</p>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         {utilities.map((u: any, i: number) => (
                           <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: "var(--color-slate-50)", borderRadius: 8, border: "1px solid var(--color-slate-100)", fontSize: 12 }}>
                             <div>
-                              <strong style={{ textTransform: "capitalize", color: "var(--color-slate-900)" }}>{u.type || "Utility"}</strong>
-                              <span style={{ color: "var(--color-slate-500)", marginLeft: 6 }}>#{u.meter_number || u.account || "—"}</span>
+                              <strong style={{ textTransform: "capitalize", color: "var(--text-primary)" }}>{u.type || "Utility"}</strong>
+                              <span style={{ color: "var(--text-faint)", marginLeft: 6 }}>#{u.meter_number || u.account || "—"}</span>
                             </div>
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "var(--color-slate-200)", color: "var(--color-slate-700)" }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "var(--color-slate-200)", color: "var(--text-muted)" }}>
                               {u.billing_type || "Direct"}
                             </span>
                           </div>
@@ -632,14 +632,14 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                       <Wrench size={16} /> Facility Service Lines ({serviceProviders.length})
                     </h4>
                     {serviceProviders.length === 0 ? (
-                      <p style={{ margin: 0, fontSize: 12, color: "var(--color-slate-500)", fontStyle: "italic" }}>No service providers or SLAs assigned.</p>
+                      <p style={{ margin: 0, fontSize: 12, color: "var(--text-faint)", fontStyle: "italic" }}>No service providers or SLAs assigned.</p>
                     ) : (
                       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         {serviceProviders.map((s: any, i: number) => (
                           <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px", background: "var(--color-slate-50)", borderRadius: 8, border: "1px solid var(--color-slate-100)", fontSize: 12 }}>
                             <div>
-                              <strong style={{ textTransform: "capitalize", color: "var(--color-slate-900)" }}>{s.service || s.category}</strong>
-                              <span style={{ color: "var(--color-slate-500)", marginLeft: 6 }}>{s.provider_name || s.name}</span>
+                              <strong style={{ textTransform: "capitalize", color: "var(--text-primary)" }}>{s.service || s.category}</strong>
+                              <span style={{ color: "var(--text-faint)", marginLeft: 6 }}>{s.provider_name || s.name}</span>
                             </div>
                             <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-success)" }}>Active SLA</span>
                           </div>
@@ -663,8 +663,8 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                       {documents.map((d: any, i: number) => (
                         <div key={i} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--color-slate-200)", background: "var(--color-slate-50)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <div>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--color-slate-900)" }}>{d.name || "Document"}</div>
-                            <div style={{ fontSize: 11, color: "var(--color-slate-500)", textTransform: "capitalize" }}>{d.type || "Attachment"}</div>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-primary)" }}>{d.name || "Document"}</div>
+                            <div style={{ fontSize: 11, color: "var(--text-faint)", textTransform: "capitalize" }}>{d.type || "Attachment"}</div>
                           </div>
                           <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 4, background: "var(--color-green-bg)", color: "var(--color-green-text)" }}>
                             VERIFIED
@@ -678,8 +678,8 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 {/* Notes if present */}
                 {meta.notes && (
                   <div style={{ padding: 16, borderRadius: 12, backgroundColor: "var(--surface)", border: "1px solid var(--color-slate-200)" }}>
-                    <h4 style={{ margin: "0 0 6px 0", fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: "var(--color-slate-500)" }}>Onboarding Notes & Instructions</h4>
-                    <p style={{ margin: 0, fontSize: 13, whiteSpace: "pre-wrap", color: "var(--color-slate-700)" }}>{meta.notes}</p>
+                    <h4 style={{ margin: "0 0 6px 0", fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: "var(--text-faint)" }}>Onboarding Notes & Instructions</h4>
+                    <p style={{ margin: 0, fontSize: 13, whiteSpace: "pre-wrap", color: "var(--text-muted)" }}>{meta.notes}</p>
                   </div>
                 )}
               </div>
@@ -741,7 +741,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                     </button>
                   </div>
 
-                  <div style={{ fontSize: 12, color: "var(--color-slate-500)", fontWeight: 600 }}>
+                  <div style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>
                     {requiredMissing.length > 0 ? (
                       <span style={{ color: "var(--color-danger-strong)", fontWeight: 800 }}>⚠️ {requiredMissing.length} Mandatory Requirement(s) Incomplete</span>
                     ) : (
@@ -754,7 +754,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 12, overflow: "hidden", backgroundColor: "var(--surface)" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, textAlign: "left" }}>
                     <thead>
-                      <tr style={{ borderBottom: "1px solid var(--color-slate-200)", backgroundColor: "var(--color-slate-50)", color: "var(--color-slate-600)" }}>
+                      <tr style={{ borderBottom: "1px solid var(--color-slate-200)", backgroundColor: "var(--color-slate-50)", color: "var(--text-soft)" }}>
                         <th style={{ padding: "10px 16px", fontWeight: 800 }}>Audit Category</th>
                         <th style={{ padding: "10px 16px", fontWeight: 800 }}>Field Requirement</th>
                         <th style={{ padding: "10px 16px", fontWeight: 800 }}>Status</th>
@@ -764,9 +764,9 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                     <tbody>
                       {displayedAuditItems.map((item, idx) => (
                         <tr key={idx} style={{ borderBottom: "1px solid var(--color-slate-100)" }}>
-                          <td style={{ padding: "10px 16px", color: "var(--color-slate-500)", fontWeight: 600 }}>{item.area}</td>
+                          <td style={{ padding: "10px 16px", color: "var(--text-faint)", fontWeight: 600 }}>{item.area}</td>
                           <td style={{ padding: "10px 16px" }}>
-                            <strong style={{ color: "var(--color-slate-900)" }}>{item.label}</strong>
+                            <strong style={{ color: "var(--text-primary)" }}>{item.label}</strong>
                             {item.required && <span style={{ color: "var(--color-danger)", marginLeft: 4, fontWeight: 900 }}>*</span>}
                           </td>
                           <td style={{ padding: "10px 16px" }}>
@@ -786,7 +786,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                           </td>
                           <td style={{ padding: "10px 16px" }}>
                             {item.provided ? (
-                              <span style={{ color: "var(--color-slate-900)", fontWeight: 700 }}>{String(item.value)}</span>
+                              <span style={{ color: "var(--text-primary)", fontWeight: 700 }}>{String(item.value)}</span>
                             ) : (
                               <span style={{ color: item.required ? "var(--color-danger-strong)" : "var(--color-slate-500)", fontStyle: "italic" }}>
                                 {item.recommendation || "Not provided during onboarding"}
@@ -813,8 +813,8 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
               backgroundColor: "var(--surface)",
             }}
           >
-            <div style={{ fontSize: 12, color: "var(--color-slate-500)", fontWeight: 600 }}>
-              Property ID: <code style={{ fontFamily: "monospace", color: "var(--color-slate-900)" }}>{prop.id}</code> • Center Estates Verified Record
+            <div style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>
+              Property ID: <code style={{ fontFamily: "monospace", color: "var(--text-primary)" }}>{prop.id}</code> • Center Estates Verified Record
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <button
@@ -823,7 +823,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 style={{
                   background: "var(--surface)",
                   border: "1px solid var(--color-slate-300)",
-                  color: "var(--color-slate-700)",
+                  color: "var(--text-muted)",
                   padding: "8px 16px",
                   borderRadius: 8,
                   fontSize: 13,
@@ -905,14 +905,14 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
               <div style={{ fontSize: 18, fontWeight: 900, color: "var(--color-info-dark)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 {organizationName}
               </div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--color-slate-900)", marginTop: 2 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)", marginTop: 2 }}>
                 OFFICIAL PROPERTY PROFILE & COMPLIANCE AUDIT
               </div>
-              <div style={{ fontSize: 10, color: "var(--color-slate-500)", marginTop: 2 }}>
+              <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 2 }}>
                 Center Estates Enterprise Property Management Platform
               </div>
             </div>
-            <div style={{ textAlign: "right", fontSize: 10, color: "var(--color-slate-600)" }}>
+            <div style={{ textAlign: "right", fontSize: 10, color: "var(--text-soft)" }}>
               <div><strong>Audit Reference:</strong> CE-AUD-{String(prop.id).slice(0, 8).toUpperCase()}</div>
               <div><strong>Generated:</strong> {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div>
               <div><strong>Status:</strong> <span style={{ textTransform: "uppercase", fontWeight: 800, color: prop.status === "active" ? "var(--color-success)" : "var(--color-warning)" }}>{prop.status || "Active"}</span></div>
@@ -923,33 +923,33 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
           <div className="avoid-break" style={{ border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 14, backgroundColor: "var(--color-slate-50)", marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
               <div>
-                <h1 style={{ fontSize: 20, fontWeight: 900, margin: 0, color: "var(--color-slate-900)" }}>{prop.name}</h1>
-                <div style={{ fontSize: 11, color: "var(--color-slate-600)", marginTop: 3 }}>
+                <h1 style={{ fontSize: 20, fontWeight: 900, margin: 0, color: "var(--text-primary)" }}>{prop.name}</h1>
+                <div style={{ fontSize: 11, color: "var(--text-soft)", marginTop: 3 }}>
                   Code: <strong>{prop.code || "—"}</strong> • Type: <strong style={{ textTransform: "capitalize" }}>{prop.property_type || "Commercial"}</strong> • Location: <strong>{prop.address}, {prop.city}</strong>
                 </div>
               </div>
               <div style={{ textAlign: "right", borderLeft: "2px solid var(--color-slate-300)", paddingLeft: 14 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, color: "var(--color-slate-500)", textTransform: "uppercase" }}>Readiness Score</div>
+                <div style={{ fontSize: 10, fontWeight: 800, color: "var(--text-faint)", textTransform: "uppercase" }}>Readiness Score</div>
                 <div style={{ fontSize: 20, fontWeight: 900, color: score >= 80 ? "var(--color-success)" : "var(--color-warning)" }}>{score}%</div>
-                <div style={{ fontSize: 9, color: "var(--color-slate-500)" }}>{providedCount}/{totalCount} items verified</div>
+                <div style={{ fontSize: 9, color: "var(--text-faint)" }}>{providedCount}/{totalCount} items verified</div>
               </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, borderTop: "1px solid var(--color-slate-200)", paddingTop: 10, fontSize: 11 }}>
               <div>
-                <span style={{ color: "var(--color-slate-500)", display: "block" }}>Total Units:</span>
+                <span style={{ color: "var(--text-faint)", display: "block" }}>Total Units:</span>
                 <strong style={{ fontSize: 13 }}>{kN(prop.units_count)} ({kN(prop.occupied)} Occupied)</strong>
               </div>
               <div>
-                <span style={{ color: "var(--color-slate-500)", display: "block" }}>Contracted Rent:</span>
+                <span style={{ color: "var(--text-faint)", display: "block" }}>Contracted Rent:</span>
                 <strong style={{ fontSize: 13, color: "var(--color-info-dark)" }}>{money.format(Number(prop.monthly_rent || prop.monthlyRent || 0))}</strong>
               </div>
               <div>
-                <span style={{ color: "var(--color-slate-500)", display: "block" }}>Landlord / Owner:</span>
+                <span style={{ color: "var(--text-faint)", display: "block" }}>Landlord / Owner:</span>
                 <strong style={{ fontSize: 12 }}>{landlord.name || meta.landlord_name || "—"}</strong>
               </div>
               <div>
-                <span style={{ color: "var(--color-slate-500)", display: "block" }}>Management Fee:</span>
+                <span style={{ color: "var(--text-faint)", display: "block" }}>Management Fee:</span>
                 <strong style={{ fontSize: 12 }}>{landlordEng.management_fee_rate ? `${landlordEng.management_fee_rate}` : "Not configured"}</strong>
               </div>
             </div>
@@ -963,11 +963,11 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
               </div>
               <table style={{ width: "100%", fontSize: 10, borderCollapse: "collapse" }}>
                 <tbody>
-                  <tr><td style={{ color: "var(--color-slate-500)", padding: "3px 0" }}>LR / Title No:</td><td><strong>{meta.lr_number || "—"}</strong></td></tr>
-                  <tr><td style={{ color: "var(--color-slate-500)", padding: "3px 0" }}>Property KRA PIN:</td><td><strong>{meta.pin_number || "—"}</strong></td></tr>
-                  <tr><td style={{ color: "var(--color-slate-500)", padding: "3px 0" }}>Title Type:</td><td style={{ textTransform: "capitalize" }}><strong>{meta.title_type || "Freehold"}</strong></td></tr>
-                  <tr><td style={{ color: "var(--color-slate-500)", padding: "3px 0" }}>Year Built:</td><td><strong>{meta.year_built && Number(meta.year_built) > 0 ? meta.year_built : "—"}</strong></td></tr>
-                  <tr><td style={{ color: "var(--color-slate-500)", padding: "3px 0" }}>Land Size / Built Area:</td><td><strong>{meta.land_size_sqft ? `${meta.land_size_sqft} sq ft` : "—"} / {meta.built_up_area_sqft ? `${meta.built_up_area_sqft} sq ft` : "—"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>LR / Title No:</td><td><strong>{meta.lr_number || "—"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Property KRA PIN:</td><td><strong>{meta.pin_number || "—"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Title Type:</td><td style={{ textTransform: "capitalize" }}><strong>{meta.title_type || "Freehold"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Year Built:</td><td><strong>{meta.year_built && Number(meta.year_built) > 0 ? meta.year_built : "—"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Land Size / Built Area:</td><td><strong>{meta.land_size_sqft ? `${meta.land_size_sqft} sq ft` : "—"} / {meta.built_up_area_sqft ? `${meta.built_up_area_sqft} sq ft` : "—"}</strong></td></tr>
                 </tbody>
               </table>
             </div>
@@ -978,11 +978,11 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
               </div>
               <table style={{ width: "100%", fontSize: 10, borderCollapse: "collapse" }}>
                 <tbody>
-                  <tr><td style={{ color: "var(--color-slate-500)", padding: "3px 0" }}>Landlord Name:</td><td><strong>{landlord.name || meta.landlord_name || "—"}</strong></td></tr>
-                  <tr><td style={{ color: "var(--color-slate-500)", padding: "3px 0" }}>Landlord PIN:</td><td><strong>{landlord.pin || "—"}</strong></td></tr>
-                  <tr><td style={{ color: "var(--color-slate-500)", padding: "3px 0" }}>VAT Registered:</td><td><strong>{landlord.vat_registered ? `Yes (${landlord.vat_number || 'Recorded'})` : 'No'}</strong></td></tr>
-                  <tr><td style={{ color: "var(--color-slate-500)", padding: "3px 0" }}>Management Fee:</td><td><strong>{landlordEng.management_fee_rate ? `${landlordEng.management_fee_rate} (${landlordEng.management_fee_basis || 'standard'})` : "—"}</strong></td></tr>
-                  <tr><td style={{ color: "var(--color-slate-500)", padding: "3px 0" }}>Letting Fee Model:</td><td><strong>{landlordEng.letting_fee_type ? String(landlordEng.letting_fee_type).replace(/_/g, " ") : "—"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Landlord Name:</td><td><strong>{landlord.name || meta.landlord_name || "—"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Landlord PIN:</td><td><strong>{landlord.pin || "—"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>VAT Registered:</td><td><strong>{landlord.vat_registered ? `Yes (${landlord.vat_number || 'Recorded'})` : 'No'}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Management Fee:</td><td><strong>{landlordEng.management_fee_rate ? `${landlordEng.management_fee_rate} (${landlordEng.management_fee_basis || 'standard'})` : "—"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Letting Fee Model:</td><td><strong>{landlordEng.letting_fee_type ? String(landlordEng.letting_fee_type).replace(/_/g, " ") : "—"}</strong></td></tr>
                 </tbody>
               </table>
             </div>
@@ -1006,7 +1006,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
               </div>
               <div style={{ fontSize: 10 }}>
                 {documents.length === 0 ? (
-                  <span style={{ color: "var(--color-slate-500)", fontStyle: "italic" }}>No compliance documents attached</span>
+                  <span style={{ color: "var(--text-faint)", fontStyle: "italic" }}>No compliance documents attached</span>
                 ) : (
                   documents.map((d: any, i: number) => (
                     <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
@@ -1036,7 +1036,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
               <tbody>
                 {auditList.map((item, idx) => (
                   <tr key={idx} style={{ borderBottom: "1px solid var(--color-slate-100)", backgroundColor: item.provided ? "#ffffff" : item.required ? "#fff1f2" : "#fffbeb" }}>
-                    <td style={{ padding: "5px 10px", color: "var(--color-slate-500)" }}>{item.area}</td>
+                    <td style={{ padding: "5px 10px", color: "var(--text-faint)" }}>{item.area}</td>
                     <td style={{ padding: "5px 10px" }}><strong>{item.label}</strong>{item.required && " *"}</td>
                     <td style={{ padding: "5px 10px", fontWeight: 800, color: item.provided ? "var(--color-success)" : item.required ? "var(--color-danger-strong)" : "var(--color-amber-deep)" }}>
                       {item.provided ? "✓ PROVIDED" : item.required ? "✗ MISSING (MANDATORY)" : "— NOT PROVIDED"}
@@ -1056,20 +1056,20 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, fontSize: 10 }}>
               <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 4 }}>
                 <strong>Prepared By (Property Manager):</strong>
-                <div style={{ marginTop: 18, color: "var(--color-slate-500)" }}>Signature & Date: ____________________</div>
+                <div style={{ marginTop: 18, color: "var(--text-faint)" }}>Signature & Date: ____________________</div>
               </div>
               <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 4 }}>
                 <strong>Reviewed By (Auditor / Agent):</strong>
-                <div style={{ marginTop: 18, color: "var(--color-slate-500)" }}>Signature & Date: ____________________</div>
+                <div style={{ marginTop: 18, color: "var(--text-faint)" }}>Signature & Date: ____________________</div>
               </div>
               <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 4 }}>
                 <strong>Landlord Acknowledgement:</strong>
-                <div style={{ marginTop: 18, color: "var(--color-slate-500)" }}>Signature & Date: ____________________</div>
+                <div style={{ marginTop: 18, color: "var(--text-faint)" }}>Signature & Date: ____________________</div>
               </div>
             </div>
           </div>
 
-          <div style={{ marginTop: 12, textAlign: "center", fontSize: 9, color: "var(--color-slate-400)" }}>
+          <div style={{ marginTop: 12, textAlign: "center", fontSize: 9, color: "var(--text-ghost)" }}>
             Center Estates Property Management ERP • Certified Audit Report Generated for {organizationName} • Page 1 of 1
           </div>
         </div>,

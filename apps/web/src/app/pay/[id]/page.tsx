@@ -213,7 +213,7 @@ export default function GuestInvoicePayPage() {
       <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", bgcolor: "var(--color-slate-50)", p: 3 }}>
         <Stack spacing={2} sx={{ alignItems: "center" }}>
           <CircularProgress size={42} sx={{ color: "var(--color-green-brand)" }} />
-          <Typography variant="body2" sx={{ fontWeight: 700, color: "var(--color-slate-500)" }}>
+          <Typography variant="body2" sx={{ fontWeight: 700, color: "var(--text-faint)" }}>
             Loading secure payment gateway…
           </Typography>
         </Stack>
@@ -271,7 +271,7 @@ export default function GuestInvoicePayPage() {
             <Smartphone size={26} />
           </Box>
 
-          <Typography variant="caption" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--color-slate-400)", fontWeight: 800 }}>
+          <Typography variant="caption" sx={{ textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-ghost)", fontWeight: 800 }}>
             Center Estates · Instant Checkout
           </Typography>
           <Typography variant="h6" sx={{ fontWeight: 900, mt: 0.25, color: "#ffffff" }}>
@@ -296,10 +296,10 @@ export default function GuestInvoicePayPage() {
             }}
           >
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--color-slate-500)" }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--text-faint)" }}>
                 INVOICE NUMBER
               </Typography>
-              <Typography variant="subtitle2" sx={{ fontWeight: 900, color: "var(--color-slate-900)" }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 900, color: "var(--text-primary)" }}>
                 {invoice?.number}
               </Typography>
               <Typography variant="caption" color="text.secondary">
@@ -308,7 +308,7 @@ export default function GuestInvoicePayPage() {
             </Box>
 
             <Box sx={{ textAlign: "right" }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--color-slate-500)" }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: "var(--text-faint)" }}>
                 TOTAL AMOUNT DUE
               </Typography>
               <Typography variant="h5" sx={{ fontWeight: 900, color: "var(--color-success)" }}>
@@ -369,7 +369,7 @@ export default function GuestInvoicePayPage() {
           ) : (
             /* ACTIVE PAYMENT FORM */
             <Box sx={{ mt: 2.5 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--color-slate-900)", mb: 1, display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--text-primary)", mb: 1, display: "flex", alignItems: "center", gap: 1 }}>
                 <Zap size={16} color="var(--color-green-brand)" />
                 <span>1-Click M-Pesa STK Push:</span>
               </Typography>
@@ -436,7 +436,7 @@ export default function GuestInvoicePayPage() {
 
               {/* MANUAL PAYBILL INSTRUCTIONS */}
               <Box sx={{ mt: 3, pt: 2, borderTop: "1px dashed var(--color-slate-300)" }}>
-                <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", color: "var(--color-slate-500)", display: "block", mb: 1.5 }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", color: "var(--text-faint)", display: "block", mb: 1.5 }}>
                   Or Pay Manually from your M-Pesa Menu:
                 </Typography>
 
@@ -512,7 +512,7 @@ export default function GuestInvoicePayPage() {
             alignItems: "center",
             justifyContent: "center",
             gap: 1,
-            color: "var(--color-slate-500)",
+            color: "var(--text-faint)",
             fontSize: "0.78rem",
           }}
         >

@@ -144,7 +144,7 @@ export function InspectionsView({
                         <tr key={String(row.id)} className={selectedRow?.id === row.id ? "selected" : ""} onClick={() => setSelectedRow(selectedRow?.id === row.id ? null : row)}>
                           <td>
                             <strong style={{ fontSize: 13, color: "var(--text-primary)", display: "block" }}>{String(row.title ?? "—")}</strong>
-                            {Boolean(row.reference) && <small style={{ fontSize: 10, color: "var(--color-slate-500)" }}>{String(row.reference)}</small>}
+                            {Boolean(row.reference) && <small style={{ fontSize: 10, color: "var(--text-faint)" }}>{String(row.reference)}</small>}
                           </td>
                           <td style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 600 }}>{String(row.asset_name ?? "—")}</td>
                           <td style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 600 }}>{String(row.property_name ?? "—")}</td>

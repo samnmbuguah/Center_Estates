@@ -42,7 +42,7 @@ type AIAuditResult = {
 };
 
 const statusMeta: Record<Status, { label: string; color: string; bg: string }> = {
-  not_started: { label: "Not tested", color: "var(--color-slate-500)", bg: "var(--color-slate-100)" },
+  not_started: { label: "Not tested", color: "var(--text-faint)", bg: "var(--color-slate-100)" },
   in_progress: { label: "In progress", color: "var(--color-info)", bg: "var(--color-blue-soft)" },
   passed: { label: "Passed", color: "var(--color-success)", bg: "var(--color-green-soft)" },
   failed: { label: "Failed", color: "var(--color-danger)", bg: "var(--color-red-soft)" },
@@ -171,14 +171,14 @@ export default function TestingPage() {
       <div className="print-only" style={{ display: "none", marginBottom: 24, borderBottom: "2px solid var(--color-slate-900)", paddingBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 900, margin: 0, color: "var(--color-slate-900)" }}>CENTER ESTATES · RELEASE READINESS AUDIT REPORT</h1>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--color-slate-600)" }}>
+            <h1 style={{ fontSize: 24, fontWeight: 900, margin: 0, color: "var(--text-primary)" }}>CENTER ESTATES · RELEASE READINESS AUDIT REPORT</h1>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-soft)" }}>
               Organization: <strong>{data?.organization_name || session?.organizations.find(o => o.id === session.activeOrganizationId)?.name || "Legend Management Limited"}</strong> · Audit Date: {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
             </p>
           </div>
           <div style={{ textAlign: "right" }}>
             <span style={{ fontSize: 22, fontWeight: 900, color: completion >= 80 ? "var(--color-success)" : "#ca8a04" }}>{completion}% READINESS SCORE</span>
-            <div style={{ fontSize: 12, color: "var(--color-slate-500)" }}>{data?.summary.passed ?? 0} of {data?.total ?? 0} Workflows Verified ({autoVerifiedCount} Auto-Detected)</div>
+            <div style={{ fontSize: 12, color: "var(--text-faint)" }}>{data?.summary.passed ?? 0} of {data?.total ?? 0} Workflows Verified ({autoVerifiedCount} Auto-Detected)</div>
           </div>
         </div>
       </div>
@@ -477,15 +477,15 @@ export default function TestingPage() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24 }}>
           <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700 }}>Quality Assurance Lead</div>
-            <div style={{ fontSize: 11, color: "var(--color-slate-500)", marginTop: 2 }}>Signature & Date: ___________________</div>
+            <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>Signature & Date: ___________________</div>
           </div>
           <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700 }}>Head of Operations / Property Manager</div>
-            <div style={{ fontSize: 11, color: "var(--color-slate-500)", marginTop: 2 }}>Signature & Date: ___________________</div>
+            <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>Signature & Date: ___________________</div>
           </div>
           <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 8 }}>
             <div style={{ fontSize: 12, fontWeight: 700 }}>Systems Auditor / Tech Lead</div>
-            <div style={{ fontSize: 11, color: "var(--color-slate-500)", marginTop: 2 }}>Signature & Date: ___________________</div>
+            <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>Signature & Date: ___________________</div>
           </div>
         </div>
       </div>
@@ -495,7 +495,7 @@ export default function TestingPage() {
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
           <Info size={20} color="var(--color-info)" style={{ flexShrink: 0, marginTop: 2 }} />
           <div>
-            <strong style={{ color: "var(--color-slate-800)", fontSize: 14 }}>How Acceptance Testing Works:</strong>
+            <strong style={{ color: "var(--text-primary)", fontSize: 14 }}>How Acceptance Testing Works:</strong>
             <p className="muted" style={{ margin: "4px 0 0", fontSize: 13, lineHeight: 1.5 }}>
               1. <strong>Automated Scan:</strong> Click <em>⚡ Auto-Scan System Usage</em> to auto-verify features with database activity (properties, units, leases, invoices, receipts, work orders, meter readings).<br />
               2. <strong>Manual Testing:</strong> Click <em>Open Workflow</em>, exercise the business action in the role, confirm outcome, and set status to <strong>Passed</strong>.<br />
@@ -511,9 +511,9 @@ export default function TestingPage() {
           <div style={{ background: "var(--surface)", borderRadius: 12, width: "100%", maxWidth: 540, padding: 24, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.2)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Record Evidence & Notes</h3>
-              <button onClick={() => setEditingItem(null)} style={{ border: 0, background: "transparent", cursor: "pointer", color: "var(--color-slate-500)" }}><X size={20} /></button>
+              <button onClick={() => setEditingItem(null)} style={{ border: 0, background: "transparent", cursor: "pointer", color: "var(--text-faint)" }}><X size={20} /></button>
             </div>
-            <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--color-slate-500)" }}>
+            <p style={{ margin: "0 0 14px", fontSize: 13, color: "var(--text-faint)" }}>
               Workflow: <strong>{editingItem.title}</strong> ({editingItem.key})
             </p>
 
@@ -564,15 +564,15 @@ export default function TestingPage() {
                   <span style={{ fontSize: 11, fontWeight: 800, background: "var(--color-green-soft)", color: "var(--color-success)", padding: "3px 8px", borderRadius: 4 }}>
                     QUARTERMASTER AI AUDIT
                   </span>
-                  <span style={{ fontSize: 12, color: "var(--color-slate-500)" }}>
+                  <span style={{ fontSize: 12, color: "var(--text-faint)" }}>
                     {new Date(aiAuditData.evaluated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
-                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 850, color: "var(--color-slate-900)" }}>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 850, color: "var(--text-primary)" }}>
                   Executive Release Readiness Assessment
                 </h2>
               </div>
-              <button onClick={() => setShowAiModal(false)} style={{ border: 0, background: "transparent", cursor: "pointer", color: "var(--color-slate-500)" }}><X size={22} /></button>
+              <button onClick={() => setShowAiModal(false)} style={{ border: 0, background: "transparent", cursor: "pointer", color: "var(--text-faint)" }}><X size={22} /></button>
             </div>
 
             {/* Score & Verdict Banner */}
@@ -581,18 +581,18 @@ export default function TestingPage() {
                 {aiAuditData.score}%
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: "var(--color-slate-600)" }}>Readiness Verdict</div>
-                <div style={{ fontSize: 16, fontWeight: 800, color: "var(--color-slate-900)" }}>
+                <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: "var(--text-soft)" }}>Readiness Verdict</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)" }}>
                   {aiAuditData.verdict === "PRODUCTION_READY" ? "🟢 PRODUCTION READY" : aiAuditData.verdict === "STAGING_VERIFIED" ? "🟡 STAGING VERIFIED (CONDITIONAL)" : "🔴 TESTING IN PROGRESS"}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--color-slate-500)" }}>
+                <div style={{ fontSize: 12, color: "var(--text-faint)" }}>
                   {aiAuditData.passed_count} of {aiAuditData.total_features} core workflows verified.
                 </div>
               </div>
             </div>
 
             {/* AI Assessment Content */}
-            <div style={{ fontSize: 14, lineHeight: 1.65, color: "var(--color-slate-700)", background: "var(--color-slate-50)", padding: 20, borderRadius: 10, border: "1px solid var(--color-slate-200)", whiteSpace: "pre-line" }}>
+            <div style={{ fontSize: 14, lineHeight: 1.65, color: "var(--text-muted)", background: "var(--color-slate-50)", padding: 20, borderRadius: 10, border: "1px solid var(--color-slate-200)", whiteSpace: "pre-line" }}>
               {aiAuditData.assessment}
             </div>
 

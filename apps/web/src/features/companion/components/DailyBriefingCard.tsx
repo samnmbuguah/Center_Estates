@@ -184,7 +184,7 @@ export function DailyBriefingCard({
         background: "linear-gradient(135deg, rgba(240, 253, 250, 0.95) 0%, rgba(240, 249, 255, 0.95) 100%)",
         borderRadius: 16,
         padding: "22px 26px",
-        color: "var(--color-slate-900)",
+        color: "var(--text-primary)",
         boxShadow: "0 4px 20px rgba(0, 0, 0, 0.04)",
         border: "1px solid rgba(13, 148, 136, 0.22)",
         display: "flex",
@@ -215,9 +215,9 @@ export function DailyBriefingCard({
               <span style={{ fontSize: 11, letterSpacing: "0.08em", fontWeight: 800, color: "#0f766e", textTransform: "uppercase" }}>
                 Quartermaster AI Orchestrator
               </span>
-              <span style={{ fontSize: 11, color: "var(--color-slate-500)" }}>· {data.date || data.generatedAt || "Today"}</span>
+              <span style={{ fontSize: 11, color: "var(--text-faint)" }}>· {data.date || data.generatedAt || "Today"}</span>
             </div>
-            <h3 style={{ fontSize: 18, fontWeight: 900, margin: "2px 0 0", color: "var(--color-slate-900)" }}>
+            <h3 style={{ fontSize: 18, fontWeight: 900, margin: "2px 0 0", color: "var(--text-primary)" }}>
               {headline}
             </h3>
           </div>
@@ -237,7 +237,7 @@ export function DailyBriefingCard({
               boxShadow: "0 2px 6px rgba(0,0,0,0.03)",
             }}
           >
-            <span style={{ fontSize: 11, color: "var(--color-slate-500)", fontWeight: 600 }}>Portfolio Health:</span>
+            <span style={{ fontSize: 11, color: "var(--text-faint)", fontWeight: 600 }}>Portfolio Health:</span>
             <strong style={{ fontSize: 14, color: healthScore >= 80 ? "var(--color-success)" : "var(--color-warning)", fontWeight: 900 }}>
               {healthScore}/100
             </strong>
@@ -279,7 +279,7 @@ export function DailyBriefingCard({
             border: "1px solid rgba(13, 148, 136, 0.15)",
             fontSize: 13,
             lineHeight: 1.6,
-            color: "var(--color-slate-700)",
+            color: "var(--text-muted)",
           }}
         >
           {data.briefing_narrative}
@@ -290,7 +290,7 @@ export function DailyBriefingCard({
       {data.critical_alerts && data.critical_alerts.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {data.critical_alerts.map((alert, idx) => (
-            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-slate-700)" }}>
+            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-muted)" }}>
               <span style={{ color: "var(--color-teal)", fontWeight: 800 }}>•</span>
               <span>{alert}</span>
             </div>
@@ -334,8 +334,8 @@ export function DailyBriefingCard({
                       </span>
                       {isExecuted && <span style={{ fontSize: 11, color: "var(--color-success)", fontWeight: 800 }}>✓ Executed</span>}
                     </div>
-                    <strong style={{ fontSize: 13, color: "var(--color-slate-900)", display: "block" }}>{act.title}</strong>
-                    <p style={{ fontSize: 12, color: "var(--color-slate-500)", margin: "4px 0 0", lineHeight: 1.4 }}>{act.description}</p>
+                    <strong style={{ fontSize: 13, color: "var(--text-primary)", display: "block" }}>{act.title}</strong>
+                    <p style={{ fontSize: 12, color: "var(--text-faint)", margin: "4px 0 0", lineHeight: 1.4 }}>{act.description}</p>
                   </div>
 
                   <div style={{ borderTop: "1px solid rgba(148, 163, 184, 0.15)", paddingTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -343,7 +343,7 @@ export function DailyBriefingCard({
                       <span style={{ fontSize: 11, color: "var(--color-success)", fontWeight: 700 }}>Action completed successfully</span>
                     ) : (
                       <>
-                        <span style={{ fontSize: 11, color: "var(--color-slate-500)" }}>Requires Approval</span>
+                        <span style={{ fontSize: 11, color: "var(--text-faint)" }}>Requires Approval</span>
                         <button
                           type="button"
                           disabled={isBusy}

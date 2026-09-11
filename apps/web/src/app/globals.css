@@ -6666,6 +6666,9 @@ button, a, input, select, textarea { transition: border-color .16s ease, box-sha
   --text-primary: #090d16;
   --text-secondary: #1e293b;
   --text-muted: #334155;
+  --text-soft: #475569;
+  --text-faint: #64748b;
+  --text-ghost: #94a3b8;
   --text: var(--text-primary);
   --ink: var(--text-primary);
   --muted: var(--text-secondary);
@@ -6698,6 +6701,9 @@ button, a, input, select, textarea { transition: border-color .16s ease, box-sha
   --text-primary: #f8fafc;
   --text-secondary: #d5deea;
   --text-muted: #aab8cb;
+  --text-soft: #cbd5e1;
+  --text-faint: #94a3b8;
+  --text-ghost: #64748b;
   --text: var(--text-primary);
   --ink: var(--text-primary);
   --muted: var(--text-secondary);

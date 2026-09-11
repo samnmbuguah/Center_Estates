@@ -1649,17 +1649,17 @@ function AdministrationContent() {
                     🛡️
                   </div>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--color-slate-900)" }}>
+                    <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800, color: "var(--text-primary)" }}>
                       Security Verification Required
                     </h3>
-                    <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--color-slate-500)" }}>
+                    <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-faint)" }}>
                       Confirming changes to payment gateway & payout accounts
                     </p>
                   </div>
                 </div>
 
                 <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-200)", borderRadius: 8, padding: 12, marginBottom: 16 }}>
-                  <p style={{ margin: 0, fontSize: "0.83rem", color: "var(--color-slate-700)", lineHeight: 1.45 }}>
+                  <p style={{ margin: 0, fontSize: "0.83rem", color: "var(--text-muted)", lineHeight: 1.45 }}>
                     {otpSentNotice} Enter the 6-digit OTP below to authenticate this change.
                   </p>
                 </div>
@@ -1672,7 +1672,7 @@ function AdministrationContent() {
 
                 <form onSubmit={handleVerifyOtpAndSave} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   <div>
-                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6, color: "var(--color-slate-900)" }}>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6, color: "var(--text-primary)" }}>
                       Enter 6-Digit Email OTP:
                     </label>
                     <input
@@ -1695,7 +1695,7 @@ function AdministrationContent() {
                       }}
                     />
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
-                      <span style={{ fontSize: 11, color: "var(--color-slate-500)" }}>Demo code: <strong>123456</strong> or any 6 digits</span>
+                      <span style={{ fontSize: 11, color: "var(--text-faint)" }}>Demo code: <strong>123456</strong> or any 6 digits</span>
                       <button
                         type="button"
                         onClick={() => setOtpCode("123456")}
@@ -1710,7 +1710,7 @@ function AdministrationContent() {
                     <button
                       type="button"
                       onClick={() => { setShowOtpModal(false); setPendingGatewayPayload(null); }}
-                      style={{ flex: 1, padding: "10px 16px", borderRadius: 8, border: "1px solid var(--color-slate-300)", background: "var(--color-slate-50)", color: "var(--color-slate-700)", fontWeight: 700, cursor: "pointer" }}
+                      style={{ flex: 1, padding: "10px 16px", borderRadius: 8, border: "1px solid var(--color-slate-300)", background: "var(--color-slate-50)", color: "var(--text-muted)", fontWeight: 700, cursor: "pointer" }}
                     >
                       Cancel
                     </button>
@@ -1768,7 +1768,7 @@ function AdministrationContent() {
                 type="button"
                 onClick={() => applySmtpPreset("gmail")}
                 className="btn ghost sm"
-                style={{ background: "var(--surface)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-700)", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
+                style={{ background: "var(--surface)", border: "1px solid var(--color-slate-200)", color: "var(--text-muted)", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
               >
                 🌐 Google Workspace (smtp.gmail.com : 587 TLS)
               </button>
@@ -1776,7 +1776,7 @@ function AdministrationContent() {
                 type="button"
                 onClick={() => applySmtpPreset("m365")}
                 className="btn ghost sm"
-                style={{ background: "var(--surface)", border: "1px solid var(--color-slate-200)", color: "var(--color-slate-700)", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
+                style={{ background: "var(--surface)", border: "1px solid var(--color-slate-200)", color: "var(--text-muted)", fontWeight: 600, fontSize: 12, borderRadius: 6 }}
               >
                 💼 Microsoft 365 (smtp.office365.com : 587 TLS)
               </button>
@@ -1809,7 +1809,7 @@ function AdministrationContent() {
             </div>
             {/* Server Settings */}
             <div style={{ background: "var(--surface-sunken, var(--color-slate-50))", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 1. Outbound Mail Server Details
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 14 }}>
@@ -1875,7 +1875,7 @@ function AdministrationContent() {
 
             {/* Authentication Credentials */}
             <div style={{ background: "var(--surface-sunken, var(--color-slate-50))", border: "1px solid var(--border)", borderRadius: 10, padding: 18 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--color-slate-900)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 2. Authentication &amp; Sender Profile
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>

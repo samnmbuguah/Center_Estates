@@ -55,7 +55,7 @@ export function InteractiveSCurve({ data }: { data: SCurvePoint[] }) {
         </div>
         {activePoint && (
           <div style={{ display: "flex", gap: 12, fontSize: 12, fontWeight: 700 }}>
-            <span style={{ color: "var(--color-slate-400)" }}>Planned: {activePoint.planned}%</span>
+            <span style={{ color: "var(--text-ghost)" }}>Planned: {activePoint.planned}%</span>
             <span style={{ color: "var(--color-emerald)" }}>Actual: {activePoint.actual}%</span>
             <span style={{ color: activePoint.actual >= activePoint.planned ? "var(--color-emerald)" : "var(--color-danger)" }}>
               Variance: {(activePoint.actual - activePoint.planned).toFixed(1)}%

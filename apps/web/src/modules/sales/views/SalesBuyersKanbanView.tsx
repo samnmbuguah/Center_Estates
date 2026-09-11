@@ -26,7 +26,7 @@ export function SalesBuyersKanbanView() {
   };
 
   const stages: Array<{ id: BuyerLead["stage"]; label: string; color: string }> = [
-    { id: "inquiry", label: "Lead Inquiry", color: "var(--color-slate-500)" },
+    { id: "inquiry", label: "Lead Inquiry", color: "var(--text-faint)" },
     { id: "visit", label: "Site Visit Scheduled", color: "var(--color-warning)" },
     { id: "offer", label: "Offer Letter Sent", color: "var(--color-info)" },
     { id: "signed", label: "Sale Agreement Signed", color: "var(--color-violet)" },
@@ -40,7 +40,7 @@ export function SalesBuyersKanbanView() {
           <h2 style={{ fontSize: 18, fontWeight: 900, color: "#000000", margin: 0 }}>
             Sales Buyer Pipeline Funnel
           </h2>
-          <span style={{ fontSize: 13, color: "var(--color-slate-900)", fontWeight: 750 }}>
+          <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 750 }}>
             Track property buyer leads from initial site visit inquiry to signed agreement and handover.
           </span>
         </div>
@@ -69,7 +69,7 @@ export function SalesBuyersKanbanView() {
                       </span>
                     </div>
 
-                    <small style={{ fontSize: 11, fontWeight: 700, color: "var(--color-slate-900)" }}>🏢 {l.targetUnit}</small>
+                    <small style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>🏢 {l.targetUnit}</small>
                     <strong style={{ fontSize: 13, fontWeight: 900, color: "var(--color-success)" }}>KES {l.dealValue.toLocaleString()}</strong>
 
                     <div style={{ borderTop: "1px solid var(--color-slate-100)", paddingTop: 8, marginTop: 4 }}>

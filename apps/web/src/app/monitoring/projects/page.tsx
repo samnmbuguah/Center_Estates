@@ -93,7 +93,7 @@ export default function ProjectsDirectoryPage() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                     <div>
                       <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "var(--color-danger)", fontWeight: "bold" }}>{String(proj.code)}</span>
-                      <h4 style={{ margin: "2px 0 0 0", fontSize: "1.05rem", color: "var(--color-slate-900)" }}>{String(proj.name)}</h4>
+                      <h4 style={{ margin: "2px 0 0 0", fontSize: "1.05rem", color: "var(--text-primary)" }}>{String(proj.name)}</h4>
                     </div>
                     <span style={{
                       padding: "2px 8px", borderRadius: 12, fontSize: "0.7rem", fontWeight: "bold",
@@ -103,18 +103,18 @@ export default function ProjectsDirectoryPage() {
                     </span>
                   </div>
 
-                  <p style={{ fontSize: "0.85rem", color: "var(--color-slate-500)", margin: "0 0 12px 0" }}>
+                  <p style={{ fontSize: "0.85rem", color: "var(--text-faint)", margin: "0 0 12px 0" }}>
                     📍 {String(proj.location || "Nairobi Site")} | Client: <strong>{String(proj.client_name || "Center Estates")}</strong>
                   </p>
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, background: "var(--color-slate-50)", padding: 10, borderRadius: 6, fontSize: "0.8rem", marginBottom: 14 }}>
                     <div>
-                      <small style={{ color: "var(--color-slate-500)" }}>Budget</small>
-                      <div style={{ fontWeight: "bold", color: "var(--color-slate-900)" }}>{cash.format(Number(proj.budget || 0))}</div>
+                      <small style={{ color: "var(--text-faint)" }}>Budget</small>
+                      <div style={{ fontWeight: "bold", color: "var(--text-primary)" }}>{cash.format(Number(proj.budget || 0))}</div>
                     </div>
                     <div>
-                      <small style={{ color: "var(--color-slate-500)" }}>Target Completion</small>
-                      <div style={{ fontWeight: "bold", color: "var(--color-slate-900)" }}>{String(proj.planned_completion_date || "2026-12-31")}</div>
+                      <small style={{ color: "var(--text-faint)" }}>Target Completion</small>
+                      <div style={{ fontWeight: "bold", color: "var(--text-primary)" }}>{String(proj.planned_completion_date || "2026-12-31")}</div>
                     </div>
                   </div>
                 </div>
@@ -128,7 +128,7 @@ export default function ProjectsDirectoryPage() {
                   </Link>
                   <Link
                     href={`/monitoring/projects/${proj.id}/programme`}
-                    style={{ background: "var(--color-slate-100)", color: "var(--color-slate-700)", padding: "8px 12px", borderRadius: 6, fontSize: "0.85rem", textDecoration: "none" }}
+                    style={{ background: "var(--color-slate-100)", color: "var(--text-muted)", padding: "8px 12px", borderRadius: 6, fontSize: "0.85rem", textDecoration: "none" }}
                   >
                     📊 Gantt
                   </Link>

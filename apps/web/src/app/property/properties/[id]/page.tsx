@@ -64,19 +64,19 @@ export default function SinglePropertyWorkspacePage({ params }: { params: Promis
           <div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "var(--color-slate-500)" }}>Property Code</small>
+                <small style={{ color: "var(--text-faint)" }}>Property Code</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--color-brand-blue)", fontFamily: "monospace" }}>{String(property?.code)}</h3>
               </div>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "var(--color-slate-500)" }}>Total Units</small>
+                <small style={{ color: "var(--text-faint)" }}>Total Units</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--text)" }}>{String(property?.units_count || 48)} Units</h3>
               </div>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "var(--color-slate-500)" }}>Occupancy Rate</small>
+                <small style={{ color: "var(--text-faint)" }}>Occupancy Rate</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--color-success)" }}>94.2%</h3>
               </div>
               <div style={{ background: "var(--surface)", padding: 14, borderRadius: 8, border: "1px solid var(--line)" }}>
-                <small style={{ color: "var(--color-slate-500)" }}>City / Location</small>
+                <small style={{ color: "var(--text-faint)" }}>City / Location</small>
                 <h3 style={{ margin: "4px 0 0 0", color: "var(--text)" }}>{String(property?.city || "Nairobi")}</h3>
               </div>
             </div>
@@ -86,21 +86,21 @@ export default function SinglePropertyWorkspacePage({ params }: { params: Promis
               <Link href={`/property/tenants`} style={{ textDecoration: "none" }}>
                 <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 16, cursor: "pointer" }}>
                   <h4 style={{ margin: "0 0 4px 0", color: "var(--color-brand-blue)" }}>👥 Tenant Directory & Profiles</h4>
-                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-slate-500)" }}>Active tenants, contact details, lease agreements, and arrears ledgers.</p>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-faint)" }}>Active tenants, contact details, lease agreements, and arrears ledgers.</p>
                 </div>
               </Link>
 
               <Link href={`/property/leases`} style={{ textDecoration: "none" }}>
                 <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 16, cursor: "pointer" }}>
                   <h4 style={{ margin: "0 0 4px 0", color: "var(--color-success)" }}>📜 Lease Contracts & Escalations</h4>
-                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-slate-500)" }}>Active leases, rent escalation dates, security deposits, and contract expiry tracking.</p>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-faint)" }}>Active leases, rent escalation dates, security deposits, and contract expiry tracking.</p>
                 </div>
               </Link>
 
               <Link href={`/property/collections`} style={{ textDecoration: "none" }}>
                 <div style={{ background: "var(--color-slate-50)", border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 16, cursor: "pointer" }}>
                   <h4 style={{ margin: "0 0 4px 0", color: "var(--color-violet)" }}>💳 Rent Collections & Arrears</h4>
-                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-slate-500)" }}>Monthly rent invoicing, receipt allocations, bank reconciliation, and automated reminders.</p>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-faint)" }}>Monthly rent invoicing, receipt allocations, bank reconciliation, and automated reminders.</p>
                 </div>
               </Link>
             </div>
