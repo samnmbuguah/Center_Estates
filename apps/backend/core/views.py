@@ -490,9 +490,19 @@ class CalendarFeedView(APIView):
                     event_type='lease_expiry', module='property', property_record=prop,
                     status='overdue' if lease.ends_on < today and lease.status not in (Lease.Status.EXPIRED, Lease.Status.TERMINATED) else lease.status,
                     priority='high', subtitle=f'{lease.reference} · Unit {lease.unit.code}', source_url='/property?tab=critical-dates')
-            for invoice in scope_model_queryset(Invoice, request, organization).select_related('lease__tenant', 'lease__unit__property').exclude(status=Invoice.Status.VOID):
-                prop = invoice.lease.unit.property
-                add(key=f'invoice-due:{invoice.pk}', title=f'Invoice due · {invoice.lease.tenant.name}', start=invoice.due_on,
+            for invoice in scope_model_queryset(Invoice, request, organization).select_related(
+                'lease__tenant', 'lease__unit__property', 'unit__property', 'owner',
+            ).exclude(status=Invoice.Status.VOID):
+                # Invoices may be raised against a lease (tenant rent) or directly
+                # against a unit/owner (sectional service charge), so the lease can
+                # legitimately be null.
+                if invoice.lease_id:
+                    prop = invoice.lease.unit.property
+                    party_name = invoice.lease.tenant.name
+                else:
+                    prop = invoice.unit.property if invoice.unit_id else None
+                    party_name = invoice.owner.name if invoice.owner_id else 'Owner'
+                add(key=f'invoice-due:{invoice.pk}', title=f'Invoice due · {party_name}', start=invoice.due_on,
                     event_type='invoice_due', module='property', property_record=prop,
                     status='overdue' if invoice.due_on < today and invoice.balance > 0 else invoice.status,
                     priority='high' if invoice.balance > 0 else 'normal', subtitle=f'{invoice.number} · KES {invoice.balance:,.2f}', source_url='/property?tab=rent')
@@ -517,9 +527,10 @@ class CalendarFeedView(APIView):
         if can(Module.FACILITY):
             from facilities.models import Inspection, PreventiveSchedule, ServiceRequest, WorkOrder
             for inspection in scope_model_queryset(Inspection, request, organization).select_related('property', 'inspector'):
+                inspector_name = inspection.inspector.get_username() if inspection.inspector else 'Unassigned'
                 add(key=f'inspection:{inspection.pk}', title=inspection.title, start=inspection.scheduled_on,
                     event_type='inspection', module='facility', property_record=inspection.property, status=inspection.status,
-                    subtitle=f'{inspection.reference} · {inspection.inspector.get_username()}', source_url='/facility?tab=inspections')
+                    subtitle=f'{inspection.reference} · {inspector_name}', source_url='/facility?tab=inspections')
             for schedule in scope_model_queryset(PreventiveSchedule, request, organization).select_related('asset__property').filter(is_active=True):
                 add(key=f'ppm:{schedule.pk}', title=f'Preventive maintenance · {schedule.name}', start=schedule.next_due_on,
                     event_type='maintenance', module='facility', property_record=schedule.asset.property,
@@ -545,9 +556,10 @@ class CalendarFeedView(APIView):
             if not is_admin:
                 tasks = tasks.filter(Q(assignee=request.user) | Q(assigned_by=request.user))
             for task in tasks.select_related('property', 'assignee'):
+                assignee_name = task.assignee.get_username() if task.assignee else 'Unassigned'
                 add(key=f'task:{task.pk}', title=task.title, start=task.due_at,
                     event_type='task', module='companion', property_record=task.property, status=task.status,
-                    priority=task.priority, subtitle=f'{task.reference} · {task.assignee.get_username()}', source_url='/companion', all_day=False)
+                    priority=task.priority, subtitle=f'{task.reference} · {assignee_name}', source_url='/companion', all_day=False)
 
         events.sort(key=lambda event: (event['starts_at'], event['title']))
         return Response({'results': events, 'count': len(events), 'start': starts_on, 'end': ends_on})

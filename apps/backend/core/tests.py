@@ -224,6 +224,24 @@ class CalendarFeedTests(TestCase):
         response = self.client.get('/api/v1/calendar-feed/?start=2020-01-01&end=2026-01-01', **self.headers)
         self.assertEqual(response.status_code, 400)
 
+    def test_calendar_feed_handles_owner_invoice_without_lease(self):
+        # Sectional service-charge invoices are raised against a unit/owner and
+        # carry no lease; the feed must not assume invoice.lease is present.
+        from properties.models import Invoice, Owner, Unit
+        unit = Unit.objects.create(organization=self.organization, property=self.property, code='A-99', area=80)
+        owner = Owner.objects.create(organization=self.organization, code='OWN-CAL', name='Calendar Owner')
+        invoice = Invoice.objects.create(
+            organization=self.organization, number='INV-OWNER', owner=owner, unit=unit,
+            issued_on=date(2026, 8, 1), due_on=date(2026, 8, 15),
+            subtotal=Decimal('5000'), amount=Decimal('5000'), balance=Decimal('5000'),
+            status=Invoice.Status.ISSUED, invoice_type='owner',
+        )
+        response = self.client.get('/api/v1/calendar-feed/?start=2026-07-01&end=2027-08-31', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        owner_events = [e for e in response.data['results'] if e['id'] == f'invoice-due:{invoice.pk}']
+        self.assertEqual(len(owner_events), 1)
+        self.assertIn('Calendar Owner', owner_events[0]['title'])
+
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class TicketsFeedTests(TestCase):
