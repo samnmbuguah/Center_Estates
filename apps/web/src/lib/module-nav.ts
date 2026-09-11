@@ -268,6 +268,8 @@ export const constructionNav: ModuleNavGroup[] = [  {
     items: [
       { id: "overview", label: "Dashboard" },
       { id: "projects", label: "Project Portfolio" },
+      { id: "lifecycle", label: "Project Lifecycle" },
+      { id: "project-memberships", label: "Project Team" },
       { id: "calendar", label: "Calendar" },
       { id: "chat", label: "AI Assistant" },
     ],
@@ -278,6 +280,7 @@ export const constructionNav: ModuleNavGroup[] = [  {
     items: [
       { id: "milestones", label: "Progress" },
       { id: "daily-logs", label: "Daily logs" },
+      { id: "site-visits", label: "Site Visits" },
       { id: "tickets", label: "Issues" },
       { id: "ticket-comments", label: "Issue discussion" },
       { id: "risks", label: "Risks" },
@@ -350,6 +353,7 @@ export const constructionNav: ModuleNavGroup[] = [  {
     icon: "◌",
     items: [
       { id: "reports", label: "Reports" },
+      { id: "stakeholders", label: "Stakeholders" },
       { id: "chat", label: "Project chat" },
       { id: "notifications", label: "Notifications" },
       { id: "audit-log", label: "Audit trail" },

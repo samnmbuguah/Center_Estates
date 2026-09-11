@@ -32,6 +32,10 @@ import type {
   Plan,
   Project, ProjectApproval, ProjectDocument, ProjectMember,
   PurchaseOrder,
+  PurchaseOrderLine,
+  MaterialRequisition,
+  StoreSupplier,
+  StockMovement,
   Requisition,
   RetentionCertificate, RetentionSummary,
   RiskItem,
@@ -79,6 +83,10 @@ export type {
   Plan,
   Project, ProjectApproval, ProjectDocument, ProjectMember,
   PurchaseOrder,
+  PurchaseOrderLine,
+  MaterialRequisition,
+  StoreSupplier,
+  StockMovement,
   Requisition,
   RetentionCertificate, RetentionSummary,
   RiskItem,
@@ -555,7 +563,22 @@ export const fetchItems = () => get<StoreItem[]>("/store/items");
 export const createItem = (b: unknown) => post<StoreItem>("/store/items", b);
 export const updateItem = (id: number, b: unknown) => patch<StoreItem>(`/store/items/${id}`, b);
 export const deleteItem = (id: number) => del(`/store/items/${id}`);
-export const fetchPurchaseOrders = () => get<PurchaseOrder[]>("/store/purchase-orders");
+export const issueStock = (id: number, b: unknown) => post<StoreItem>(`/store/items/${id}/issue`, b);
+export const stockTake = (id: number, b: unknown) => post<StoreItem>(`/store/items/${id}/stock-take`, b);
+
+export const fetchSuppliers = () => get<StoreSupplier[]>("/store-suppliers");
+export const createSupplier = (b: unknown) => post<StoreSupplier>("/store-suppliers", b);
+export const updateSupplier = (id: number, b: unknown) => patch<StoreSupplier>(`/store-suppliers/${id}`, b);
+export const deleteSupplier = (id: number) => del(`/store-suppliers/${id}`);
+
+export const fetchMaterialRequisitions = () => get<MaterialRequisition[]>("/material-requisitions");
+export const createMaterialRequisition = (b: unknown) => post<MaterialRequisition>("/material-requisitions", b);
+
+export const fetchPurchaseOrders = () => get<PurchaseOrder[]>("/purchase-orders");
+export const createPurchaseOrder = (b: unknown) => post<PurchaseOrder>("/purchase-orders", b);
+export const receivePurchaseOrder = (id: number) => post<PurchaseOrder>(`/purchase-orders/${id}/receive`, {});
+
+export const fetchStockMovements = () => get<StockMovement[]>("/stock-movements");
 
 // ---- Users & roles ----
 export const fetchUsers = async () => {

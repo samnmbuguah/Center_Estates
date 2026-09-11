@@ -47,6 +47,10 @@ const RetentionRegister = lazy(() => import("@/components/monitoring/pages/Reten
 const WorkOrderSummary = lazy(() => import("@/components/monitoring/pages/WorkOrderSummary").then(m => ({ default: m.WorkOrderSummary })));
 const Ingestion = lazy(() => import("@/components/monitoring/pages/Ingestion").then(m => ({ default: m.Ingestion })));
 const Store = lazy(() => import("@/components/monitoring/pages/Store").then(m => ({ default: m.Store })));
+const Suppliers = lazy(() => import("@/components/monitoring/pages/Suppliers").then(m => ({ default: m.Suppliers })));
+const MaterialRequisitions = lazy(() => import("@/components/monitoring/pages/MaterialRequisitions").then(m => ({ default: m.MaterialRequisitions })));
+const PurchaseOrders = lazy(() => import("@/components/monitoring/pages/PurchaseOrders").then(m => ({ default: m.PurchaseOrders })));
+const StockMovements = lazy(() => import("@/components/monitoring/pages/StockMovements").then(m => ({ default: m.StockMovements })));
 const BimModels = lazy(() => import("@/components/monitoring/pages/BimModels").then(m => ({ default: m.BimModels })));
 const BimDiscrepancies = lazy(() => import("@/components/monitoring/pages/BimDiscrepancies").then(m => ({ default: m.BimDiscrepancies })));
 const DroneDatasets = lazy(() => import("@/components/monitoring/pages/DroneDatasets").then(m => ({ default: m.DroneDatasets })));
@@ -1047,7 +1051,7 @@ function WorkspaceContent() {
         {tab === "milestones" && <Milestones />}
         {tab === "daily-logs" && <DailyLogs />}
         {tab === "tickets" && <Tickets />}
-        {tab === "ticket-comments" && <Issues />}
+        {tab === "ticket-comments" && <Tickets />}
         {tab === "risks" && <Issues />}
         {tab === "safety-incidents" && <DailyLogs />}
         {tab === "quality-tests" && <QualityTests />}
@@ -1067,10 +1071,10 @@ function WorkspaceContent() {
         {tab === "subcontractors" && <Subcontractors />}
         {tab === "materials" && <Ingestion />}
         {tab === "store-items" && <Store />}
-        {tab === "store-suppliers" && <Store />}
-        {tab === "material-requisitions" && <Store />}
-        {tab === "purchase-orders" && <Store />}
-        {tab === "stock-movements" && <Store />}
+        {tab === "store-suppliers" && <Suppliers />}
+        {tab === "material-requisitions" && <MaterialRequisitions />}
+        {tab === "purchase-orders" && <PurchaseOrders />}
+        {tab === "stock-movements" && <StockMovements />}
         {tab === "requisitions" && <Finance />}
         {tab === "certificates" && <IpcGeneration />}
         {tab === "disbursements" && <Finance />}

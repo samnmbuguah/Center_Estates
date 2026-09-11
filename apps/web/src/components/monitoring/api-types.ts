@@ -479,13 +479,63 @@ export interface StoreItem {
   quantity_on_hand: number;
 }
 
+export interface StoreSupplier {
+  id: number;
+  name: string;
+  contact: string;
+}
+
+export interface MaterialRequisitionLine {
+  id?: number;
+  item: number;
+  item_name?: string;
+  quantity: string | number;
+}
+
+export interface MaterialRequisition {
+  id: number;
+  project: string;
+  project_name?: string;
+  reference: string;
+  status: "submitted" | "approved" | "fulfilled" | "rejected";
+  raised_by_name?: string;
+  created_at: number;
+  lines: MaterialRequisitionLine[];
+}
+
+export interface PurchaseOrderLine {
+  id?: number;
+  item: number;
+  item_name?: string;
+  quantity: string | number;
+  unit_price: string | number;
+}
+
 export interface PurchaseOrder {
   id: number;
-  project_id: string;
-  item_id: number;
-  quantity: string;
-  unit_price: string;
-  status: string;
+  project: string;
+  project_name?: string;
+  supplier: number;
+  supplier_name?: string;
+  number: string;
+  status: "draft" | "sent" | "received" | "closed" | "cancelled";
+  created_by_name?: string;
+  created_at: number;
+  received_at?: number | null;
+  total?: string | number;
+  lines: PurchaseOrderLine[];
+}
+
+export interface StockMovement {
+  id: number;
+  project?: string | null;
+  project_name?: string;
+  item: number;
+  item_name?: string;
+  movement_type: "grn" | "issue" | "return" | "adjustment";
+  quantity: string | number;
+  reference: string;
+  created_by_name?: string;
   created_at: number;
 }
 
