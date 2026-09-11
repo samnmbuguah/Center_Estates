@@ -25,12 +25,14 @@ class LLMGateway:
         self.openai_key = os.getenv("OPENAI_API_KEY", "")
         self.anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
         self.nvidia_key = os.getenv("NVIDIA_API_KEY", "")
-        # OpenCode Zen / AI Orchestrator gateway (the platform's default provider).
+        # OpenCode Go / Zen gateway (the platform's default provider).
+        # OpenCode Go (paid subscription) uses the /zen/go/v1 base URL; the
+        # pay-as-you-go Zen endpoint is /zen/v1.
         self.opencode_key = os.getenv("OPENCODE_API_KEY") or os.getenv("AI_ORCHESTRATOR_API_KEY", "")
         self.opencode_base_url = (
-            os.getenv("OPENCODE_API_URL") or os.getenv("AI_ORCHESTRATOR_BASE_URL") or "https://opencode.ai/zen/v1"
+            os.getenv("OPENCODE_API_URL") or os.getenv("AI_ORCHESTRATOR_BASE_URL") or "https://opencode.ai/zen/go/v1"
         )
-        self.opencode_model = os.getenv("OPENCODE_MODEL") or os.getenv("AI_ORCHESTRATOR_MODEL") or "laguna-s-2.1-free"
+        self.opencode_model = os.getenv("OPENCODE_MODEL") or os.getenv("AI_ORCHESTRATOR_MODEL") or "deepseek-v4-flash"
         self.ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
         self.model_name = os.getenv("AI_MODEL_NAME", "")
         
@@ -45,7 +47,7 @@ class LLMGateway:
             if self.opencode_key:
                 base_url = self.opencode_base_url.rstrip("/")
                 if "api.opencode.ai" in base_url:
-                    base_url = "https://opencode.ai/zen/v1"
+                    base_url = "https://opencode.ai/zen/go/v1"
                 model = self.model_name or self.opencode_model
                 if base_url.endswith("/chat/completions"):
                     base_url = base_url[: -len("/chat/completions")]

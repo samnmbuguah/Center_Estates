@@ -203,12 +203,12 @@ class QMAgentOrchestrator:
             or os.environ.get('OPENCODE_API_URL')
             or os.environ.get('DEEPSEEK_BASE_URL')
             or os.environ.get('NVIDIA_API_URL')
-            or 'https://opencode.ai/zen/v1'
+            or 'https://opencode.ai/zen/go/v1'
         ).rstrip('/')
         
-        # Normalize opencode URL to working Zen gateway
+        # Normalize legacy opencode host to the paid Go gateway base URL.
         if 'api.opencode.ai' in base_url:
-            base_url = 'https://opencode.ai/zen/v1'
+            base_url = 'https://opencode.ai/zen/go/v1'
         
         self.api_url = f'{base_url}/chat/completions' if not base_url.endswith(('/chat/completions', '/responses')) else base_url
         self.uses_responses_api = self.api_url.endswith('/responses')
@@ -217,11 +217,15 @@ class QMAgentOrchestrator:
             or os.environ.get('OPENCODE_MODEL')
             or os.environ.get('DEEPSEEK_MODEL')
             or os.environ.get('NVIDIA_MODEL')
-            or 'laguna-s-2.1-free'
+            or 'deepseek-v4-flash'
         )
-        # If model is deepseek-chat or paid on opencode without credits, map to supported fast free model
-        if 'opencode.ai' in self.api_url and self.model in ('deepseek-chat', 'gpt-4o', 'gpt-3.5-turbo', 'gpt-5-nano', 'claude-haiku-4-5'):
-            self.model = 'laguna-s-2.1-free'
+        # Map legacy/free model names to a Go subscription model.
+        if 'opencode.ai' in self.api_url and self.model in (
+            'deepseek-chat', 'gpt-4o', 'gpt-3.5-turbo', 'gpt-5-nano', 'claude-haiku-4-5',
+            'laguna-s-2.1-free', 'ling-3.0-flash-fin-free', 'nemotron-3.5-lightning-free',
+            'nemotron-3-ultra-free',
+        ):
+            self.model = 'deepseek-v4-flash'
         timeout = os.environ.get('AI_TIMEOUT_SECONDS') or os.environ.get('NVIDIA_TIMEOUT_SECONDS') or '8'
         self.timeout_seconds = min(max(int(timeout), 3), 10)
 
@@ -379,7 +383,7 @@ class QMAgentOrchestrator:
         )
 
         candidate_models = [self.model]
-        for fallback in ('laguna-s-2.1-free', 'ling-3.0-flash-fin-free', 'nemotron-3.5-lightning-free', 'nemotron-3-ultra-free'):
+        for fallback in ('deepseek-v4-flash', 'glm-5.3-flash', 'minimax-m3', 'kimi-k2.6'):
             if fallback not in candidate_models:
                 candidate_models.append(fallback)
 
