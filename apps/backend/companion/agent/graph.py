@@ -213,6 +213,11 @@ def chat_and_respond_node(state: AgentState) -> Dict[str, Any]:
     ]
     if (allowed_modules is None or "property" in allowed_modules):
         facts_parts.append(f"FINANCE: KES {fin.get('total_arrears', 0):,.0f} in arrears across {fin.get('overdue_count', 0)} overdue invoices.")
+        if fin.get("collections_last_month") is not None:
+            facts_parts.append(
+                f"COLLECTIONS: {fin.get('last_month_label', 'last month')} KES {fin.get('collections_last_month', 0):,.0f}; "
+                f"{fin.get('this_month_label', 'this month')} KES {fin.get('collections_this_month', 0):,.0f}."
+            )
         if fin.get("top_defaulters"):
             facts_parts.append(f"TOP DEFAULTERS: {json.dumps(fin['top_defaulters'][:3], default=str)}")
         if lease.get("expiring_leases_count"):
@@ -248,7 +253,12 @@ def chat_and_respond_node(state: AgentState) -> Dict[str, Any]:
         messages.append({"role": msg.get("role", "user"), "content": msg.get("content", "")})
     messages.append({"role": "user", "content": query})
 
-    response_text = gateway.generate_chat(system_prompt, messages)
+    from .grounded import build_grounded_answer
+    fallback = build_grounded_answer(
+        query, finance=fin, facility=fac, leasing=lease, calendar=calendar,
+        scope_label=active_prop_name or "Entire Portfolio",
+    )
+    response_text = gateway.generate_chat(system_prompt, messages, fallback=fallback)
 
     tools_executed = []
     if (allowed_modules is None or "property" in allowed_modules) and (fin or lease):

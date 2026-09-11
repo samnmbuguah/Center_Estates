@@ -25,6 +25,12 @@ class LLMGateway:
         self.openai_key = os.getenv("OPENAI_API_KEY", "")
         self.anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
         self.nvidia_key = os.getenv("NVIDIA_API_KEY", "")
+        # OpenCode Zen / AI Orchestrator gateway (the platform's default provider).
+        self.opencode_key = os.getenv("OPENCODE_API_KEY") or os.getenv("AI_ORCHESTRATOR_API_KEY", "")
+        self.opencode_base_url = (
+            os.getenv("OPENCODE_API_URL") or os.getenv("AI_ORCHESTRATOR_BASE_URL") or "https://opencode.ai/zen/v1"
+        )
+        self.opencode_model = os.getenv("OPENCODE_MODEL") or os.getenv("AI_ORCHESTRATOR_MODEL") or "laguna-s-2.1-free"
         self.ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
         self.model_name = os.getenv("AI_MODEL_NAME", "")
         
@@ -33,6 +39,25 @@ class LLMGateway:
     def _init_client(self) -> Optional[ChatOpenAI]:
         try:
             llm_timeout = min(max(int(os.getenv("AI_TIMEOUT_SECONDS", "8")), 3), 10)
+
+            # 0. OpenCode Zen / AI Orchestrator (OpenAI-compatible). This is the
+            # platform default and must be honoured before the legacy providers.
+            if self.opencode_key:
+                base_url = self.opencode_base_url.rstrip("/")
+                if "api.opencode.ai" in base_url:
+                    base_url = "https://opencode.ai/zen/v1"
+                model = self.model_name or self.opencode_model
+                if base_url.endswith("/chat/completions"):
+                    base_url = base_url[: -len("/chat/completions")]
+                logger.info("Initializing OpenCode/AI Orchestrator Agent Provider (%s)", model)
+                return ChatOpenAI(
+                    model=model,
+                    api_key=self.opencode_key,
+                    base_url=base_url,
+                    temperature=0.3,
+                    timeout=llm_timeout,
+                )
+
             # 1. DeepSeek Provider
             if (self.provider == "deepseek" or (self.provider == "auto" and self.deepseek_key)) and self.deepseek_key:
                 logger.info("Initializing DeepSeek Agent Provider (deepseek-chat / deepseek-reasoner)")
@@ -83,7 +108,7 @@ class LLMGateway:
             logger.warning("Failed to initialize remote LLM client: %s. Using rule engine.", e)
             return None
 
-    def generate_chat(self, system_prompt: str, messages: List[Dict[str, str]]) -> str:
+    def generate_chat(self, system_prompt: str, messages: List[Dict[str, str]], fallback: Optional[str] = None) -> str:
         """Execute chat inference with fallback to structured intelligence."""
         if self.client:
             try:
@@ -94,15 +119,19 @@ class LLMGateway:
                     elif m.get("role") == "assistant":
                         formatted_messages.append(AIMessage(content=m.get("content", "")))
                 response = self.client.invoke(formatted_messages)
-                return str(response.content)
+                text = str(response.content).strip()
+                if text:
+                    return text
             except Exception as e:
                 logger.warning("LLM generation call failed (%s). Falling back to rule synthesis.", e)
 
-        # Resilient fallback synthesis
+        # Prefer a grounded fallback supplied by the caller (real ERP data).
+        if fallback:
+            return fallback
         last_query = messages[-1].get("content", "") if messages else ""
         return self._generate_fallback_response(last_query)
 
-    def stream_chat(self, system_prompt: str, messages: List[Dict[str, str]]):
+    def stream_chat(self, system_prompt: str, messages: List[Dict[str, str]], fallback: Optional[str] = None):
         """Yield token chunks for Server-Sent Events (SSE) streaming."""
         if self.client:
             try:
@@ -112,15 +141,18 @@ class LLMGateway:
                         formatted_messages.append(HumanMessage(content=m.get("content", "")))
                     elif m.get("role") == "assistant":
                         formatted_messages.append(AIMessage(content=m.get("content", "")))
+                produced = False
                 for chunk in self.client.stream(formatted_messages):
                     token = getattr(chunk, "content", "")
                     if token:
+                        produced = True
                         yield token
-                return
+                if produced:
+                    return
             except Exception as e:
                 logger.warning("Streaming LLM call failed (%s). Using fallback chunking.", e)
 
-        fallback_text = self._generate_fallback_response(messages[-1].get("content", "") if messages else "")
+        fallback_text = fallback or self._generate_fallback_response(messages[-1].get("content", "") if messages else "")
         import time
         words = fallback_text.split(" ")
         for i, word in enumerate(words):
@@ -151,18 +183,30 @@ class LLMGateway:
 
     def _generate_fallback_response(self, query: str) -> str:
         q = query.lower()
-        if "arrear" in q or "rent" in q or "unpaid" in q:
+
+        def matches(*terms):
+            return any(term in q for term in terms)
+
+        if matches("arrear", "rent", "unpaid", "collection", "collected", "collect",
+                   "income", "revenue", "owe", "outstanding", "payment", "receipt",
+                   "cash", "money", "month", "billed", "invoice"):
             return (
                 "**Financial & Rent Collection Briefing**\n\n"
                 "• Overdue tenancy invoices have been reviewed across active leases.\n"
                 "• Automated M-Pesa payment reminders can be dispatched with 1-click via the Outbound SMTP Gateway.\n"
                 "• All transactions are synchronized with the KRA eTIMS tax ledger."
             )
-        if "maintenance" in q or "work order" in q or "facility" in q:
+        if matches("maintenance", "work order", "facility", "repair", "asset", "ticket", "service request", "ppm"):
             return (
                 "**Facility Management Briefing**\n\n"
                 "• Active maintenance work orders and caretaker meter logs are being tracked against SLA targets.\n"
                 "• Urgent tickets are automatically escalated to lead technicians."
+            )
+        if matches("lease", "tenant", "occupancy", "vacan", "expir", "unit", "property", "portfolio"):
+            return (
+                "**Tenancy & Occupancy Briefing**\n\n"
+                "• Active leases, occupancy and upcoming expiries are tracked across the authorized portfolio.\n"
+                "• Critical dates and renewal reminders are surfaced on the calendar."
             )
         return (
             "I am **Quartermaster**, your Center Estates Open Agent Orchestrator. "

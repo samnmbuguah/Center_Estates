@@ -534,3 +534,25 @@ class CompanionApiTests(TestCase):
         refs = [t.reference for t in threads]
         # References should be unique within the org
         self.assertEqual(len(refs), len(set(refs)))
+
+
+class LLMGatewayTests(TestCase):
+    def test_opencode_provider_is_selected_when_configured(self):
+        from companion.agent.gateway import LLMGateway
+        with patch.dict(os.environ, {
+            'OPENCODE_API_KEY': 'test-key',
+            'OPENCODE_MODEL': 'ling-3.0-flash-fin-free',
+            'OPENCODE_API_URL': 'https://opencode.ai/zen/v1',
+        }, clear=False):
+            gateway = LLMGateway()
+        self.assertIsNotNone(gateway.client)
+        self.assertEqual(gateway.client.openai_api_base, 'https://opencode.ai/zen/v1')
+        self.assertEqual(gateway.client.model_name, 'ling-3.0-flash-fin-free')
+
+    def test_rule_based_fallback_answers_collection_queries(self):
+        from companion.agent.gateway import LLMGateway
+        with patch.dict(os.environ, {'OPENCODE_API_KEY': '', 'AI_ORCHESTRATOR_API_KEY': ''}, clear=False):
+            gateway = LLMGateway()
+        response = gateway._generate_fallback_response('what were the collections last month')
+        self.assertIn('Collection', response)
+        self.assertNotIn('How can I assist you with operations today', response)

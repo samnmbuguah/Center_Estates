@@ -1,11 +1,20 @@
 import logging
+from datetime import timedelta
 from typing import Any, Dict, List, Optional
 from django.utils import timezone
 from django.db.models import Sum, Count, Q
-from properties.models import Invoice, Lease
+from properties.models import Invoice, Lease, Receipt
 from companion.agent.state import AgentAction
 
 logger = logging.getLogger(__name__)
+
+
+def _collections_total(organization_id, start, end, property_id=None):
+    """Sum verified receipts received within a date window, scoped to a property."""
+    qs = Receipt.objects.filter(organization_id=organization_id, received_on__gte=start, received_on__lte=end)
+    if property_id:
+        qs = qs.filter(Q(invoice__lease__unit__property_id=property_id) | Q(tenant__property_id=property_id))
+    return float(qs.aggregate(total=Sum('amount'))['total'] or 0)
 
 
 def inspect_arrears_and_collections(
@@ -14,8 +23,9 @@ def inspect_arrears_and_collections(
     allowed_modules: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
-    Query overdue invoices, total outstanding balances, and tenants in arrears.
-    Scoped to property_id and user module permissions.
+    Query overdue invoices, total outstanding balances, tenants in arrears, and
+    period collections (this month and last month). Scoped to property_id and
+    user module permissions.
     """
     if allowed_modules is not None and "property" not in allowed_modules:
         return {'total_arrears': 0, 'overdue_count': 0, 'top_defaulters': [], 'proposed_actions': []}
@@ -34,6 +44,13 @@ def inspect_arrears_and_collections(
 
         total_arrears = base_qs.aggregate(total=Sum('balance'))['total'] or 0
         count = base_qs.count()
+
+        # Period collections from receipts.
+        this_month_start = now.replace(day=1)
+        last_month_end = this_month_start - timedelta(days=1)
+        last_month_start = last_month_end.replace(day=1)
+        collections_this_month = _collections_total(organization_id, this_month_start, now, property_id)
+        collections_last_month = _collections_total(organization_id, last_month_start, last_month_end, property_id)
 
         top_defaulters = []
         actions: List[Dict[str, Any]] = []
@@ -75,6 +92,10 @@ def inspect_arrears_and_collections(
         return {
             'total_arrears': float(total_arrears),
             'overdue_count': count,
+            'collections_this_month': collections_this_month,
+            'collections_last_month': collections_last_month,
+            'last_month_label': last_month_start.strftime('%B %Y'),
+            'this_month_label': this_month_start.strftime('%B %Y'),
             'top_defaulters': top_defaulters,
             'proposed_actions': actions,
         }

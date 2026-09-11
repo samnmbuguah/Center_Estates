@@ -2430,6 +2430,10 @@ class StreamingChatView(APIView):
         # Gather live grounded context for streaming (scoped to authorized modules and property)
         grounded_facts = ""
         tools_used = []
+        fin: dict = {}
+        fac: dict = {}
+        lease: dict = {}
+        cal: dict = {}
         if org_id:
             try:
                 fin = inspect_arrears_and_collections(org_id, property_id=prop_id_stream, allowed_modules=allowed_modules)
@@ -2452,6 +2456,11 @@ class StreamingChatView(APIView):
                 ]
                 if "property" in allowed_modules:
                     fact_lines.append(f"FINANCE: KES {fin.get('total_arrears', 0):,.0f} in arrears across {fin.get('overdue_count', 0)} overdue invoices.")
+                    if fin.get("collections_last_month") is not None:
+                        fact_lines.append(
+                            f"COLLECTIONS: {fin.get('last_month_label', 'last month')} KES {fin.get('collections_last_month', 0):,.0f}; "
+                            f"{fin.get('this_month_label', 'this month')} KES {fin.get('collections_this_month', 0):,.0f}."
+                        )
                     fact_lines.append(f"LEASING: {lease.get('expiring_leases_count', 0)} leases expiring within 60 days.")
                 if "facility" in allowed_modules:
                     fact_lines.append(f"FACILITY: {fac.get('open_work_orders', 0)} open work orders, {fac.get('urgent_count', 0)} critical.")
@@ -2479,7 +2488,13 @@ class StreamingChatView(APIView):
                 if tools_used:
                     meta = json.dumps({"toolsExecuted": tools_used})
                     yield f"data: {meta}\n\n"
-                for token in gateway.stream_chat(system_prompt, messages):
+                from .agent.grounded import build_grounded_answer
+                last_query = messages[-1].get('content', '') if messages else ''
+                fallback = build_grounded_answer(
+                    last_query, finance=fin, facility=fac, leasing=lease, calendar=cal,
+                    scope_label=scope_label,
+                )
+                for token in gateway.stream_chat(system_prompt, messages, fallback=fallback):
                     payload = json.dumps({"token": token})
                     yield f"data: {payload}\n\n"
                 yield "data: [DONE]\n\n"
