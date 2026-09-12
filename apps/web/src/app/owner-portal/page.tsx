@@ -482,7 +482,7 @@ export default function OwnerPortalPage() {
                 Good day, {firstName}.
               </h1>
               <p style={{ color: "var(--text-muted)", fontSize: 14, lineHeight: 1.5, margin: 0, fontWeight: 500 }}>
-                Track live unit occupancy, collected rent rolls, management commission deductions, and official bank remittances in one secure portal.
+                Track unit occupancy, rent settlement routes, management fee invoices, and official remittances in one secure portal.
               </p>
               <div className="tenant-premises" style={{ color: "var(--text-soft)", marginTop: 12, fontWeight: 700 }}>
                 <Building2 size={16} color="var(--color-info)" /> {propertyName} · {unitsCount} Unit{unitsCount === 1 ? "" : "s"}
@@ -786,7 +786,7 @@ export default function OwnerPortalPage() {
                     <ShieldCheck size={18} color="var(--color-info)" /> Verified Landlord Mandate
                   </div>
                   <p style={{ margin: 0, fontSize: 13, color: "var(--color-info-dark)", lineHeight: 1.5, fontWeight: 500 }}>
-                    Net rental collections are reconciled and disbursed monthly to your registered bank account after 5.0% management commission and VAT deduction.
+                    Each unit follows its configured mandate: rent may be paid directly to you, remitted after authorized deductions, or split at settlement. Management fees remain fully itemized.
                   </p>
                   <Button
                     variant="contained"
@@ -932,6 +932,28 @@ export default function OwnerPortalPage() {
 
               {remittanceData ? (
                 <div>
+                  <div
+                    role="status"
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: 10,
+                      marginBottom: 16,
+                      background: "var(--color-blue-50, #eff6ff)",
+                      border: "1px solid var(--color-blue-200, #bfdbfe)",
+                      color: "var(--text-primary)",
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <strong>Settlement model: </strong>
+                    {remittanceData.settlement_model === "direct_landlord"
+                      ? "Rent is paid directly to the owner. Management fees are invoiced separately; no estate payout is due."
+                      : remittanceData.settlement_model === "split_settlement"
+                        ? "Rent is split at settlement between the owner and management company."
+                        : remittanceData.settlement_model === "mixed"
+                          ? "This portfolio uses multiple collection routes. Each unit is calculated according to its mandate."
+                          : "Rent is collected into the management account, authorized charges are deducted, and the balance is remitted to the owner."}
+                  </div>
                   {/* Financial Breakdown Grid */}
                   <div
                     style={{
@@ -944,13 +966,13 @@ export default function OwnerPortalPage() {
                   >
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 18 }}>
                       <div>
-                        <div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Gross Collected Rent</div>
+                        <div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Rent Collected by Management</div>
                         <div style={{ fontSize: 22, fontWeight: 900, color: "var(--text-primary)", marginTop: 4 }}>
                           {cash.format(remittanceData.total_gross_collected ?? 0)}
                         </div>
                       </div>
                       <div>
-                        <div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Commission Fee Deducted</div>
+                        <div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Fees Deducted from Rent</div>
                         <div style={{ fontSize: 22, fontWeight: 900, color: "var(--color-danger-strong)", marginTop: 4 }}>
                           - {cash.format(remittanceData.total_commission_deducted ?? 0)}
                         </div>
@@ -962,12 +984,13 @@ export default function OwnerPortalPage() {
                         </div>
                       </div>
                       <div style={{ borderLeft: "3px solid var(--color-info)", paddingLeft: 16 }}>
-                        <div style={{ fontSize: 12, color: "var(--color-info)", fontWeight: 800, textTransform: "uppercase" }}>Net Remittance Payout</div>
+                        <div style={{ fontSize: 12, color: "var(--color-info)", fontWeight: 800, textTransform: "uppercase" }}>Amount Payable to Owner</div>
                         <div style={{ fontSize: 24, fontWeight: 900, color: "var(--color-emerald-deep)", marginTop: 4 }}>
                           {cash.format(
                             Math.max(
                               Number(remittanceData.total_gross_collected || 0) -
                                 Number(remittanceData.total_commission_deducted || 0) -
+                                Number(remittanceData.total_commission_settled_at_source || 0) -
                                 Number(remittanceData.total_maintenance_deducted || 0) -
                                 Number(remittanceData.total_service_charge_deducted || 0),
                               0
@@ -977,7 +1000,10 @@ export default function OwnerPortalPage() {
                       </div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 14, marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--color-slate-200)" }}>
+                      <div><div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Rent Scheduled Direct to Owner</div><strong>{cash.format(Number(remittanceData.total_direct_rent_scheduled || 0))}</strong></div>
                       <div><div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Management Fees Charged / Paid</div><strong>{cash.format(Number(remittanceData.total_management_fees_charged || 0))} / {cash.format(Number(remittanceData.total_management_fees_paid || 0))}</strong></div>
+                      <div><div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Management Fees Outstanding</div><strong>{cash.format(Number(remittanceData.management_fees_outstanding || 0))}</strong></div>
+                      <div><div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Fees Settled at Source</div><strong>{cash.format(Number(remittanceData.total_commission_settled_at_source || 0))}</strong></div>
                       <div><div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Letting Fees Charged / Paid</div><strong>{cash.format(Number(remittanceData.total_letting_fees_charged || 0))} / {cash.format(Number(remittanceData.total_letting_fees_paid || 0))}</strong></div>
                       <div><div style={{ fontSize: 12, color: "var(--text-soft)", fontWeight: 750, textTransform: "uppercase" }}>Service Charge Deducted</div><strong>{cash.format(Number(remittanceData.total_service_charge_deducted || 0))}</strong></div>
                     </div>
@@ -991,9 +1017,10 @@ export default function OwnerPortalPage() {
                           <tr style={{ borderBottom: "1px solid var(--color-slate-200)", textAlign: "left", color: "var(--text-soft)" }}>
                             <th style={{ padding: "10px 12px", fontWeight: 750 }}>Unit</th>
                             <th style={{ padding: "10px 12px", fontWeight: 750 }}>Occupant</th>
-                            <th style={{ padding: "10px 12px", fontWeight: 750, textAlign: "right" }}>Collected</th>
-                            <th style={{ padding: "10px 12px", fontWeight: 750, textAlign: "right" }}>Commission</th>
-                            <th style={{ padding: "10px 12px", fontWeight: 750, textAlign: "right" }}>Net Payout</th>
+                            <th style={{ padding: "10px 12px", fontWeight: 750 }}>Rent Route</th>
+                            <th style={{ padding: "10px 12px", fontWeight: 750, textAlign: "right" }}>Estate Collected</th>
+                            <th style={{ padding: "10px 12px", fontWeight: 750, textAlign: "right" }}>Fee Settlement</th>
+                            <th style={{ padding: "10px 12px", fontWeight: 750, textAlign: "right" }}>Owner Payout</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1001,11 +1028,18 @@ export default function OwnerPortalPage() {
                             <tr key={idx} style={{ borderBottom: "1px solid var(--color-slate-100)" }}>
                               <td style={{ padding: "12px", fontWeight: 800, color: "var(--text-primary)" }}>Unit {u.unit_code}</td>
                               <td style={{ padding: "12px", color: "var(--text-muted)", fontWeight: 600 }}>{u.tenant_name}</td>
+                              <td style={{ padding: "12px", color: "var(--text-muted)", fontWeight: 700 }}>
+                                {u.rent_collection_mode === "direct_landlord" ? "Direct to owner" : u.rent_collection_mode === "split_settlement" ? "Split at source" : "Management account"}
+                              </td>
                               <td style={{ padding: "12px", textAlign: "right", fontWeight: 850, color: "var(--text-primary)", fontFamily: "monospace" }}>
                                 {cash.format(Number(u.gross_collected || 0))}
                               </td>
                               <td style={{ padding: "12px", textAlign: "right", color: "var(--color-danger-strong)", fontWeight: 750, fontFamily: "monospace" }}>
-                                -{cash.format(Number(u.commission || 0))}
+                                {u.fee_settlement_method === "separate_invoice"
+                                  ? "Separate invoice"
+                                  : u.fee_settlement_method === "split_settlement"
+                                    ? cash.format(Number(u.commission_settled_at_source || 0))
+                                    : `-${cash.format(Number(u.commission_deducted || u.commission || 0))}`}
                               </td>
                               <td style={{ padding: "12px", textAlign: "right", fontWeight: 850, color: "var(--color-emerald-deep)", fontFamily: "monospace" }}>
                                 {cash.format(Number(u.net_payout || 0))}

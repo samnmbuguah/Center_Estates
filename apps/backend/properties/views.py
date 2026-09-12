@@ -1604,13 +1604,28 @@ class OwnerViewSet(OrganizationModelViewSet):
         unit_statements = []
         total_gross_collected = Decimal('0.00')
         total_commission_deducted = Decimal('0.00')
+        total_commission_settled_at_source = Decimal('0.00')
         total_service_charge_deducted = Decimal('0.00')
         total_maintenance_deducted = Decimal('0.00')
+        total_direct_rent_scheduled = Decimal('0.00')
+        collection_models = set()
 
         for unit in units:
             active_lease = unit.leases.filter(status=Lease.Status.ACTIVE).first()
             tenant_name = active_lease.tenant.name if active_lease else 'Vacant'
             rent_amount = active_lease.monthly_rent if active_lease else Decimal('0.00')
+            lease_metadata = (active_lease.metadata or {}) if active_lease else {}
+            rent_collection_mode = lease_metadata.get('rent_collection_mode', 'estate_managed')
+            if rent_collection_mode not in ('estate_managed', 'direct_landlord', 'split_settlement'):
+                rent_collection_mode = 'estate_managed'
+            fee_settlement_method = lease_metadata.get('fee_settlement_method')
+            if fee_settlement_method not in ('deduct_from_rent', 'separate_invoice', 'split_settlement'):
+                fee_settlement_method = (
+                    'separate_invoice' if rent_collection_mode == 'direct_landlord'
+                    else 'split_settlement' if rent_collection_mode == 'split_settlement'
+                    else 'deduct_from_rent'
+                )
+            collection_models.add(rent_collection_mode)
 
             # Find receipts for this unit in the specified period
             unit_receipts = Receipt.objects.filter(
@@ -1630,18 +1645,31 @@ class OwnerViewSet(OrganizationModelViewSet):
                 gross_collected = paid_rent
 
             comm_rate = unit.rental_commission_rate if unit.rental_commission_rate is not None else Decimal('10.00')
-            commission_amount = (gross_collected * comm_rate / Decimal('100.00')).quantize(Decimal('0.01'))
+            calculated_commission = (gross_collected * comm_rate / Decimal('100.00')).quantize(Decimal('0.01'))
+            commission_amount = calculated_commission if fee_settlement_method == 'deduct_from_rent' else Decimal('0.00')
+            commission_settled_at_source = calculated_commission if fee_settlement_method == 'split_settlement' else Decimal('0.00')
+
+            direct_rent_scheduled = Decimal('0.00')
+            if rent_collection_mode == 'direct_landlord':
+                # Direct owner receipts never enter the estate trust account, so
+                # they must not be presented as money available for remittance.
+                gross_collected = Decimal('0.00')
+                calculated_commission = Decimal('0.00')
+                commission_amount = Decimal('0.00')
+                direct_rent_scheduled = rent_amount
 
             sc_deduction = Decimal('0.00')
-            if unit.management_mandate in (Unit.ManagementMandate.BOTH, Unit.ManagementMandate.COMMON_AREA_ONLY):
+            if fee_settlement_method == 'deduct_from_rent' and unit.management_mandate in (Unit.ManagementMandate.BOTH, Unit.ManagementMandate.COMMON_AREA_ONLY):
                 if unit.service_charge_payer in ('owner', Unit.PayerChoice.OWNER):
                     sc_deduction = (unit.common_area_fee_amount or Decimal('0.00')).quantize(Decimal('0.01'))
 
-            net_unit_payout = max(Decimal('0.00'), gross_collected - commission_amount - sc_deduction)
+            net_unit_payout = max(Decimal('0.00'), gross_collected - commission_amount - commission_settled_at_source - sc_deduction)
 
             total_gross_collected += gross_collected
             total_commission_deducted += commission_amount
+            total_commission_settled_at_source += commission_settled_at_source
             total_service_charge_deducted += sc_deduction
+            total_direct_rent_scheduled += direct_rent_scheduled
 
             unit_statements.append({
                 'unit_id': str(unit.id),
@@ -1652,13 +1680,18 @@ class OwnerViewSet(OrganizationModelViewSet):
                 'management_mandate': unit.management_mandate,
                 'monthly_rent': rent_amount,
                 'gross_collected': gross_collected,
+                'direct_rent_scheduled': direct_rent_scheduled,
+                'rent_collection_mode': rent_collection_mode,
+                'fee_settlement_method': fee_settlement_method,
                 'commission_rate': comm_rate,
                 'commission_deducted': commission_amount,
+                'commission_settled_at_source': commission_settled_at_source,
                 'service_charge_deducted': sc_deduction,
                 'net_payout': net_unit_payout,
             })
 
-        net_remittance_payable = max(Decimal('0.00'), total_gross_collected - total_commission_deducted - total_service_charge_deducted - total_maintenance_deducted)
+        net_remittance_payable = max(Decimal('0.00'), total_gross_collected - total_commission_deducted - total_commission_settled_at_source - total_service_charge_deducted - total_maintenance_deducted)
+        settlement_model = next(iter(collection_models)) if len(collection_models) == 1 else 'mixed'
         reference_code = f"REMIT-{owner.code}-{month:02d}-{year}"
 
         return Response({
@@ -1676,9 +1709,13 @@ class OwnerViewSet(OrganizationModelViewSet):
                 'total_units': len(unit_statements),
                 'total_gross_collected': total_gross_collected,
                 'total_commission_deducted': total_commission_deducted,
+                'total_commission_settled_at_source': total_commission_settled_at_source,
                 'total_service_charge_deducted': total_service_charge_deducted,
                 'total_maintenance_deducted': total_maintenance_deducted,
+                'total_direct_rent_scheduled': total_direct_rent_scheduled,
                 'net_remittance_payable': net_remittance_payable,
+                'settlement_model': settlement_model,
+                'management_fees_outstanding': max(Decimal('0.00'), total_management_fees_charged - total_management_fees_paid),
                 'total_management_fees_charged': total_management_fees_charged,
                 'total_management_fees_paid': total_management_fees_paid,
                 'total_letting_fees_charged': total_letting_fees_charged,

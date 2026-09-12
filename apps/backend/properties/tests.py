@@ -3201,6 +3201,33 @@ class SectionalTitleOnboardingAndBillingTests(TestCase):
         self.assertEqual(data['summary']['total_letting_fees_paid'], Decimal('11600.00'))
         self.assertEqual(data['fee_invoices'][0]['number'], 'LB-2026-000099')
 
+        # Direct-to-owner rent must never be shown as estate cash available for
+        # payout and its management fee remains a separately invoiced debt.
+        lease.metadata = {
+            'rent_collection_mode': 'direct_landlord',
+            'fee_settlement_method': 'separate_invoice',
+        }
+        lease.save(update_fields=('metadata',))
+        management_invoice = LandlordInvoice.objects.create(
+            organization=self.organization, property=prop, owner=owner,
+            number='LB-2026-000100', landlord_name=owner.name, fee_type='management',
+            billing_period='2026-08', fee_amount=Decimal('4500.00'),
+            vat_amount=Decimal('720.00'), total_amount=Decimal('5220.00'),
+            status=LandlordInvoice.Status.SENT,
+        )
+        direct_res = self.client.get(
+            f'/api/v1/property/owners/{owner.id}/remittance-statement/?month=8&year=2026',
+            **self.headers
+        )
+        self.assertEqual(direct_res.status_code, 200, direct_res.data)
+        direct = direct_res.data
+        self.assertEqual(direct['summary']['settlement_model'], 'direct_landlord')
+        self.assertEqual(direct['summary']['total_gross_collected'], Decimal('0.00'))
+        self.assertEqual(direct['summary']['total_commission_deducted'], Decimal('0.00'))
+        self.assertEqual(direct['summary']['net_remittance_payable'], Decimal('0.00'))
+        self.assertEqual(direct['summary']['management_fees_outstanding'], management_invoice.total_amount)
+        self.assertEqual(direct['units'][0]['fee_settlement_method'], 'separate_invoice')
+
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
 class LandlordInvoiceApiTests(TestCase):
