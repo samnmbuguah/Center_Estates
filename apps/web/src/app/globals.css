@@ -6317,6 +6317,65 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 
 .module-nav-mobile-select { display: none; }
 
+.module-nav-bar-compact { overflow: visible; }
+
+.module-nav-compact-controls {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.8fr) auto minmax(240px, 1fr) minmax(220px, 1.2fr);
+  align-items: end;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.module-nav-compact-controls label { display: grid; gap: 4px; min-width: 0; }
+
+.module-nav-compact-controls label > span,
+.module-nav-compact-current small {
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.module-nav-compact-controls select {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 8px 34px 8px 11px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.module-nav-compact-controls select:focus-visible {
+  outline: 2px solid var(--brand-primary, #2563eb);
+  outline-offset: 2px;
+}
+
+.module-nav-compact-separator { align-self: center; color: var(--text-secondary); font-size: 22px; }
+
+.module-nav-compact-current {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 5px 10px 6px 14px;
+  border-left: 1px solid var(--border-color);
+}
+
+.module-nav-compact-current strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .property-scoped-route { width: 100%; min-width: 0; }
 
 .module-property-switcher {
@@ -6396,6 +6455,15 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
     font: inherit;
     font-weight: 650;
   }
+
+  .module-nav-bar-compact .module-nav-mobile-select { display: none; }
+  .module-nav-compact-controls { grid-template-columns: 1fr 1fr; align-items: end; }
+  .module-nav-compact-separator,
+  .module-nav-compact-current { display: none; }
+}
+
+@media (max-width: 560px) {
+  .module-nav-compact-controls { grid-template-columns: 1fr; }
 }
 .property-onboarding-mode .module-workspace-property .module-nav-bar { display: none; }
 .property-onboarding-mode .module-workspace-property .module-workspace-main { padding-top: 24px; }

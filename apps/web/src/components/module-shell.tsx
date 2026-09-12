@@ -104,6 +104,7 @@ export function ModuleShell({
   const hasSubTabs = Array.isArray(subTabs) && subTabs.length > 0;
   const resolvedGroups = groups ?? MODULE_NAV_BY_KEY[moduleKey];
   const hasGroups = Array.isArray(resolvedGroups) && resolvedGroups.length > 0;
+  const useCompactNavigation = moduleKey === "construction" || moduleKey === "monitoring";
   const activeGroup = resolvedGroups?.find((group) => group.items.some((item) => item.id === activeId)) ?? resolvedGroups?.[0];
   const navigationActiveId = activeGroup?.items.some((item) => item.id === activeId)
     ? activeId
@@ -120,17 +121,53 @@ export function ModuleShell({
 
           {/* Two-level module navigation: workflow groups, then pages in the active group. */}
           {hasGroups && (
-            <nav className="module-nav-bar" aria-label={`${moduleName} navigation`}>
+            <nav className={`module-nav-bar${useCompactNavigation ? " module-nav-bar-compact" : ""}`} aria-label={`${moduleName} navigation`}>
+              {useCompactNavigation && activeGroup ? (
+                <div className="module-nav-compact-controls">
+                  <label>
+                    <span>Workflow</span>
+                    <select
+                      aria-label="Construction workflow"
+                      value={activeGroup.label}
+                      onChange={(event) => {
+                        const group = resolvedGroups.find((candidate) => candidate.label === event.target.value);
+                        if (group?.items[0]) onSelect?.(group.items[0].id);
+                      }}
+                    >
+                      {resolvedGroups.map((group) => (
+                        <option key={group.label} value={group.label}>{group.icon ? `${group.icon} ` : ""}{group.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <span className="module-nav-compact-separator" aria-hidden="true">›</span>
+                  <label>
+                    <span>Page</span>
+                    <select
+                      aria-label="Construction page"
+                      value={navigationActiveId ?? ""}
+                      onChange={(event) => onSelect?.(event.target.value)}
+                    >
+                      {activeGroup.items.map((item) => (
+                        <option value={item.id} key={item.id}>{item.icon ? `${item.icon} ` : ""}{item.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="module-nav-compact-current" aria-live="polite">
+                    <small>Current workspace</small>
+                    <strong>{activeGroup.label} · {activeGroup.items.find((item) => item.id === navigationActiveId)?.label}</strong>
+                  </div>
+                </div>
+              ) : null}
               <label className="module-nav-mobile-select">
                 <span>Module page</span>
                 <select value={navigationActiveId ?? ""} onChange={(event) => onSelect?.(event.target.value)}>
                   {resolvedGroups.flatMap((group) => group.items.map((item) => (
-                    <option value={item.id} key={item.id}>{group.label} — {item.label}</option>
+                    <option value={item.id} key={`${group.label}-${item.id}`}>{group.label} — {item.label}</option>
                   )))}
                 </select>
               </label>
 
-              <div className="module-nav-groups" role="tablist" aria-label="Workflow sections">
+              {!useCompactNavigation && <div className="module-nav-groups" role="tablist" aria-label="Workflow sections">
                 {resolvedGroups.map((group) => {
                   const selected = group === activeGroup;
                   return (
@@ -148,9 +185,9 @@ export function ModuleShell({
                     </button>
                   );
                 })}
-              </div>
+              </div>}
 
-              {activeGroup && (
+              {!useCompactNavigation && activeGroup && (
                 <div className="module-nav-pages" aria-label={`${activeGroup.label} pages`}>
                   {activeGroup.items.map((item) => (
                     <button

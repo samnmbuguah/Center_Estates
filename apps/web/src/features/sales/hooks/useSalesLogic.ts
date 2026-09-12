@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
-import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import { usePropertyContext } from "@/lib/property-context";
 import {
   BUYER_TRANSITIONS,
@@ -100,6 +100,7 @@ export function useSalesLogic(initialTab = "overview") {
       if (!res.ok) {
         setRows([]);
         setDashboard(null);
+        setError(await apiErrorMessage(res, `The ${salesTabLabels[tab]} could not be loaded.`));
         return;
       }
       const data = (await res.json()) as Dashboard;

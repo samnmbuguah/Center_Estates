@@ -271,7 +271,6 @@ export const constructionNav: ModuleNavGroup[] = [  {
       { id: "lifecycle", label: "Project Lifecycle" },
       { id: "project-memberships", label: "Project Team" },
       { id: "calendar", label: "Calendar" },
-      { id: "chat", label: "AI Assistant" },
     ],
   },
   {
