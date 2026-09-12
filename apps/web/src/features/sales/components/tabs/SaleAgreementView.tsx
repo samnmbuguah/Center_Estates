@@ -26,12 +26,12 @@ export function SaleAgreementView({
   const balance = price - paid;
   const deposit = Number(sale.reservation_fee ?? 0);
 
-  const docs = [
-    { label: "Offer Letter", checked: true },
-    { label: "Sale Agreement", checked: String(sale.status) === "contracted" || String(sale.status) === "completed" },
-    { label: "Buyer ID Copy", checked: true },
-    { label: "KRA PIN Certificate", checked: true },
-  ];
+  const readiness = Array.isArray(sale.document_readiness) ? sale.document_readiness as Array<Record<string, unknown>> : [];
+  const docs = readiness.map((item) => ({
+    label: String(item.label || item.key || "Document"),
+    checked: Boolean(item.present),
+    final: Boolean(item.final),
+  }));
 
   function downloadAgreement() {
     const html = `<!DOCTYPE html>
@@ -43,7 +43,8 @@ td{padding:8px 12px;border-bottom:1px solid #eee}
 td:first-child{font-weight:600;width:40%;color:#555}
 .label{color:#888;font-size:12px;text-transform:uppercase;letter-spacing:0.05em}
 </style></head><body>
-<h1>Sale Agreement Summary</h1>
+<h1>Sale Transaction Summary</h1>
+<p><strong>Not an executed sale agreement.</strong> This operational summary must be read together with the approved and signed legal documents in the document register.</p>
 <p class="label">Reference: ${String(sale.reference ?? "—")}</p>
 <table>
 <tr><td>Buyer</td><td>${String(sale.buyer_name ?? "—")}</td></tr>
@@ -55,14 +56,6 @@ td:first-child{font-weight:600;width:40%;color:#555}
 <tr><td>Balance Due</td><td>KES ${balance.toLocaleString()}</td></tr>
 <tr><td>Status</td><td>${String(sale.status ?? "—")}</td></tr>
 </table>
-<h2>Terms &amp; Conditions</h2>
-<ol>
-<li>The buyer agrees to pay the balance in accordance with the agreed installment schedule.</li>
-<li>Transfer of title shall occur upon full payment of the purchase price.</li>
-<li>The seller warrants that the property is free from encumbrances at the time of sale.</li>
-<li>Any late payment shall attract a penalty of 2% per month on the outstanding amount.</li>
-<li>This agreement is governed by the laws of the Republic of Kenya.</li>
-</ol>
 <h2>Payment Schedule</h2>
 <p>Deposit: KES ${deposit.toLocaleString()} (paid)</p>
 <p>Balance: KES ${balance.toLocaleString()} — to be paid per installment plan.</p>
@@ -118,15 +111,10 @@ td:first-child{font-weight:600;width:40%;color:#555}
       </div>
 
       <div className="grid-2" style={{ gap: 18, marginTop: 18 }}>
-        <Panel title="Terms &amp; Conditions">
+        <Panel title="Document Status">
           <div style={{ padding: 18, fontSize: 13, lineHeight: 1.7 }}>
-            <ol style={{ margin: 0, paddingLeft: 18 }}>
-              <li>The buyer agrees to pay the balance in accordance with the agreed installment schedule.</li>
-              <li>Transfer of title shall occur upon full payment of the purchase price.</li>
-              <li>The seller warrants that the property is free from encumbrances at the time of sale.</li>
-              <li>Any late payment shall attract a penalty of 2% per month on the outstanding amount.</li>
-              <li>This agreement is governed by the laws of the Republic of Kenya.</li>
-            </ol>
+            <strong>This page is an operational transaction summary, not the executed contract.</strong>
+            <p className="muted" style={{ marginBottom: 0 }}>Contractual terms are authoritative only when an approved final Sale Agreement is present in the document register.</p>
           </div>
         </Panel>
 
@@ -135,11 +123,11 @@ td:first-child{font-weight:600;width:40%;color:#555}
             {docs.map((d) => (
               <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
                 <span style={{ fontSize: 16 }}>{d.checked ? "✅" : "⬜"}</span>
-                <span style={{ fontSize: 13, fontWeight: d.checked ? 600 : 400 }}>{d.label}</span>
+                <span style={{ fontSize: 13, fontWeight: d.checked ? 600 : 400 }}>{d.label}{d.final ? " · Final" : ""}</span>
               </div>
             ))}
             <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-              <button className="btn primary sm" onClick={downloadAgreement}>↓ Download Agreement</button>
+              <button className="btn primary sm" onClick={downloadAgreement}>↓ Print Transaction Summary</button>
               <button className="btn ghost sm" disabled title="Email integration coming soon">✉ Send to Buyer</button>
             </div>
           </div>

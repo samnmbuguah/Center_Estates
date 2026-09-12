@@ -213,6 +213,12 @@ class SalesApiTests(TestCase):
         self.assertEqual(self.client.delete(
             f'/api/v1/sales/documents/{document.id}/', **self.headers,
         ).status_code, 400)
+        detail = self.client.get(f'/api/v1/sales/sales/{self.sale.id}/', **self.headers)
+        self.assertEqual(detail.status_code, 200, detail.data)
+        readiness = {item['key']: item for item in detail.data['document_readiness']}
+        self.assertTrue(readiness['sale_agreement']['present'])
+        self.assertTrue(readiness['sale_agreement']['final'])
+        self.assertFalse(readiness['buyer_id']['present'])
 
     def test_expired_reservation_releases_inventory_and_audits_cancellation(self):
         self.sale.status = PropertySale.Status.RESERVED

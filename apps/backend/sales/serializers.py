@@ -67,6 +67,7 @@ class PropertySaleSerializer(serializers.ModelSerializer):
     unit_area = serializers.SerializerMethodField()
     renders = serializers.SerializerMethodField()
     paid_amount = serializers.SerializerMethodField()
+    document_readiness = serializers.SerializerMethodField()
 
     class Meta:
         model = PropertySale
@@ -85,6 +86,25 @@ class PropertySaleSerializer(serializers.ModelSerializer):
 
     def get_paid_amount(self, obj) -> Decimal:
         return sum((payment.amount for payment in obj.payments.all() if payment.status == SalePayment.Status.VERIFIED), start=0)
+
+    def get_document_readiness(self, obj):
+        documents = list(obj.legal_documents.all())
+        normalized = [str(document.document_type or '').lower().replace('-', '_').replace(' ', '_') for document in documents]
+        requirements = (
+            ('offer_letter', 'Offer Letter'),
+            ('sale_agreement', 'Executed Sale Agreement'),
+            ('buyer_id', 'Buyer ID Copy'),
+            ('kra_pin', 'KRA PIN Certificate'),
+        )
+        return [
+            {
+                'key': key,
+                'label': label,
+                'present': any(key in value for value in normalized),
+                'final': any(key in value and document.is_final for value, document in zip(normalized, documents)),
+            }
+            for key, label in requirements
+        ]
 
 
 class InstallmentSerializer(serializers.ModelSerializer):

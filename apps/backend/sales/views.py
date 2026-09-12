@@ -217,7 +217,7 @@ class BuyerViewSet(SalesModelViewSet):
 class SaleViewSet(SalesModelViewSet):
     write_permission = 'sales.selling'
     permission_map = {'transition': 'sales.selling'}
-    queryset = PropertySale.objects.select_related('buyer', 'listing__unit', 'listing__project', 'agent').prefetch_related('payments')
+    queryset = PropertySale.objects.select_related('buyer', 'listing__unit', 'listing__project', 'agent').prefetch_related('payments', 'legal_documents')
     serializer_class = PropertySaleSerializer
     search_fields = ('reference', 'buyer__full_name', 'listing__unit__code', 'listing__project__name')
 
