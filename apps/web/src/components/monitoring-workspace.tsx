@@ -14,6 +14,8 @@ const ProjectWorkspace = lazy(() => import("@/components/monitoring/pages/Projec
 const ProjectDetail = lazy(() => import("@/components/monitoring/pages/ProjectDetail").then(m => ({ default: m.ProjectDetail })));
 const Timeline = lazy(() => import("@/components/monitoring/pages/Timeline").then(m => ({ default: m.Timeline })));
 const Finance = lazy(() => import("@/components/monitoring/pages/Finance").then(m => ({ default: m.Finance })));
+const FinancialRequisitions = lazy(() => import("@/components/monitoring/pages/FinancialRequisitions").then(m => ({ default: m.FinancialRequisitions })));
+const Disbursements = lazy(() => import("@/components/monitoring/pages/Disbursements").then(m => ({ default: m.Disbursements })));
 const CostDashboard = lazy(() => import("@/components/monitoring/pages/CostDashboard").then(m => ({ default: m.CostDashboard })));
 const IpcGeneration = lazy(() => import("@/components/monitoring/pages/IpcGeneration").then(m => ({ default: m.IpcGeneration })));
 const Reports = lazy(() => import("@/components/monitoring/pages/Reports").then(m => ({ default: m.Reports })));
@@ -56,6 +58,7 @@ const BimDiscrepancies = lazy(() => import("@/components/monitoring/pages/BimDis
 const DroneDatasets = lazy(() => import("@/components/monitoring/pages/DroneDatasets").then(m => ({ default: m.DroneDatasets })));
 const SatelliteDatasets = lazy(() => import("@/components/monitoring/pages/SatelliteDatasets").then(m => ({ default: m.SatelliteDatasets })));
 const ProjectDocuments = lazy(() => import("@/components/monitoring/pages/ProjectDocuments").then(m => ({ default: m.ProjectDocuments })));
+const DocumentRevisions = lazy(() => import("@/components/monitoring/pages/DocumentRevisions").then(m => ({ default: m.DocumentRevisions })));
 const MonthlyReports = lazy(() => import("@/components/monitoring/pages/MonthlyReports").then(m => ({ default: m.MonthlyReports })));
 const CalendarPage = lazy(() => import("@/components/monitoring/pages/CalendarPage"));
 const ChatPage = lazy(() => import("@/components/monitoring/pages/ChatPage"));
@@ -1065,7 +1068,7 @@ function WorkspaceContent() {
         {tab === "provisional-sums" && <ProvisionalSums />}
         {tab === "contingency-drawdowns" && <ContingencyDrawdowns />}
         {tab === "advance-payments" && <AdvancePayments />}
-        {tab === "advance-recoveries" && <AdvancePayments />}
+        {tab === "advance-recoveries" && <AdvancePayments recoveryOnly />}
         {tab === "consultant-payments" && <ConsultantPayments />}
         {tab === "work-orders" && <WorkOrderSummary />}
         {tab === "subcontractors" && <Subcontractors />}
@@ -1075,12 +1078,12 @@ function WorkspaceContent() {
         {tab === "material-requisitions" && <MaterialRequisitions />}
         {tab === "purchase-orders" && <PurchaseOrders />}
         {tab === "stock-movements" && <StockMovements />}
-        {tab === "requisitions" && <Finance />}
+        {tab === "requisitions" && <FinancialRequisitions />}
         {tab === "certificates" && <IpcGeneration />}
-        {tab === "disbursements" && <Finance />}
+        {tab === "disbursements" && <Disbursements />}
         {tab === "drawdowns" && <DrawdownRequests />}
         {tab === "documents" && <ProjectDocuments />}
-        {tab === "document-versions" && <ProjectDocuments />}
+        {tab === "document-versions" && <DocumentRevisions />}
         {tab === "bim-models" && <BimModels />}
         {tab === "bim-discrepancies" && <BimDiscrepancies />}
         {tab === "drone-datasets" && <DroneDatasets />}

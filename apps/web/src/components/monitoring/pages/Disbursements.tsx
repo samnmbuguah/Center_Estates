@@ -1,0 +1,21 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Banknote, CheckCircle2, Plus, XCircle } from "lucide-react";
+import { createDisbursement, fetchCertificates, fetchDisbursements, payDisbursement, voidDisbursement, type Certificate, type Disbursement } from "../api";
+import { useAuth } from "../auth";
+import { ErrorBanner } from "../components";
+import { useWorkspace } from "../context/WorkspaceContext";
+
+export function Disbursements() {
+  const { activeProjectId, activeProject } = useWorkspace(); const { can } = useAuth();
+  const [items,setItems]=useState<Disbursement[]>([]); const [certs,setCerts]=useState<Certificate[]>([]); const [error,setError]=useState<string|null>(null); const [busy,setBusy]=useState<number|"new"|null>(null); const [show,setShow]=useState(false); const [form,setForm]=useState({certificate_id:"",amount:""});
+  const load=async()=>{if(!activeProjectId){setItems([]);return;} try{const [d,c]=await Promise.all([fetchDisbursements(),fetchCertificates()]);setItems(d.filter(x=>x.project_id===activeProjectId));setCerts(c.filter(x=>x.project_id===activeProjectId&&x.status==="issued"));}catch(e){setError((e as Error).message)}};
+  useEffect(()=>{void load()},[activeProjectId]);
+  const create=async()=>{if(!activeProjectId||Number(form.amount)<=0){setError("Enter a positive disbursement amount.");return;}setBusy("new");try{await createDisbursement({project_id:activeProjectId,amount:form.amount,certificate:form.certificate_id||null});setForm({certificate_id:"",amount:""});setShow(false);await load()}catch(e){setError((e as Error).message)}finally{setBusy(null)}};
+  const act=async(row:Disbursement,action:"pay"|"void")=>{setBusy(row.id);try{action==="pay"?await payDisbursement(row.id):await voidDisbursement(row.id,"Voided from the disbursement register");await load()}catch(e){setError((e as Error).message)}finally{setBusy(null)}};
+  if(!activeProjectId)return <div className="card" style={{padding:24}}>Select a project to view its disbursements.</div>;
+  return <div style={{display:"flex",flexDirection:"column",gap:16}}><div style={{display:"flex",justifyContent:"space-between",flexWrap:"wrap",gap:12}}><div><div className="muted" style={{fontSize:12,fontWeight:800,textTransform:"uppercase"}}>Payment control</div><h2 style={{margin:"4px 0"}}>Disbursement Register</h2><div className="muted">{activeProject?.name} · release and audit approved payments</div></div>{can("finance.admin")&&<button className="btn primary" onClick={()=>setShow(v=>!v)}><Plus size={15}/>New disbursement</button>}</div><ErrorBanner message={error}/>
+  {show&&<div className="card" style={{padding:16,display:"flex",gap:10,flexWrap:"wrap"}}><select value={form.certificate_id} onChange={e=>setForm({...form,certificate_id:e.target.value})}><option value="">No linked certificate</option>{certs.map(c=><option key={c.id} value={c.id}>{c.number} · {c.contractor_name}</option>)}</select><input type="number" min="0" placeholder="Amount (KES)" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/><button className="btn primary" disabled={busy==="new"} onClick={create}><Banknote size={14}/>Create pending payment</button></div>}
+  <div className="data-panel"><div className="table-scroll"><table className="fc-data-table"><thead><tr><th>Reference</th><th>Certificate</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead><tbody>{items.map(row=><tr key={row.id}><td className="mono">DIS-{String(row.id).padStart(5,"0")}</td><td>{row.certificate_id?certs.find(c=>c.id===row.certificate_id)?.number||`#${row.certificate_id}`:"Direct"}</td><td className="mono"><strong>KES {Number(row.amount).toLocaleString()}</strong></td><td><span className="status-pill">{row.status}</span></td><td>{can("finance.admin")&&row.status==="pending"?<div style={{display:"flex",gap:6}}><button className="btn sm" disabled={busy===row.id} onClick={()=>act(row,"pay")}><CheckCircle2 size={13}/>Mark paid</button><button className="btn ghost sm" disabled={busy===row.id} onClick={()=>act(row,"void")}><XCircle size={13}/>Void</button></div>:<span className="muted">No action</span>}</td></tr>)}{!items.length&&<tr><td colSpan={5} style={{textAlign:"center",padding:32}} className="muted">No disbursements for this project.</td></tr>}</tbody></table></div></div></div>;
+}

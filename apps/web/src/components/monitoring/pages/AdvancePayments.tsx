@@ -16,7 +16,7 @@ const STATUS_COLORS: Record<string, string> = {
   defaulted: "var(--color-danger)",
 };
 
-export function AdvancePayments() {
+export function AdvancePayments({ recoveryOnly = false }: { recoveryOnly?: boolean }) {
   const { id = "" } = useParams();
   const { can } = useAuth();
   const [items, setItems] = useState<any[]>([]);
@@ -67,12 +67,12 @@ export function AdvancePayments() {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color: "var(--muted)", textTransform: "uppercase", marginBottom: 2 }}>Financial Monitoring</div>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>Advance Payment Register</h2>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>{recoveryOnly ? "Advance Recovery Schedule" : "Advance Payment Register"}</h2>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--muted)" }}>
-            Mobilisation advances issued to contractors, with automatic recovery tracking against IPC certificates
+            {recoveryOnly ? "Record and monitor deductions that recover contractor advances against IPC certificates" : "Mobilisation advances issued to contractors, with automatic recovery tracking against IPC certificates"}
           </p>
         </div>
-        {can("finance.admin") && (
+        {can("finance.admin") && !recoveryOnly && (
           <button className="btn primary" onClick={() => setShowForm(s => !s)} style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
             <Plus size={16} /> New Advance
           </button>
@@ -106,7 +106,7 @@ export function AdvancePayments() {
       <ErrorBanner message={error} />
 
       {/* New Advance Form */}
-      {showForm && can("finance.admin") && (
+      {showForm && can("finance.admin") && !recoveryOnly && (
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "20px 24px", marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>New Advance Payment</h3>
@@ -136,7 +136,7 @@ export function AdvancePayments() {
       <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "14px 20px", background: "var(--surface-2)", borderBottom: "1px solid var(--border)", display: "flex", gap: 8, alignItems: "center" }}>
           <HandCoins size={15} style={{ color: "var(--primary)" }} />
-          <span style={{ fontWeight: 700, fontSize: 14 }}>Advance Register</span>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>{recoveryOnly ? "Recovery Schedule" : "Advance Register"}</span>
         </div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
