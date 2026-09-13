@@ -6550,12 +6550,11 @@ class PropertyAnalyticsViewSet(ViewSet):
             for expense in scope_model_queryset(Expense, request, organization).filter(incurred_on__range=(start, end)).select_related('property'):
                 writer.writerow(('Expense', expense.incurred_on, expense.property.name, expense.category, expense.invoice_number, expense.amount))
         elif report_kind == 'expenses-schedule':
-            writer.writerow(('Date', 'Supplier', 'Property', 'Category', 'Description', 'Reference', 'Net', 'VAT', 'Total', 'Status', 'Budget code', 'Cost centre'))
+            writer.writerow(('Date', 'Supplier', 'Property', 'Description', 'Reference', 'Total', 'Cost centre'))
             rows = scope_model_queryset(Expense, request, organization).filter(incurred_on__range=(start, end)).select_related('property')
             for expense in rows:
-                writer.writerow((expense.incurred_on, expense.supplier, expense.property.name, expense.category,
-                                 expense.description, expense.invoice_number, expense.taxable_amount or expense.amount - expense.tax_amount,
-                                 expense.tax_amount, expense.amount, expense.status, expense.budget_code, expense.cost_centre))
+                writer.writerow((expense.incurred_on, expense.supplier, expense.property.name,
+                                 expense.description, expense.invoice_number, expense.amount, expense.cost_centre))
         elif report_kind == 'vat-schedule':
             writer.writerow(('Type', 'Date', 'Reference', 'Party', 'Property', 'Taxable value', 'VAT amount'))
             invoices = scope_model_queryset(Invoice, request, organization).filter(issued_on__range=(start, end), tax_amount__gt=0).exclude(status=Invoice.Status.VOID).select_related('lease__tenant', 'lease__unit__property')

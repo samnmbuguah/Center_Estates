@@ -2043,7 +2043,7 @@ class PropertyApiTests(TestCase):
             'tenancy-schedule': b'Escalation %', 'ownership-schedule': b'Billing Readiness', 'vacancy': b'Days vacant',
             'movements': b'Movement', 'income-analysis': b'Annualized income',
             'billing-schedule': b'Outstanding C/F', 'vat-schedule': b'Taxable value',
-            'expenses-schedule': b'Budget code',
+            'expenses-schedule': b'Cost centre',
         }
         with tempfile.TemporaryDirectory() as media_root, override_settings(MEDIA_ROOT=media_root):
             for report_key, heading in report_headings.items():
@@ -2064,6 +2064,12 @@ class PropertyApiTests(TestCase):
                     self.assertNotIn(b'Rent Collection', csv_response.content)
                     self.assertNotIn(b'Service Charge Payer', csv_response.content)
                     self.assertNotIn(b'Utilities Payer', csv_response.content)
+                elif report_key == 'expenses-schedule':
+                    expense_header = csv_response.content.decode('utf-8-sig').splitlines()[0]
+                    self.assertEqual(
+                        expense_header,
+                        'Date,Supplier,Property,Description,Reference,Total,Cost centre',
+                    )
                 xlsx_response = self.client.get(
                     f'/api/v1/property/analytics/exports/{report_key}/?start=2026-01-01&end=2026-12-31&output=xlsx',
                     **headers,
