@@ -469,15 +469,15 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
             </>
           )}
 
-          {/* Property Onboarding — Using a distinct Real Estate onboarding icon ✨🏡 instead of Construction Crane 🏗️ */}
-          {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "property")) && (
-            <Tooltip title={collapsed ? "Property Onboarding" : ""} placement="right" disableHoverListener={!collapsed}>
+          {/* Modular Onboarding (Property, Construction, Sales) */}
+          {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "property" || module.slug === "sales" || module.slug === "monitoring")) && (
+            <Tooltip title={collapsed ? "Modular Onboarding" : ""} placement="right" disableHoverListener={!collapsed}>
               <Link
-                className={`nav-link ${pathname === "/property-onboarding" ? "active" : ""}`}
+                className={`nav-link ${pathname === "/property-onboarding" || pathname === "/onboarding" ? "active" : ""}`}
                 data-testid="property-onboarding-link"
                 href="/property-onboarding"
                 onClick={onCloseMobile}
-                title={collapsed ? "" : "Property onboarding"}
+                title={collapsed ? "" : "Modular onboarding (Property, Construction, Sales)"}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -485,18 +485,18 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                   padding: isMobile ? "14px 16px" : (collapsed ? "10px 0" : "9px 12px"),
                   justifyContent: collapsed ? "center" : "flex-start",
                   borderRadius: 6,
-                  background: pathname === "/property-onboarding" ? "var(--brand-primary, var(--color-brand-red))" : "transparent",
-                  color: pathname === "/property-onboarding" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, var(--color-slate-300))",
-                  fontWeight: pathname === "/property-onboarding" ? 700 : 500,
+                  background: pathname === "/property-onboarding" || pathname === "/onboarding" ? "var(--brand-primary, var(--color-brand-red))" : "transparent",
+                  color: pathname === "/property-onboarding" || pathname === "/onboarding" ? "var(--text-on-brand, #ffffff)" : "var(--text-on-dark, var(--color-slate-300))",
+                  fontWeight: pathname === "/property-onboarding" || pathname === "/onboarding" ? 700 : 500,
                   textDecoration: "none",
                   fontSize: isMobile ? 15 : 13,
                   transition: "background 0.15s ease, color 0.15s ease",
                 }}
               >
                 <span style={{ fontSize: isMobile ? 18 : 15, display: "flex", alignItems: "center" }}>
-                  <Building2 size={isMobile ? 20 : 17} color="var(--color-amber)" />
+                  <Layers size={isMobile ? 20 : 17} color="var(--color-amber)" />
                 </span>
-                {!collapsed && <span>Property onboarding</span>}
+                {!collapsed && <span>Modular Onboarding</span>}
               </Link>
             </Tooltip>
           )}

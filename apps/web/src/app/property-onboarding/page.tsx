@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import { ErrorBoundary } from "@/components/error-boundary";
-import { PropertyOnboardingForm } from "@/components/property-onboarding-form";
+import { ModularOnboardingHub } from "@/components/onboarding/ModularOnboardingHub";
 
 export default function PropertyOnboardingPage() {
   return (
-    <ErrorBoundary moduleName="Property onboarding">
-      <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Loading property form...</div>}>
-        <PropertyOnboardingForm />
+    <ErrorBoundary moduleName="Asset onboarding">
+      <Suspense fallback={<div style={{ padding: 40, textAlign: "center" }}>Loading onboarding hub...</div>}>
+        <ModularOnboardingHub />
       </Suspense>
     </ErrorBoundary>
   );
