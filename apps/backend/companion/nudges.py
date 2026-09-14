@@ -19,16 +19,67 @@ import random
 import hashlib
 
 JOKE_POOL = [
+    # Real Estate & Property Management
     "Why don't property managers ever get lost? They always follow the floor plan!",
     "Why did the tenant bring a ladder to the viewing? They heard the rent was through the roof!",
-    "Why don't scientists trust atoms? Because they make up everything — like our quarterly reports!",
-    "What did the lift say to the staircase? You crack me up, but I lift everyone up!",
     "Why did the lease go to therapy? It had too many outstanding issues!",
-    "I told my computer a joke about plumbing — it had a leak in its memory!",
-    "Why is the property manager so calm? They've mastered work-life BALANCE — like trial balance!",
+    "Why is the property manager so calm? They've mastered work-life BALANCE — like a trial balance!",
     "What do you call a well-maintained building? A-work-of-art-itecture!",
-    "Why did the task cross the road? To get to the done column!",
+    "Why did the estate agent carry a tape measure everywhere? To measure up to customer expectations!",
+    "What is a surveyor's favorite musical chord? The one with perfect pitch!",
+    "Why did the deed cross the road? To transfer title to the other side!",
+    "What did the front door say to the key? You unlock my best potential!",
+    "Why are penthouse apartments never stressed? They're always above the drama!",
+    "Why did the broker take up gardening? They wanted to see their commission grow organically!",
+    "How do real estate agents stay cool in summer? They stand next to their best fans — happy clients!",
+    "Why did the open house have a red carpet? Because every prospective buyer deserves VIP square footage!",
+    "What did the foundation say to the skyscraper? Stay grounded, I've got your back!",
+    "Why do architects make good storytellers? They know how to build suspense from the ground up!",
+
+    # Construction & Civil Engineering
+    "Why did the concrete mix go to school? It wanted to become solid in its fundamentals!",
+    "How do civil engineers party? They construct great memories and test structural integrity!",
+    "What is a builder's favorite kind of tea? Proper-tea with solid biscuit foundations!",
+    "Why was the scaffolding so polite? It always provided reliable support!",
+    "What did the spirit level say to the crooked wall? Let's be straight with each other!",
+    "Why don't contractors play hide and seek? Good luck hiding when your high-vis jacket glows from space!",
+    "Why did the excavator get an award? For groundbreaking performance!",
+    "What's a crane operator's favorite motto? Always keep your standards high!",
+    "Why did the rebar go to the gym? It wanted maximum tensile strength!",
+    "How does a quantity surveyor sleep at night? By counting variance line items until balanced!",
+    "Why did the hard hat smile at work? It was thrilled to keep everything under control!",
+    "What's an engineer's favorite type of coffee? A well-calculated drip with zero structural defects!",
+
+    # Facilities, Plumbing & Maintenance
+    "I told my computer a joke about plumbing — it had a leak in its memory!",
     "Estate tip: Hydrate like a borehole — consistently and deeply!",
+    "What did the lift say to the staircase? You crack me up, but I lift everyone up!",
+    "Why did the HVAC compressor feel appreciated? It kept its cool under heavy pressure!",
+    "Why did the generator join the choir? It had incredible standby harmony!",
+    "What did the light bulb say to the switch? You really turn on my workday motivation!",
+    "Why did the circuit breaker get promoted? It knew exactly when to cut the tension!",
+    "Why are maintenance technicians like magicians? They turn emergency calls into peaceful operations!",
+    "What is a facility manager's favorite exercise? The preventive maintenance circuit!",
+    "Why did the water meter blush? Because it saw the water flowing without a leak!",
+
+    # Workplace Productivity, Tech & Humor
+    "Why did the task cross the road? To get to the done column!",
+    "Why don't scientists trust atoms? Because they make up everything — like unverified vendor quotes!",
+    "Why did the spreadsheet break up with the calculator? It found someone with more formulaic chemistry!",
+    "How does a database administrator take a break? With a clean SELECT * FROM weekend WHERE stress = 0!",
+    "Why did the calendar get promoted? Its days were always fully booked and productive!",
+    "What do you call an espresso for project managers? A critical-path caffeine injection!",
+    "Why did the KPI wear sunglasses? Because its future looked exceptionally bright!",
+    "Why did the email feel accomplished? It was marked resolved without needing a follow-up meeting!",
+    "What's the best time to review your task pipeline? Right before your second cup of tea!",
+    "Why did the kanban card celebrate? It finally moved from 'In Progress' to 'Done & Dusted'!",
+    "Why did the laptop go to the spa? It needed to clear its cache and cool its processor!",
+    "What's a project manager's favorite dance move? The milestone shuffle!",
+    "Why did the sticky note never give up? Because it was committed to sticking around until done!",
+    "How do smart teams stay synchronized? With clear communication and shared milestones!",
+    "Why did the clock get employee of the month? It never missed a second of productive rhythm!",
+    "What did Friday afternoon say to the Monday sprint? Rest up, you've earned the weekend buffer!",
+    "Why did the ledger take a deep breath? Because all the debits and credits finally balanced out in peace!",
 ]
 
 THOUGHTFUL_CLOSERS = [
@@ -37,14 +88,27 @@ THOUGHTFUL_CLOSERS = [
     "Your consistency is building something lasting.",
     "Remember: progress, not perfection.",
     "Take a breath — you deserve it.",
+    "Every solid structure is built one quality brick at a time.",
+    "Rest is not a detour from productivity; it's the fuel that powers it.",
+    "Clear minds make confident decisions. Stretch your shoulders!",
+    "Great properties take time, precision, and patient stewardship.",
+    "Celebrate the small wins today — they compound into big milestones.",
+    "Your dedication behind the scenes keeps everything running smoothly.",
+    "Pause, hydrate, and recalibrate. You're doing outstanding work.",
+    "A 2-minute stretch now prevents an hour of fatigue later.",
+    "Quality over rush, clarity over noise.",
+    "Stand up, look outside the window, and give your eyes a well-earned break.",
 ]
 
 def _pick_joke(nudge_id: str, user_id: int) -> str:
-    h = int(hashlib.md5(f"{nudge_id}-{user_id}".encode()).hexdigest(), 16)
+    # Rotate dynamically by user and day-of-year so jokes refresh daily
+    today_str = timezone.now().strftime("%Y-%m-%d")
+    h = int(hashlib.md5(f"{nudge_id}-{user_id}-{today_str}".encode()).hexdigest(), 16)
     return JOKE_POOL[h % len(JOKE_POOL)]
 
 def _pick_closer(nudge_id: str) -> str:
-    h = int(hashlib.md5(nudge_id.encode()).hexdigest(), 16)
+    today_str = timezone.now().strftime("%Y-%m-%d")
+    h = int(hashlib.md5(f"{nudge_id}-{today_str}".encode()).hexdigest(), 16)
     return THOUGHTFUL_CLOSERS[h % len(THOUGHTFUL_CLOSERS)]
 
 def _attach_delight(nudge, user):
