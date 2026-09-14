@@ -285,6 +285,11 @@ export function RecordVisitModal({
   projects: Row[];
 }) {
   if (!open) return null;
+
+  const now = new Date();
+  const defaultRef = `VS-${now.getFullYear()}-${String(Date.now()).slice(-4)}`;
+  const defaultVisitDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
   return (
     <Modal title="📍 Record Site Visit (Clerk)" onClose={onClose}>
       <FormError error={error} />
@@ -295,8 +300,13 @@ export function RecordVisitModal({
         onSubmit(payload);
       }}>
         <div className="grid-2">
-          <Field label="Visit Reference" required>
-            <input name="reference" required placeholder="VS-2026-0001" />
+          <Field label="Visit Reference (Auto-generated)">
+            <input
+              name="reference"
+              defaultValue={defaultRef}
+              placeholder="Auto-generated (e.g. VS-2026-0001)"
+              style={{ background: "var(--surface-sunken, #f8fafc)", fontWeight: 600 }}
+            />
           </Field>
           <Field label="Visitor Name" required>
             <input name="visitor_name" required placeholder="Client full name" />
@@ -322,7 +332,7 @@ export function RecordVisitModal({
           </Field>
         </div>
         <Field label="Visit Date & Time" required>
-          <input name="visited_at" type="datetime-local" required />
+          <input name="visited_at" type="datetime-local" required defaultValue={defaultVisitDate} />
         </Field>
         <Field label="Notes">
           <textarea name="notes" rows={3} placeholder="Presentation summary, financing interest, next steps…" />

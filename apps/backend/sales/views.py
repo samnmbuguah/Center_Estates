@@ -489,6 +489,19 @@ class SiteVisitViewSet(SalesModelViewSet):
     serializer_class = SiteVisitSerializer
     search_fields = ('reference', 'visitor_name', 'email', 'phone', 'project__name')
 
+    def perform_create(self, serializer):
+        org = self._validate_organization(serializer)
+        ref = (serializer.validated_data.get('reference') or '').strip()
+        visited_at = serializer.validated_data.get('visited_at') or timezone.now()
+        if not ref:
+            year = timezone.now().year
+            count = SiteVisit.objects.filter(organization=org).count() + 1
+            ref = f"VS-{year}-{count:04d}"
+            while SiteVisit.objects.filter(organization=org, reference=ref).exists():
+                count += 1
+                ref = f"VS-{year}-{count:04d}"
+        serializer.save(organization=org, reference=ref, visited_at=visited_at)
+
 
 class CommissionViewSet(SalesModelViewSet):
     write_permission = 'sales.payments'

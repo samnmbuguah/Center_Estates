@@ -158,6 +158,10 @@ class SiteVisitSerializer(serializers.ModelSerializer):
     class Meta:
         model = SiteVisit
         exclude = ('organization',)
+        extra_kwargs = {
+            'reference': {'required': False, 'allow_blank': True},
+            'visited_at': {'required': False},
+        }
 
 
 class AgentCommissionSerializer(serializers.ModelSerializer):
