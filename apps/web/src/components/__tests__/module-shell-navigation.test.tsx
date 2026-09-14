@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { ModuleShell } from "@/components/module-shell";
 
 describe("ModuleShell construction navigation", () => {
-  it("uses compact workflow and page selectors without the horizontal tab strips", () => {
+  it("renders two-tier horizontal navigation tabs matching property module", () => {
     const onSelect = jest.fn();
     const { container } = render(
       <ModuleShell
@@ -17,12 +17,27 @@ describe("ModuleShell construction navigation", () => {
       </ModuleShell>,
     );
 
-    expect(screen.getByLabelText("Construction workflow")).toBeInTheDocument();
-    expect(screen.getByLabelText("Construction page")).toBeInTheDocument();
-    expect(container.querySelector(".module-nav-groups")).not.toBeInTheDocument();
-    expect(container.querySelector(".module-nav-pages")).not.toBeInTheDocument();
+    // Verify horizontal navigation strips are rendered
+    const groupsContainer = container.querySelector(".module-nav-groups");
+    const pagesContainer = container.querySelector(".module-nav-pages");
+    expect(groupsContainer).toBeInTheDocument();
+    expect(pagesContainer).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Construction workflow"), { target: { value: "Commercial" } });
+    // Verify workflow section tabs exist
+    expect(screen.getByRole("tab", { name: /MAIN/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /SITE OPERATIONS/i })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /COMMERCIAL/i })).toBeInTheDocument();
+
+    // Verify active workflow group is MAIN and active page is Dashboard/Overview
+    expect(screen.getByRole("tab", { name: /MAIN/i })).toHaveClass("active");
+    expect(screen.getByRole("button", { name: /Dashboard/i })).toHaveClass("active");
+
+    // Clicking a workflow tab switches to its first page
+    fireEvent.click(screen.getByRole("tab", { name: /COMMERCIAL/i }));
     expect(onSelect).toHaveBeenCalledWith("boq");
+
+    // Clicking a page tab in the active group selects that page
+    fireEvent.click(screen.getByRole("button", { name: /Project Portfolio/i }));
+    expect(onSelect).toHaveBeenCalledWith("projects");
   });
 });
