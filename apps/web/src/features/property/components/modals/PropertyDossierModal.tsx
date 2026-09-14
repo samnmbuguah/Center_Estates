@@ -941,6 +941,11 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
               }
+              .page-break-before {
+                page-break-before: always !important;
+                break-before: page !important;
+                padding-top: 10mm !important;
+              }
               .print-header {
                 border-bottom: 2.5px solid var(--color-info-dark, #1d4ed8);
                 padding-bottom: 12px;
@@ -1019,29 +1024,29 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 <strong style={{ fontSize: 13, color: "var(--color-info-dark)" }}>{money.format(Number(prop.monthly_rent || prop.monthlyRent || 0))}</strong>
               </div>
               <div>
-                <span style={{ color: "var(--text-faint)", display: "block" }}>Landlord / Owner:</span>
-                <strong style={{ fontSize: 12 }}>{landlord.name || meta.landlord_name || "—"}</strong>
+                <span style={{ color: "var(--text-faint)", display: "block" }}>Property Manager:</span>
+                <strong style={{ fontSize: 13 }}>{meta.manager_name || "Assigned"}</strong>
               </div>
               <div>
-                <span style={{ color: "var(--text-faint)", display: "block" }}>Management Fee:</span>
-                <strong style={{ fontSize: 12 }}>{landlordEng.management_fee_rate ? `${landlordEng.management_fee_rate}` : "Not configured"}</strong>
+                <span style={{ color: "var(--text-faint)", display: "block" }}>Landlord Mandate:</span>
+                <strong style={{ fontSize: 13, color: "var(--color-success)" }}>{landlord.name || meta.landlord_name || "Registered"}</strong>
               </div>
             </div>
           </div>
 
-          {/* Section 1 & 2: Legal Credentials & Landlord Mandate */}
+          {/* Section 1 & 2: Physical Particulars + Mandate */}
           <div className="avoid-break" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
             <div style={{ border: "1px solid var(--color-slate-200)", borderRadius: 8, padding: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 900, color: "var(--color-info-dark)", textTransform: "uppercase", marginBottom: 8, borderBottom: "1px solid var(--color-slate-100)", paddingBottom: 4 }}>
-                1. Title & Property Particulars
+                1. Physical Land, Tenure & Registry Particulars
               </div>
               <table style={{ width: "100%", fontSize: 10, borderCollapse: "collapse" }}>
                 <tbody>
-                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>LR / Title No:</td><td><strong>{meta.lr_number || "—"}</strong></td></tr>
-                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Property KRA PIN:</td><td><strong>{meta.pin_number || "—"}</strong></td></tr>
-                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Title Type:</td><td style={{ textTransform: "capitalize" }}><strong>{meta.title_type || "Freehold"}</strong></td></tr>
-                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Year Built:</td><td><strong>{meta.year_built && Number(meta.year_built) > 0 ? meta.year_built : "—"}</strong></td></tr>
-                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Land Size / Built Area:</td><td><strong>{meta.land_size_sqft ? `${meta.land_size_sqft} sq ft` : "—"} / {meta.built_up_area_sqft ? `${meta.built_up_area_sqft} sq ft` : "—"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0", width: "42%" }}>LR / Title Number:</td><td><strong>{meta.lr_number || "—"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Land Tenure:</td><td><strong>{meta.tenure_type || "Freehold"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Land Registry / Block:</td><td><strong>{meta.registry_section || prop.city || "—"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Parcel / Acreage:</td><td><strong>{meta.parcel_size || "—"}</strong></td></tr>
+                  <tr><td style={{ color: "var(--text-faint)", padding: "3px 0" }}>Year Built / Commissioned:</td><td><strong>{meta.construction_year || "—"}</strong></td></tr>
                 </tbody>
               </table>
             </div>
@@ -1093,33 +1098,79 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
             </div>
           </div>
 
-          {/* Section 4: Onboarding Completeness Checklist */}
-          <div style={{ border: "1px solid var(--color-slate-300)", borderRadius: 8, overflow: "hidden", marginBottom: 16 }}>
-            <div style={{ backgroundColor: "var(--color-slate-100)", padding: "8px 12px", fontSize: 11, fontWeight: 900, color: "var(--color-info-dark)", textTransform: "uppercase" }}>
-              5. Onboarding Completeness & Compliance Audit Checklist
+          {/* Page 1 Footer */}
+          <div style={{ marginTop: 14, textAlign: "center", fontSize: 9, color: "var(--text-ghost, #94a3b8)", borderTop: "1px solid var(--color-slate-200)", paddingTop: 8 }}>
+            Center Estates Property Management ERP • Certified Audit Report Generated for {organizationName} • Page 1 of 2
+          </div>
+
+          {/* Page 2: Section 5 Onboarding Completeness Checklist & Section 6 Sign-Off */}
+          <div className="page-break-before">
+            {/* Running Header on Page 2 */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1.5px solid var(--color-slate-300)", paddingBottom: 8, marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <strong style={{ fontSize: 11, color: "var(--color-info-dark, #1d4ed8)", textTransform: "uppercase" }}>{organizationName}</strong>
+                <span style={{ fontSize: 10, color: "var(--text-faint)" }}>•</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>{prop.name} ({prop.code || "—"})</span>
+              </div>
+              <div style={{ fontSize: 9.5, color: "var(--text-faint)" }}>
+                Compliance Audit Checklist • Reference: <strong>CE-AUD-{String(prop.id).slice(0, 8).toUpperCase()}</strong>
+              </div>
             </div>
-            <table style={{ width: "100%", fontSize: 9.5, borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--color-slate-300)", backgroundColor: "var(--color-slate-50)" }}>
-                  <th style={{ padding: "6px 10px", textAlign: "left" }}>Category</th>
-                  <th style={{ padding: "6px 10px", textAlign: "left" }}>Requirement</th>
-                  <th style={{ padding: "6px 10px", textAlign: "left" }}>Verification Status</th>
-                  <th style={{ padding: "6px 10px", textAlign: "left" }}>Audit Finding / Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {auditList.map((item, idx) => (
-                  <tr key={idx} style={{ borderBottom: "1px solid var(--color-slate-100)", backgroundColor: item.provided ? "#ffffff" : item.required ? "#fff1f2" : "#fffbeb" }}>
-                    <td style={{ padding: "5px 10px", color: "var(--text-faint)" }}>{item.area}</td>
-                    <td style={{ padding: "5px 10px" }}><strong>{item.label}</strong>{item.required && " *"}</td>
-                    <td style={{ padding: "5px 10px", fontWeight: 800, color: item.provided ? "var(--color-success)" : item.required ? "var(--color-danger-strong)" : "var(--color-amber-deep)" }}>
-                      {item.provided ? "✓ PROVIDED" : item.required ? "✗ MISSING (MANDATORY)" : "— NOT PROVIDED"}
-                    </td>
-                    <td style={{ padding: "5px 10px" }}>{item.provided ? String(item.value) : item.recommendation || "Not provided during onboarding"}</td>
+
+            {/* Section 5: Onboarding Completeness Checklist */}
+            <div style={{ border: "1px solid var(--color-slate-300)", borderRadius: 8, overflow: "hidden", marginBottom: 16 }}>
+              <div style={{ backgroundColor: "var(--color-slate-100)", padding: "8px 12px", fontSize: 11, fontWeight: 900, color: "var(--color-info-dark)", textTransform: "uppercase" }}>
+                5. Onboarding Completeness & Compliance Audit Checklist
+              </div>
+              <table style={{ width: "100%", fontSize: 9.5, borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--color-slate-300)", backgroundColor: "var(--color-slate-50)" }}>
+                    <th style={{ padding: "6px 10px", textAlign: "left" }}>Category</th>
+                    <th style={{ padding: "6px 10px", textAlign: "left" }}>Requirement</th>
+                    <th style={{ padding: "6px 10px", textAlign: "left" }}>Verification Status</th>
+                    <th style={{ padding: "6px 10px", textAlign: "left" }}>Audit Finding / Value</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {auditList.map((item, idx) => (
+                    <tr key={idx} style={{ borderBottom: "1px solid var(--color-slate-100)", backgroundColor: item.provided ? "#ffffff" : item.required ? "#fff1f2" : "#fffbeb" }}>
+                      <td style={{ padding: "5px 10px", color: "var(--text-faint)" }}>{item.area}</td>
+                      <td style={{ padding: "5px 10px" }}><strong>{item.label}</strong>{item.required && " *"}</td>
+                      <td style={{ padding: "5px 10px", fontWeight: 800, color: item.provided ? "var(--color-success)" : item.required ? "var(--color-danger-strong)" : "var(--color-amber-deep)" }}>
+                        {item.provided ? "✓ PROVIDED" : item.required ? "✗ MISSING (MANDATORY)" : "— NOT PROVIDED"}
+                      </td>
+                      <td style={{ padding: "5px 10px" }}>{item.provided ? String(item.value) : item.recommendation || "Not provided during onboarding"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Section 6: Sign-Off Box */}
+            <div className="avoid-break" style={{ border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 12, backgroundColor: "var(--surface-2, #f8fafc)" }}>
+              <div style={{ fontSize: 11, fontWeight: 900, color: "var(--color-info-dark)", textTransform: "uppercase", marginBottom: 12 }}>
+                6. Verification & Sign-Off
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, fontSize: 10 }}>
+                <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 4 }}>
+                  <strong>Prepared By (Property Manager):</strong>
+                  <div style={{ marginTop: 18, color: "var(--text-faint)" }}>Signature & Date: ____________________</div>
+                </div>
+                <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 4 }}>
+                  <strong>Reviewed By (Auditor / Agent):</strong>
+                  <div style={{ marginTop: 18, color: "var(--text-faint)" }}>Signature & Date: ____________________</div>
+                </div>
+                <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 4 }}>
+                  <strong>Landlord Acknowledgement:</strong>
+                  <div style={{ marginTop: 18, color: "var(--text-faint)" }}>Signature & Date: ____________________</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Page 2 Footer */}
+            <div style={{ marginTop: 14, textAlign: "center", fontSize: 9, color: "var(--text-ghost, #94a3b8)" }}>
+              Center Estates Property Management ERP • Certified Audit Report Generated for {organizationName} • Page 2 of 2
+            </div>
           </div>
         </div>,
         document.body
