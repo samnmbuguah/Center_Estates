@@ -99,7 +99,7 @@ export function ModularOnboardingHub() {
           {/* 3 Main Choice Cards */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {/* Card 1: Property Management */}
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Card
                 variant="outlined"
                 sx={{
@@ -162,7 +162,7 @@ export function ModularOnboardingHub() {
             </Grid>
 
             {/* Card 2: Construction Management */}
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Card
                 variant="outlined"
                 sx={{
@@ -225,7 +225,7 @@ export function ModularOnboardingHub() {
             </Grid>
 
             {/* Card 3: Sales & Off-Plan */}
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Card
                 variant="outlined"
                 sx={{
@@ -375,7 +375,7 @@ export function ModularOnboardingHub() {
             <Tab value="extend" label="⚡ Extend Asset" />
           </Tabs>
         </Box>
-      </Box>
+      </Paper>
 
       {/* Main Workflow Body */}
       <Box sx={{ py: 2 }}>

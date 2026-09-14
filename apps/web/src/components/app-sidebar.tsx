@@ -20,6 +20,7 @@ import {
   PanelLeftOpen,
   Building2,
   Sparkles,
+  Layers,
 } from "lucide-react";
 import {
   Box,

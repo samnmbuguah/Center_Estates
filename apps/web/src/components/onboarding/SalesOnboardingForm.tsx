@@ -200,7 +200,7 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
             </Typography>
 
             <Grid container spacing={2.5}>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
                   required
@@ -211,7 +211,7 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Project Code (Optional)"
@@ -221,18 +221,18 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   type="date"
                   label="Target Completion Date"
-                  InputLabelProps={{ shrink: true }}
+                  slotProps={{ inputLabel: { shrink: true } }}
                   value={endsOn}
                   onChange={(e) => setEndsOn(e.target.value)}
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel id="prop-select-label">Link Physical Property</InputLabel>
                   <Select
@@ -251,7 +251,7 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <FormControl fullWidth>
                   <InputLabel id="const-select-label">Link Construction Project</InputLabel>
                   <Select
@@ -296,7 +296,7 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
             </Typography>
 
             <Grid container spacing={2.5}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   required
@@ -308,7 +308,7 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   required
@@ -320,7 +320,7 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   type="number"
@@ -330,7 +330,7 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   type="number"
@@ -342,7 +342,7 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
               </Grid>
 
               {propertyId && (
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Paper sx={{ p: 2, bgcolor: "rgba(37, 99, 235, 0.05)", border: "1px solid rgba(37, 99, 235, 0.2)", borderRadius: 2 }}>
                     <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontWeight: 600 }}>
                       <input
@@ -382,7 +382,7 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
             </Typography>
 
             <Grid container spacing={2.5}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   type="number"
@@ -393,7 +393,7 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   type="number"
@@ -404,7 +404,7 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
                 />
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
                   multiline
@@ -436,13 +436,13 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
             </Typography>
 
             <Grid container spacing={2} sx={{ mb: 3 }}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <Typography variant="caption" color="text.secondary">Scheme Name</Typography>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{name}</Typography>
                 </Paper>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <Typography variant="caption" color="text.secondary">Default Unit List Price</Typography>
                   <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "var(--primary, #2563eb)" }}>
@@ -450,7 +450,7 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
                   </Typography>
                 </Paper>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <Typography variant="caption" color="text.secondary">Linked Physical Property</Typography>
                   <Typography variant="subtitle2">
@@ -458,7 +458,7 @@ export function SalesOnboardingForm({ onBack }: { onBack?: () => void }) {
                   </Typography>
                 </Paper>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <Typography variant="caption" color="text.secondary">Linked Construction Site</Typography>
                   <Typography variant="subtitle2">

@@ -212,7 +212,7 @@ export function AssetLifecycleExtensionView({ onBack }: { onBack?: () => void })
             </Box>
 
             <Grid container spacing={2.5} sx={{ mb: 4 }}>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 {sourceType === "construction" ? (
                   <FormControl fullWidth>
                     <InputLabel id="cp-select-label">Select Construction Project</InputLabel>
@@ -257,7 +257,7 @@ export function AssetLifecycleExtensionView({ onBack }: { onBack?: () => void })
             </Typography>
 
             <Grid container spacing={2} sx={{ mb: 4 }}>
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <Paper
                   variant="outlined"
                   onClick={() => setTargetModule("sales")}
@@ -279,7 +279,7 @@ export function AssetLifecycleExtensionView({ onBack }: { onBack?: () => void })
                 </Paper>
               </Grid>
 
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <Paper
                   variant="outlined"
                   onClick={() => setTargetModule("property")}
@@ -301,7 +301,7 @@ export function AssetLifecycleExtensionView({ onBack }: { onBack?: () => void })
                 </Paper>
               </Grid>
 
-              <Grid item xs={12} sm={4}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <Paper
                   variant="outlined"
                   onClick={() => setTargetModule("construction")}
@@ -331,7 +331,7 @@ export function AssetLifecycleExtensionView({ onBack }: { onBack?: () => void })
                   3. Sales Scheme Terms
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       type="number"
@@ -340,7 +340,7 @@ export function AssetLifecycleExtensionView({ onBack }: { onBack?: () => void })
                       onChange={(e) => setDefaultPrice(e.target.value)}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
                       fullWidth
                       type="number"

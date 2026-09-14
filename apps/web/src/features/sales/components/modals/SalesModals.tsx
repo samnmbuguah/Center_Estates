@@ -628,7 +628,8 @@ export function NewListingModal({
       <FormError error={error} />
       <form onSubmit={handleSubmit}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <Field label="Sales Project" required style={{ flex: 1, margin: 0 }}>
+          <div style={{ flex: 1, margin: 0 }}>
+            <Field label="Sales Project" required>
             <select
               name="project"
               required
@@ -643,6 +644,7 @@ export function NewListingModal({
               ))}
             </select>
           </Field>
+          </div>
           {onOpenNewProject && (
             <button
               type="button"
