@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
+import { useOrganizationBrand } from "@/lib/organization-branding";
 import { money } from "@/components/module-ui";
 import { kN, pct } from "../../utils/property.utils";
 import type { PropertyRow } from "../../types/property.types";
@@ -31,8 +32,42 @@ interface AuditItem {
 
 export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDossierModalProps) {
   const { session } = useAuth();
+  const brand = useOrganizationBrand();
+  const activeOrg = session?.organizations?.find((o) => o.id === session?.activeOrganizationId);
   const organizationId = session?.activeOrganizationId;
-  const organizationName = (session as any)?.organizationName || (session as any)?.user?.organization_name || "Legend Management Limited";
+  const organizationName =
+    activeOrg?.company_name ||
+    activeOrg?.name ||
+    brand.name ||
+    (session as any)?.organizationName ||
+    (session as any)?.user?.organization_name ||
+    "Legend Management Limited";
+
+  const rawLogo = activeOrg?.logo_url || brand.logoUrl;
+  let resolvedLogoUrl = rawLogo;
+  const isLegend =
+    organizationName.toLowerCase().includes("legend") ||
+    (activeOrg?.slug && activeOrg.slug.toLowerCase().includes("legend"));
+
+  if (!resolvedLogoUrl || resolvedLogoUrl === "/logo.png" || resolvedLogoUrl === "/center-estates-logo.png") {
+    if (isLegend) {
+      resolvedLogoUrl = "/legend-site-logo.png";
+    } else {
+      resolvedLogoUrl = resolvedLogoUrl || "/logo.png";
+    }
+  }
+
+  const getFullLogoUrl = (url?: string) => {
+    if (!url) return isLegend ? "/legend-site-logo.png" : "/logo.png";
+    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) return url;
+    if (url.startsWith("/media/")) {
+      const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.centerestates.com/api/v1").replace(/\/api\/v1\/?$/, "");
+      return `${base}${url}`;
+    }
+    return url;
+  };
+
+  const finalLogoUrl = getFullLogoUrl(resolvedLogoUrl);
 
   const [fullProperty, setFullProperty] = useState<any>(property);
   const [loading, setLoading] = useState(false);
@@ -43,7 +78,11 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    if (finalLogoUrl && typeof window !== "undefined") {
+      const img = new Image();
+      img.src = finalLogoUrl;
+    }
+  }, [finalLogoUrl]);
 
   const copyToClipboard = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
@@ -145,7 +184,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
     window.addEventListener("afterprint", cleanup);
     setTimeout(() => {
       window.print();
-    }, 50);
+    }, 150);
   };
 
   const handleExportJson = () => {
@@ -279,7 +318,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                   </span>
                 </div>
                 <p style={{ margin: "3px 0 0", fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>
-                  Code: <strong style={{ color: "var(--color-info-strong)", fontFamily: "monospace" }}>{prop.code || "—"}</strong> • {prop.address}, {prop.city}
+                  <span style={{ color: "var(--color-info-dark, #1d4ed8)", fontWeight: 700 }}>{organizationName}</span> • Code: <strong style={{ color: "var(--color-info-strong)", fontFamily: "monospace" }}>{prop.code || "—"}</strong> • {prop.address}, {prop.city}
                 </p>
               </div>
             </div>
@@ -882,6 +921,12 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
                 padding: 0 !important;
                 margin: 0 !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              #property-dossier-print-portal img {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
               }
               @page {
                 size: A4 portrait;
@@ -892,30 +937,54 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 break-inside: avoid !important;
               }
               .print-header {
-                border-bottom: 2.5px solid var(--color-info-dark);
+                border-bottom: 2.5px solid var(--color-info-dark, #1d4ed8);
                 padding-bottom: 12px;
                 margin-bottom: 16px;
               }
             }
           ` }} />
 
-          {/* Letterhead Header */}
-          <div className="print-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 900, color: "var(--color-info-dark)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                {organizationName}
-              </div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)", marginTop: 2 }}>
-                OFFICIAL PROPERTY PROFILE & COMPLIANCE AUDIT
-              </div>
-              <div style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 2 }}>
-                Center Estates Enterprise Property Management Platform
+          {/* Letterhead Header with Organization Logo */}
+          <div className="print-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              {finalLogoUrl ? (
+                <div style={{ flexShrink: 0, display: "flex", alignItems: "center" }}>
+                  <img
+                    src={finalLogoUrl}
+                    alt={organizationName}
+                    loading="eager"
+                    decoding="sync"
+                    style={{
+                      maxHeight: 52,
+                      maxWidth: 160,
+                      objectFit: "contain",
+                      display: "block",
+                    }}
+                    onError={(e) => {
+                      const target = e.currentTarget as HTMLImageElement;
+                      if (!target.src.endsWith("/legend-site-logo.png") && !target.src.endsWith("/center-estates-logo.png")) {
+                        target.src = "/legend-site-logo.png";
+                      }
+                    }}
+                  />
+                </div>
+              ) : null}
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: "var(--color-info-dark, #1d4ed8)", textTransform: "uppercase", letterSpacing: "0.05em", lineHeight: 1.2 }}>
+                  {organizationName}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary, #0f172a)", marginTop: 2 }}>
+                  OFFICIAL PROPERTY PROFILE & COMPLIANCE AUDIT
+                </div>
+                <div style={{ fontSize: 10, color: "var(--text-faint, #64748b)", marginTop: 2 }}>
+                  Center Estates Enterprise Property Management Platform
+                </div>
               </div>
             </div>
-            <div style={{ textAlign: "right", fontSize: 10, color: "var(--text-soft)" }}>
+            <div style={{ textAlign: "right", fontSize: 10, color: "var(--text-soft, #475569)", flexShrink: 0 }}>
               <div><strong>Audit Reference:</strong> CE-AUD-{String(prop.id).slice(0, 8).toUpperCase()}</div>
               <div><strong>Generated:</strong> {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div>
-              <div><strong>Status:</strong> <span style={{ textTransform: "uppercase", fontWeight: 800, color: prop.status === "active" ? "var(--color-success)" : "var(--color-warning)" }}>{prop.status || "Active"}</span></div>
+              <div><strong>Status:</strong> <span style={{ textTransform: "uppercase", fontWeight: 800, color: prop.status === "active" ? "var(--color-success, #16a34a)" : "var(--color-warning, #d97706)" }}>{prop.status || "Active"}</span></div>
             </div>
           </div>
 
