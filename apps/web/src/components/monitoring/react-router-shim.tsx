@@ -61,6 +61,16 @@ export function useParams<T extends Record<string, string | undefined> = Record<
   } else if (parts.length >= 3 && parts[0] === "monitoring" && parts[1] === "projects") {
     params.id = parts[2];
     params.projectId = parts[2];
+  } else {
+    try {
+      const active = sessionStorage.getItem("activeProject") || localStorage.getItem("activeProject");
+      if (active) {
+        params.id = active;
+        params.projectId = active;
+      }
+    } catch {
+      // Ignore storage access errors
+    }
   }
   return params as T;
 }

@@ -182,16 +182,23 @@ function normalizePath(rawPath: string): string {
   // Rewrite /projects/ingest/status/ before nested project ID check
   p = p.replace(/^\/projects\/ingest(?:\/status)?/, "/dashboard");
 
-  // Handle nested /projects/:id/subresource paths -> /subresource/?project_id=:id
-  const nestedMatch = p.match(/^\/projects\/([^/]+)\/(boq-items|cost-dashboard|lifecycle|milestones|variations|boq-review|boq-material-reconciliation|contingency-drawdowns|quality-tests|consultant-payments|subcontractors|work-orders|provisional-sums|advance-payments|anomalies|waivers|bim-models|bim-discrepancies|drone-datasets|satellite-datasets|ingest\/status|documents|members)(?:\/|\?(.*))?$/);
+  // Handle nested /projects/:id/subresource paths and direct /projects/subresource paths
+  const subresourcePattern = "(boq-items|cost-dashboard|lifecycle|milestones|variations|boq-review|boq-material-reconciliation|contingency-drawdowns|quality-tests|consultant-payments|subcontractors|work-orders|provisional-sums|advance-payments|anomalies|waivers|bim-models|bim-discrepancies|drone-datasets|satellite-datasets|ingest\\/status|documents|members)";
+  const nestedMatch = p.match(new RegExp(`^\\/projects\\/([^/]+)\\/${subresourcePattern}(?:\\/|\\?(.*))?$`));
+  const directSubMatch = !nestedMatch ? p.match(new RegExp(`^\\/projects\\/${subresourcePattern}(?:\\/|\\?(.*))?$`)) : null;
 
-  if (nestedMatch) {
-    const [, projectId, subresource, rawQuery] = nestedMatch;
-    if (!projectId || projectId === "undefined" || projectId === "null") {
-      // No project selected: fail fast with a friendly message instead of a
-      // confusing project-detail 404.
-      throw new Error("Select a project first.");
+  if (nestedMatch || directSubMatch) {
+    const projectId = nestedMatch ? nestedMatch[1] : "";
+    const subresource = nestedMatch ? nestedMatch[2] : directSubMatch![1];
+    const rawQuery = nestedMatch ? nestedMatch[3] : directSubMatch![2];
+
+    let effectiveProjectId = projectId && projectId !== "undefined" && projectId !== "null" ? projectId : "";
+    if (!effectiveProjectId && typeof window !== "undefined") {
+      try {
+        effectiveProjectId = sessionStorage.getItem("activeProject") || localStorage.getItem("activeProject") || "";
+      } catch {}
     }
+
     let targetEndpoint = subresource;
     if (subresource === "cost-dashboard" || subresource === "anomalies" || subresource === "ingest/status") {
       targetEndpoint = "dashboard";
@@ -204,8 +211,11 @@ function normalizePath(rawPath: string): string {
     }
 
     const queryParams = new URLSearchParams(rawQuery || "");
-    queryParams.set("project_id", projectId);
-    return `/${targetEndpoint}/?${queryParams.toString()}`;
+    if (effectiveProjectId) {
+      queryParams.set("project_id", effectiveProjectId);
+    }
+    const qStr = queryParams.toString();
+    return qStr ? `/${targetEndpoint}/?${qStr}` : `/${targetEndpoint}/`;
   }
 
   // Rewrite /projects/subresource without ID
