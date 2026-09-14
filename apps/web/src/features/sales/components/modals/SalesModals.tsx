@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Field, Modal, Panel, StatusPill } from "@/components/module-ui";
 import { Row } from "../../types/sales.types";
 import { fmtMoney } from "../../utils/sales.utils";
 import { DField, FormError } from "../SalesUiComponents";
+import { apiFetch } from "@/lib/api";
 
 export function RegisterBuyerModal({
   open,
@@ -346,10 +347,186 @@ export function RecordVisitModal({
   );
 }
 
+export function NewSalesProjectModal({
+  open,
+  onClose,
+  onSubmit,
+  error,
+  properties,
+  constructionProjects,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSubmit: (payload: Record<string, any>) => void;
+  error: string;
+  properties: Row[];
+  constructionProjects: Row[];
+}) {
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [propertyId, setPropertyId] = useState("");
+  const [constructionId, setConstructionId] = useState("");
+  const [startsOn, setStartsOn] = useState("");
+  const [endsOn, setEndsOn] = useState("");
+  const [autoList, setAutoList] = useState(false);
+  const [defaultPrice, setDefaultPrice] = useState("12500000");
+  const [defaultDeposit, setDefaultDeposit] = useState("10");
+  const [description, setDescription] = useState("");
+
+  if (!open) return null;
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const payload: Record<string, any> = {
+      name,
+      code: code.trim() || undefined,
+      property: propertyId ? propertyId : null,
+      construction_project_id: constructionId || undefined,
+      starts_on: startsOn || undefined,
+      ends_on: endsOn || undefined,
+      auto_list_units: autoList,
+      default_list_price: autoList ? defaultPrice : undefined,
+      default_deposit_percent: autoList ? defaultDeposit : undefined,
+      metadata: { description },
+    };
+    onSubmit(payload);
+  }
+
+  function handleConstructionPick(id: string) {
+    setConstructionId(id);
+    const cp = constructionProjects.find((p) => String(p.id) === id);
+    if (cp && !name) {
+      setName(String(cp.name ?? ""));
+    }
+  }
+
+  function handlePropertyPick(id: string) {
+    setPropertyId(id);
+    const prop = properties.find((p) => String(p.id) === id);
+    if (prop && !name) {
+      setName(`${String(prop.name ?? "")} Sales`);
+    }
+  }
+
+  return (
+    <Modal title="+ New Sales Project / Development Scheme" onClose={onClose}>
+      <FormError error={error} />
+      <form onSubmit={handleSubmit}>
+        <div style={{ background: "var(--surface-2, #f8fafc)", padding: "10px 14px", borderRadius: 8, marginBottom: 16, fontSize: 13, border: "1px solid var(--border)" }}>
+          💡 <strong>Sales Development Setup</strong>: Create an off-plan or completed scheme to manage unit availability, pricing tiers, and buyer sales pipeline.
+        </div>
+
+        <Field label="Project / Scheme Name" required>
+          <input
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Lynx Ngong Rd Apartments - Phase 1"
+          />
+        </Field>
+
+        <div className="grid-2">
+          <Field label="Project Code (optional)">
+            <input
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="e.g. SP-0001 (auto-generated if empty)"
+            />
+          </Field>
+          <Field label="Target Completion Date">
+            <input
+              type="date"
+              value={endsOn}
+              onChange={(e) => setEndsOn(e.target.value)}
+            />
+          </Field>
+        </div>
+
+        <div className="grid-2">
+          <Field label="Link Physical Property">
+            <select value={propertyId} onChange={(e) => handlePropertyPick(e.target.value)}>
+              <option value="">None / Standalone Scheme</option>
+              {properties.map((p) => (
+                <option key={String(p.id)} value={String(p.id)}>
+                  {String(p.name ?? "—")} ({String(p.code ?? "—")})
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Link Construction Project">
+            <select value={constructionId} onChange={(e) => handleConstructionPick(e.target.value)}>
+              <option value="">None / Direct Sales Only</option>
+              {constructionProjects.map((cp) => (
+                <option key={String(cp.id)} value={String(cp.id)}>
+                  🏗️ {String(cp.name ?? "—")}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+
+        {propertyId && (
+          <div style={{ background: "rgba(59, 130, 246, 0.06)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: 8, padding: 12, margin: "12px 0" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontWeight: 600, fontSize: 13 }}>
+              <input
+                type="checkbox"
+                checked={autoList}
+                onChange={(e) => setAutoList(e.target.checked)}
+              />
+              <span>Auto-generate sales listings for all units in this property</span>
+            </label>
+            {autoList && (
+              <div className="grid-2" style={{ marginTop: 10 }}>
+                <Field label="Default List Price (KES)" required>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={defaultPrice}
+                    onChange={(e) => setDefaultPrice(e.target.value)}
+                    placeholder="12500000"
+                  />
+                </Field>
+                <Field label="Min. Deposit %" required>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    required
+                    value={defaultDeposit}
+                    onChange={(e) => setDefaultDeposit(e.target.value)}
+                  />
+                </Field>
+              </div>
+            )}
+          </div>
+        )}
+
+        <Field label="Commercial Notes & Marketing Summary">
+          <textarea
+            rows={2}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Off-plan payment terms, target buyer profile, amenities..."
+          />
+        </Field>
+
+        <div className="modal-actions">
+          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn primary">Create Sales Project</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export function NewListingModal({
   open,
   onClose,
   onSubmit,
+  onBatchSubmit,
+  onOpenNewProject,
   error,
   projects,
   units,
@@ -357,41 +534,207 @@ export function NewListingModal({
   open: boolean;
   onClose: () => void;
   onSubmit: (payload: Record<string, string>) => void;
+  onBatchSubmit?: (payload: Record<string, any>) => void;
+  onOpenNewProject?: () => void;
   error: string;
   projects: Row[];
   units: Row[];
 }) {
+  const [selectedProject, setSelectedProject] = useState<string>("");
+  const [unlistedUnits, setUnlistedUnits] = useState<Row[]>([]);
+  const [loadingUnits, setLoadingUnits] = useState(false);
+  const [isBatchMode, setIsBatchMode] = useState(false);
+  const [listPrice, setListPrice] = useState("12500000");
+  const [minDeposit, setMinDeposit] = useState("10");
+
+  useEffect(() => {
+    if (open && projects.length > 0 && !selectedProject) {
+      setSelectedProject(String(projects[0].id));
+    }
+  }, [open, projects, selectedProject]);
+
+  useEffect(() => {
+    if (!open || !selectedProject) {
+      setUnlistedUnits([]);
+      return;
+    }
+    let active = true;
+    setLoadingUnits(true);
+    apiFetch(`/sales/inventory/unlisted-units/?project=${encodeURIComponent(selectedProject)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (!active) return;
+        setUnlistedUnits(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (active) setUnlistedUnits([]);
+      })
+      .finally(() => {
+        if (active) setLoadingUnits(false);
+      });
+
+    return () => { active = false; };
+  }, [open, selectedProject]);
+
   if (!open) return null;
+
+  if (projects.length === 0) {
+    return (
+      <Modal title="+ New Listing" onClose={onClose}>
+        <div style={{ textAlign: "center", padding: "24px 16px" }}>
+          <div style={{ fontSize: 42, marginBottom: 12 }}>🏢</div>
+          <h3 style={{ margin: "0 0 8px" }}>No Sales Projects Found</h3>
+          <p className="muted" style={{ fontSize: 13, maxWidth: 360, margin: "0 auto 20px" }}>
+            Before listing individual units, you must first have a Sales Project / Development Scheme.
+          </p>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+            <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+            {onOpenNewProject && (
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => {
+                  onClose();
+                  onOpenNewProject();
+                }}
+              >
+                + Create First Sales Project
+              </button>
+            )}
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  const effectiveUnits = unlistedUnits.length > 0 ? unlistedUnits : units;
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (isBatchMode && onBatchSubmit) {
+      onBatchSubmit({
+        project: selectedProject,
+        list_price: listPrice,
+        minimum_deposit_percent: minDeposit,
+      });
+    } else {
+      const formData = new FormData(e.currentTarget);
+      onSubmit(Object.fromEntries(formData.entries()) as Record<string, string>);
+    }
+  }
+
   return (
-    <Modal title="+ New Listing" onClose={onClose}>
+    <Modal title={isBatchMode ? "⚡ Batch List All Units" : "+ New Listing"} onClose={onClose}>
       <FormError error={error} />
-      <form onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(Object.fromEntries(new FormData(e.currentTarget).entries()) as Record<string, string>);
-      }}>
-        <Field label="Project" required>
-          <select name="project" required defaultValue="">
-            <option value="" disabled>Select project…</option>
-            {projects.map((p) => <option key={String(p.id)} value={String(p.id)}>{String(p.name ?? "—")}</option>)}
-          </select>
-        </Field>
-        <Field label="Unit" required>
-          <select name="unit" required defaultValue="">
-            <option value="" disabled>Select unit…</option>
-            {units.map((u) => <option key={String(u.id)} value={String(u.id)}>{String(u.code ?? "—")} · {String(u.unit_type ?? "—")} · Floor {String(u.floor ?? "—")}</option>)}
-          </select>
-        </Field>
+      <form onSubmit={handleSubmit}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <Field label="Sales Project" required style={{ flex: 1, margin: 0 }}>
+            <select
+              name="project"
+              required
+              value={selectedProject}
+              onChange={(e) => setSelectedProject(e.target.value)}
+            >
+              <option value="" disabled>Select project…</option>
+              {projects.map((p) => (
+                <option key={String(p.id)} value={String(p.id)}>
+                  {String(p.name ?? "—")} {p.code ? `(${String(p.code)})` : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {onOpenNewProject && (
+            <button
+              type="button"
+              className="btn ghost sm"
+              style={{ alignSelf: "flex-end", marginBottom: 2, marginLeft: 8, whiteSpace: "nowrap" }}
+              onClick={() => {
+                onClose();
+                onOpenNewProject();
+              }}
+            >
+              + New Project
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: "flex", background: "var(--surface-2, #f1f5f9)", padding: 4, borderRadius: 8, marginBottom: 16 }}>
+          <button
+            type="button"
+            className={`btn sm ${!isBatchMode ? "primary" : "ghost"}`}
+            style={{ flex: 1 }}
+            onClick={() => setIsBatchMode(false)}
+          >
+            Single Unit
+          </button>
+          <button
+            type="button"
+            className={`btn sm ${isBatchMode ? "primary" : "ghost"}`}
+            style={{ flex: 1 }}
+            onClick={() => setIsBatchMode(true)}
+          >
+            ⚡ Batch List All ({loadingUnits ? "…" : unlistedUnits.length} unlisted)
+          </button>
+        </div>
+
+        {!isBatchMode ? (
+          <Field label="Unit" required>
+            <select name="unit" required defaultValue="">
+              <option value="" disabled>
+                {loadingUnits ? "Loading available units..." : unlistedUnits.length === 0 ? "No unlisted units in this project" : "Select unit…"}
+              </option>
+              {effectiveUnits.map((u) => (
+                <option key={String(u.id)} value={String(u.id)}>
+                  Unit {String(u.code ?? "—")} · {String(u.unit_type ?? "Standard")} · Floor {String(u.floor ?? "—")}
+                </option>
+              ))}
+            </select>
+          </Field>
+        ) : (
+          <div style={{ background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.25)", borderRadius: 8, padding: 12, marginBottom: 16, fontSize: 13 }}>
+            <strong>Batch Unit Activation</strong>
+            <p style={{ margin: "4px 0 0", color: "var(--muted)" }}>
+              {unlistedUnits.length > 0
+                ? `Will create sales listings for all ${unlistedUnits.length} unlisted units in this development with the pricing below.`
+                : "No unlisted units currently available in this project's physical property."}
+            </p>
+          </div>
+        )}
+
         <div className="grid-2">
           <Field label="List Price (KES)" required>
-            <input name="list_price" type="number" min="1" required placeholder="12500000" />
+            <input
+              name="list_price"
+              type="number"
+              min="1"
+              required
+              value={listPrice}
+              onChange={(e) => setListPrice(e.target.value)}
+              placeholder="12500000"
+            />
           </Field>
-          <Field label="Min. Deposit %">
-            <input name="minimum_deposit_percent" type="number" min="0" max="100" defaultValue="10" />
+          <Field label="Min. Deposit %" required>
+            <input
+              name="minimum_deposit_percent"
+              type="number"
+              min="0"
+              max="100"
+              required
+              value={minDeposit}
+              onChange={(e) => setMinDeposit(e.target.value)}
+            />
           </Field>
         </div>
+
         <div className="modal-actions">
           <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn primary">Create Listing</button>
+          <button
+            type="submit"
+            className="btn primary"
+            disabled={isBatchMode && unlistedUnits.length === 0}
+          >
+            {isBatchMode ? `Batch List ${unlistedUnits.length} Units` : "Create Listing"}
+          </button>
         </div>
       </form>
     </Modal>

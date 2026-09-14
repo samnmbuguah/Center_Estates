@@ -137,6 +137,8 @@ export function InventoryView({
   setStatus,
   canSell,
   openNewListing,
+  openNewProject,
+  projects = [],
 }: {
   rows: Row[];
   search: string;
@@ -145,22 +147,60 @@ export function InventoryView({
   setStatus: (v: string) => void;
   canSell: boolean;
   openNewListing: () => void;
+  openNewProject?: () => void;
+  projects?: Row[];
 }) {
   const [selected, setSelected] = useState<Row | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
-  const totalValue = sumBy(rows, "list_price");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+
+  const filteredRows = projectFilter === "all"
+    ? rows
+    : rows.filter((r) => String(r.project ?? r.project_id ?? "") === projectFilter || String(r.project_name ?? "") === projectFilter);
+
+  const totalValue = sumBy(filteredRows, "list_price");
 
   return (
     <>
       <KpiStrip cols={5}>
-        <KpiCard icon="🏢" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Listings" value={number.format(rows.length)} sub="Across all projects" />
-        <KpiCard icon="🏠" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Available" value={number.format(countBy(rows, ["available"]))} sub="Open for sale" onClick={() => setStatus(status === "available" ? "" : "available")} />
-        <KpiCard icon="🔒" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Reserved" value={number.format(countBy(rows, ["reserved"]))} sub="Held on reservations" onClick={() => setStatus(status === "reserved" ? "" : "reserved")} />
-        <KpiCard icon="✅" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky)" label="Sold" value={number.format(countBy(rows, ["sold"]))} sub="Completed sales" onClick={() => setStatus(status === "sold" ? "" : "sold")} />
+        <KpiCard icon="🏢" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Listings" value={number.format(filteredRows.length)} sub="Across selected" />
+        <KpiCard icon="🏠" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Available" value={number.format(countBy(filteredRows, ["available"]))} sub="Open for sale" onClick={() => setStatus(status === "available" ? "" : "available")} />
+        <KpiCard icon="🔒" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Reserved" value={number.format(countBy(filteredRows, ["reserved"]))} sub="Held on reservations" onClick={() => setStatus(status === "reserved" ? "" : "reserved")} />
+        <KpiCard icon="✅" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky)" label="Sold" value={number.format(countBy(filteredRows, ["sold"]))} sub="Completed sales" onClick={() => setStatus(status === "sold" ? "" : "sold")} />
         <KpiCard icon="💰" iconBg="var(--color-orange-bg)" iconColor="var(--color-orange)" label="Portfolio Value" value={fmtMoney(totalValue)} sub="Sum of list prices" />
       </KpiStrip>
 
-      <Panel title="Projects & Units" badge={rows.length}>
+      {projects.length > 0 && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", overflowX: "auto", padding: "4px 0 12px", borderBottom: "1px solid var(--border)", marginBottom: 16 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "var(--muted)", letterSpacing: 0.5, flexShrink: 0 }}>
+            Projects:
+          </span>
+          <button
+            type="button"
+            className={`btn sm ${projectFilter === "all" ? "primary" : "ghost"}`}
+            onClick={() => setProjectFilter("all")}
+          >
+            All Projects ({rows.length})
+          </button>
+          {projects.map((p) => {
+            const pId = String(p.id);
+            const pName = String(p.name ?? "Project");
+            const count = rows.filter((r) => String(r.project ?? r.project_id ?? "") === pId || String(r.project_name ?? "") === pName).length;
+            return (
+              <button
+                key={pId}
+                type="button"
+                className={`btn sm ${projectFilter === pId || projectFilter === pName ? "primary" : "ghost"}`}
+                onClick={() => setProjectFilter(projectFilter === pId ? "all" : pId)}
+              >
+                🏢 {pName} ({count})
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <Panel title="Projects & Units" badge={filteredRows.length}>
         {viewMode === "grid" ? (
           <div>
             <div className="fc-table-toolbar">
@@ -169,11 +209,16 @@ export function InventoryView({
                 <div className="row" style={{ gap: 8 }}>
                   <button className="btn sm primary" onClick={() => setViewMode("grid")}>Building Map</button>
                   <button className="btn sm ghost" onClick={() => setViewMode("list")}>List View</button>
-                  {canSell ? <button className="btn primary sm" onClick={openNewListing}>+ New Listing</button> : null}
+                  {canSell ? (
+                    <div className="row" style={{ gap: 6 }}>
+                      {openNewProject && <button className="btn sm ghost" onClick={openNewProject}>+ New Project</button>}
+                      <button className="btn primary sm" onClick={openNewListing}>+ New Listing</button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
-            <UnitGridView rows={rows} onSelect={(r) => setSelected(r)} />
+            <UnitGridView rows={filteredRows} onSelect={(r) => setSelected(r)} />
           </div>
         ) : (
           <TableChrome
@@ -186,15 +231,32 @@ export function InventoryView({
                 <SavedViews scope="inventory" current={{ status, search }} onApply={(f) => { setStatus(f.status); setSearch(f.search); }} />
                 <button className="btn sm ghost" onClick={() => setViewMode("grid")}>Building Map</button>
                 <button className="btn sm primary" onClick={() => setViewMode("list")}>List View</button>
-                {canSell ? <button className="btn primary sm" onClick={openNewListing}>+ New Listing</button> : null}
+                {canSell ? (
+                  <div className="row" style={{ gap: 6 }}>
+                    {openNewProject && <button className="btn sm ghost" onClick={openNewProject}>+ New Project</button>}
+                    <button className="btn primary sm" onClick={openNewListing}>+ New Listing</button>
+                  </div>
+                ) : null}
               </div>
             }
           >
-            {rows.length === 0 ? (
-              <EmptyState icon="🏢" title="No listings found" description={search ? "No units match the current search or status filter." : "Create a new listing to start selling units."} action={canSell ? <button className="btn primary sm" onClick={openNewListing}>+ New Listing</button> : undefined} />
+            {filteredRows.length === 0 ? (
+              <EmptyState
+                icon="🏢"
+                title="No listings found"
+                description={search ? "No units match the current search or status filter." : "Create a Sales Project (or link from Construction), then list or batch activate units to sell."}
+                action={
+                  canSell ? (
+                    <div className="row" style={{ gap: 8, justifyContent: "center" }}>
+                      {openNewProject && <button className="btn ghost sm" onClick={openNewProject}>+ New Sales Project</button>}
+                      <button className="btn primary sm" onClick={openNewListing}>+ New Listing</button>
+                    </div>
+                  ) : undefined
+                }
+              />
             ) : (
               <DataTable headers={["Unit Code", "Project", "Floor", "Unit Type", "Price", "Progress", "Status", "Sold to", "Actions"]}>
-                {rows.map((r) => (
+                {filteredRows.map((r) => (
                   <tr key={String(r.id)} onClick={() => setSelected(r)}>
                     <td><RefText value={r.unit_code} /></td>
                     <td><strong style={{ fontSize: 12 }}>{String(r.project_name ?? "—")}</strong></td>

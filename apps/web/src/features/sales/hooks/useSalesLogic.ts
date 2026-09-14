@@ -53,15 +53,25 @@ export function useSalesLogic(initialTab = "overview") {
   const [showNewSale, setShowNewSale] = useState(false);
   const [showRecordVisit, setShowRecordVisit] = useState(false);
   const [showNewListing, setShowNewListing] = useState(false);
+  const [showNewProject, setShowNewProject] = useState(false);
   const [paymentAction, setPaymentAction] = useState<Row | null>(null);
   const [transitionSaleRow, setTransitionSaleRow] = useState<Row | null>(null);
   const [transitionBuyerRow, setTransitionBuyerRow] = useState<Row | null>(null);
 
-  const [options, setOptions] = useState<{ buyers: Row[]; listings: Row[]; projects: Row[]; units: Row[] }>({
+  const [options, setOptions] = useState<{
+    buyers: Row[];
+    listings: Row[];
+    projects: Row[];
+    units: Row[];
+    properties: Row[];
+    constructionProjects: Row[];
+  }>({
     buyers: [],
     listings: [],
     projects: [],
     units: [],
+    properties: [],
+    constructionProjects: [],
   });
   const [recentExports, setRecentExports] = useState<Row[]>([]);
   const [reportPreview, setReportPreview] = useState<ReportPreview | null>(null);
@@ -133,12 +143,23 @@ export function useSalesLogic(initialTab = "overview") {
 
   useEffect(() => {
     if (!org) return;
-    if (showRecordVisit || showNewListing) {
+    if (showRecordVisit || showNewListing || showNewProject) {
       let active = true;
-      apiFetch("/property/projects/", {}, org).then((r) => (r.ok ? r.json() : [])).then((d) => active && setOptions((o) => ({ ...o, projects: Array.isArray(d) ? d : [] })));
+      apiFetch("/sales/projects/", {}, org)
+        .then((r) => (r.ok ? r.json() : apiFetch("/property/projects/", {}, org).then((r2) => (r2.ok ? r2.json() : []))))
+        .then((d) => active && setOptions((o) => ({ ...o, projects: Array.isArray(d) ? d : [] })));
+
+      apiFetch("/property/properties/", {}, org)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((d) => active && setOptions((o) => ({ ...o, properties: Array.isArray(d) ? d : [] })));
+
+      apiFetch("/construction/projects/", {}, org)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((d) => active && setOptions((o) => ({ ...o, constructionProjects: Array.isArray(d) ? d : [] })));
+
       return () => { active = false; };
     }
-  }, [org, showRecordVisit, showNewListing]);
+  }, [org, showRecordVisit, showNewListing, showNewProject]);
 
   useEffect(() => {
     if (!org || !showNewListing) return;
@@ -208,6 +229,43 @@ export function useSalesLogic(initialTab = "overview") {
   async function submitNewListing(payload: Record<string, string>) {
     await apiFetch("/auth/csrf/");
     const res = await apiFetch("/sales/inventory/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify(payload),
+    }, org);
+    if (res.ok) {
+      setShowNewListing(false);
+      setFormError("");
+      setTab("inventory");
+      loadData();
+    } else {
+      setFormError(await readError(res));
+    }
+  }
+
+  async function submitNewProject(payload: Record<string, any>) {
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch("/sales/projects/", {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify(payload),
+    }, org);
+    if (res.ok) {
+      setShowNewProject(false);
+      setFormError("");
+      apiFetch("/sales/projects/", {}, org)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((d) => setOptions((o) => ({ ...o, projects: Array.isArray(d) ? d : [] })));
+      setTab("inventory");
+      loadData();
+    } else {
+      setFormError(await readError(res));
+    }
+  }
+
+  async function submitBatchListing(payload: Record<string, any>) {
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch("/sales/inventory/batch-create/", {
       method: "POST",
       headers: { "X-CSRFToken": csrfFromCookie() },
       body: JSON.stringify(payload),
@@ -417,6 +475,8 @@ export function useSalesLogic(initialTab = "overview") {
     setShowRecordVisit,
     showNewListing,
     setShowNewListing,
+    showNewProject,
+    setShowNewProject,
     paymentAction,
     setPaymentAction,
     transitionSaleRow,
@@ -430,6 +490,7 @@ export function useSalesLogic(initialTab = "overview") {
     openNewSaleModal,
     openRecordVisitModal,
     openNewListingModal,
+    openNewProjectModal: () => { setFormError(""); setShowNewProject(true); },
     openPaymentAction,
     openTransitionSale,
     openTransitionBuyer,
@@ -438,6 +499,8 @@ export function useSalesLogic(initialTab = "overview") {
     submitNewSale,
     submitRecordVisit,
     submitNewListing,
+    submitNewProject,
+    submitBatchListing,
     submitPaymentAction,
     submitTransitionSale,
     submitTransitionBuyer,

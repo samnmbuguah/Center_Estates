@@ -206,3 +206,45 @@ class SalesAuditEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = SalesAuditEvent
         exclude = ('organization', 'actor')
+
+
+class SalesProjectSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True, default='')
+    property_code = serializers.CharField(source='property.code', read_only=True, default='')
+    listings_count = serializers.SerializerMethodField()
+    available_count = serializers.SerializerMethodField()
+    reserved_count = serializers.SerializerMethodField()
+    sold_count = serializers.SerializerMethodField()
+    total_units_count = serializers.SerializerMethodField()
+    construction_project_id = serializers.SerializerMethodField()
+
+    class Meta:
+        from properties.models import Project
+        model = Project
+        exclude = ('organization',)
+        extra_kwargs = {
+            'code': {'required': False, 'allow_blank': True},
+        }
+
+    def get_listings_count(self, obj) -> int:
+        return obj.sale_listings.count()
+
+    def get_available_count(self, obj) -> int:
+        return obj.sale_listings.filter(status=SaleListing.Status.AVAILABLE).count()
+
+    def get_reserved_count(self, obj) -> int:
+        return obj.sale_listings.filter(status=SaleListing.Status.RESERVED).count()
+
+    def get_sold_count(self, obj) -> int:
+        return obj.sale_listings.filter(status=SaleListing.Status.SOLD).count()
+
+    def get_total_units_count(self, obj) -> int:
+        if obj.property_id and hasattr(obj, 'property') and obj.property:
+            return obj.property.units.count()
+        return 0
+
+    def get_construction_project_id(self, obj) -> str:
+        if hasattr(obj, 'construction_profile') and obj.construction_profile:
+            return str(obj.construction_profile.id)
+        return ''
+

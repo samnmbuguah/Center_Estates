@@ -18,8 +18,14 @@ from core.tenancy import get_active_membership, get_active_organization
 from core.property_scope import scope_model_queryset, scope_queryset_to_property
 from rest_framework.exceptions import PermissionDenied
 
+from properties.models import Project, ProjectModuleAssignment, Property, Unit
 from .models import AgentCommission, Buyer, BuyerPortalAccess, Installment, ListingRender, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
-from .serializers import AgentCommissionSerializer, BuyerSerializer, BuyerPortalAccessSerializer, InstallmentSerializer, ListingRenderSerializer, PropertySaleSerializer, SaleDocumentSerializer, SaleListingSerializer, SalePaymentSerializer, SalesAuditEventSerializer, SiteVisitSerializer
+from .serializers import (
+    AgentCommissionSerializer, BuyerSerializer, BuyerPortalAccessSerializer,
+    InstallmentSerializer, ListingRenderSerializer, PropertySaleSerializer,
+    SaleDocumentSerializer, SaleListingSerializer, SalePaymentSerializer,
+    SalesAuditEventSerializer, SalesProjectSerializer, SiteVisitSerializer,
+)
 
 
 class SalesModelViewSet(ModelViewSet):
@@ -94,6 +100,199 @@ class ListingViewSet(SalesModelViewSet):
             listing.save(update_fields=('status', 'reservation_expires_at', 'updated_at'))
             expired += 1
         return Response({'expired': expired})
+
+    @action(detail=False, methods=('get',), url_path='unlisted-units')
+    def unlisted_units(self, request):
+        organization = get_active_organization(request)
+        project_id = request.query_params.get('project')
+        if not project_id:
+            return Response([])
+        try:
+            project = Project.objects.get(id=project_id, organization=organization)
+        except Project.DoesNotExist:
+            return Response([])
+        if not project.property_id:
+            return Response([])
+
+        listed_unit_ids = SaleListing.objects.filter(
+            organization=organization
+        ).values_list('unit_id', flat=True)
+
+        units = Unit.objects.filter(
+            property_id=project.property_id,
+            organization=organization
+        ).exclude(id__in=listed_unit_ids).order_by('floor', 'code')
+
+        return Response([{
+            'id': str(u.id),
+            'code': u.code,
+            'unit_type': u.unit_type,
+            'floor': u.floor,
+            'area': str(u.area) if u.area else '',
+        } for u in units])
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='batch-create')
+    def batch_create(self, request):
+        organization = get_active_organization(request)
+        project_id = request.data.get('project')
+        unit_ids = request.data.get('unit_ids', [])
+        list_price = request.data.get('list_price')
+        deposit_pct = request.data.get('minimum_deposit_percent', 10)
+
+        if not project_id or not list_price:
+            raise ValidationError({'detail': 'Project and list_price are required.'})
+
+        try:
+            project = Project.objects.get(id=project_id, organization=organization)
+        except Project.DoesNotExist:
+            raise ValidationError({'project': 'Project not found.'})
+
+        if not unit_ids and project.property_id:
+            listed_ids = SaleListing.objects.filter(organization=organization).values_list('unit_id', flat=True)
+            unit_ids = list(Unit.objects.filter(property_id=project.property_id, organization=organization).exclude(id__in=listed_ids).values_list('id', flat=True))
+
+        created_count = 0
+        for uid in unit_ids:
+            if SaleListing.objects.filter(organization=organization, unit_id=uid).exists():
+                continue
+            SaleListing.objects.create(
+                organization=organization,
+                project=project,
+                unit_id=uid,
+                list_price=Decimal(str(list_price)),
+                minimum_deposit_percent=Decimal(str(deposit_pct)),
+                status=SaleListing.Status.AVAILABLE,
+            )
+            created_count += 1
+
+        return Response({
+            'created_count': created_count,
+            'project_id': str(project.id),
+        })
+
+
+class SalesProjectViewSet(SalesModelViewSet):
+    write_permission = 'sales.selling'
+    queryset = Project.objects.select_related('property').prefetch_related('sale_listings', 'module_assignments')
+    serializer_class = SalesProjectSerializer
+    search_fields = ('name', 'code', 'property__name')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        code = serializer.validated_data.get('code', '').strip()
+        if not code:
+            existing = Project.objects.filter(organization=organization, code__startswith='SP-').values_list('code', flat=True)
+            numbers = [int(c.rsplit('-', 1)[-1]) for c in existing if c.rsplit('-', 1)[-1].isdigit()]
+            code = f"SP-{(max(numbers) + 1) if numbers else 1:04d}"
+
+        project = serializer.save(
+            organization=organization,
+            code=code,
+            lifecycle_stage=Project.LifecycleStage.SALES,
+            status=Project.Status.ACTIVE,
+        )
+        ProjectModuleAssignment.objects.get_or_create(
+            organization=organization,
+            project=project,
+            module=Module.SALES,
+            defaults={'stage': ProjectModuleAssignment.Stage.SALES, 'is_active': True},
+        )
+
+        construction_id = self.request.data.get('construction_project_id')
+        if construction_id:
+            from construction.models import Project as ConstructionProject
+            try:
+                cp = ConstructionProject.objects.get(id=construction_id, organization=organization)
+                cp.portfolio_project = project
+                cp.save(update_fields=('portfolio_project',))
+            except Exception:
+                pass
+
+        if self.request.data.get('auto_list_units') and project.property_id:
+            default_price = self.request.data.get('default_list_price')
+            deposit_pct = self.request.data.get('default_deposit_percent', 10)
+            if default_price:
+                unlisted = Unit.objects.filter(property_id=project.property_id, organization=organization).exclude(
+                    id__in=SaleListing.objects.filter(organization=organization).values_list('unit_id', flat=True)
+                )
+                for u in unlisted:
+                    SaleListing.objects.create(
+                        organization=organization,
+                        project=project,
+                        unit=u,
+                        list_price=Decimal(str(default_price)),
+                        minimum_deposit_percent=Decimal(str(deposit_pct)),
+                        status=SaleListing.Status.AVAILABLE,
+                    )
+
+    @action(detail=False, methods=('post',), url_path='extend-from-construction')
+    def extend_from_construction(self, request):
+        organization = get_active_organization(request)
+        construction_id = request.data.get('construction_project_id')
+        if not construction_id:
+            raise ValidationError({'construction_project_id': 'Construction project ID is required.'})
+
+        from construction.models import Project as ConstructionProject
+        try:
+            cp = ConstructionProject.objects.get(id=construction_id, organization=organization)
+        except ConstructionProject.DoesNotExist:
+            raise ValidationError({'construction_project_id': 'Construction project not found.'})
+
+        if cp.portfolio_project_id:
+            project = cp.portfolio_project
+            if project.lifecycle_stage != Project.LifecycleStage.SALES:
+                project.lifecycle_stage = Project.LifecycleStage.SALES
+                project.save(update_fields=('lifecycle_stage',))
+        else:
+            code = cp.code or ''
+            if not code or Project.objects.filter(organization=organization, code=code).exists():
+                existing = Project.objects.filter(organization=organization, code__startswith='SP-').values_list('code', flat=True)
+                numbers = [int(c.rsplit('-', 1)[-1]) for c in existing if c.rsplit('-', 1)[-1].isdigit()]
+                code = f"SP-{(max(numbers) + 1) if numbers else 1:04d}"
+
+            prop = Property.objects.filter(organization=organization, name__iexact=cp.name).first()
+            project = Project.objects.create(
+                organization=organization,
+                code=code,
+                name=cp.name,
+                property=prop,
+                lifecycle_stage=Project.LifecycleStage.SALES,
+                status=Project.Status.ACTIVE,
+            )
+            cp.portfolio_project = project
+            cp.save(update_fields=('portfolio_project',))
+
+        ProjectModuleAssignment.objects.get_or_create(
+            organization=organization,
+            project=project,
+            module=Module.SALES,
+            defaults={'stage': ProjectModuleAssignment.Stage.SALES, 'is_active': True},
+        )
+
+        created_listings = 0
+        default_price = request.data.get('default_list_price')
+        if default_price and project.property_id:
+            deposit_pct = request.data.get('default_deposit_percent', 10)
+            unlisted = Unit.objects.filter(property_id=project.property_id, organization=organization).exclude(
+                id__in=SaleListing.objects.filter(organization=organization).values_list('unit_id', flat=True)
+            )
+            for u in unlisted:
+                SaleListing.objects.create(
+                    organization=organization,
+                    project=project,
+                    unit=u,
+                    list_price=Decimal(str(default_price)),
+                    minimum_deposit_percent=Decimal(str(deposit_pct)),
+                    status=SaleListing.Status.AVAILABLE,
+                )
+                created_listings += 1
+
+        return Response({
+            'project': SalesProjectSerializer(project, context={'request': request}).data,
+            'listings_created': created_listings,
+            'message': f"Successfully extended '{cp.name}' to Sales Management.",
+        })
 
 
 class ListingRenderViewSet(SalesModelViewSet):

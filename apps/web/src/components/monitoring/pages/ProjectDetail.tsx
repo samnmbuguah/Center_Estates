@@ -9,6 +9,7 @@ import { addApproval, addDocument, addProjectMember, completeOnboarding, deleteA
 import { useAuth } from "../auth";
 import { ErrorBanner, ConfirmModal } from "../components";
 import { ProjectAssistant } from "../components/ProjectAssistant";
+import { apiFetch } from "@/lib/api";
 
 function ModuleConfigRow({ projectId, moduleKey }: { projectId: string; moduleKey: string }) {
   const { can } = useAuth();
@@ -68,6 +69,11 @@ export function ProjectDetail() {
   const [cost, setCost] = useState<any>(null);
   const [issues, setIssues] = useState<any[]>([]);
   const [consultantFees, setConsultantFees] = useState<any[]>([]);
+  const [showExtendModal, setShowExtendModal] = useState(false);
+  const [extending, setExtending] = useState(false);
+  const [extendSuccess, setExtendSuccess] = useState<any>(null);
+  const [defaultPrice, setDefaultPrice] = useState("12500000");
+  const [defaultDeposit, setDefaultDeposit] = useState("10");
 
   const load = () => fetchProject(id).then(setP).catch((e) => setError(e.message));
   const loadMembers = () => fetchProjectMembers(id).then(setMembers).catch(() => {});
@@ -97,10 +103,20 @@ export function ProjectDetail() {
     <div>
       <div className="workspace-page-title">
         <div><h2>{p.name}</h2><div className="muted"><MapPin size={13} /> {p.location || "Location not set"} · {String(p.project_type || "standard").replace(/_/g, " ")}</div></div>
-        <Link to={`/app/onboarding/${id}`} className="btn ghost sm">
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button
+            type="button"
+            className="btn primary sm"
+            onClick={() => { setShowExtendModal(true); setExtendSuccess(null); }}
+            title="Promote this construction scheme to Sales Management for off-plan and unit sales"
+          >
+            🚀 Extend to Sales
+          </button>
+          <Link to={`/app/onboarding/${id}`} className="btn ghost sm">
             <ClipboardList size={14} style={{ marginRight: 4 }} />
             {p.onboarding_complete ? "Edit Onboarding" : "Continue Onboarding"}
-        </Link>
+          </Link>
+        </div>
       </div>
 
       <div className="workspace-kpis">
@@ -352,6 +368,106 @@ export function ProjectDetail() {
         onConfirm={() => { confirmAction?.onConfirm(); setConfirmAction(null); }}
         onCancel={() => setConfirmAction(null)}
       />
+
+      {showExtendModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(15, 23, 42, 0.65)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+        }}>
+          <div style={{
+            background: "var(--surface, #ffffff)", borderRadius: 12,
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.2)",
+            maxWidth: 480, width: "100%", padding: 24, border: "1px solid var(--border)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                🚀 Extend Project to Sales Management
+              </h3>
+              <button type="button" className="btn ghost sm" onClick={() => setShowExtendModal(false)}>✕</button>
+            </div>
+
+            {extendSuccess ? (
+              <div style={{ textAlign: "center", padding: "12px 0" }}>
+                <div style={{ fontSize: 44, marginBottom: 8 }}>🎉</div>
+                <h4 style={{ margin: "0 0 6px" }}>Successfully Extended to Sales!</h4>
+                <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+                  {extendSuccess.message || "Project is now linked to Sales Management."}
+                  {extendSuccess.listings_created > 0 && ` Created ${extendSuccess.listings_created} unit listings.`}
+                </p>
+                <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                  <button type="button" className="btn ghost sm" onClick={() => setShowExtendModal(false)}>Close</button>
+                  <a href="/sales?tab=inventory" className="btn primary sm">Open Sales CRM &rarr;</a>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setExtending(true);
+                setError(null);
+                try {
+                  const res = await apiFetch("/sales/projects/extend-from-construction/", {
+                    method: "POST",
+                    body: JSON.stringify({
+                      construction_project_id: id,
+                      default_list_price: defaultPrice || undefined,
+                      default_deposit_percent: defaultDeposit || 10,
+                    }),
+                  });
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || err.message || "Failed to extend project to Sales");
+                  }
+                  const data = await res.json();
+                  setExtendSuccess(data);
+                } catch (err: any) {
+                  setError(err.message);
+                } finally {
+                  setExtending(false);
+                }
+              }}>
+                <p className="muted" style={{ fontSize: 13, margin: "0 0 16px" }}>
+                  This will register <strong>{p.name}</strong> as an active Sales Project in the Sales module, carrying over its building profile and feeding construction progress into sales listings.
+                </p>
+
+                <div style={{ display: "grid", gap: 12, marginBottom: 18 }}>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Default Unit List Price (KES)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="form-control"
+                      style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)" }}
+                      value={defaultPrice}
+                      onChange={(e) => setDefaultPrice(e.target.value)}
+                      placeholder="12500000"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Minimum Deposit %</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      className="form-control"
+                      style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)" }}
+                      value={defaultDeposit}
+                      onChange={(e) => setDefaultDeposit(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button type="button" className="btn ghost" onClick={() => setShowExtendModal(false)}>Cancel</button>
+                  <button type="submit" className="btn primary" disabled={extending}>
+                    {extending ? "Extending..." : "Launch in Sales"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

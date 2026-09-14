@@ -7,6 +7,7 @@ import { EmptyState, ErrorBanner, LoadingState } from "@/components/module-ui";
 import {
   NewListingModal,
   NewSaleModal,
+  NewSalesProjectModal,
   PaymentActionModal,
   RecordVisitModal,
   RegisterBuyerModal,
@@ -146,11 +147,14 @@ export function SalesFeaturePage({ initialTab = "overview" }: { initialTab?: str
         ) : logic.tab === "inventory" ? (
           <InventoryView
             rows={logic.rows}
-            search={logic.search}            setSearch={logic.setSearch}
+            search={logic.search}
+            setSearch={logic.setSearch}
             status={logic.status}
             setStatus={logic.setStatus}
             canSell={logic.canSell}
             openNewListing={logic.openNewListingModal}
+            openNewProject={logic.openNewProjectModal}
+            projects={logic.options.projects}
           />
         ) : logic.tab === "buyers" ? (
           <BuyersView
@@ -298,9 +302,19 @@ export function SalesFeaturePage({ initialTab = "overview" }: { initialTab?: str
         open={logic.showNewListing}
         onClose={() => logic.setShowNewListing(false)}
         onSubmit={logic.submitNewListing}
+        onBatchSubmit={logic.submitBatchListing}
+        onOpenNewProject={logic.openNewProjectModal}
         error={logic.formError}
         projects={logic.options.projects}
         units={logic.options.units}
+      />
+      <NewSalesProjectModal
+        open={logic.showNewProject}
+        onClose={() => logic.setShowNewProject(false)}
+        onSubmit={logic.submitNewProject}
+        error={logic.formError}
+        properties={logic.options.properties}
+        constructionProjects={logic.options.constructionProjects}
       />
       <PaymentActionModal
         payment={logic.paymentAction}
