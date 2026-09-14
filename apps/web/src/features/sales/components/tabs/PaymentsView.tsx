@@ -19,6 +19,7 @@ export function PaymentsView({
   status,
   setStatus,
   openPaymentAction,
+  onSendCommunication,
 }: {
   rows: Row[];
   search: string;
@@ -26,6 +27,7 @@ export function PaymentsView({
   status: string;
   setStatus: (v: string) => void;
   openPaymentAction: (row: Row) => void;
+  onSendCommunication?: (payment: Row) => void;
 }) {
   const verifiedTotal = sumBy(rows, "amount", ["verified", "partial"]);
   const pending = rows.filter((r) => String(r.status ?? "") === "pending");
@@ -85,9 +87,34 @@ export function PaymentsView({
                   <td className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{String(r.external_reference ?? "—")}</td>
                   <td><StatusPill value={String(r.status ?? "")} tone={toneForPayment(String(r.status ?? ""))} /></td>
                   <td>
-                    {["pending", "verified"].includes(String(r.status)) && (
-                      <button className="btn ghost sm" onClick={() => openPaymentAction(r)}>{String(r.status) === "pending" ? "Verify" : "Reverse"}</button>
-                    )}
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      {["pending", "verified"].includes(String(r.status)) && (
+                        <button className="btn ghost sm" onClick={() => openPaymentAction(r)}>{String(r.status) === "pending" ? "Verify" : "Reverse"}</button>
+                      )}
+                      {onSendCommunication && String(r.status) === "verified" && (
+                        <button
+                          type="button"
+                          className="btn sm"
+                          onClick={() => onSendCommunication(r)}
+                          style={{
+                            padding: "3px 8px",
+                            fontSize: 11,
+                            backgroundColor: "#25D366",
+                            color: "#ffffff",
+                            border: "none",
+                            borderRadius: 6,
+                            fontWeight: 700,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            cursor: "pointer",
+                          }}
+                          title="Share receipt via WhatsApp"
+                        >
+                          <span>🧾</span> Share
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

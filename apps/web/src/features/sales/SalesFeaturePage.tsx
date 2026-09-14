@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
 import { ModuleShell } from "@/components/module-shell";
 import { EmptyState, ErrorBanner, LoadingState } from "@/components/module-ui";
@@ -11,6 +12,10 @@ import {
   RegisterBuyerModal,
   TransitionModal,
 } from "./components/modals/SalesModals";
+import {
+  SalesCommunicationModal,
+  type SalesCommunicationModalProps,
+} from "./components/modals/SalesCommunicationModal";
 import { AuditEventsView } from "./components/tabs/AuditEventsView";
 import { BankReconciliationView } from "./components/tabs/BankReconciliationView";
 import { BuyersView } from "./components/tabs/BuyersView";
@@ -28,10 +33,82 @@ import { SalesView } from "./components/tabs/SalesView";
 import { SalesClerkView } from "./components/tabs/SalesClerkView";
 import { SiteVisitsView } from "./components/tabs/SiteVisitsView";
 import { useSalesLogic } from "./hooks/useSalesLogic";
-import { salesTabLabels } from "./types/sales.types";
+import { Row, salesTabLabels } from "./types/sales.types";
+import {
+  buildInstallmentReminderMessage,
+  buildPaymentReceiptMessage,
+  buildSiteVisitMessage,
+} from "./utils/sales-communication";
 
 export function SalesFeaturePage({ initialTab = "overview" }: { initialTab?: string }) {
   const logic = useSalesLogic(initialTab);
+  const [commModal, setCommModal] = useState<SalesCommunicationModalProps | null>(null);
+
+  function handleVisitCommunication(visit: Row) {
+    setCommModal({
+      open: true,
+      onClose: () => setCommModal(null),
+      title: "Send Site Visit Follow-up",
+      subtitle: `${String(visit.visitor_name ?? "Client")} · ${String(visit.project_name ?? "Development")}`,
+      recipientName: String(visit.visitor_name ?? "Client"),
+      defaultPhone: String(visit.phone ?? ""),
+      initialMessage: buildSiteVisitMessage({
+        visitor_name: String(visit.visitor_name ?? ""),
+        phone: String(visit.phone ?? ""),
+        project_name: String(visit.project_name ?? ""),
+        visited_at: String(visit.visited_at ?? ""),
+        follow_up_on: String(visit.follow_up_on ?? ""),
+        agent_name: String(visit.agent_name ?? ""),
+        notes: String(visit.notes ?? ""),
+      }),
+      type: "visit",
+    });
+  }
+
+  function handleInstallmentCommunication(installment: Row) {
+    const payUrl = typeof window !== "undefined"
+      ? `${window.location.origin}/sales/pay?installment=${String(installment.id)}`
+      : "";
+    setCommModal({
+      open: true,
+      onClose: () => setCommModal(null),
+      title: "Send Installment Reminder",
+      subtitle: `${String(installment.buyer_name ?? "Client")} · ${String(installment.description ?? "Installment")}`,
+      recipientName: String(installment.buyer_name ?? "Client"),
+      defaultPhone: String(installment.buyer_phone || installment.phone || ""),
+      initialMessage: buildInstallmentReminderMessage({
+        buyer_name: String(installment.buyer_name ?? ""),
+        description: String(installment.description ?? ""),
+        amount: installment.amount,
+        paid_amount: installment.paid_amount,
+        due_on: String(installment.due_on ?? ""),
+        sale_reference: String(installment.sale_reference ?? ""),
+        pay_url: payUrl,
+      }),
+      type: "installment",
+    });
+  }
+
+  function handlePaymentCommunication(payment: Row) {
+    setCommModal({
+      open: true,
+      onClose: () => setCommModal(null),
+      title: "Share Payment Receipt",
+      subtitle: `${String(payment.buyer_name ?? "Client")} · Ref: ${String(payment.reference ?? "")}`,
+      recipientName: String(payment.buyer_name ?? "Client"),
+      defaultPhone: String(payment.buyer_phone || payment.phone || ""),
+      initialMessage: buildPaymentReceiptMessage({
+        buyer_name: String(payment.buyer_name ?? ""),
+        reference: String(payment.reference ?? ""),
+        external_reference: String(payment.external_reference ?? ""),
+        amount: payment.amount,
+        paid_on: String(payment.paid_on ?? ""),
+        method: String(payment.method ?? ""),
+        sale_reference: String(payment.sale_reference ?? ""),
+      }),
+      type: "receipt",
+    });
+  }
 
   return (
     <ModuleShell
@@ -115,6 +192,7 @@ export function SalesFeaturePage({ initialTab = "overview" }: { initialTab?: str
             setSearch={logic.setSearch}
             canVisit={logic.canVisit}
             openRecordVisit={logic.openRecordVisitModal}
+            onSendCommunication={handleVisitCommunication}
           />
         ) : logic.tab === "installments" ? (
           <InstallmentsView
@@ -123,6 +201,7 @@ export function SalesFeaturePage({ initialTab = "overview" }: { initialTab?: str
             setSearch={logic.setSearch}
             status={logic.status}
             setStatus={logic.setStatus}
+            onSendCommunication={handleInstallmentCommunication}
           />
         ) : logic.tab === "payments" ? (
           <PaymentsView
@@ -132,6 +211,7 @@ export function SalesFeaturePage({ initialTab = "overview" }: { initialTab?: str
             status={logic.status}
             setStatus={logic.setStatus}
             openPaymentAction={logic.openPaymentAction}
+            onSendCommunication={handlePaymentCommunication}
           />
         ) : logic.tab === "commissions" ? (
           <CommissionsView
@@ -244,6 +324,7 @@ export function SalesFeaturePage({ initialTab = "overview" }: { initialTab?: str
         onSubmit={logic.submitTransitionBuyer}
         error={logic.formError}
       />
+      {commModal && <SalesCommunicationModal {...commModal} />}
     </ModuleShell>
   );
 }

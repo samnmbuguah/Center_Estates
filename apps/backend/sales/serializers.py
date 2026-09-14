@@ -110,6 +110,7 @@ class PropertySaleSerializer(serializers.ModelSerializer):
 class InstallmentSerializer(serializers.ModelSerializer):
     sale_reference = serializers.CharField(source='sale.reference', read_only=True)
     buyer_name = serializers.CharField(source='sale.buyer.full_name', read_only=True)
+    buyer_phone = serializers.CharField(source='sale.buyer.phone', read_only=True, default='')
     class Meta:
         model = Installment
         exclude = ('organization',)
@@ -119,6 +120,7 @@ class InstallmentSerializer(serializers.ModelSerializer):
 class SalePaymentSerializer(serializers.ModelSerializer):
     sale_reference = serializers.CharField(source='sale.reference', read_only=True)
     buyer_name = serializers.CharField(source='sale.buyer.full_name', read_only=True)
+    buyer_phone = serializers.CharField(source='sale.buyer.phone', read_only=True, default='')
     class Meta:
         model = SalePayment
         exclude = ('organization',)

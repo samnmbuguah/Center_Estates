@@ -22,12 +22,14 @@ export function SiteVisitsView({
   setSearch,
   canVisit,
   openRecordVisit,
+  onSendCommunication,
 }: {
   rows: Row[];
   search: string;
   setSearch: (v: string) => void;
   canVisit: boolean;
   openRecordVisit: () => void;
+  onSendCommunication?: (visit: Row) => void;
 }) {
   const converted = rows.filter((r) => r.converted_buyer).length;
   const followDue = rows.filter(isFollowUpDue).length;
@@ -51,7 +53,7 @@ export function SiteVisitsView({
           {rows.length === 0 ? (
             <EmptyState icon="📍" title="No site visits recorded" description="Sales clerks can log visitor arrivals, unit interests and introducing agents." action={canVisit ? <button className="btn primary sm" onClick={openRecordVisit}>+ Record Visit</button> : undefined} />
           ) : (
-            <DataTable headers={["Visit Ref", "Visitor", "Contact", "Project", "Interest", "Agent", "Visit Date", "Follow-up", "Status", "Notes"]}>
+            <DataTable headers={["Visit Ref", "Visitor", "Contact", "Project", "Interest", "Agent", "Visit Date", "Follow-up", "Status", "Notes", "Actions"]}>
               {rows.map((r) => {
                 const vs = visitStatus(r);
                 return (
@@ -66,6 +68,31 @@ export function SiteVisitsView({
                     <td style={{ fontSize: 12 }}>{fmtDate(r.follow_up_on)}</td>
                     <td><StatusPill value={vs.label} tone={vs.tone} /></td>
                     <td style={{ fontSize: 11, color: "var(--muted)", maxWidth: 220 }}>{String(r.notes || "—")}</td>
+                    <td>
+                      {onSendCommunication && (
+                        <button
+                          type="button"
+                          className="btn sm"
+                          onClick={() => onSendCommunication(r)}
+                          style={{
+                            padding: "3px 8px",
+                            fontSize: 11,
+                            backgroundColor: "#25D366",
+                            color: "#ffffff",
+                            border: "none",
+                            borderRadius: 6,
+                            fontWeight: 700,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            cursor: "pointer",
+                          }}
+                          title="Send follow-up / reminder via WhatsApp"
+                        >
+                          <span>💬</span> Remind
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

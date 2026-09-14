@@ -38,12 +38,14 @@ export function InstallmentsView({
   setSearch,
   status,
   setStatus,
+  onSendCommunication,
 }: {
   rows: Row[];
   search: string;
   setSearch: (v: string) => void;
   status: string;
   setStatus: (v: string) => void;
+  onSendCommunication?: (installment: Row) => void;
 }) {
   const { session } = useAuth();
   const organizationId = session?.activeOrganizationId ?? null;
@@ -179,7 +181,32 @@ export function InstallmentsView({
                     <td className="mono" style={{ fontSize: 12, color: paid >= amt ? "var(--color-success)" : "var(--color-danger-strong)" }}>{fmtMoney(amt - paid)}</td>
                     <td><StatusPill value={String(r.status ?? "")} tone={toneForInstallment(String(r.status ?? ""))} /></td>
                     <td>
-                      <button className="btn ghost sm" onClick={() => copyLink(r)}>Copy Link</button>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <button className="btn ghost sm" onClick={() => copyLink(r)}>Copy Link</button>
+                        {onSendCommunication && r.status !== "paid" && (
+                          <button
+                            type="button"
+                            className="btn sm"
+                            onClick={() => onSendCommunication(r)}
+                            style={{
+                              padding: "3px 8px",
+                              fontSize: 11,
+                              backgroundColor: "#25D366",
+                              color: "#ffffff",
+                              border: "none",
+                              borderRadius: 6,
+                              fontWeight: 700,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              cursor: "pointer",
+                            }}
+                            title="Send installment reminder via WhatsApp"
+                          >
+                            <span>💬</span> Remind
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
