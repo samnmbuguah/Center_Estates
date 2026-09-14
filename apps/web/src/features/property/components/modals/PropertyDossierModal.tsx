@@ -919,8 +919,9 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 background: #ffffff !important;
                 color: var(--color-slate-900) !important;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-                padding: 0 !important;
+                padding: 12mm 14mm !important;
                 margin: 0 !important;
+                box-sizing: border-box !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
               }
@@ -928,9 +929,13 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
               }
+              #property-dossier-print-portal tr {
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+              }
               @page {
                 size: A4 portrait;
-                margin: 12mm 12mm 14mm 12mm;
+                margin: 0;
               }
               .avoid-break {
                 page-break-inside: avoid !important;
@@ -1089,7 +1094,7 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
           </div>
 
           {/* Section 4: Onboarding Completeness Checklist */}
-          <div className="avoid-break" style={{ border: "1px solid var(--color-slate-300)", borderRadius: 8, overflow: "hidden", marginBottom: 16 }}>
+          <div style={{ border: "1px solid var(--color-slate-300)", borderRadius: 8, overflow: "hidden", marginBottom: 16 }}>
             <div style={{ backgroundColor: "var(--color-slate-100)", padding: "8px 12px", fontSize: 11, fontWeight: 900, color: "var(--color-info-dark)", textTransform: "uppercase" }}>
               5. Onboarding Completeness & Compliance Audit Checklist
             </div>
@@ -1115,31 +1120,6 @@ export function PropertyDossierModal({ property, onClose, onEdit }: PropertyDoss
                 ))}
               </tbody>
             </table>
-          </div>
-
-          {/* Section 5: Sign-Off Box */}
-          <div className="avoid-break" style={{ border: "1px solid var(--color-slate-300)", borderRadius: 8, padding: 12, backgroundColor: "var(--surface-2)" }}>
-            <div style={{ fontSize: 11, fontWeight: 900, color: "var(--color-info-dark)", textTransform: "uppercase", marginBottom: 12 }}>
-              6. Verification & Sign-Off
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, fontSize: 10 }}>
-              <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 4 }}>
-                <strong>Prepared By (Property Manager):</strong>
-                <div style={{ marginTop: 18, color: "var(--text-faint)" }}>Signature & Date: ____________________</div>
-              </div>
-              <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 4 }}>
-                <strong>Reviewed By (Auditor / Agent):</strong>
-                <div style={{ marginTop: 18, color: "var(--text-faint)" }}>Signature & Date: ____________________</div>
-              </div>
-              <div style={{ borderTop: "1px solid var(--color-slate-400)", paddingTop: 4 }}>
-                <strong>Landlord Acknowledgement:</strong>
-                <div style={{ marginTop: 18, color: "var(--text-faint)" }}>Signature & Date: ____________________</div>
-              </div>
-            </div>
-          </div>
-
-          <div style={{ marginTop: 12, textAlign: "center", fontSize: 9, color: "var(--text-ghost)" }}>
-            Center Estates Property Management ERP • Certified Audit Report Generated for {organizationName} • Page 1 of 1
           </div>
         </div>,
         document.body
