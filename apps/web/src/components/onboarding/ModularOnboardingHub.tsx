@@ -37,8 +37,8 @@ import {
 } from "lucide-react";
 import { PropertyOnboardingForm } from "@/components/property-onboarding-form";
 import { SalesOnboardingForm } from "./SalesOnboardingForm";
+import { ConstructionOnboardingForm } from "./ConstructionOnboardingForm";
 import { AssetLifecycleExtensionView } from "./AssetLifecycleExtensionView";
-import { ProjectOnboarding } from "@/components/monitoring/pages/ProjectOnboarding";
 
 export function ModularOnboardingHub() {
   const router = useRouter();
@@ -379,12 +379,8 @@ export function ModularOnboardingHub() {
 
       {/* Main Workflow Body */}
       <Box sx={{ py: 2 }}>
-        {activeModule === "property" && <PropertyOnboardingForm />}
-        {activeModule === "construction" && (
-          <Box sx={{ maxWidth: 1200, mx: "auto", px: 2 }}>
-            <ProjectOnboarding />
-          </Box>
-        )}
+        {activeModule === "property" && <PropertyOnboardingForm onBack={() => handleSelectModule("")} />}
+        {activeModule === "construction" && <ConstructionOnboardingForm onBack={() => handleSelectModule("")} />}
         {activeModule === "sales" && <SalesOnboardingForm onBack={() => handleSelectModule("")} />}
         {activeModule === "extend" && <AssetLifecycleExtensionView onBack={() => handleSelectModule("")} />}
       </Box>
