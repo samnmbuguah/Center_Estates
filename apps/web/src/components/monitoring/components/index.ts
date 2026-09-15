@@ -8,7 +8,9 @@ export { AISidebarChat } from "./AISidebarChat";
 export { ToastContainer } from "./Toast";
 export { Skeleton } from "./Skeleton";
 export { ConfirmModal } from "./ConfirmModal";
+export { MiniBoQModal } from "./MiniBoQModal";
 export type { TourStep, RoleTourKey, TourAPI } from "./tour";
+
 export { EmptyState } from "./EmptyState";
 export { Breadcrumbs } from "./Breadcrumbs";
 export { PageLoading, PageError, PageEmpty, TableEmpty, StatusPill } from "./PageState";

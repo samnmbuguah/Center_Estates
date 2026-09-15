@@ -6,7 +6,7 @@ from .models import (
     AdminAuditLog, AdvancePayment, AdvanceRecovery, BimDiscrepancy, BimModel, BoQItem, CalendarEvent, ChatMessage,
     Certificate, ConsultantPayment, ContingencyDrawdown, DailyLog, DocumentVersion,
     Disbursement, DrawdownRequest, DroneDataset, EvidenceFile, LifecycleRecord,
-    MaterialDelivery, MaterialRequisition, MaterialRequisitionLine, MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument, ProjectMembership,
+    MaterialDelivery, MaterialRequisition, MaterialRequisitionLine, MilestoneBoQItem, MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument, ProjectMembership,
     PurchaseOrder, PurchaseOrderLine,
     ProvisionalSum, QualityTest, RequirementWaiver, Requisition, Rfi, Risk, SafetyIncident,
     SatelliteDataset, StockMovement, StoreItem, StoreSupplier, Subcontractor, Ticket, TicketComment, Variation, WorkOrder, WorkPlanTask,
@@ -52,6 +52,15 @@ TicketCommentSerializer = serializer_for(TicketComment, {
 })
 WorkPlanTaskSerializer = serializer_for(WorkPlanTask)
 BoQItemSerializer = serializer_for(BoQItem)
+MilestoneBoQItemSerializer = serializer_for(MilestoneBoQItem, {
+    "section": serializers.CharField(source="boq_item.section", read_only=True),
+    "item_number": serializers.CharField(source="boq_item.item_number", read_only=True),
+    "description": serializers.CharField(source="boq_item.description", read_only=True),
+    "unit": serializers.CharField(source="boq_item.unit", read_only=True),
+    "rate": serializers.DecimalField(source="boq_item.rate", max_digits=16, decimal_places=2, read_only=True),
+    "total_item_quantity": serializers.DecimalField(source="boq_item.quantity", max_digits=14, decimal_places=4, read_only=True),
+    "total_item_amount": serializers.DecimalField(source="boq_item.amount", max_digits=16, decimal_places=2, read_only=True),
+})
 VariationSerializer = serializer_for(Variation, {
     "approved_by": serializers.PrimaryKeyRelatedField(read_only=True),
     "approved_at": serializers.IntegerField(read_only=True),

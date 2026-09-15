@@ -1,4 +1,4 @@
-import { AlertTriangle, BarChart3, Building2, CalendarDays, CheckCircle2, CheckSquare, ClipboardList, Clock3, FileSpreadsheet, FileText, GitCompareArrows, HandCoins, History, MapPin, Pencil, Scale, ScanLine, Ticket, Trash2, TestTube, TrendingUp, Umbrella, Users, Wallet, X } from "lucide-react";
+import { AlertTriangle, BarChart3, Building2, CalendarDays, CheckCircle2, CheckSquare, ClipboardList, Clock3, Coins, FileSpreadsheet, FileText, GitCompareArrows, HandCoins, History, MapPin, Pencil, Scale, ScanLine, Ticket, Trash2, TestTube, TrendingUp, Umbrella, Users, Wallet, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "@/components/monitoring/react-router-shim";
 
@@ -7,7 +7,8 @@ import { addApproval, addDocument, addProjectMember, completeOnboarding, deleteA
   updateApproval, updateModuleConfig,
 } from "../api";
 import { useAuth } from "../auth";
-import { ErrorBanner, ConfirmModal } from "../components";
+import { ErrorBanner, ConfirmModal, MiniBoQModal } from "../components";
+
 import { ProjectAssistant } from "../components/ProjectAssistant";
 import { apiFetch } from "@/lib/api";
 
@@ -63,6 +64,7 @@ export function ProjectDetail() {
   const [addUserId, setAddUserId] = useState("");
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [auditLog, setAuditLog] = useState<any[]>([]);
+  const [selectedMiniBoQ, setSelectedMiniBoQ] = useState<any | null>(null);
   const [showAudit, setShowAudit] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ title: string; message: string; onConfirm: () => void } | null>(null);
   const [milestones, setMilestones] = useState<any[]>([]);
@@ -151,7 +153,25 @@ export function ProjectDetail() {
         <div className="card workspace-panel">
           <div className="panel-title"><span>Milestones</span><Link to={`/app/projects/${id}/milestones`}>View all</Link></div>
           <div className="compact-list">
-            {milestones.slice(0, 6).map(m => <div key={m.id}>{Number(m.percent_complete) >= 100 ? <CheckCircle2 className="success-text" /> : <Clock3 className="warning-text" />}<span>{m.milestone_id}</span><strong>{m.percent_complete}%</strong></div>)}
+            {milestones.slice(0, 6).map(m => (
+              <div key={m.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, overflow: "hidden" }}>
+                  {Number(m.percent_complete) >= 100 ? <CheckCircle2 className="success-text" size={14} /> : <Clock3 className="warning-text" size={14} />}
+                  <span style={{ textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{m.milestone_id}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                  <strong>{m.percent_complete}%</strong>
+                  <button
+                    className="btn ghost sm"
+                    style={{ padding: "2px 6px", fontSize: 11 }}
+                    onClick={() => setSelectedMiniBoQ(m)}
+                    title="View Mini-BoQ Valuation & AI Audit"
+                  >
+                    <Coins size={12} /> BoQ
+                  </button>
+                </div>
+              </div>
+            ))}
             {milestones.length === 0 && <p className="muted">No milestones yet.</p>}
           </div>
         </div>
@@ -468,6 +488,13 @@ export function ProjectDetail() {
           </div>
         </div>
       )}
+      <MiniBoQModal
+        open={!!selectedMiniBoQ}
+        milestone={selectedMiniBoQ}
+        projectId={id}
+        onClose={() => setSelectedMiniBoQ(null)}
+      />
     </div>
   );
 }
+

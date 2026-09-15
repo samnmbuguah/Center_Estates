@@ -651,10 +651,23 @@ export const createMilestone = (projectId: string, data: any) => post<any>(`/pro
 export const updateMilestone = (projectId: string, milestoneId: string, data: any) => patch<any>(`/projects/${projectId}/milestones/${milestoneId}`, data);
 export const deleteMilestone = (projectId: string, milestoneId: string) => del(`/projects/${projectId}/milestones/${milestoneId}`);
 
+export const fetchMilestoneMiniBoQ = (milestoneDbId: string | number) =>
+  get<{ milestone_id: string; percent_complete: number; items: any[]; valuation: any }>(`/milestones/${milestoneDbId}/mini-boq`);
+
+export const saveMilestoneMiniBoQ = (milestoneDbId: string | number, items: { boq_item_id: number; allocated_quantity: number; notes?: string }[]) =>
+  post<{ milestone_id: string; percent_complete: number; items: any[]; valuation: any }>(`/milestones/${milestoneDbId}/mini-boq`, { items });
+
+export const autoMapBoQToMilestones = (projectId: string, milestoneId?: string) =>
+  post<{ status: string; mapped_allocations: number; message: string }>("/milestones/auto-map-boq", { project_id: projectId, milestone_id: milestoneId });
+
+export const runMilestoneAiAudit = (milestoneDbId: string | number) =>
+  post<{ milestone_id: string; audit_status: string; confidence_score: number; anomalies: any[]; valuation: any; recommendation: string }>(`/milestones/${milestoneDbId}/ai-audit`, {});
+
 export const reportRegression = (id: string, milestoneId: string, percentComplete: number, justification: string) =>
   post<{ ok: boolean }>(`/projects/${id}/milestones/${milestoneId}/regression`, { percent_complete: percentComplete, justification });
 export const checkInflation = (id: string, milestoneId: string, percentComplete: number, threshold = 20) =>
   post<{ ok: boolean }>(`/projects/${id}/check-inflation`, { milestone_id: milestoneId, percent_complete: percentComplete, threshold });
+
 
 // ---- BoQ / Work Plan Ingestion ----
 export const ingestExcel = (id: string, file: File) => {

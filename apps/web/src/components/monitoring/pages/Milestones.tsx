@@ -1,10 +1,11 @@
-import { CalendarCheck, CheckCircle2, Clock3, Flag, Pencil, Target, Trash2, TrendingUp, X } from "lucide-react";
+import { CalendarCheck, CheckCircle2, Clock3, Coins, Flag, Pencil, Sparkles, Target, Trash2, TrendingUp, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "@/components/monitoring/react-router-shim";
 
-import { createMilestone, deleteMilestone, fetchMilestones, updateMilestone } from "../api";
+import { autoMapBoQToMilestones, createMilestone, deleteMilestone, fetchMilestones, updateMilestone } from "../api";
 import { useAuth } from "../auth";
-import { ErrorBanner, ConfirmModal } from "../components";
+import { ErrorBanner, ConfirmModal, MiniBoQModal } from "../components";
+
 
 const EVIDENCE_OPTIONS = [
   { value: "photo", label: "Photo" },
@@ -48,6 +49,8 @@ export function Milestones() {
   const [loading, setLoading] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<MilestoneRow | null>(null);
+  const [selectedMiniBoQ, setSelectedMiniBoQ] = useState<MilestoneRow | null>(null);
+  const [autoMappingAll, setAutoMappingAll] = useState(false);
 
   const [form, setForm] = useState({
     milestone_id: "",
@@ -67,6 +70,20 @@ export function Milestones() {
   const resetForm = () => {
     setForm({ milestone_id: "", percent_complete: 0, required_evidence_types: [], required_certifying_role: "", payment_instruction: "", payment_value: "" });
     setEditId(null);
+  };
+
+  const handleAutoMapAll = async () => {
+    if (!id) return;
+    setAutoMappingAll(true);
+    setError(null);
+    try {
+      await autoMapBoQToMilestones(id);
+      await load();
+    } catch (err: any) {
+      setError(err.message || "Failed to auto-map BoQ to milestones");
+    } finally {
+      setAutoMappingAll(false);
+    }
   };
 
   const toggleEvidence = (v: string) => {
@@ -151,7 +168,18 @@ export function Milestones() {
       </div>
 
       <div className="card">
-        <div className="panel-title">Milestone register</div>
+        <div className="panel-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>Milestone register</span>
+          <button
+            className="btn ghost sm"
+            onClick={handleAutoMapAll}
+            disabled={autoMappingAll || loading}
+            title="Automatically match project BoQ line items across all milestones"
+          >
+            <Sparkles size={14} className={autoMappingAll ? "spin" : ""} />
+            <span>{autoMappingAll ? "Auto-Mapping..." : "Auto-Map All BoQ"}</span>
+          </button>
+        </div>
         <table>
           <thead>
             <tr>
@@ -176,6 +204,14 @@ export function Milestones() {
                 <td className="mono">{m.payment_value ? Number(m.payment_value).toLocaleString() : "—"}</td>
                 <td>{statusBadge(m)}</td>
                 <td>
+                  <button
+                    className="btn ghost sm"
+                    onClick={() => setSelectedMiniBoQ(m)}
+                    title="Mini-BoQ Valuation & AI Audit"
+                    style={{ marginRight: 4 }}
+                  >
+                    <Coins size={14} /> Mini-BoQ
+                  </button>
                   {!m.submitted_at && (
                     <>
                       <button className="btn ghost sm" onClick={() => startEdit(m)} title="Edit"><Pencil size={14} /></button>
@@ -284,6 +320,13 @@ export function Milestones() {
         confirmLabel="Delete"
         onConfirm={() => { if (confirmTarget) doDelete(confirmTarget); setConfirmTarget(null); }}
         onCancel={() => setConfirmTarget(null)}
+      />
+      <MiniBoQModal
+        open={!!selectedMiniBoQ}
+        milestone={selectedMiniBoQ}
+        projectId={id}
+        onClose={() => setSelectedMiniBoQ(null)}
+        onSuccess={load}
       />
     </div>
   );

@@ -34,6 +34,8 @@ def execute_system_tool(
             return {"error": "Unauthorized for Property module."}
         if tool_name == "get_facility_work_orders" and "facility" not in allowed_modules:
             return {"error": "Unauthorized for Facility module."}
+        if tool_name in ("get_construction_projects", "get_milestone_mini_boq", "audit_milestone_claim") and "construction" not in allowed_modules:
+            return {"error": "Unauthorized for Construction module."}
 
     try:
         from django.utils import timezone
@@ -176,6 +178,85 @@ def execute_system_tool(
                 ]
             }
 
+        elif tool_name == "get_construction_projects":
+            from construction.models import Project, MilestoneEntry
+            if request:
+                projects = scope_model_queryset(Project, request, organization)
+            else:
+                projects = Project.objects.filter(organization=organization)
+
+            project_list = []
+            for proj in projects[:15]:
+                milestones = MilestoneEntry.objects.filter(project=proj)
+                total_ms = milestones.count()
+                verified_ms = milestones.filter(status__iexact='verified').count()
+                project_list.append({
+                    "id": str(proj.id),
+                    "name": proj.name,
+                    "code": getattr(proj, 'code', ''),
+                    "status": proj.status,
+                    "budget": float(proj.budget or 0),
+                    "progress": float(proj.progress or 0),
+                    "contractor": getattr(proj, 'contractor_name', ''),
+                    "total_milestones": total_ms,
+                    "verified_milestones": verified_ms,
+                })
+            return {
+                "active_projects_count": projects.count(),
+                "projects": project_list,
+            }
+
+        elif tool_name == "get_milestone_mini_boq":
+            from construction.models import MilestoneEntry, MilestoneBoQItem, Certificate
+            from construction.valuation import calculate_milestone_valuation
+            milestone_id = tool_args.get("milestone_id")
+            if not milestone_id:
+                return {"error": "milestone_id parameter is required."}
+
+            milestone = MilestoneEntry.objects.filter(milestone_id=milestone_id).first()
+            if not milestone:
+                return {"error": f"Milestone '{milestone_id}' not found."}
+
+            allocated = MilestoneBoQItem.objects.filter(milestone_id=milestone_id).select_related('boq_item')
+            items_data = [
+                {
+                    "item_number": alloc.boq_item.item_number,
+                    "description": alloc.boq_item.description,
+                    "unit": alloc.boq_item.unit,
+                    "allocated_quantity": float(alloc.allocated_quantity),
+                    "rate": float(alloc.boq_item.rate),
+                    "allocated_value": float(alloc.allocated_quantity * alloc.boq_item.rate),
+                }
+                for alloc in allocated
+            ]
+            val = calculate_milestone_valuation(milestone, project=milestone.project, auto_create_certificate=False)
+            cert = Certificate.objects.filter(milestone_entry_id=str(milestone.id)).first()
+            return {
+                "milestone_id": milestone_id,
+                "milestone_name": milestone.name,
+                "project_name": milestone.project.name if milestone.project else "",
+                "status": milestone.status,
+                "progress_percentage": float(milestone.percent_complete or 0),
+                "items_count": len(items_data),
+                "mini_boq_items": items_data,
+                "valuation": val,
+                "certificate_status": cert.status if cert else "none",
+            }
+
+        elif tool_name == "audit_milestone_claim":
+            from construction.models import MilestoneEntry
+            from construction.valuation import audit_milestone_claim
+            milestone_id = tool_args.get("milestone_id")
+            if not milestone_id:
+                return {"error": "milestone_id parameter is required."}
+
+            milestone = MilestoneEntry.objects.filter(milestone_id=milestone_id).first()
+            if not milestone:
+                return {"error": f"Milestone '{milestone_id}' not found."}
+
+            return audit_milestone_claim(milestone, project=milestone.project)
+
+
     except Exception as exc:
         logger.warning("Tool execution error (%s): %s", tool_name, exc)
         return {"error": str(exc)}
@@ -292,7 +373,44 @@ class QMAgentOrchestrator:
                     "description": "Fetch open, critical, and scheduled maintenance work orders and service requests.",
                     "parameters": {"type": "object", "properties": {}},
                 }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_construction_projects",
+                    "description": "Fetch active construction projects, stage, budget, progress, contractor, and milestone counts.",
+                    "parameters": {"type": "object", "properties": {}},
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_milestone_mini_boq",
+                    "description": "Fetch the itemized mini-BoQ line items, allocated quantities, and automated valuation breakdown (gross, retention, advance recovery, net payable) for a milestone.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "milestone_id": {"type": "string", "description": "Milestone identifier e.g. MS-001"}
+                        },
+                        "required": ["milestone_id"]
+                    }
+                }
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "audit_milestone_claim",
+                    "description": "Perform an AI audit on a milestone payment claim: assesses photo evidence, geofence compliance, BoQ coverage, and progress justification with confidence score.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "milestone_id": {"type": "string", "description": "Milestone identifier e.g. MS-001"}
+                        },
+                        "required": ["milestone_id"]
+                    }
+                }
             }
+
         ]
 
     def chat(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:

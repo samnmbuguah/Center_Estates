@@ -875,6 +875,30 @@ class BoQItem(models.Model):
         return f"{self.section}/{self.item_number}: {self.description[:40]}"
 
 
+class MilestoneBoQItem(models.Model):
+    """Binds a BoQ line item to a specific milestone, turning the milestone into an
+    itemized 'mini-BoQ' for progress valuation and automated certificate disbursement."""
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="milestone_boq_items", db_index=True)
+    organization = models.ForeignKey("organizations.Organization", on_delete=models.CASCADE, related_name="+", null=True, blank=True)
+    milestone_id = models.CharField(max_length=255, db_index=True, help_text="Milestone identifier linking to MilestoneEntry")
+    boq_item = models.ForeignKey(BoQItem, on_delete=models.CASCADE, related_name="milestone_allocations")
+    allocated_quantity = models.DecimalField(max_digits=14, decimal_places=4, help_text="Quantity allocated to this milestone")
+    notes = models.CharField(max_length=200, blank=True, default="")
+    created_at = models.BigIntegerField(default=0)
+    updated_at = models.BigIntegerField(default=0)
+
+    class Meta:
+        ordering = ["boq_item__section", "boq_item__item_number"]
+        unique_together = [("milestone_id", "boq_item")]
+        indexes = [
+            models.Index(fields=["project", "milestone_id"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.milestone_id} -> {self.boq_item.description[:30]} ({self.allocated_quantity} {self.boq_item.unit})"
+
+
 # ── Construction Cost Management ───────────────────────────────────────────────
 
 class ProjectMembership(models.Model):
