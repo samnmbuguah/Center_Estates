@@ -200,7 +200,8 @@ class MilestoneViewSet(MobileCaptureMixin, ImmutableSubmittedMixin, MilestoneBas
     def mini_boq(self, request, pk=None):
         """Fetch or update the Mini-BoQ line items allocated to this milestone."""
         entry = self.get_object()
-        project = Project.objects.filter(id=entry.project_id, organization=self.request_organization).first()
+        org = get_active_organization(request)
+        project = Project.objects.filter(id=entry.project_id, organization=org).first() if org else Project.objects.filter(id=entry.project_id).first()
         if not project:
             return Response({"detail": "Project not found."}, status=404)
 
@@ -252,7 +253,8 @@ class MilestoneViewSet(MobileCaptureMixin, ImmutableSubmittedMixin, MilestoneBas
         """Smart keyword & WBS semantic matching to allocate project BoQ items into milestones."""
         project_id = request.data.get("project_id")
         target_milestone_id = request.data.get("milestone_id")
-        project = Project.objects.filter(id=project_id, organization=self.request_organization).first()
+        org = get_active_organization(request)
+        project = Project.objects.filter(id=project_id, organization=org).first() if org else Project.objects.filter(id=project_id).first()
         if not project:
             return Response({"detail": "Project not found."}, status=404)
 
@@ -265,7 +267,9 @@ class MilestoneViewSet(MobileCaptureMixin, ImmutableSubmittedMixin, MilestoneBas
             "preliminaries": ["preliminaries", "insurance", "mobilization", "signboard", "site office", "security", "water test"],
         }
 
-        milestones_qs = MilestoneEntry.objects.filter(project_id=project.id, organization=self.request_organization)
+        milestones_qs = MilestoneEntry.objects.filter(project_id=project.id)
+        if org:
+            milestones_qs = milestones_qs.filter(organization=org)
         if target_milestone_id:
             milestones_qs = milestones_qs.filter(milestone_id=target_milestone_id)
 
@@ -320,7 +324,8 @@ class MilestoneViewSet(MobileCaptureMixin, ImmutableSubmittedMixin, MilestoneBas
     def ai_audit(self, request, pk=None):
         """Runs an automated AI audit of the milestone's physical progress, photos, and mini-BoQ items."""
         entry = self.get_object()
-        project = Project.objects.filter(id=entry.project_id, organization=self.request_organization).first()
+        org = get_active_organization(request)
+        project = Project.objects.filter(id=entry.project_id, organization=org).first() if org else Project.objects.filter(id=entry.project_id).first()
         if not project:
             return Response({"detail": "Project not found."}, status=404)
 

@@ -15,11 +15,12 @@ from subscriptions.models import Subscription
 
 from .models import (
     AdvancePayment, AdvanceRecovery, BoQItem, Certificate, ChatMessage, ContingencyDrawdown, Disbursement,
-    DocumentVersion, DrawdownRequest, EvidenceFile, MaterialDelivery,
+    DocumentVersion, DrawdownRequest, EvidenceFile, MaterialDelivery, MilestoneBoQItem,
     MilestoneEntry, MilestoneVerification, Notification, Project, ProjectApproval, ProjectDocument,
     ProjectMembership, ProvisionalSum, PurchaseOrder, RequirementWaiver, Requisition, Risk, StockMovement, StoreItem,
     StoreSupplier, SubmissionRecord, Ticket, TicketComment, Variation, MaterialRequisition,
 )
+from .valuation import calculate_milestone_valuation
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"], DEBUG=True, SECURE_SSL_REDIRECT=False)
@@ -591,3 +592,84 @@ class ConstructionApiTests(TestCase):
         event = AdvanceRecovery.objects.get(advance_payment=advance)
         self.assertEqual(event.amount_recovered, Decimal("750000"))
         self.assertEqual(self.client.delete(f"/api/v1/construction/advance-recoveries/{event.id}/", **self.headers).status_code, 405)
+
+    def test_milestone_mini_boq_valuation_and_certificate_generation(self):
+        boq_item = BoQItem.objects.create(
+            project=self.project,
+            organization=self.organization,
+            section="Substructure",
+            item_number="1.1",
+            description="Mass concrete blinding in foundation trenches",
+            unit="m3",
+            quantity=Decimal("100.00"),
+            rate=Decimal("5000.00"),
+            amount=Decimal("500000.00"),
+        )
+        MilestoneBoQItem.objects.create(
+            project=self.project,
+            organization=self.organization,
+            milestone_id=self.milestone.milestone_id,
+            boq_item=boq_item,
+            allocated_quantity=Decimal("50.00"),
+            created_at=int(time() * 1000),
+            updated_at=int(time() * 1000),
+        )
+
+        # self.milestone has percent_complete = 80
+        # Valuation:
+        # Allocated value = 50 * 5,000 = 250,000
+        # Gross certified = 250,000 * 0.80 = 200,000
+        # Retention (5%) = 10,000
+        # Advance Recovery (10%) = 20,000
+        # Net certified payable = 200,000 - 10,000 - 20,000 = 170,000
+        url = f"/api/v1/construction/milestones/{self.milestone.id}/mini-boq/"
+        response = self.client.get(url, **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data
+        self.assertEqual(len(data["items"]), 1)
+        val = data["valuation"]
+        self.assertEqual(Decimal(str(val["current_gross"])), Decimal("200000.00"))
+        self.assertEqual(Decimal(str(val["retention_amount"])), Decimal("10000.00"))
+        self.assertEqual(Decimal(str(val["advance_recovery"])), Decimal("20000.00"))
+        self.assertEqual(Decimal(str(val["net_payable"])), Decimal("170000.00"))
+
+        # Verify automated certificate creation via valuation engine
+        calc = calculate_milestone_valuation(self.milestone, auto_create_certificate=True, verifier=self.user)
+        self.assertIn("certificate_id", calc)
+        self.assertIn("disbursement_id", calc)
+        cert = Certificate.objects.get(id=calc["certificate_id"])
+        self.assertEqual(cert.net_payable, Decimal("170000.00"))
+
+    def test_auto_map_boq_allocations(self):
+        MilestoneEntry.objects.create(
+            id="ms-foundation",
+            organization=self.organization,
+            project_id=self.project.id,
+            milestone_id="Foundation and Substructure",
+            percent_complete=50,
+            created_at=1,
+            updated_at=1,
+        )
+        BoQItem.objects.create(
+            project=self.project,
+            organization=self.organization,
+            section="substructure",
+            item_number="1.2",
+            description="Reinforced concrete slab foundation",
+            unit="m2",
+            quantity=Decimal("200.00"),
+            rate=Decimal("3500.00"),
+            amount=Decimal("700000.00"),
+        )
+        url = "/api/v1/construction/milestones/auto-map-boq/"
+        response = self.client.post(url, {"project_id": self.project.id}, format="json", **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(response.data["mapped_allocations"] >= 1)
+
+    def test_milestone_ai_audit_endpoint(self):
+        url = f"/api/v1/construction/milestones/{self.milestone.id}/ai-audit/"
+        response = self.client.post(url, {}, format="json", **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertIn("confidence_score", response.data)
+        self.assertIn("audit_status", response.data)
+        self.assertIn("recommendation", response.data)

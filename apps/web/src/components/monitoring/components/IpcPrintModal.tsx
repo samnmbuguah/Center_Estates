@@ -104,7 +104,7 @@ export function IpcPrintModal({
               <Printer size={14} />
               <span>Print / Save as PDF</span>
             </button>
-            <button className="btn ghost sm" onClick={onClose} style={{ padding: 6 }}>
+            <button className="btn ghost sm" onClick={onClose} aria-label="Close modal" style={{ padding: 6 }}>
               <X size={16} />
             </button>
           </div>
