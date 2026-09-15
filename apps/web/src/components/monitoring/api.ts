@@ -27,6 +27,7 @@ import type {
   IssueItem,
   Me, TenantInfo,
   Milestone, MilestoneVerification,
+  MilestoneVerificationRecord,
   Notification,
   OnboardingChecklistItem, OnboardingStatus, OnboardingStep3Data,
   Plan,
@@ -78,6 +79,7 @@ export type {
   IssueItem,
   Me, TenantInfo,
   Milestone, MilestoneVerification,
+  MilestoneVerificationRecord,
   Notification,
   OnboardingChecklistItem, OnboardingStatus, OnboardingStep3Data,
   Plan,
@@ -409,6 +411,7 @@ export const deleteApproval = (id: string, aId: number) => del(`/projects/${id}/
 export const fetchIssues = (projectId?: string) =>
   get<IssueRow[]>(projectId ? `/issues?project_id=${encodeURIComponent(projectId)}` : "/issues");
 export const fetchPendingVerifications = () => get<MilestoneVerification[]>("/milestones/pending-verification");
+export const fetchMilestoneVerifications = () => get<MilestoneVerificationRecord[]>("/milestone-verifications");
 export const verifyMilestone = (id: string, decision: string, note = "") =>
   post<{ ok: boolean }>(`/milestones/${id}/verify`, { decision, note });
 export const verifySubmission = (id: string) => get<VerifyResponse>(`/audit/verify/${id}`);

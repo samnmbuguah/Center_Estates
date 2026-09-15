@@ -301,6 +301,16 @@ export interface MilestoneVerification {
   observation_bodies: string[];
 }
 
+export interface MilestoneVerificationRecord {
+  id: number;
+  milestone_entry: string;
+  milestone_name?: string;
+  decision: "verified" | "rejected" | "request_clarification";
+  note: string;
+  verifier_name?: string;
+  verified_at?: number;
+}
+
 // ─── Finance ─────────────────────────────────────────────────────────────────
 
 export interface Requisition {

@@ -34,6 +34,7 @@ const Tickets = lazy(() => import("@/components/monitoring/pages/Tickets").then(
 const Subcontractors = lazy(() => import("@/components/monitoring/pages/Subcontractors").then(m => ({ default: m.Subcontractors })));
 const Stakeholders = lazy(() => import("@/components/monitoring/pages/Stakeholders").then(m => ({ default: m.Stakeholders })));
 const Milestones = lazy(() => import("@/components/monitoring/pages/Milestones").then(m => ({ default: m.Milestones })));
+const MilestoneVerifications = lazy(() => import("@/components/monitoring/pages/MilestoneVerifications").then(m => ({ default: m.MilestoneVerifications })));
 const Approvals = lazy(() => import("@/components/monitoring/pages/Approvals").then(m => ({ default: m.Approvals })));
 const CashFlow = lazy(() => import("@/components/monitoring/pages/CashFlow").then(m => ({ default: m.CashFlow })));
 const BoqCostStates = lazy(() => import("@/components/monitoring/pages/BoqCostStates").then(m => ({ default: m.BoqCostStates })));
@@ -1060,7 +1061,7 @@ function WorkspaceContent() {
         {tab === "quality-tests" && <QualityTests />}
         {tab === "rfis" && <RfiList />}
         {tab === "work-plan" && <Timeline />}
-        {tab === "milestone-verifications" && <Milestones />}
+        {tab === "milestone-verifications" && <MilestoneVerifications />}
         {tab === "requirement-waivers" && <PreConstruction />}
         {tab === "approvals" && <Approvals />}
         {tab === "boq" && <BoqCostStates />}
