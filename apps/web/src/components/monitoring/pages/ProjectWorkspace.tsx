@@ -19,6 +19,7 @@ import { useWorkspace } from "../context/WorkspaceContext";
 import { money, formatDate, stageLabel, pct } from "../lib/format";
 import { SimpleBarChart } from "../lib/charts";
 import { PageEmpty, PageError, PageLoading, StatusPill } from "../components/PageState";
+import { InteractiveSCurve } from "../components";
 
 type MilestoneRow = {
   id: string;
@@ -130,10 +131,11 @@ export function ProjectWorkspace() {
 
   const scurveChart = useMemo(() => {
     const series = scurve?.series ?? [];
-    return series.map((pt) => ({
-      label: pt?.week || "",
-      planned: Number(pt?.planned_percent ?? 0),
-      actual: Number(pt?.actual_percent ?? 0),
+    return series.map((pt: any) => ({
+      date: pt?.week || pt?.date || "Wk",
+      label: pt?.week || pt?.date || "Wk",
+      planned: Number(pt?.planned_percent ?? pt?.planned ?? 0),
+      actual: Number(pt?.actual_percent ?? pt?.actual ?? 0),
     }));
   }, [scurve]);
 
@@ -310,16 +312,7 @@ export function ProjectWorkspace() {
                 No S-curve series available for this project yet.
               </div>
             ) : (
-              <div style={{ height: 240 }}>
-                <SimpleBarChart
-                  data={scurveChart}
-                  bars={[
-                    { key: "planned", color: "var(--steel, var(--color-slate-400))" },
-                    { key: "actual", color: "var(--color-brand-blue)" },
-                  ]}
-                  height={240}
-                />
-              </div>
+              <InteractiveSCurve data={scurveChart} totalBudgetKes={budget || 10000000} />
             )}
           </div>
 

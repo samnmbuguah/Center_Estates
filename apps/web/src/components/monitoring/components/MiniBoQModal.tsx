@@ -5,13 +5,17 @@ import {
   CheckCircle2,
   Coins,
   FileCheck,
+  Layers,
   Percent,
+  Printer,
   RefreshCw,
   ShieldAlert,
   Sparkles,
   Wrench,
   X,
 } from "lucide-react";
+import { IpcPrintModal } from "./IpcPrintModal";
+import { BoQAllocationDrawer } from "./BoQAllocationDrawer";
 import {
   fetchMilestoneMiniBoQ,
   autoMapBoQToMilestones,
@@ -41,6 +45,8 @@ export function MiniBoQModal({
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [showAllocationDrawer, setShowAllocationDrawer] = useState(false);
   const [data, setData] = useState<{
     milestone_id: string;
     percent_complete: number;
@@ -430,6 +436,15 @@ export function MiniBoQModal({
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 className="btn ghost sm"
+                onClick={() => setShowAllocationDrawer(true)}
+                title="Manage which BoQ line items and quantities belong to this milestone"
+              >
+                <Layers size={14} />
+                <span>Manage Allocations</span>
+              </button>
+
+              <button
+                className="btn ghost sm"
                 onClick={handleAutoMap}
                 disabled={actionLoading || loading}
                 title="Automatically match project BoQ items by keyword and section"
@@ -556,11 +571,37 @@ export function MiniBoQModal({
           <div style={{ fontSize: 12, color: "var(--muted)" }}>
             Calculations strictly adhere to FIDIC/JBCC contractual norms with 5% defects retention and 10% advance recovery.
           </div>
-          <button className="btn ghost" onClick={onClose}>
-            Close
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="btn primary sm"
+              onClick={() => setShowPrintModal(true)}
+              title="Generate printable FIDIC Interim Payment Certificate"
+            >
+              <Printer size={14} />
+              <span>Print IPC Certificate</span>
+            </button>
+            <button className="btn ghost" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
       </div>
+
+      <IpcPrintModal
+        open={showPrintModal}
+        milestone={milestone}
+        data={data}
+        onClose={() => setShowPrintModal(false)}
+      />
+
+      <BoQAllocationDrawer
+        open={showAllocationDrawer}
+        milestone={milestone}
+        projectId={projectId}
+        onClose={() => setShowAllocationDrawer(false)}
+        onSuccess={() => { loadData(); if (onSuccess) onSuccess(); }}
+      />
     </div>
   );
 }
+
