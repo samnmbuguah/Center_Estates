@@ -31,7 +31,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='milestoneboqitem',
-            index=models.Index(fields=['project', 'milestone_id'], name='constructio_project_3ab91c_idx'),
+            index=models.Index(fields=['project', 'milestone_id'], name='constructio_project_dc8059_idx'),
         ),
         migrations.AlterUniqueTogether(
             name='milestoneboqitem',
