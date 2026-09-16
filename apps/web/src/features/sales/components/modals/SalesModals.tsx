@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Button, Checkbox, FormControlLabel, MenuItem, Step, StepLabel, Stepper, TextField } from "@mui/material";
 import { Field, Modal, Panel, StatusPill } from "@/components/module-ui";
 import { Row } from "../../types/sales.types";
 import { fmtMoney } from "../../utils/sales.utils";
@@ -62,98 +63,46 @@ export function RegisterBuyerModal({
 
   return (
     <Modal title="Register Buyer" onClose={onClose} wide>
-      <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 20 }}>
-        {stepLabels.map((label, i) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  background: i + 1 <= step ? "var(--color-orange)" : "var(--color-surface-alt)",
-                  color: i + 1 <= step ? "#fff" : "var(--muted)",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                {i + 1}
-              </span>
-              <span style={{ fontSize: 12, fontWeight: i + 1 === step ? 700 : 400, color: i + 1 === step ? "var(--text)" : "var(--muted)" }}>{label}</span>
-            </div>
-            {i < stepLabels.length - 1 && (
-              <div style={{ flex: 1, height: 2, background: i + 1 < step ? "var(--color-orange)" : "var(--color-surface-alt)", margin: "0 12px", borderRadius: 1 }} />
-            )}
-          </div>
-        ))}
-      </div>
+      <Stepper activeStep={step - 1} alternativeLabel sx={{ mb: 3 }}>
+        {stepLabels.map((label) => <Step key={label}><StepLabel>{label}</StepLabel></Step>)}
+      </Stepper>
 
       <FormError error={error} />
 
       {step === 1 && (
         <div>
           <div className="grid-2">
-            <Field label="Buyer Reference" required>
-              <input value={formData.reference} onChange={(e) => updateField("reference", e.target.value)} required placeholder="BUY-2026-0001" />
-            </Field>
-            <Field label="Full Legal Name" required>
-              <input value={formData.full_name} onChange={(e) => updateField("full_name", e.target.value)} required placeholder="e.g. Apex Holdings Ltd" />
-            </Field>
+            <TextField fullWidth size="small" label="Buyer reference" value={formData.reference} onChange={(e) => updateField("reference", e.target.value)} required placeholder="BUY-2026-0001" />
+            <TextField fullWidth size="small" label="Full legal name" value={formData.full_name} onChange={(e) => updateField("full_name", e.target.value)} required placeholder="e.g. Apex Holdings Ltd" />
           </div>
           <div className="grid-2">
-            <Field label="Email Address">
-              <input type="email" value={formData.email} onChange={(e) => updateField("email", e.target.value)} placeholder="buyer@domain.co.ke" />
-            </Field>
-            <Field label="Phone Number">
-              <input value={formData.phone} onChange={(e) => updateField("phone", e.target.value)} placeholder="+254 700 000 000" />
-            </Field>
+            <TextField fullWidth size="small" label="Email address" type="email" value={formData.email} onChange={(e) => updateField("email", e.target.value)} placeholder="buyer@domain.co.ke" />
+            <TextField fullWidth size="small" label="Phone number" value={formData.phone} onChange={(e) => updateField("phone", e.target.value)} placeholder="+254 700 000 000" />
           </div>
           <div className="grid-2">
-            <Field label="National / Company ID" required>
-              <input value={formData.id_number} onChange={(e) => updateField("id_number", e.target.value)} required placeholder="12345678" />
-            </Field>
-            <Field label="KRA PIN">
-              <input value={formData.tax_number} onChange={(e) => updateField("tax_number", e.target.value)} placeholder="A000000000X" />
-            </Field>
+            <TextField fullWidth size="small" label="National / company ID" value={formData.id_number} onChange={(e) => updateField("id_number", e.target.value)} required placeholder="12345678" />
+            <TextField fullWidth size="small" label="KRA PIN" value={formData.tax_number} onChange={(e) => updateField("tax_number", e.target.value)} placeholder="A000000000X" />
           </div>
           <div className="grid-2">
-            <Field label="Financing Type">
-              <select value={formData.financing_type} onChange={(e) => updateField("financing_type", e.target.value)}>
-                <option value="self">Self-Financed</option>
-                <option value="bank">Bank-Financed</option>
-              </select>
-            </Field>
-            <Field label="Financier (if bank-financed)">
-              <input value={formData.financier} onChange={(e) => updateField("financier", e.target.value)} placeholder="e.g. KCB Bank" />
-            </Field>
+            <TextField select fullWidth size="small" label="Financing type" value={formData.financing_type} onChange={(e) => updateField("financing_type", e.target.value)}>
+              <MenuItem value="self">Self-financed</MenuItem>
+              <MenuItem value="bank">Bank-financed</MenuItem>
+            </TextField>
+            <TextField fullWidth size="small" label="Financier" value={formData.financier} onChange={(e) => updateField("financier", e.target.value)} placeholder="e.g. KCB Bank" disabled={formData.financing_type !== "bank"} helperText={formData.financing_type === "bank" ? "Required for bank-financed purchases" : "Select bank-financed to provide a financier"} />
           </div>
-          <Field label="Address">
-            <textarea rows={2} value={formData.address} onChange={(e) => updateField("address", e.target.value)} placeholder="Postal / physical address" />
-          </Field>
+          <TextField fullWidth size="small" label="Address" multiline minRows={2} value={formData.address} onChange={(e) => updateField("address", e.target.value)} placeholder="Postal / physical address" />
         </div>
       )}
 
       {step === 2 && (
         <div>
           <div className="grid-2">
-            <Field label="Project">
-              <input value={formData.sale_project} onChange={(e) => updateField("sale_project", e.target.value)} placeholder="Project name or ID" />
-            </Field>
-            <Field label="Unit">
-              <input value={formData.sale_unit} onChange={(e) => updateField("sale_unit", e.target.value)} placeholder="Unit code" />
-            </Field>
+            <TextField fullWidth size="small" label="Project" value={formData.sale_project} onChange={(e) => updateField("sale_project", e.target.value)} placeholder="Project name or ID" />
+            <TextField fullWidth size="small" label="Unit" value={formData.sale_unit} onChange={(e) => updateField("sale_unit", e.target.value)} placeholder="Unit code" />
           </div>
           <div className="grid-2">
-            <Field label="Agreed Price (KES)">
-              <input type="number" min="1" value={formData.agreed_price} onChange={(e) => updateField("agreed_price", e.target.value)} placeholder="12500000" />
-            </Field>
-            <Field label="Deposit Amount (KES)">
-              <input type="number" min="0" value={formData.reservation_fee} onChange={(e) => updateField("reservation_fee", e.target.value)} placeholder="0" />
-            </Field>
+            <TextField fullWidth size="small" label="Agreed price (KES)" type="number" value={formData.agreed_price} onChange={(e) => updateField("agreed_price", e.target.value)} placeholder="12500000" slotProps={{ htmlInput: { min: 1 } }} />
+            <TextField fullWidth size="small" label="Deposit amount (KES)" type="number" value={formData.reservation_fee} onChange={(e) => updateField("reservation_fee", e.target.value)} placeholder="0" slotProps={{ htmlInput: { min: 0 } }} />
           </div>
         </div>
       )}
@@ -181,15 +130,14 @@ export function RegisterBuyerModal({
                 { key: "id_copy", label: "Buyer ID Copy" },
                 { key: "kra_pin", label: "KRA PIN Certificate" },
               ] as const).map((d) => (
-                <label key={d.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
+                <FormControlLabel
+                  key={d.key}
+                  control={<Checkbox
                     checked={docsCheck[d.key]}
                     onChange={(e) => setDocsCheck((prev) => ({ ...prev, [d.key]: e.target.checked }))}
-                    style={{ width: 16, height: 16 }}
-                  />
-                  <span style={{ fontSize: 13 }}>{d.label}</span>
-                </label>
+                  />}
+                  label={d.label}
+                />
               ))}
             </div>
           </Panel>
@@ -199,14 +147,14 @@ export function RegisterBuyerModal({
       <div className="modal-actions" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", gap: 8, width: "100%", justifyContent: "space-between" }}>
           <div>
-            {step > 1 && <button type="button" className="btn ghost" onClick={prevStep}>← Previous</button>}
+            {step > 1 && <Button type="button" variant="outlined" onClick={prevStep}>← Previous</Button>}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
+            <Button type="button" variant="outlined" onClick={onClose}>Cancel</Button>
             {step < 3 ? (
-              <button type="button" className="btn primary" onClick={nextStep}>Next →</button>
+              <Button type="button" variant="contained" onClick={nextStep} disabled={step === 1 && (!formData.reference.trim() || !formData.full_name.trim() || !formData.id_number.trim())}>Next →</Button>
             ) : (
-              <button type="button" className="btn primary" onClick={handleSubmit}>Register Buyer</button>
+              <Button type="button" variant="contained" onClick={handleSubmit}>Register Buyer</Button>
             )}
           </div>
         </div>

@@ -19,7 +19,7 @@ import { kM, kN, fmtDate } from "../../utils/property.utils";
 import { TenantApplicationCard } from "@/components/tenant-application-card";
 import { BulkTenantUploader } from "@/components/bulk-tenant-uploader";
 import { useState, useMemo } from "react";
-import { Autocomplete, TextField } from "@mui/material";
+import { Autocomplete, Button, MenuItem, TextField } from "@mui/material";
 
 
 function EditTenantForm({ tenant, onSave, onCancel }: { tenant: TenantRow; onSave: (data: Record<string, unknown>) => void; onCancel: () => void }) {
@@ -32,30 +32,30 @@ function EditTenantForm({ tenant, onSave, onCancel }: { tenant: TenantRow; onSav
     registration_number: String(tenant.registration_number ?? ""),
     billing_address: String(tenant.billing_address ?? ""),
   });
-  const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(f => ({ ...f, [key]: e.target.value }));
+  const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm(f => ({ ...f, [key]: e.target.value }));
   return (
     <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div className="grid-2">
-        <Field label="Tenant Name" required><input value={form.name} onChange={set("name")} required data-testid="edit-tenant-name" /></Field>
+        <TextField fullWidth size="small" label="Tenant name" value={form.name} onChange={set("name")} required slotProps={{ htmlInput: { "data-testid": "edit-tenant-name" } }} />
         <Field label="Tenant Type">
-          <select value={form.tenant_type} onChange={set("tenant_type")}>
-            <option value="company">Company</option>
-            <option value="individual">Individual</option>
-          </select>
+          <TextField select fullWidth size="small" value={form.tenant_type} onChange={set("tenant_type")}>
+            <MenuItem value="company">Company</MenuItem>
+            <MenuItem value="individual">Individual</MenuItem>
+          </TextField>
         </Field>
       </div>
       <div className="grid-2">
-        <Field label="Email"><input type="email" value={form.email} onChange={set("email")} data-testid="edit-tenant-email" /></Field>
-        <Field label="Phone"><input value={form.phone} onChange={set("phone")} data-testid="edit-tenant-phone" /></Field>
+        <TextField fullWidth size="small" label="Email" type="email" value={form.email} onChange={set("email")} slotProps={{ htmlInput: { "data-testid": "edit-tenant-email" } }} />
+        <TextField fullWidth size="small" label="Phone" value={form.phone} onChange={set("phone")} slotProps={{ htmlInput: { "data-testid": "edit-tenant-phone" } }} />
       </div>
       <div className="grid-2">
-        <Field label="KRA PIN / Tax ID"><input value={form.tax_id} onChange={set("tax_id")} placeholder="e.g. P051234567X" /></Field>
-        <Field label="Registration No."><input value={form.registration_number} onChange={set("registration_number")} /></Field>
+        <TextField fullWidth size="small" label="KRA PIN / Tax ID" value={form.tax_id} onChange={set("tax_id")} placeholder="e.g. P051234567X" />
+        <TextField fullWidth size="small" label="Registration number" value={form.registration_number} onChange={set("registration_number")} />
       </div>
-      <Field label="Billing Address"><textarea rows={2} value={form.billing_address} onChange={set("billing_address")} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)" }} /></Field>
+      <TextField fullWidth size="small" label="Billing address" multiline minRows={2} value={form.billing_address} onChange={set("billing_address")} />
       <div className="row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
-        <button type="button" className="btn ghost" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn primary" data-testid="edit-tenant-save">Save Changes</button>
+        <Button type="button" variant="outlined" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" variant="contained" data-testid="edit-tenant-save">Save Changes</Button>
       </div>
     </form>
   );
@@ -70,12 +70,10 @@ function VoidCreditNoteForm({ creditNote, onConfirm, onCancel }: { creditNote: C
         <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Tenant: {creditNote.tenant_name ?? "—"} · Amount: {creditNote.amount}</div>
         <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Invoice: {creditNote.invoice_number ?? "—"}</div>
       </div>
-      <Field label="Reason for voiding (required)">
-        <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} required placeholder="Explain why this credit note is being voided…" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid var(--border)", fontFamily: "inherit" }} data-testid="void-cn-reason" />
-      </Field>
+      <TextField fullWidth size="small" label="Reason for voiding" multiline minRows={3} value={reason} onChange={(e) => setReason(e.target.value)} required placeholder="Explain why this credit note is being voided…" slotProps={{ htmlInput: { "data-testid": "void-cn-reason" } }} />
       <div className="row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
-        <button type="button" className="btn ghost" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="btn primary" disabled={!reason.trim()} style={{ background: "var(--danger)" }} data-testid="void-cn-confirm">Void Credit Note</button>
+        <Button type="button" variant="outlined" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" variant="contained" color="error" disabled={!reason.trim()} data-testid="void-cn-confirm">Void Credit Note</Button>
       </div>
     </form>
   );

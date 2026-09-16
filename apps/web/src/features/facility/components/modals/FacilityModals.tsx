@@ -1,5 +1,6 @@
 "use client";
 
+import { Alert, Button, Checkbox, FormControlLabel, TextField } from "@mui/material";
 import { Field, Modal } from "@/components/module-ui";
 import { ActionModal, Row } from "../../types/facility.types";
 import { AssetOnboardingModal, ProviderOnboardingModal } from "./FacilityOnboardingModals";
@@ -45,65 +46,37 @@ export function FacilityModals({
       )}
       {/* Create work order modal */}
       {showCreate && (
-        <div className="modal-backdrop" onMouseDown={() => setShowCreate(false)}>
-          <div className="form-modal" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
-            <div className="modal-title">
-              <div>
-                <p className="eyebrow">Corrective maintenance</p>
-                <h2>New Work Order</h2>
+        <Modal title="New Work Order" onClose={() => setShowCreate(false)} wide>
+            <form onSubmit={createWorkOrder} style={{ display: "grid", gap: 16 }}>
+              <Alert severity="info" variant="outlined">Corrective maintenance request. The work-order number is generated automatically when saved.</Alert>
+              <div className="grid-2">
+                <TextField fullWidth size="small" label="Work order number" value="Generated automatically on save" disabled slotProps={{ htmlInput: { "aria-label": "Work order number", "data-testid": "wo-number-input" } }} />
+                <TextField select fullWidth size="small" name="priority" label="Priority" defaultValue="medium" slotProps={{ select: { native: true }, htmlInput: { "data-testid": "wo-priority-select" } }}>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </TextField>
               </div>
-              <button onClick={() => setShowCreate(false)}>×</button>
-            </div>
-            <form onSubmit={createWorkOrder}>
-              <div className="form-row">
-                <label>
-                  Work order number
-                  <input value="Generated automatically on save" disabled aria-label="Work order number" data-testid="wo-number-input" />
-                </label>
-                <label>
-                  Priority
-                  <select name="priority" defaultValue="medium" data-testid="wo-priority-select">
-                    <option value="low">low</option>
-                    <option value="medium">medium</option>
-                    <option value="high">high</option>
-                    <option value="critical">critical</option>
-                  </select>
-                </label>
+              <TextField fullWidth size="small" name="title" label="Issue title" required placeholder="Describe the maintenance issue" slotProps={{ htmlInput: { "data-testid": "wo-title-input" } }} />
+              <div className="grid-2">
+                <TextField fullWidth size="small" name="category" label="Category" required placeholder="Mechanical" slotProps={{ htmlInput: { "data-testid": "wo-category-input" } }} />
+                <TextField select fullWidth size="small" name="property" label="Property" required defaultValue="" slotProps={{ select: { native: true }, htmlInput: { "data-testid": "wo-property-select" } }}>
+                  <option value="" disabled>Select property</option>
+                  {properties.map((row) => (
+                    <option key={String(row.id)} value={String(row.id)}>{String(row.name)}</option>
+                  ))}
+                </TextField>
               </div>
-              <label>
-                Issue title
-                <input name="title" required placeholder="Describe the maintenance issue" data-testid="wo-title-input" />
-              </label>
-              <div className="form-row">
-                <label>
-                  Category
-                  <input name="category" required placeholder="Mechanical" data-testid="wo-category-input" />
-                </label>
-                <label>
-                  Property
-                  <select name="property" required defaultValue="" data-testid="wo-property-select">
-                    <option value="" disabled>Select property</option>
-                    {properties.map((row) => (
-                      <option key={String(row.id)} value={String(row.id)}>
-                        {String(row.name)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <label>
-                Description
-                <textarea name="description" rows={4} data-testid="wo-description-input" />
-              </label>
-              {createError && <div className="form-error" role="alert">{createError}</div>}
+              <TextField fullWidth size="small" name="description" label="Description" multiline minRows={4} slotProps={{ htmlInput: { "data-testid": "wo-description-input" } }} />
+              {createError && <Alert severity="error" role="alert">{createError}</Alert>}
               <input type="hidden" name="status" value="open" />
-              <div className="form-actions">
-                <button type="button" onClick={() => setShowCreate(false)}>Cancel</button>
-                <button className="primary-action" data-testid="wo-submit-btn">Create Work Order</button>
+              <div className="form-actions" style={{ gap: 10 }}>
+                <Button type="button" variant="outlined" onClick={() => setShowCreate(false)}>Cancel</Button>
+                <Button type="submit" variant="contained" data-testid="wo-submit-btn">Create Work Order</Button>
               </div>
             </form>
-          </div>
-        </div>
+        </Modal>
       )}
 
       {/* Action modal — inspections and service-request decisions */}
@@ -120,22 +93,19 @@ export function FacilityModals({
             {actionModal.type === "inspection" ? (
               <>
                 <Field label="Inspection score" required>
-                  <input type="number" name="score" min={0} max={100} step={1} required placeholder="0–100" />
+                  <TextField fullWidth size="small" type="number" name="score" required placeholder="0–100" slotProps={{ htmlInput: { min: 0, max: 100, step: 1 } }} />
                 </Field>
                 <Field label="Violations">
-                  <input type="number" name="violations" min={0} step={1} defaultValue={0} />
+                  <TextField fullWidth size="small" type="number" name="violations" defaultValue={0} slotProps={{ htmlInput: { min: 0, step: 1 } }} />
                 </Field>
                 <Field label="Findings">
-                  <textarea name="findings" rows={4} placeholder="Record the inspection findings" />
+                  <TextField fullWidth size="small" name="findings" multiline minRows={4} placeholder="Record the inspection findings" />
                 </Field>
-                <label style={{ alignItems: "center", display: "flex", fontSize: 13, gap: 8 }}>
-                  <input type="checkbox" name="create_work_order" defaultChecked />
-                  Create a corrective work order when the inspection fails
-                </label>
+                <FormControlLabel control={<Checkbox name="create_work_order" defaultChecked />} label="Create a corrective work order when the inspection fails" />
               </>
             ) : actionModal.type === "request-decision" ? (
               <Field label={actionModal.decision === "reject" ? "Rejection reason" : "Approval notes"} required={actionModal.decision === "reject"}>
-                <textarea name="notes" rows={4} required={actionModal.decision === "reject"} placeholder={actionModal.decision === "reject" ? "Explain why this request will not proceed" : "Budget, priority or assignment instructions"} />
+                <TextField fullWidth size="small" name="notes" multiline minRows={4} required={actionModal.decision === "reject"} placeholder={actionModal.decision === "reject" ? "Explain why this request will not proceed" : "Budget, priority or assignment instructions"} />
               </Field>
             ) : (
               <div className="info-banner">
@@ -143,14 +113,14 @@ export function FacilityModals({
               </div>
             )}
             <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
-              <button type="button" className="btn ghost" onClick={() => setActionModal(null)}>Cancel</button>
-              <button type="submit" className={`btn ${actionModal.type === "request-decision" && actionModal.decision === "reject" ? "danger" : "primary"}`}>
+              <Button type="button" variant="outlined" onClick={() => setActionModal(null)}>Cancel</Button>
+              <Button type="submit" variant="contained" color={actionModal.type === "request-decision" && actionModal.decision === "reject" ? "error" : "primary"}>
                 {actionModal.type === "inspection"
                   ? "Complete Inspection"
                   : actionModal.type === "request-decision"
                     ? `${actionModal.decision === "approve" ? "Approve" : "Reject"} Request`
                     : "Mark resolved & notify requester"}
-              </button>
+              </Button>
             </div>
           </form>
         </Modal>
