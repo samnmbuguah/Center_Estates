@@ -216,9 +216,9 @@
     --border-color: #334155;
     --border-subtle: #1e293b;
     
-    --brand-primary: #ef4444;
-    --brand-primary-hover: #dc2626;
-    --brand-primary-light: #7f1d1d;
+    --brand-primary: #60a5fa;
+    --brand-primary-hover: #3b82f6;
+    --brand-primary-light: #172554;
     
     --success: #22c55e;
     --success-bg: #14532d;
@@ -253,9 +253,9 @@
   --text-muted: #0f172a;
   --border-color: #cbd5e1;
   --border-subtle: #e2e8f0;
-  --brand-primary: #c81e1e;
-  --brand-primary-hover: #991b1b;
-  --brand-primary-light: #fee2e2;
+  --brand-primary: #2563eb;
+  --brand-primary-hover: #1d4ed8;
+  --brand-primary-light: #eff6ff;
   --ink: var(--text-primary);
   --muted: var(--text-muted);
   --line: var(--border-color);
@@ -281,9 +281,9 @@
   --border-color: #334155;
   --border-subtle: #1e293b;
   
-  --brand-primary: #ef4444;
-  --brand-primary-hover: #dc2626;
-  --brand-primary-light: #7f1d1d;
+  --brand-primary: #60a5fa;
+  --brand-primary-hover: #3b82f6;
+  --brand-primary-light: #172554;
   
   --success: #22c55e;
   --success-bg: #14532d;
@@ -4243,6 +4243,70 @@ a.profile-dropdown-item { text-decoration: none; }
 @media (max-width: 430px) {
   .tenant-portal-page .kpi-grid { grid-template-columns: 1fr; }
   .tenant-portal-page .kpi-card { min-height: 125px; }
+}
+
+/* Unified action contract for legacy non-MUI screens. New screens should use
+   MUI Button; these classes keep older modules visually and semantically aligned. */
+.btn,
+.btn.btn-primary,
+.btn.primary {
+  align-items: center !important;
+  background: var(--brand-primary, #2563eb) !important;
+  border: 1px solid var(--brand-primary, #2563eb) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+  display: inline-flex !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  gap: 7px !important;
+  justify-content: center !important;
+  min-height: 38px !important;
+  padding: 7px 16px !important;
+  text-decoration: none !important;
+  white-space: nowrap;
+}
+.btn:hover,
+.btn.btn-primary:hover,
+.btn.primary:hover {
+  background: var(--brand-primary-hover, #1d4ed8) !important;
+  border-color: var(--brand-primary-hover, #1d4ed8) !important;
+  filter: none !important;
+  transform: none !important;
+}
+.btn.btn-secondary,
+.btn.secondary,
+.btn.ghost {
+  background: var(--surface-raised, #ffffff) !important;
+  border: 1px solid var(--border-strong, #94a3b8) !important;
+  color: var(--text-primary, #0f172a) !important;
+}
+.btn.btn-secondary:hover,
+.btn.secondary:hover,
+.btn.ghost:hover {
+  background: var(--interactive-hover, #f1f5f9) !important;
+  border-color: var(--brand-primary, #2563eb) !important;
+  color: var(--brand-primary, #2563eb) !important;
+}
+.btn.btn-danger,
+.btn.danger {
+  background: var(--brand-danger, #dc2626) !important;
+  border-color: var(--brand-danger, #dc2626) !important;
+  color: #ffffff !important;
+}
+.btn.btn-danger:hover,
+.btn.danger:hover {
+  background: var(--brand-danger-hover, #b91c1c) !important;
+  border-color: var(--brand-danger-hover, #b91c1c) !important;
+}
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  background: var(--surface-sunken, #e2e8f0) !important;
+  border-color: var(--border-color, #cbd5e1) !important;
+  box-shadow: none !important;
+  color: var(--text-faint, #64748b) !important;
+  cursor: not-allowed !important;
+  opacity: 1 !important;
 }
 [data-theme="dark"] .tenant-sidebar-nav-item.active { background: #1e3a6a; color: #93c5fd; box-shadow: inset 3px 0 #60a5fa; }
 [data-theme="dark"] .tenant-notice-icon { background: #15365d; color: #bfdbfe; }

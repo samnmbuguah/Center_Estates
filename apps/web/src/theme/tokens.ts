@@ -5,7 +5,8 @@
  * Used by both MUI theme and CSS variables.
  * 
  * Color palette:
- * - Brand: Red (#dc2626) — primary CTA, active states
+ * - Brand: Blue (#2563eb) — primary CTA, navigation and active states
+ * - Danger: Red (#dc2626) — destructive and failure actions only
  * - Neutrals: Slate scale (#f8fafc → #020617) — backgrounds, text, borders
  * - Semantic: Green (success), Amber (warning), Red (error), Blue (info)
  */
@@ -88,7 +89,7 @@ export const darkTheme = {
     subtle: '#29445f',
     strong: '#527396',
   },
-  brand: '#ef4444', // Lighter red for dark mode
+  brand: '#60a5fa',
 } as const;
 
 // ─── MUI THEME PALETTE ───
@@ -98,8 +99,8 @@ export function getMuiPalette(mode: 'light' | 'dark') {
     mode,
     primary: {
       main: t.brand,
-      light: mode === 'light' ? '#ef4444' : '#f87171',
-      dark: mode === 'light' ? '#b91c1c' : '#dc2626',
+      light: mode === 'light' ? '#60a5fa' : '#93c5fd',
+      dark: mode === 'light' ? '#1d4ed8' : '#3b82f6',
       contrastText: '#ffffff',
     },
     secondary: {

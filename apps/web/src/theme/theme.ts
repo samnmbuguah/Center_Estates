@@ -26,15 +26,39 @@ export const getTheme = (mode: 'light' | 'dark') => {
     spacing: 8,
     components: {
       MuiButton: {
+        defaultProps: {
+          disableElevation: true,
+        },
         styleOverrides: {
           root: {
             borderRadius: 8,
             textTransform: 'none',
             fontWeight: 700,
+            minHeight: 38,
+            paddingInline: 16,
+            whiteSpace: 'nowrap',
+            boxShadow: 'none',
+            transition: 'background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease',
+            '&:hover': { boxShadow: 'none' },
+            '&:active': { transform: 'translateY(1px)' },
+            '&.Mui-disabled': {
+              borderColor: mode === 'light' ? '#cbd5e1' : '#36516f',
+              backgroundColor: mode === 'light' ? '#e2e8f0' : '#1e293b',
+              color: mode === 'light' ? '#64748b' : '#94a3b8',
+            },
             '&:focus-visible': {
               outline: `3px solid ${mode === 'light' ? '#93c5fd' : '#60a5fa'}`,
               outlineOffset: 2,
             },
+          },
+          sizeSmall: {
+            minHeight: 32,
+            paddingInline: 12,
+            fontSize: '0.75rem',
+          },
+          outlined: {
+            borderWidth: 1,
+            '&:hover': { borderWidth: 1 },
           },
         },
       },

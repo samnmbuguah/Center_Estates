@@ -2,6 +2,9 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
+import { BarChart3, ClipboardCheck, Download, Plus, Printer, QrCode, Upload } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { money } from "@/components/module-ui";
 import { Row } from "../../types/facility.types";
@@ -25,9 +28,9 @@ function PanelHeader({
         {title}
       </h2>
       {action && (
-        <button onClick={action} style={{ background: "none", border: 0, color: "var(--primary)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+        <Button variant="text" size="small" onClick={action}>
           {actionText}
-        </button>
+        </Button>
       )}
     </header>
   );
@@ -164,33 +167,27 @@ export function AssetsView({
               Unified asset hierarchy: Property → Building → Floor → Area → Asset ID
             </small>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "asset-register.csv")}>
-              ↓ Export CSV
-            </button>
-            <button
+          <div className="panel-actions">
+            <Button variant="outlined" size="small" startIcon={<Download size={15} />} onClick={() => exportCsv(displayRows, "asset-register.csv")}>
+              Export CSV
+            </Button>
+            <Button
               onClick={() => setShowBulkModal(true)}
-              className="fc-toolbar-btn"
-              style={{ fontWeight: 700 }}
+              variant="outlined"
+              size="small"
+              startIcon={<Upload size={15} />}
               title="Upload multiple assets at once using a CSV file"
             >
-              ⬆ Upload Assets (CSV)
-            </button>
-            <button
+              Upload Assets (CSV)
+            </Button>
+            <Button
               onClick={onAdd}
-              style={{
-                background: "var(--primary, var(--color-brand-red))",
-                color: "#fff",
-                border: 0,
-                padding: "6px 14px",
-                borderRadius: 6,
-                fontWeight: 800,
-                fontSize: "0.82rem",
-                cursor: "pointer",
-              }}
+              variant="contained"
+              size="small"
+              startIcon={<Plus size={15} />}
             >
-              + Add Asset
-            </button>
+              Add Asset
+            </Button>
           </div>
         </header>
 
@@ -292,48 +289,37 @@ export function AssetsView({
                     </td>
 
                     <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                      <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                        <Link
+                      <div className="table-primary-actions">
+                        <Button
+                          component={Link}
                           href={`/facility/assets/${asset.id}`}
-                          style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "4px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, color: "var(--primary)", textDecoration: "none" }}
+                          variant="outlined"
+                          size="small"
                           title="Open digital asset passport"
                         >
                           Passport
-                        </Link>
-                        <button
+                        </Button>
+                        <Button
                           onClick={() => {
                             setSelectedAsset(asset);
                             setShowAssessmentModal(true);
                           }}
-                          style={{
-                            background: "var(--surface-sunken)",
-                            border: "1px solid var(--border)",
-                            padding: "4px 8px",
-                            borderRadius: 4,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            cursor: "pointer",
-                          }}
+                          variant="outlined"
+                          size="small"
+                          startIcon={<ClipboardCheck size={13} />}
                           title="Log Condition Assessment"
                         >
-                          🔍 Assess
-                        </button>
-                        <button
+                          Assess
+                        </Button>
+                        <Button
                           onClick={() => openLifecycle(asset)}
-                          style={{
-                            background: "var(--color-blue-bg)",
-                            color: "var(--color-info-deep)",
-                            border: "1px solid var(--color-blue-200)",
-                            padding: "4px 8px",
-                            borderRadius: 4,
-                            fontSize: 11,
-                            fontWeight: 800,
-                            cursor: "pointer",
-                          }}
+                          variant="outlined"
+                          size="small"
+                          startIcon={<BarChart3 size={13} />}
                           title="View 5-Year Capital Renewal Plan"
                         >
-                          📈 Lifecycle & CAPEX
-                        </button>
+                          Lifecycle & CAPEX
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -357,9 +343,9 @@ export function AssetsView({
                   {String(selectedAsset.name)} ({String(selectedAsset.code)})
                 </small>
               </div>
-              <button onClick={() => setShowLifecycleModal(false)} style={{ background: "none", border: 0, fontSize: 18, cursor: "pointer", color: "var(--text-secondary)" }}>
+              <IconButton aria-label="Close lifecycle details" size="small" onClick={() => setShowLifecycleModal(false)}>
                 ✕
-              </button>
+              </IconButton>
             </div>
 
             {loading ? (
@@ -502,9 +488,9 @@ export function AssetsView({
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button onClick={() => setShowLifecycleModal(false)} style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "8px 16px", borderRadius: 6, fontWeight: 700, cursor: "pointer" }}>
+                  <Button variant="outlined" onClick={() => setShowLifecycleModal(false)}>
                     Close
-                  </button>
+                  </Button>
                 </div>
               </div>
             ) : null}
@@ -557,12 +543,12 @@ export function AssetsView({
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
-                <button type="button" onClick={() => setShowAssessmentModal(false)} style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "8px 14px", borderRadius: 6, fontWeight: 700, cursor: "pointer" }}>
+                <Button type="button" variant="outlined" onClick={() => setShowAssessmentModal(false)}>
                   Cancel
-                </button>
-                <button type="submit" style={{ background: "var(--primary, var(--color-brand-red))", color: "#fff", border: 0, padding: "8px 16px", borderRadius: 6, fontWeight: 800, cursor: "pointer" }}>
+                </Button>
+                <Button type="submit" variant="contained">
                   Save Assessment
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -592,55 +578,35 @@ export function AssetsView({
             🏷️ <strong>{selectedIds.size}</strong> assets selected
           </span>
           <div style={{ display: "flex", gap: 8 }}>
-            <button
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<QrCode size={14} />}
               onClick={() => setShowQrModal(true)}
-              style={{
-                background: "var(--color-info)",
-                color: "#fff",
-                border: 0,
-                padding: "6px 14px",
-                borderRadius: 6,
-                fontSize: 12,
-                fontWeight: 800,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
+              sx={{ minHeight: 32 }}
             >
-              🖨️ Print Batch QR Labels ({selectedIds.size})
-            </button>
-            <button
+              Print Batch QR Labels ({selectedIds.size})
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Download size={14} />}
               onClick={() => {
                 const sel = displayRows.filter((r) => selectedIds.has(String(r.id)));
                 exportCsv(sel, "selected-assets.csv");
               }}
-              style={{
-                background: "rgba(255,255,255,0.15)",
-                color: "#fff",
-                border: 0,
-                padding: "6px 12px",
-                borderRadius: 6,
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
+              sx={{ minHeight: 32, color: "#fff", borderColor: "rgba(255,255,255,.55)", "&:hover": { borderColor: "#fff", backgroundColor: "rgba(255,255,255,.1)" } }}
             >
-              ↓ Export Selected CSV
-            </button>
-            <button
+              Export Selected CSV
+            </Button>
+            <Button
+              variant="text"
+              size="small"
               onClick={() => setSelectedIds(new Set())}
-              style={{
-                background: "none",
-                color: "var(--text-muted)",
-                border: 0,
-                padding: "6px 8px",
-                fontSize: 12,
-                cursor: "pointer",
-              }}
+              sx={{ minHeight: 32, color: "rgba(255,255,255,.82)", "&:hover": { backgroundColor: "rgba(255,255,255,.1)" } }}
             >
               Clear
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -659,18 +625,21 @@ export function AssetsView({
                 </small>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button
+                <Button
+                  variant="contained"
+                  size="small"
                   onClick={() => window.print()}
-                  style={{ background: "var(--color-info)", color: "#fff", border: 0, padding: "8px 16px", borderRadius: 6, fontWeight: 800, fontSize: 13, cursor: "pointer" }}
+                  startIcon={<Printer size={14} />}
                 >
-                  🖨️ Print Labels Now
-                </button>
-                <button
+                  Print Labels Now
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
                   onClick={() => setShowQrModal(false)}
-                  style={{ background: "var(--color-slate-100)", color: "var(--text-muted)", border: "1px solid var(--color-slate-300)", padding: "8px 14px", borderRadius: 6, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
                 >
                   Close
-                </button>
+                </Button>
               </div>
             </div>
 

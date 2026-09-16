@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Button from "@mui/material/Button";
 import { 
   CheckCircle2, CircleDotDashed, ExternalLink, FlaskConical, 
   RefreshCw, ShieldCheck, Sparkles, Printer, FileText, Search, 
@@ -210,44 +211,40 @@ export default function TestingPage() {
 
         {/* Action Buttons */}
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <button 
-            className="btn btn-primary" 
+          <Button
+            variant="contained"
             onClick={() => void handleAutoScan()} 
             disabled={scanning || loading}
-            style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 750, background: "linear-gradient(135deg, var(--color-brand-red), var(--color-danger-strong))", color: "#fff", border: 0 }}
+            startIcon={<Sparkles size={16} className={scanning ? "animate-spin" : ""} />}
           >
-            <Sparkles size={15} className={scanning ? "animate-spin" : ""} />
-            {scanning ? "Scanning System Data…" : "⚡ Auto-Scan System Usage"}
-          </button>
+            {scanning ? "Scanning System Data…" : "Auto-Scan System Usage"}
+          </Button>
 
-          <button 
-            className="btn btn-secondary" 
+          <Button
+            variant="outlined"
             onClick={() => void handleAiAudit()} 
             disabled={aiAuditLoading || loading}
-            style={{ display: "flex", alignItems: "center", gap: 7, fontWeight: 700, borderColor: "var(--primary-subtle, var(--color-red-200))", color: "var(--primary, var(--color-brand-red))" }}
+            startIcon={<Bot size={16} />}
           >
-            <Bot size={15} />
-            {aiAuditLoading ? "Auditing…" : "🤖 AI QM Audit"}
-          </button>
+            {aiAuditLoading ? "Auditing…" : "AI QM Audit"}
+          </Button>
 
-          <button 
-            className="btn btn-secondary" 
+          <Button
+            variant="outlined"
             onClick={handlePrint}
-            style={{ display: "flex", alignItems: "center", gap: 7 }}
+            startIcon={<Printer size={16} />}
           >
-            <Printer size={15} />
             Export Report
-          </button>
+          </Button>
 
-          <button 
-            className="btn btn-secondary" 
+          <Button
+            variant="outlined"
             onClick={() => void load()} 
             disabled={loading}
-            style={{ display: "flex", alignItems: "center", gap: 7 }}
+            startIcon={<RefreshCw size={16} className={loading ? "animate-spin" : ""} />}
           >
-            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
             Refresh
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -434,13 +431,13 @@ export default function TestingPage() {
 
             {/* Workflow Actions */}
             <div className="no-print" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <Link className="btn btn-secondary" style={{ padding: "6px 12px", fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }} href={item.url}>
-                Open Workflow <ArrowUpRight size={13} />
-              </Link>
+              <Button component={Link} variant="contained" size="small" endIcon={<ArrowUpRight size={13} />} href={item.url}>
+                Open Workflow
+              </Button>
 
-              <button 
-                className="btn btn-secondary" 
-                style={{ padding: "6px 10px", fontSize: 12 }} 
+              <Button
+                variant="outlined"
+                size="small"
                 onClick={() => {
                   setEditingItem(item);
                   setEditNotes(item.notes);
@@ -449,7 +446,7 @@ export default function TestingPage() {
                 title="Edit test notes and evidence URL"
               >
                 Notes
-              </button>
+              </Button>
 
               <select 
                 aria-label={`Status for ${item.title}`} 
@@ -553,15 +550,14 @@ export default function TestingPage() {
             </label>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-              <button className="btn btn-secondary" onClick={() => setEditingItem(null)}>Cancel</button>
-              <button 
-                className="btn btn-primary" 
+              <Button variant="outlined" onClick={() => setEditingItem(null)}>Cancel</Button>
+              <Button
+                variant="contained"
                 onClick={() => void update(editingItem, editingItem.status, editNotes, editEvidenceUrl)}
                 disabled={saving === editingItem.key}
-                style={{ background: "var(--color-brand-red)", color: "#fff", border: 0, fontWeight: 750 }}
               >
                 {saving === editingItem.key ? "Saving…" : "Save Evidence"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -610,10 +606,10 @@ export default function TestingPage() {
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
-              <button className="btn btn-secondary" onClick={() => setShowAiModal(false)}>Close</button>
-              <button className="btn btn-primary" onClick={handlePrint} style={{ background: "var(--color-brand-red)", color: "#fff", border: 0, fontWeight: 750 }}>
+              <Button variant="outlined" onClick={() => setShowAiModal(false)}>Close</Button>
+              <Button variant="contained" onClick={handlePrint} startIcon={<Printer size={15} />}>
                 Print Audit Report
-              </button>
+              </Button>
             </div>
           </div>
         </div>
