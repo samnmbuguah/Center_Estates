@@ -142,8 +142,13 @@ export function CompanionNudgeModal() {
   const [showSettings, setShowSettings] = useState(false);
   const [prefs, setPrefs] = useState<NudgePreferences>(DEFAULT_PREFERENCES);
   const pollRef = useRef<number | null>(null);
+  const isUnauthorizedRef = useRef(false);
   const org = session?.activeOrganizationId;
   const isAuthed = !!session?.user;
+
+  useEffect(() => {
+    isUnauthorizedRef.current = false;
+  }, [isAuthed, org]);
 
   useEffect(() => {
     setPrefs(loadPreferences());
@@ -158,7 +163,7 @@ export function CompanionNudgeModal() {
   };
 
   const fetchNudge = useCallback(async () => {
-    if (!isAuthed || !org) return;
+    if (!isAuthed || !org || isUnauthorizedRef.current) return;
     const hourEAT = (new Date().getUTCHours() + 3) % 24;
     if (hourEAT < 7 || hourEAT >= 20) return;
     if (document.visibilityState !== "visible") return;
@@ -166,6 +171,10 @@ export function CompanionNudgeModal() {
 
     try {
       const res = await apiFetch("/companion/dashboard/nudge/", {}, org);
+      if (res.status === 401 || res.status === 403) {
+        isUnauthorizedRef.current = true;
+        return;
+      }
       if (!res.ok) return;
       const data = (await res.json()) as NudgeData;
       if (!data?.id || !data?.title) return;

@@ -50,6 +50,12 @@ export function installGlobalErrorHandlers(): void {
         return;
       }
     }
+
+    // Ignore third-party / browser extension web-vitals PerformanceObserver errors
+    if (/reading 'startTime'|reportAllChanges/i.test(ev.message || "")) {
+      return;
+    }
+
     reportClientError({
       message: ev.message || "window.error",
       stack: ev.error?.stack,

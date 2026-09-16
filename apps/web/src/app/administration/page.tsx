@@ -1908,6 +1908,7 @@ function AdministrationContent() {
                   <div style={{ position: "relative" }}>
                     <input
                       type={showSmtpPassword ? "text" : "password"}
+                      autoComplete="current-password"
                       value={smtpPassword}
                       onChange={(e) => setSmtpPassword(e.target.value)}
                       placeholder={smtpConfigId ? "(Saved — enter new to overwrite)" : "Enter SMTP account password"}

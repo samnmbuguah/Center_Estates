@@ -25,6 +25,7 @@ import {
   Mail,
   Menu,
   X,
+  Share2,
 } from "lucide-react";
 import { Button, Chip } from "@mui/material";
 
@@ -158,6 +159,37 @@ export default function OwnerPortalPage() {
       alert(err.message || "Failed to download the property invoice PDF.");
     }
   }
+
+  const handleWhatsAppShare = () => {
+    if (!activeOwner) return;
+    const rentRoll = cash.format(financialSummary?.active_rent_roll ?? 0);
+    const totalCollected = cash.format(financialSummary?.total_paid ?? 0);
+    const count = activeOwner.units_count ?? units.length;
+    const unitsText = `${count} unit${count === 1 ? "" : "s"}`;
+    const portalUrl = typeof window !== "undefined" ? `${window.location.origin}/owner-portal?owner=${activeOwner.id}` : "https://centerestates.com/owner-portal";
+    
+    const message = `*Center Estates — Landlord Remittance Statement*
+Landlord: ${activeOwner.name} (${activeOwner.code})
+Units: ${unitsText}
+Monthly Rent Roll: ${rentRoll}
+Gross Collected: ${totalCollected}
+Period: ${new Date().toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+
+View full statements, tenant details, and download tax invoices:
+${portalUrl}`;
+
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, "_blank");
+  };
+
+  const handleDownloadLatestStatement = async () => {
+    if (ownerInvoices.length > 0) {
+      await handleDownloadInvoicePdf(ownerInvoices[0]);
+    } else {
+      setActiveTab("remittances");
+    }
+  };
+
   const [remittanceLoading, setRemittanceLoading] = useState(false);
 
   // Load owners and identify target owner
@@ -493,8 +525,8 @@ export default function OwnerPortalPage() {
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
               <Button
                 variant="contained"
-                startIcon={<FileText size={16} />}
-                onClick={() => setActiveTab("remittances")}
+                startIcon={<Download size={16} />}
+                onClick={handleDownloadLatestStatement}
                 sx={{
                   bgcolor: "var(--color-info)",
                   "&:hover": { bgcolor: "var(--color-info-strong)" },
@@ -504,7 +536,38 @@ export default function OwnerPortalPage() {
                   px: 2,
                 }}
               >
-                Remittance Statement
+                Download Latest Statement (PDF)
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<Share2 size={16} />}
+                onClick={handleWhatsAppShare}
+                sx={{
+                  bgcolor: "#16a34a",
+                  "&:hover": { bgcolor: "#15803d" },
+                  color: "#ffffff",
+                  fontWeight: 800,
+                  textTransform: "none",
+                  borderRadius: "8px",
+                  px: 2,
+                }}
+              >
+                Share via WhatsApp
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<FileText size={16} />}
+                onClick={() => setActiveTab("remittances")}
+                sx={{
+                  color: "var(--text-primary)",
+                  borderColor: "var(--color-slate-300)",
+                  "&:hover": { borderColor: "var(--color-slate-400)", bgcolor: "var(--color-slate-50)" },
+                  fontWeight: 750,
+                  textTransform: "none",
+                  borderRadius: "8px",
+                }}
+              >
+                All Remittances
               </Button>
               <Button
                 variant="outlined"
@@ -535,11 +598,12 @@ export default function OwnerPortalPage() {
             className="kpi-grid"
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
               gap: 16,
               marginBottom: 24,
             }}
           >
+            {/* Total Managed Units */}
             <div
               className="kpi-card"
               style={{
@@ -561,6 +625,38 @@ export default function OwnerPortalPage() {
               </div>
             </div>
 
+            {/* Portfolio Occupancy Rate */}
+            {(() => {
+              const occupiedCount = units.filter((u: any) => u.is_occupied || u.status === "occupied" || u.tenant_name || u.tenant).length;
+              const occPercent = unitsCount > 0 ? Math.min(100, Math.round((occupiedCount / unitsCount) * 100)) : 100;
+              return (
+                <div
+                  className="kpi-card"
+                  style={{
+                    background: "var(--surface)",
+                    border: "1px solid var(--color-slate-200)",
+                    borderRadius: 14,
+                    padding: "20px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+                  }}
+                >
+                  <div className="kpi-label" style={{ color: "var(--text-soft)", fontWeight: 750, fontSize: 11, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                    Portfolio Occupancy
+                  </div>
+                  <div className="kpi-value" style={{ color: occPercent >= 90 ? "var(--color-emerald-deep)" : occPercent >= 70 ? "var(--color-amber-strong)" : "var(--color-danger-strong)", fontSize: 28, fontWeight: 900, margin: "6px 0" }}>
+                    {occPercent}%
+                  </div>
+                  <div style={{ width: "100%", height: 6, background: "var(--color-slate-100)", borderRadius: 3, overflow: "hidden", margin: "8px 0" }}>
+                    <div style={{ width: `${occPercent}%`, height: "100%", background: occPercent >= 90 ? "#10b981" : occPercent >= 70 ? "#f59e0b" : "#ef4444", borderRadius: 3 }} />
+                  </div>
+                  <div className="kpi-note" style={{ color: "var(--text-muted)", fontWeight: 650, fontSize: 12 }}>
+                    {occupiedCount} of {unitsCount} units tenanted
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Active Rent Roll */}
             <div
               className="kpi-card"
               style={{
@@ -582,6 +678,7 @@ export default function OwnerPortalPage() {
               </div>
             </div>
 
+            {/* Gross Rent Collected */}
             <div
               className="kpi-card"
               style={{
@@ -603,6 +700,7 @@ export default function OwnerPortalPage() {
               </div>
             </div>
 
+            {/* Outstanding Rent Arrears */}
             <div
               className="kpi-card"
               style={{
@@ -851,18 +949,36 @@ export default function OwnerPortalPage() {
                           {u.sectional_title_number || "Deed On File"}
                         </td>
                         <td style={{ padding: "14px 12px" }}>
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 800,
-                              padding: "4px 10px",
-                              borderRadius: 6,
-                              background: "#ecfdf5",
-                              color: "var(--color-emerald-deep)",
-                            }}
-                          >
-                            ● Occupied
-                          </span>
+                          {(() => {
+                            const isVacant = u.is_vacant || u.status === "vacant";
+                            return (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    fontWeight: 800,
+                                    padding: "3px 8px",
+                                    borderRadius: 6,
+                                    background: isVacant ? "#fef2f2" : "#ecfdf5",
+                                    color: isVacant ? "#b91c1c" : "var(--color-emerald-deep)",
+                                    width: "fit-content",
+                                  }}
+                                >
+                                  {isVacant ? "○ Vacant" : "● Occupied"}
+                                </span>
+                                {(u.tenant_name || u.tenant) && (
+                                  <span style={{ fontSize: 11, color: "var(--text-soft)", fontWeight: 700 }}>
+                                    👤 {String(u.tenant_name || u.tenant)}
+                                  </span>
+                                )}
+                                {u.lease_end && (
+                                  <span style={{ fontSize: 10, color: "#b45309", background: "#fffbeb", border: "1px solid #fde68a", padding: "1px 5px", borderRadius: 4, width: "fit-content", fontWeight: 750 }}>
+                                    Lease to {u.lease_end}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td style={{ padding: "14px 12px", textAlign: "right", fontWeight: 850, color: "var(--text-primary)", fontFamily: "monospace", fontSize: 14 }}>
                           {cash.format(Number(u.target_rent || u.monthly_rent || 0))}

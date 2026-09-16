@@ -20,7 +20,21 @@ import { UnitFloorPlanCanvas, type Point, type UnitLayout } from "@/features/pro
 type Values = Record<string, string>;
 type UnitDraft = { unit_no: string; unit_type: string; floor: string; use: string; area: string; rateable_area: string; service_charge_rate: string; service_charge_calculation: "fixed" | "area_rate"; description: string; building_index: string; polygon?: Point[] };
 type UnitImportRow = UnitDraft & { sourceRow: number; errors: Partial<Record<keyof UnitDraft, string>> };
-type UtilityDraft = { type: string; account_no: string; location: string; bill_cycle: string; status: string; meter_code: string; supply_mode: string; tariff: string; unit: string; unit_code: string };
+type UtilityDraft = {
+  type: string;
+  account_no: string;
+  location: string;
+  bill_cycle: string;
+  status: string;
+  meter_code: string;
+  supply_mode: string;
+  tariff: string;
+  unit: string;
+  unit_code: string;
+  building_name?: string;
+  meter_role?: "bulk" | "check" | "standard";
+  parent_meter_code?: string;
+};
 type AssetDraft = { name: string; category: string; location: string; quantity: string; status: string };
 type ContactDraft = { name: string; role: string; email: string; phone: string };
 type ProviderDraft = { name?: string; category: string; service: string; frequency: string; criticality: string; scope?: string; monthly_cost?: string; contact?: string; email?: string; phone?: string };
@@ -28,7 +42,21 @@ type DocumentDraft = { name: string; type: string; reference: string; expires_on
 type BuildingDraft = { id?: string; name: string; floors: string; floor_numbers: string; use: string; access_points: string; parking_spaces: string; amenities: string };
 
 const blankUnit: UnitDraft = { unit_no: "", unit_type: "", floor: "", use: "", area: "", rateable_area: "", service_charge_rate: "0", service_charge_calculation: "fixed", description: "", building_index: "" };
-const blankUtility: UtilityDraft = { type: "water", account_no: "", location: "", bill_cycle: "monthly", status: "active", meter_code: "", supply_mode: "postpaid", tariff: "0", unit: "m³", unit_code: "" };
+const blankUtility: UtilityDraft = {
+  type: "water",
+  account_no: "",
+  location: "",
+  bill_cycle: "monthly",
+  status: "active",
+  meter_code: "",
+  supply_mode: "postpaid",
+  tariff: "0",
+  unit: "m³",
+  unit_code: "",
+  building_name: "",
+  meter_role: "standard",
+  parent_meter_code: "",
+};
 
 const blankAsset: AssetDraft = { name: "", category: "", location: "", quantity: "1", status: "active" };
 const blankContact: ContactDraft = { name: "", role: "", email: "", phone: "" };
@@ -108,6 +136,9 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
   const [utilityDraft, setUtilityDraft] = useState<UtilityDraft>(blankUtility);
 
   // Bulk Unit Meter Allocator State
+  const [bulkBuildingName, setBulkBuildingName] = useState("");
+  const [bulkMeterRole, setBulkMeterRole] = useState<"check" | "standard">("check");
+  const [bulkParentMeterCode, setBulkParentMeterCode] = useState("");
   const [bulkUtilityType, setBulkUtilityType] = useState("water");
   const [bulkMeterPrefix, setBulkMeterPrefix] = useState("MTR-WTR-");
   const [bulkMeterLocation, setBulkMeterLocation] = useState("Floor Corridor");
@@ -116,15 +147,29 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
   const [bulkBillCycle, setBulkBillCycle] = useState("monthly");
 
   const autoAllocateUnitMeters = () => {
-    if (units.length === 0) {
-      setError("Please create or generate units in the 'Units' tab first before auto-allocating meters.");
+    const targetUnits = bulkBuildingName
+      ? units.filter(u => {
+          const bIndex = buildings.findIndex(b => b.name === bulkBuildingName);
+          return (
+            (bIndex !== -1 && Number(u.building_index) === bIndex + 1) ||
+            u.building_index === bulkBuildingName ||
+            u.description?.includes(bulkBuildingName)
+          );
+        })
+      : units;
+
+    if (targetUnits.length === 0) {
+      setError(`No units found for ${bulkBuildingName || "the property"}. Please create units under the 'Units' tab first.`);
       jump("units");
       return;
     }
-    const newUtilities: UtilityDraft[] = units.map(u => ({
+    const newUtilities: UtilityDraft[] = targetUnits.map(u => ({
       type: bulkUtilityType,
       meter_code: `${bulkMeterPrefix}${u.unit_no}`,
       unit_code: u.unit_no,
+      building_name: bulkBuildingName,
+      meter_role: bulkMeterRole,
+      parent_meter_code: bulkParentMeterCode,
       location: bulkMeterLocation ? `${bulkMeterLocation} (Unit ${u.unit_no})` : `Outside Unit ${u.unit_no}`,
       account_no: "",
       tariff: bulkUtilityTariff || "0",
@@ -573,8 +618,13 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
         const cycleIdx = headers.indexOf("bill_cycle") !== -1 ? headers.indexOf("bill_cycle") : 6;
         const modeIdx = headers.indexOf("supply_mode") !== -1 ? headers.indexOf("supply_mode") : 7;
         const statusIdx = headers.indexOf("status") !== -1 ? headers.indexOf("status") : 8;
+        const bldIdx = headers.indexOf("building_name") !== -1 ? headers.indexOf("building_name") : headers.indexOf("building") !== -1 ? headers.indexOf("building") : headers.indexOf("tower") !== -1 ? headers.indexOf("tower") : -1;
+        const roleIdx = headers.indexOf("meter_role") !== -1 ? headers.indexOf("meter_role") : headers.indexOf("role") !== -1 ? headers.indexOf("role") : -1;
+        const parentIdx = headers.indexOf("parent_meter_code") !== -1 ? headers.indexOf("parent_meter_code") : headers.indexOf("parent_meter") !== -1 ? headers.indexOf("parent_meter") : -1;
 
         const uType = (row[typeIdx] || "water").toLowerCase();
+        const rawRole = (roleIdx !== -1 ? row[roleIdx] || "" : "").toLowerCase();
+        const role: "bulk" | "check" | "standard" = rawRole.includes("bulk") || rawRole.includes("main") ? "bulk" : rawRole.includes("check") || rawRole.includes("sub") ? "check" : row[unitIdx] ? "check" : "bulk";
         return {
           type: uType,
           unit_code: row[unitIdx] || "",
@@ -586,6 +636,9 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
           bill_cycle: row[cycleIdx] || "monthly",
           supply_mode: row[modeIdx] || "postpaid",
           status: (row[statusIdx] || "active").toLowerCase(),
+          building_name: bldIdx !== -1 ? row[bldIdx] || "" : "",
+          meter_role: role,
+          parent_meter_code: parentIdx !== -1 ? row[parentIdx] || "" : "",
         };
       } else {
         const uType = (row[0] || "water").toLowerCase();
@@ -600,6 +653,9 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
           unit: row[9] || (uType === "electricity" ? "kWh" : "m³"),
           status: (row[10] || "active").toLowerCase(),
           unit_code: row[11] ?? "",
+          meter_role: row[11] ? "check" : "bulk",
+          building_name: "",
+          parent_meter_code: "",
         };
       }
     });
@@ -888,7 +944,7 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
       <Section id="utilities" title="Utility accounts and unit meters">
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: { xs: "stretch", sm: "center" }, flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            Allocate unit meters, specify meter locations, and configure billing tariffs. Opening meter readings will be captured during individual tenant onboarding.
+            Assign main bulk meters to towers or properties, allocate tenant check submeters, and configure tariffs.
           </Typography>
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
             <Button
@@ -896,12 +952,13 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
               variant="outlined"
               startIcon={<Download size={15} />}
               onClick={() => downloadCsv("center-estates-utility-meters-template.csv", [
-                ["utility_type", "unit_code", "meter_number", "meter_location", "account_number", "tariff", "bill_cycle", "supply_mode", "status"],
-                ["water", "A-101", "MTR-WTR-A101", "Outside Door A-101", "WTR-001", "200", "monthly", "postpaid", "active"],
-                ["water", "A-102", "MTR-WTR-A102", "Outside Door A-102", "WTR-002", "200", "monthly", "postpaid", "active"],
-                ["electricity", "A-101", "MTR-ELEC-A101", "Basement Meter Board", "ELEC-001", "25", "monthly", "prepaid", "active"],
-                ["water", "B-201", "MTR-WTR-B201", "Outside Door B-201", "WTR-003", "200", "monthly", "postpaid", "active"],
-                ["electricity", "G-01", "MTR-ELEC-G01", "Main Commercial Board", "ELEC-COMM-01", "28", "monthly", "postpaid", "active"],
+                ["utility_type", "building_name", "meter_role", "unit_code", "meter_number", "parent_meter_code", "meter_location", "account_number", "tariff", "bill_cycle", "supply_mode", "status"],
+                ["electricity", "Tower 1", "bulk", "", "MTR-BS-T1-MAIN", "", "Tower 1 Main Electrical Incomer", "ELEC-T1-001", "28.50", "monthly", "postpaid", "active"],
+                ["electricity", "Tower 2", "bulk", "", "MTR-BS-T2-MAIN", "", "Tower 2 Main Switchboard", "ELEC-T2-001", "28.50", "monthly", "postpaid", "active"],
+                ["electricity", "Tower 2", "check", "A-101", "MTR-ELEC-A101", "MTR-BS-T2-MAIN", "Tower 2 Outside Door A-101", "", "28.50", "monthly", "postpaid", "active"],
+                ["water", "Tower 1", "bulk", "", "MTR-WTR-T1-MAIN", "", "Tower 1 Water Pump House", "WTR-T1-001", "200", "monthly", "postpaid", "active"],
+                ["water", "Tower 2", "bulk", "", "MTR-WTR-T2-MAIN", "", "Tower 2 Water Meter Chamber", "WTR-T2-001", "200", "monthly", "postpaid", "active"],
+                ["water", "Tower 2", "check", "A-101", "MTR-WTR-A101", "MTR-WTR-T2-MAIN", "Tower 2 Duct 101", "", "200", "monthly", "postpaid", "active"],
               ])}
             >
               Download template
@@ -912,6 +969,32 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
             </Button>
           </Box>
         </Box>
+
+        {/* Multi-Tower Guidance Banner */}
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            mb: 2.5,
+            borderRadius: 2,
+            bgcolor: "rgba(37, 99, 235, 0.04)",
+            borderColor: "rgba(37, 99, 235, 0.25)",
+            display: "flex",
+            gap: 1.5,
+            alignItems: "flex-start",
+          }}
+        >
+          <Box sx={{ fontSize: 22, lineHeight: 1 }}>💡</Box>
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "primary.main" }}>
+              Multi-Tower Metering &amp; Reconciliation Guidance
+            </Typography>
+            <Typography variant="body2" sx={{ fontSize: 12.5, color: "text.secondary", mt: 0.5 }}>
+              • <strong>Towers with Main Meter only (e.g. Tower 1):</strong> Select the Building/Tower, set Meter Role to <em>&quot;Tower Main / Bulk Meter&quot;</em>, and leave Unit blank. Costs are apportioned via Service Charge.<br />
+              • <strong>Towers with Submeters (e.g. Tower 2):</strong> Create the Tower&apos;s Main Bulk Meter first, then allocate check submeters to individual units linked to that parent bulk meter.
+            </Typography>
+          </Box>
+        </Paper>
 
         {/* Quick Bulk Unit Meter Allocator Card */}
         {units.length > 0 && (
@@ -928,13 +1011,27 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
               <Zap size={18} color="var(--color-indigo-strong)" />
               <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "primary.main" }}>
-                ⚡ Quick Bulk Meter Allocator ({units.length} registered units available)
+                ⚡ Quick Bulk Meter Allocator ({units.length} registered units)
               </Typography>
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, fontSize: 13 }}>
-              Automatically generate and assign individual utility meters across all <strong>{units.length} units</strong> in 1 click.
+              Generate and assign individual check submeters across all units in a specific tower or across the whole property in 1 click.
             </Typography>
-            <Grid columns={5}>
+            <Grid columns={6}>
+              {buildings.length > 0 && (
+                <TextField
+                  select
+                  size="small"
+                  label="Target Tower / Building"
+                  value={bulkBuildingName}
+                  onChange={e => setBulkBuildingName(e.target.value)}
+                >
+                  <MenuItem value="">All Buildings &amp; Towers</MenuItem>
+                  {buildings.map(b => (
+                    <MenuItem key={b.name} value={b.name}>🏢 {b.name}</MenuItem>
+                  ))}
+                </TextField>
+              )}
               <TextField
                 select
                 size="small"
@@ -952,6 +1049,20 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
                 <MenuItem value="gas">Gas (m³)</MenuItem>
                 <MenuItem value="sewerage">Sewerage</MenuItem>
                 <MenuItem value="internet">Internet</MenuItem>
+              </TextField>
+              <TextField
+                select
+                size="small"
+                label="Parent Main Meter (Optional)"
+                value={bulkParentMeterCode}
+                onChange={e => setBulkParentMeterCode(e.target.value)}
+              >
+                <MenuItem value="">None / Standalone</MenuItem>
+                {utilities.filter(u => u.meter_role === "bulk" || !u.unit_code).map(u => (
+                  <MenuItem key={u.meter_code} value={u.meter_code}>
+                    🏢 {u.meter_code} ({u.building_name || u.location || "Main"})
+                  </MenuItem>
+                ))}
               </TextField>
               <TextField
                 size="small"
@@ -974,15 +1085,17 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
                 value={bulkUtilityTariff}
                 onChange={e => setBulkUtilityTariff(e.target.value)}
               />
+            </Grid>
+            <Box sx={{ mt: 1.5, display: "flex", justifyContent: "flex-end" }}>
               <Button
                 variant="contained"
                 startIcon={<Zap size={16} />}
                 onClick={autoAllocateUnitMeters}
                 sx={{ background: "var(--color-indigo)", "&:hover": { background: "#4338ca" }, fontWeight: 700 }}
               >
-                Allocate All {units.length} Units
+                Allocate Units {bulkBuildingName ? `in ${bulkBuildingName}` : `(${units.length} Units)`}
               </Button>
-            </Grid>
+            </Box>
           </Paper>
         )}
 
@@ -990,7 +1103,47 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
         <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5 }}>
           Individual Meter / Utility Account Entry
         </Typography>
-        <Grid columns={4}>
+        <Grid columns={5}>
+          {buildings.length > 0 && (
+            <TextField
+              select
+              label="Tower / Building"
+              value={utilityDraft.building_name || ""}
+              onChange={e => {
+                const bName = e.target.value;
+                setUtilityDraft({
+                  ...utilityDraft,
+                  building_name: bName,
+                  location: utilityDraft.meter_role === "bulk" ? `${bName} Main Electrical Incomer / Plant` : utilityDraft.location,
+                });
+              }}
+            >
+              <MenuItem value="">Whole Property</MenuItem>
+              {buildings.map(b => (
+                <MenuItem key={b.name} value={b.name}>🏢 {b.name}</MenuItem>
+              ))}
+            </TextField>
+          )}
+
+          <TextField
+            select
+            label="Meter Role / Scope"
+            value={utilityDraft.meter_role || "standard"}
+            onChange={e => {
+              const role = e.target.value as "bulk" | "check" | "standard";
+              setUtilityDraft({
+                ...utilityDraft,
+                meter_role: role,
+                unit_code: role === "bulk" ? "" : utilityDraft.unit_code,
+                location: role === "bulk" && utilityDraft.building_name ? `${utilityDraft.building_name} Main Incomer` : utilityDraft.location,
+              });
+            }}
+          >
+            <MenuItem value="bulk">🏢 Tower / Property Main Bulk Meter</MenuItem>
+            <MenuItem value="check">↳ Unit Check Submeter</MenuItem>
+            <MenuItem value="standard">Standard Meter</MenuItem>
+          </TextField>
+
           <TextField
             select
             label="Utility type"
@@ -1010,49 +1163,48 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
             ))}
           </TextField>
 
-          {utilityDraft.type === "electricity" && (
+          {utilityDraft.meter_role !== "bulk" && (
             <TextField
               select
-              label="Electricity billing"
-              value={utilityDraft.supply_mode}
-              onChange={e => setUtilityDraft({ ...utilityDraft, supply_mode: e.target.value })}
+              label="Assigned unit"
+              value={utilityDraft.unit_code}
+              onChange={e => setUtilityDraft({ ...utilityDraft, unit_code: e.target.value })}
             >
-              <MenuItem value="prepaid">Prepaid / token</MenuItem>
-              <MenuItem value="postpaid">Postpaid / metered</MenuItem>
+              <MenuItem value="">Property bulk / common meter</MenuItem>
+              {units.map(unit => (
+                <MenuItem key={unit.unit_no} value={unit.unit_no}>Unit {unit.unit_no}</MenuItem>
+              ))}
+            </TextField>
+          )}
+
+          {utilityDraft.meter_role === "check" && (
+            <TextField
+              select
+              label="Parent Main Meter"
+              value={utilityDraft.parent_meter_code || ""}
+              onChange={e => setUtilityDraft({ ...utilityDraft, parent_meter_code: e.target.value })}
+            >
+              <MenuItem value="">None / Standalone</MenuItem>
+              {utilities.filter(u => u.meter_role === "bulk" || !u.unit_code).map(u => (
+                <MenuItem key={u.meter_code} value={u.meter_code}>
+                  🏢 {u.meter_code} ({u.building_name || u.location || "Main"})
+                </MenuItem>
+              ))}
             </TextField>
           )}
 
           <TextField
-            select
-            label="Assigned unit"
-            value={utilityDraft.unit_code}
-            onChange={e => setUtilityDraft({ ...utilityDraft, unit_code: e.target.value })}
-          >
-            <MenuItem value="">Property bulk / common meter</MenuItem>
-            {units.map(unit => (
-              <MenuItem key={unit.unit_no} value={unit.unit_no}>Unit {unit.unit_no}</MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
             label="Meter number"
-            placeholder="e.g. MTR-WTR-101"
+            placeholder={utilityDraft.meter_role === "bulk" ? "e.g. MTR-BS-T1-MAIN" : "e.g. MTR-WTR-101"}
             value={utilityDraft.meter_code}
             onChange={e => setUtilityDraft({ ...utilityDraft, meter_code: e.target.value })}
           />
 
           <TextField
             label="Meter location"
-            placeholder="e.g. Corridor Floor 2, Outside Door, Basement Board"
+            placeholder="e.g. Tower 1 Main Plant, Outside Door 101"
             value={utilityDraft.location}
             onChange={e => setUtilityDraft({ ...utilityDraft, location: e.target.value })}
-          />
-
-          <TextField
-            label="Account number (Optional)"
-            placeholder="e.g. Water / Token Acc No"
-            value={utilityDraft.account_no}
-            onChange={e => setUtilityDraft({ ...utilityDraft, account_no: e.target.value })}
           />
 
           <TextField
@@ -1063,16 +1215,11 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
           />
 
           <TextField
-            select
-            label="Bill cycle"
-            value={utilityDraft.bill_cycle}
-            onChange={e => setUtilityDraft({ ...utilityDraft, bill_cycle: e.target.value })}
-          >
-            <MenuItem value="monthly">Monthly</MenuItem>
-            <MenuItem value="bi_monthly">Every two months</MenuItem>
-            <MenuItem value="quarterly">Quarterly</MenuItem>
-            <MenuItem value="prepaid">Prepaid</MenuItem>
-          </TextField>
+            label="Account number (Optional)"
+            placeholder="e.g. Water / Token Acc No"
+            value={utilityDraft.account_no}
+            onChange={e => setUtilityDraft({ ...utilityDraft, account_no: e.target.value })}
+          />
         </Grid>
 
         <Box sx={{ mt: 1.5, display: "flex", justifyContent: "flex-end" }}>
@@ -1092,16 +1239,29 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
         <Box sx={{ mt: 2.5 }}>
           <RowList
             rows={utilities}
-            columns={["Type", "Assigned Unit", "Meter Number", "Meter Location", "Tariff", "Billing Mode", "Bill Cycle", "Account No"]}
+            columns={["Type", "Tower / Building", "Scope / Role", "Assigned Unit", "Meter Code & Parent", "Meter Location", "Tariff", "Billing Mode"]}
             render={u => [
-              u.type,
-              u.unit_code ? `Unit ${u.unit_code}` : "Property Bulk",
-              u.meter_code || "—",
+              u.type.toUpperCase(),
+              u.building_name || "Whole Property",
+              u.meter_role === "bulk" ? (
+                <Chip size="small" color="primary" label="🏢 Main Bulk Meter" sx={{ fontWeight: 800, fontSize: 10 }} />
+              ) : u.meter_role === "check" ? (
+                <Chip size="small" color="secondary" variant="outlined" label="↳ Unit Submeter" sx={{ fontWeight: 700, fontSize: 10 }} />
+              ) : (
+                <Chip size="small" label="Standard" sx={{ fontSize: 10 }} />
+              ),
+              u.unit_code ? `Unit ${u.unit_code}` : <span style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>Building Bulk</span>,
+              <Box key="mcode" sx={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ fontWeight: 700 }}>{u.meter_code || "—"}</span>
+                {u.parent_meter_code && (
+                  <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>
+                    Parent: <strong>{u.parent_meter_code}</strong>
+                  </span>
+                )}
+              </Box>,
               u.location || "—",
               `${u.tariff} KES/${u.unit}`,
               u.type === "electricity" ? (u.supply_mode === "prepaid" ? "Prepaid Token" : "Postpaid Metered") : "Metered",
-              u.bill_cycle,
-              u.account_no || "—",
             ]}
             onRemove={i => setUtilities(rows => rows.filter((_, index) => index !== i))}
             empty="No utility accounts or meters added."

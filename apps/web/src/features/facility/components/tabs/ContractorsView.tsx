@@ -16,13 +16,26 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { Download, FileUp, Pencil, Plus, RotateCcw, Trophy, X } from "lucide-react";
+import { Download, FileUp, Pencil, Plus, RotateCcw, Trophy, X, Printer, Copy, Check } from "lucide-react";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
 import { FcStatus } from "../FacilityToolbar";
 import { apiFetch } from "@/lib/api";
 import { BulkContractorUploaderModal } from "../modals/BulkContractorUploaderModal";
 import { EditContractorModal } from "../modals/EditContractorModal";
+
+export function getVendorTier(rating: unknown, score?: number) {
+  if (score != null) {
+    if (score >= 85) return { label: "Tier 1 · Approved", color: "#15803d", bg: "#f0fdf4", border: "#bbf7d0" };
+    if (score >= 70) return { label: "Tier 2 · Monitored", color: "#b45309", bg: "#fffbeb", border: "#fde68a" };
+    return { label: "High Risk · Review", color: "#b91c1c", bg: "#fef2f2", border: "#fecaca" };
+  }
+  const r = Number(rating);
+  if (!r || isNaN(r)) return { label: "Unrated", color: "#64748b", bg: "#f8fafc", border: "#e2e8f0" };
+  if (r >= 4.25) return { label: "Tier 1 · 85%+", color: "#15803d", bg: "#f0fdf4", border: "#bbf7d0" };
+  if (r >= 3.5) return { label: "Tier 2 · 70%+", color: "#b45309", bg: "#fffbeb", border: "#fde68a" };
+  return { label: "Tier 3 · Risk", color: "#b91c1c", bg: "#fef2f2", border: "#fecaca" };
+}
 
 function FcKpiCard({
   icon,
@@ -205,6 +218,9 @@ export function ContractorsView({
   const [loading, setLoading] = useState(false);
   const [scorecardError, setScorecardError] = useState("");
   const [referenceDate] = useState(() => new Date());
+  const [copiedSummary, setCopiedSummary] = useState(false);
+  const [appraisalNotes, setAppraisalNotes] = useState("");
+  const [appraisalSaved, setAppraisalSaved] = useState(false);
 
   // Retained for API compatibility with the shared tab renderer while this
   // view derives its richer metrics from provider rows.
@@ -229,6 +245,41 @@ export function ContractorsView({
   const activeContracts = displayRows.reduce((s, r) => s + Number(r.active_contracts_count ?? 0), 0);
   const rated = displayRows.filter((r) => Number(r.rating ?? 0) > 0);
   const avgRating = rated.length ? (rated.reduce((s, r) => s + Number(r.rating ?? 0), 0) / rated.length).toFixed(1) : "—";
+
+  const handleCopySummary = () => {
+    if (!selectedContractor || !scorecardData) return;
+    const pillarsText = (scorecardData.pillars || [])
+      .map((p) => `  • ${p.name}: ${p.score}% (${p.weight}% weight - ${p.metric || ""})`)
+      .join("\n");
+    const statusText =
+      scorecardData.weighted_score >= 85
+        ? "Tier 1 · Approved Specialist"
+        : scorecardData.weighted_score >= 70
+        ? "Tier 2 · Monitored Provider"
+        : "Under Review / High Risk";
+
+    const summaryText = `CENTER ESTATES · VENDOR PERFORMANCE SCORECARD
+Vendor: ${String(selectedContractor.name)} (${String(selectedContractor.specialty || "Specialist")})
+Code: ${String(selectedContractor.code || "—")}
+Overall Weighted Score: ${scorecardData.weighted_score}/100 [${statusText}]
+Verified Completed Jobs: ${scorecardData.completed_jobs}
+
+7-Pillar Performance Breakdown:
+${pillarsText}
+
+Target Benchmark: 85% SLA compliance
+Date Generated: ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
+
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(summaryText);
+      setCopiedSummary(true);
+      setTimeout(() => setCopiedSummary(false), 2500);
+    }
+  };
+
+  const handlePrintScorecard = () => {
+    window.print();
+  };
 
   const viewScorecard = async (contractor: Row) => {
     setSelectedContractor(contractor);
@@ -365,9 +416,30 @@ export function ContractorsView({
                   </td>
 
                   <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                    <span style={{ background: "var(--color-orange-bg)", color: "var(--color-orange)", padding: "3px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
-                      ★ {vendor.rating == null ? "Not rated" : Number(vendor.rating).toFixed(1)}
-                    </span>
+                    {(() => {
+                      const tier = getVendorTier(vendor.rating);
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                          <span style={{ background: "var(--color-orange-bg)", color: "var(--color-orange)", padding: "2px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                            ★ {vendor.rating == null ? "Not rated" : Number(vendor.rating).toFixed(1)}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 800,
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                              background: tier.bg,
+                              color: tier.color,
+                              border: `1px solid ${tier.border}`,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {tier.label}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </td>
 
                   <td style={{ padding: "12px 14px", textAlign: "center" }}>
@@ -424,7 +496,7 @@ export function ContractorsView({
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <span style={{ background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 800 }}>
-                      APPROVED · TIER 1 SPECIALIST VENDOR
+                      {scorecardData.weighted_score >= 85 ? "APPROVED · TIER 1 SPECIALIST VENDOR" : scorecardData.weighted_score >= 70 ? "TIER 2 · MONITORED PROVIDER" : "HIGH RISK · UNDER REVIEW"}
                     </span>
                     <small style={{ display: "block", color: "var(--text-muted)", marginTop: 4 }}>
                       {scorecardData.completed_jobs} verified work orders executed
@@ -456,10 +528,70 @@ export function ContractorsView({
                   </div>
                 </div>
 
+                {/* Quarterly Appraisal & Supervisor Notes */}
+                <div style={{ padding: 14, background: "var(--surface-sunken)", borderRadius: 8, border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <strong style={{ fontSize: 12, color: "var(--text-primary)", textTransform: "uppercase" }}>Quarterly Appraisal & Supervision Notes</strong>
+                    {appraisalSaved && <span style={{ fontSize: 11, color: "var(--color-success)", fontWeight: 750 }}>✓ Note recorded for this review session</span>}
+                  </div>
+                  <textarea
+                    value={appraisalNotes}
+                    onChange={(e) => { setAppraisalNotes(e.target.value); setAppraisalSaved(false); }}
+                    placeholder="Record qualitative feedback (e.g. technician punctuality, site safety, communications, cleanliness)..."
+                    rows={2}
+                    style={{
+                      width: "100%",
+                      padding: "8px 10px",
+                      fontSize: 12,
+                      borderRadius: 6,
+                      border: "1px solid var(--border)",
+                      background: "var(--surface)",
+                      color: "var(--text-primary)",
+                      fontFamily: "inherit",
+                      resize: "vertical",
+                    }}
+                  />
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setAppraisalSaved(true)}
+                      disabled={!appraisalNotes.trim()}
+                      sx={{ fontSize: 11, fontWeight: 700 }}
+                    >
+                      Save Appraisal Note
+                    </Button>
+                  </div>
+                </div>
+
               </div>
             ) : null}
           </DialogContent>
-          <DialogActions><Button onClick={() => setShowScorecardModal(false)}>Close</Button></DialogActions>
+          <DialogActions sx={{ px: 3, py: 2, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Printer size={15} />}
+                onClick={handlePrintScorecard}
+                sx={{ fontWeight: 700 }}
+              >
+                Print / Export PDF
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={copiedSummary ? <Check size={15} /> : <Copy size={15} />}
+                onClick={handleCopySummary}
+                sx={{ fontWeight: 700 }}
+              >
+                {copiedSummary ? "Copied!" : "Copy Summary"}
+              </Button>
+            </Stack>
+            <Button onClick={() => setShowScorecardModal(false)} variant="contained" size="small" sx={{ fontWeight: 700 }}>
+              Close
+            </Button>
+          </DialogActions>
         </Dialog>
       )}
 

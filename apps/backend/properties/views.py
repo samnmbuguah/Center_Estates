@@ -1071,9 +1071,19 @@ class PropertyViewSet(OrganizationModelViewSet):
                 raise ValidationError({'utilities': f'Utility {index} tariff and opening reading cannot be negative.'})
             assigned_unit = next((row for row in units if row.code == str(utility.get('unit_code') or '').strip().upper()), None)
             is_postpaid = utility_type != 'electricity' or utility.get('supply_mode', 'postpaid') == 'postpaid'
+            m_role = str(utility.get('meter_role', '')).lower()
+            if m_role not in (UtilityMeter.MeterRole.BULK, UtilityMeter.MeterRole.CHECK, UtilityMeter.MeterRole.STANDARD):
+                m_role = UtilityMeter.MeterRole.CHECK if assigned_unit else UtilityMeter.MeterRole.BULK
+
+            parent_code = str(utility.get('parent_meter_code') or utility.get('parent_meter') or '').strip().upper()
+            parent_obj = None
+            if parent_code:
+                parent_obj = UtilityMeter.objects.filter(organization=organization, property=property_record, code=parent_code).first()
+
             meter = UtilityMeter.objects.create(
                 organization=organization, property=property_record, property_unit=assigned_unit, code=meter_code,
                 name=f"{property_record.name} {utility_type.title()} {meter_code}", utility_type=utility_type,
+                meter_role=m_role, parent_meter=parent_obj,
                 location=str(utility.get('location') or '').strip(),
                 unit=str(utility.get('unit') or ('kWh' if utility_type == 'electricity' else 'm³'))[:20],
                 tariff=tariff, is_active=str(utility.get('status', 'active')).lower() == 'active',
@@ -1090,6 +1100,18 @@ class PropertyViewSet(OrganizationModelViewSet):
                     organization=organization, unit=assigned_unit, billing_item=billing_item,
                     defaults={'frequency': UnitChargeRule.Frequency.METERED, 'calculation': BillingItem.Calculation.METERED, 'rate': tariff, 'billing_day': 1, 'is_active': True},
                 )
+
+        # Resolve deferred parent meter linkages within the created batch
+        for utility in utilities_payload:
+            p_code = str(utility.get('parent_meter_code') or utility.get('parent_meter') or '').strip().upper()
+            m_code = str(utility.get('meter_code', '')).strip().upper()
+            if p_code and m_code:
+                p_meter = next((m for m in meters if m.code == p_code), None)
+                c_meter = next((m for m in meters if m.code == m_code), None)
+                if p_meter and c_meter and not c_meter.parent_meter_id:
+                    c_meter.parent_meter = p_meter
+                    c_meter.meter_role = UtilityMeter.MeterRole.CHECK
+                    c_meter.save(update_fields=('parent_meter', 'meter_role', 'updated_at'))
             has_opening_reading = str(utility.get('initial_reading', '')).strip() != ''
             if has_opening_reading and is_postpaid:
                 try:
