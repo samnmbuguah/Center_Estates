@@ -30,10 +30,17 @@ type Checklist = {
   total: number;
   organization_name?: string;
   auto_detected_count?: number;
+  verified_by_testing?: number;
+  verified_by_activity?: number;
+  readiness_index?: number;
+  usage_index?: number;
 };
 
 type AIAuditResult = {
   score: number;
+  readiness_index?: number;
+  verified_by_testing?: number;
+  auto_verified_count?: number;
   passed_count: number;
   total_features: number;
   verdict: string;
@@ -159,6 +166,7 @@ export default function TestingPage() {
   }, [data, moduleFilter, statusFilter, searchQuery]);
 
   const completion = data ? Math.round(((data.summary.passed ?? 0) / Math.max(data.total, 1)) * 100) : 0;
+  const readiness = data?.readiness_index ?? (data ? Math.round(((data.verified_by_testing ?? 0) / Math.max(data.total, 1)) * 100) : 0);
   const autoVerifiedCount = useMemo(() => (data?.results ?? []).filter((r) => r.is_auto_verified).length, [data]);
 
   const handlePrint = () => {
@@ -177,8 +185,8 @@ export default function TestingPage() {
             </p>
           </div>
           <div style={{ textAlign: "right" }}>
-            <span style={{ fontSize: 22, fontWeight: 900, color: completion >= 80 ? "var(--color-success)" : "#ca8a04" }}>{completion}% READINESS SCORE</span>
-            <div style={{ fontSize: 12, color: "var(--text-faint)" }}>{data?.summary.passed ?? 0} of {data?.total ?? 0} Workflows Verified ({autoVerifiedCount} Auto-Detected)</div>
+            <span style={{ fontSize: 22, fontWeight: 900, color: readiness >= 80 ? "var(--color-success)" : "#ca8a04" }}>{readiness}% VERIFIED READINESS</span>
+            <div style={{ fontSize: 12, color: "var(--text-faint)" }}>{data?.verified_by_testing ?? 0} of {data?.total ?? 0} workflows independently verified · {autoVerifiedCount} inferred from record activity ({completion}% usage coverage)</div>
           </div>
         </div>
       </div>
@@ -190,7 +198,7 @@ export default function TestingPage() {
             <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--primary, var(--color-brand-red))", background: "rgba(226, 59, 59, 0.1)", padding: "3px 8px", borderRadius: 4 }}>
               ADMINISTRATION & GOVERNANCE
             </span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary, var(--color-slate-500))" }}>• 36 End-to-End Workflows</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary, var(--color-slate-500))" }}>• {data?.total ?? 0} End-to-End Workflows</span>
           </div>
           <h1 style={{ margin: 0, fontSize: 26, fontWeight: 850, letterSpacing: "-0.02em", color: "var(--text, var(--color-slate-900))" }}>
             Testing & Release Readiness Hub
@@ -252,21 +260,26 @@ export default function TestingPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20, alignItems: "center" }}>
           <div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span style={{ fontSize: 32, fontWeight: 900, color: completion >= 80 ? "var(--color-success)" : completion >= 50 ? "var(--color-info)" : "var(--color-brand-red)", letterSpacing: "-0.03em" }}>
-                {completion}%
+              <span style={{ fontSize: 32, fontWeight: 900, color: readiness >= 80 ? "var(--color-success)" : readiness >= 50 ? "var(--color-info)" : "var(--color-brand-red)", letterSpacing: "-0.03em" }}>
+                {readiness}%
               </span>
               <span style={{ fontSize: 13, fontWeight: 750, textTransform: "uppercase", color: "var(--text-secondary, var(--color-slate-500))" }}>
-                Readiness Index
+                Verified Readiness
               </span>
             </div>
             <div style={{ fontSize: 13, color: "var(--text-secondary, var(--color-slate-500))", marginTop: 2 }}>
-              <strong>{data?.summary.passed ?? 0}</strong> of <strong>{data?.total ?? 0}</strong> workflows recorded as passed.
+              <strong>{data?.verified_by_testing ?? 0}</strong> of <strong>{data?.total ?? 0}</strong> workflows independently verified for this release.
             </div>
-            {autoVerifiedCount > 0 && (
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 800, color: "var(--color-emerald-strong)", background: "#ecfdf5", padding: "2px 8px", borderRadius: 4, marginTop: 6 }}>
-                ⚡ {autoVerifiedCount} features auto-verified from database activity
-              </div>
-            )}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 800, color: "var(--color-info)", background: "var(--color-blue-soft)", padding: "2px 8px", borderRadius: 4 }}>
+                {completion}% usage coverage · {data?.summary.passed ?? 0} workflows active
+              </span>
+              {autoVerifiedCount > 0 && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 800, color: "var(--color-emerald-strong)", background: "var(--color-green-soft)", padding: "2px 8px", borderRadius: 4 }}>
+                  ⚡ {autoVerifiedCount} inferred from record activity only
+                </span>
+              )}
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -576,17 +589,17 @@ export default function TestingPage() {
             </div>
 
             {/* Score & Verdict Banner */}
-            <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "16px 20px", background: aiAuditData.score >= 80 ? "var(--color-green-soft)" : "var(--color-blue-soft)", borderRadius: 12, border: "1px solid var(--color-green-200)", marginBottom: 20 }}>
-              <div style={{ fontSize: 36, fontWeight: 900, color: aiAuditData.score >= 80 ? "var(--color-success)" : "var(--color-info)" }}>
-                {aiAuditData.score}%
+            <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "16px 20px", background: (aiAuditData.readiness_index ?? aiAuditData.score) >= 80 ? "var(--color-green-soft)" : "var(--color-blue-soft)", borderRadius: 12, border: "1px solid var(--color-green-200)", marginBottom: 20 }}>
+              <div style={{ fontSize: 36, fontWeight: 900, color: (aiAuditData.readiness_index ?? aiAuditData.score) >= 80 ? "var(--color-success)" : "var(--color-info)" }}>
+                {aiAuditData.readiness_index ?? aiAuditData.score}%
               </div>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: "var(--text-soft)" }}>Readiness Verdict</div>
+                <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", color: "var(--text-soft)" }}>Verified Readiness Verdict</div>
                 <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)" }}>
                   {aiAuditData.verdict === "PRODUCTION_READY" ? "🟢 PRODUCTION READY" : aiAuditData.verdict === "STAGING_VERIFIED" ? "🟡 STAGING VERIFIED (CONDITIONAL)" : "🔴 TESTING IN PROGRESS"}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--text-faint)" }}>
-                  {aiAuditData.passed_count} of {aiAuditData.total_features} core workflows verified.
+                  {aiAuditData.verified_by_testing ?? 0} of {aiAuditData.total_features} workflows verified by a tester · {aiAuditData.auto_verified_count ?? 0} inferred from activity ({aiAuditData.score}% usage coverage).
                 </div>
               </div>
             </div>

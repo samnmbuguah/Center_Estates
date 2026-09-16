@@ -54,6 +54,7 @@ TEST_CHECKLIST = (
     ('invoicing.rent_schedules', 'Invoicing & Billing', 'Generate rent roll schedules and recurring charge rules', '/property?tab=rent-schedules'),
     ('invoicing.invoices', 'Invoicing & Billing', 'Dispatch institutional invoices, reminders and VAT lines', '/property?tab=invoices'),
     ('invoicing.credit_notes', 'Invoicing & Billing', 'Issue credit notes, invoice adjustments and balance reversals', '/property?tab=credit-notes'),
+    ('invoicing.management_fees', 'Invoicing & Billing', 'Raise landlord management fee invoices from collected rent', '/property?tab=fees'),
 
     # 3. Finance, Receipts & Banking
     ('finance.receipting', 'Finance & Banking', 'Record payment receipts, multi-invoice auto-allocation and wallets', '/property?tab=receipts'),
@@ -78,6 +79,14 @@ TEST_CHECKLIST = (
     ('facility.incidents', 'Facility Operations', 'Log safety incidents, conduct investigation and corrective action', '/facility?tab=incident-reporting'),
     ('facility.caretaker_portal', 'Facility Operations', 'Mobile caretaker portal for daily rounds, meter logs and inspections', '/caretaker-portal'),
 
+    # 5b. Construction & Project Monitoring
+    ('construction.projects', 'Construction & Projects', 'Register projects, lifecycle stages and per-property module entitlement', '/monitoring'),
+    ('construction.progress_verification', 'Construction & Projects', 'Verify submitted milestone progress with recorded decisions', '/monitoring?tab=milestone-verifications'),
+    ('construction.suppliers', 'Construction & Projects', 'Maintain the approved supplier register for site procurement', '/monitoring?tab=store-suppliers'),
+    ('construction.material_requisitions', 'Construction & Projects', 'Raise, approve and fulfil site material requisitions', '/monitoring?tab=material-requisitions'),
+    ('construction.purchase_orders', 'Construction & Projects', 'Issue purchase orders to suppliers and receive goods', '/monitoring?tab=purchase-orders'),
+    ('construction.stock_ledger', 'Construction & Projects', 'Track store stock movements, receipts and site issues', '/monitoring?tab=stock-movements'),
+
     # 6. Commercial, Sales & Valuations
     ('sales.pipeline', 'Sales & Valuations', 'Manage buyer leads, property inquiries and unit reservations', '/sales?tab=pipeline'),
     ('sales.deals', 'Sales & Valuations', 'Contract sale transactions, payment milestones and commissions', '/sales?tab=deals'),
@@ -98,6 +107,7 @@ TEST_CHECKLIST = (
     # 9. Reports & Compliance
     ('reports.tenancy', 'Reports & Compliance', 'Generate occupancy, vacancy and tenancy register reports', '/property?tab=tenancy-reports'),
     ('reports.financial', 'Reports & Compliance', 'Generate receipts & expenditure, tax and revenue schedule reports', '/property?tab=financial-reports'),
+    ('reports.analytics', 'Reports & Compliance', 'Run and export grouped sales & portfolio analytics with audit trail', '/sales?tab=reports'),
     ('reports.dossier', 'Reports & Compliance', 'Export bank-grade institutional property audit report PDF', '/overview'),
 
     # 10. Administration & Governance
@@ -111,7 +121,8 @@ def auto_detect_organization_activity(organization, user=None):
     detected = {}
     
     try:
-        from properties.models import Property, Unit, Tenant, Lease, Owner, Invoice, CreditNote, Receipt, BankTransaction, Expense, Budget, ServiceChargeAllocation, ServiceChargeReconciliation, RentSchedule, BillingCandidate
+        from properties.models import Property, Unit, Tenant, Lease, Owner, Invoice, CreditNote, Receipt, BankTransaction, Expense, Budget, ServiceChargeAllocation, ServiceChargeReconciliation, RentSchedule, BillingCandidate, LandlordInvoice, ReportExecution
+        from construction.models import Project, StoreSupplier, MaterialRequisition, PurchaseOrder, StockMovement, MilestoneVerification
         from facilities.models import (
             Contractor,
             FacilityAsset,
@@ -162,6 +173,10 @@ def auto_detect_organization_activity(organization, user=None):
         cn_count = CreditNote.objects.filter(organization=organization).count()
         if cn_count > 0:
             detected['invoicing.credit_notes'] = f"Auto-verified: {cn_count} credit adjustment(s) posted."
+
+        li_count = LandlordInvoice.objects.filter(organization=organization).count()
+        if li_count > 0:
+            detected['invoicing.management_fees'] = f"Auto-verified: {li_count} landlord management fee invoice(s) raised."
 
         # 3. Finance & Banking
         rct_count = Receipt.objects.filter(organization=organization).count()
@@ -222,6 +237,31 @@ def auto_detect_organization_activity(organization, user=None):
         if inc_count > 0:
             detected['facility.incidents'] = f"Auto-verified: {inc_count} safety incident report(s) documented."
 
+        # 5b. Construction & Project Monitoring
+        proj_count = Project.objects.filter(organization=organization).count()
+        if proj_count > 0:
+            detected['construction.projects'] = f"Auto-verified: {proj_count} project(s) registered with lifecycle stages."
+
+        mv_count = MilestoneVerification.objects.filter(milestone_entry__organization=organization).count()
+        if mv_count > 0:
+            detected['construction.progress_verification'] = f"Auto-verified: {mv_count} milestone progress verification(s) recorded."
+
+        sup_count = StoreSupplier.objects.filter(organization=organization).count()
+        if sup_count > 0:
+            detected['construction.suppliers'] = f"Auto-verified: {sup_count} approved supplier profile(s) on the register."
+
+        mr_count = MaterialRequisition.objects.filter(organization=organization).count()
+        if mr_count > 0:
+            detected['construction.material_requisitions'] = f"Auto-verified: {mr_count} material requisition(s) raised on site."
+
+        po_count = PurchaseOrder.objects.filter(organization=organization).count()
+        if po_count > 0:
+            detected['construction.purchase_orders'] = f"Auto-verified: {po_count} purchase order(s) issued to suppliers."
+
+        sm_count = StockMovement.objects.filter(organization=organization).count()
+        if sm_count > 0:
+            detected['construction.stock_ledger'] = f"Auto-verified: {sm_count} store stock movement(s) recorded."
+
         # 6. AI Companion & Dialogue
         conv_count = QmConversation.objects.filter(organization=organization).count()
         if conv_count > 0:
@@ -235,7 +275,12 @@ def auto_detect_organization_activity(organization, user=None):
         if ann_count > 0:
             detected['companion.dialogue'] = f"Auto-verified: {ann_count} team broadcast announcement(s) published."
 
-        # 7. Administration & Governance
+        # 7. Reports & Compliance
+        report_count = ReportExecution.objects.filter(organization=organization).count()
+        if report_count > 0:
+            detected['reports.analytics'] = f"Auto-verified: {report_count} report execution(s) logged in the audit trail."
+
+        # 8. Administration & Governance
         detected['admin.organization'] = f"Auto-verified: Active organization entity '{organization.name}' verified."
         
         audit_count = AuditEvent.objects.filter(organization=organization).count()
@@ -293,23 +338,41 @@ class TestingChecklistView(APIView):
         }
         items = []
         counts = {status: 0 for status in FeatureTestProgress.Status.values}
+        verified_by_testing = 0
+        verified_by_activity = 0
         for key, module, title, url in TEST_CHECKLIST:
             progress = progress_by_key.get(key)
             status = progress.status if progress else FeatureTestProgress.Status.NOT_STARTED
             counts[status] += 1
+            is_auto_verified = 'Auto-verified' in (progress.notes if progress else '')
+            if status == FeatureTestProgress.Status.PASSED:
+                # Distinguish a workflow a human explicitly verified from one
+                # inferred purely from the presence of operational records.
+                if is_auto_verified:
+                    verified_by_activity += 1
+                else:
+                    verified_by_testing += 1
             items.append({
                 'key': key, 'module': module, 'title': title, 'url': url, 'status': status,
                 'notes': progress.notes if progress else '', 'evidence_url': progress.evidence_url if progress else '',
                 'tested_at': progress.tested_at if progress else None,
                 'tested_by': progress.tested_by.get_full_name() or progress.tested_by.get_username() if progress and progress.tested_by else '',
-                'is_auto_verified': 'Auto-verified' in (progress.notes if progress else ''),
+                'is_auto_verified': is_auto_verified,
             })
+        total = len(items)
+        passed = counts[FeatureTestProgress.Status.PASSED]
         return Response({
             'results': items,
             'summary': counts,
-            'total': len(items),
+            'total': total,
             'organization_name': organization.name,
             'auto_detected_count': len(auto_detected),
+            # Two distinct signals: workflows a person verified against the
+            # running release, versus workflows inferred from record activity.
+            'verified_by_testing': verified_by_testing,
+            'verified_by_activity': verified_by_activity,
+            'readiness_index': round((verified_by_testing / max(total, 1)) * 100),
+            'usage_index': round((passed / max(total, 1)) * 100),
         })
 
     @extend_schema(request=OpenApiTypes.OBJECT, responses={200: OpenApiTypes.OBJECT})
@@ -385,7 +448,12 @@ class TestingAIAuditView(APIView):
         blocked_count = progress_qs.filter(status=FeatureTestProgress.Status.BLOCKED).count()
         total_features = len(TEST_CHECKLIST)
         untested_count = total_features - (passed_count + failed_count + blocked_count)
+        auto_verified_count = progress_qs.filter(
+            status=FeatureTestProgress.Status.PASSED, notes__contains='Auto-verified',
+        ).count()
+        verified_by_testing = passed_count - auto_verified_count
         score = round((passed_count / max(total_features, 1)) * 100)
+        readiness_index = round((verified_by_testing / max(total_features, 1)) * 100)
 
         # Build prompt for AI Quartermaster
         try:
@@ -399,6 +467,8 @@ class TestingAIAuditView(APIView):
                 user_content = (
                     f"Organization: {organization.name}\n"
                     f"Testing Readiness Score: {score}%\n"
+                    f"Verified against the release by a tester: {verified_by_testing}/{total_features} ({readiness_index}%)\n"
+                    f"Auto-detected from record activity only: {auto_verified_count}\n"
                     f"Passed Features: {passed_count}/{total_features}\n"
                     f"Failed Features: {failed_count}\n"
                     f"Blocked Features: {blocked_count}\n"
@@ -422,9 +492,14 @@ class TestingAIAuditView(APIView):
 
         return Response({
             'score': score,
+            'readiness_index': readiness_index,
+            'verified_by_testing': verified_by_testing,
+            'auto_verified_count': auto_verified_count,
             'passed_count': passed_count,
             'total_features': total_features,
-            'verdict': 'PRODUCTION_READY' if score >= 85 else 'STAGING_VERIFIED' if score >= 50 else 'IN_PROGRESS',
+            # The verdict is driven by evidence a tester produced against the
+            # running release, not by activity inferred from stored records.
+            'verdict': 'PRODUCTION_READY' if readiness_index >= 85 else 'STAGING_VERIFIED' if readiness_index >= 50 else 'IN_PROGRESS',
             'assessment': assessment_text,
             'evaluated_at': timezone.now().isoformat(),
         })

@@ -13,6 +13,7 @@ from .tenancy import get_active_organization, scope_to_request
 from properties.models import Property
 from subscriptions.models import Subscription
 from core.models import ClientErrorEvent, FeatureTestProgress, Module
+from core.views import TEST_CHECKLIST
 from core.exceptions import custom_exception_handler
 
 
@@ -136,6 +137,61 @@ class TestingChecklistTests(TestCase):
             FeatureTestProgress.objects.filter(
                 organization=self.organization,
                 feature_key='admin.organization',
+                status=FeatureTestProgress.Status.PASSED,
+            ).exists()
+        )
+
+    def test_checklist_covers_construction_procurement_and_reporting(self):
+        response = self.client.get('/api/v1/testing/checklist/', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        keys = {item['key'] for item in response.data['results']}
+        for expected in (
+            'construction.projects',
+            'construction.progress_verification',
+            'construction.suppliers',
+            'construction.material_requisitions',
+            'construction.purchase_orders',
+            'construction.stock_ledger',
+            'invoicing.management_fees',
+            'reports.analytics',
+        ):
+            self.assertIn(expected, keys)
+        # The advertised total must always match the curated catalogue.
+        self.assertEqual(response.data['total'], len(TEST_CHECKLIST))
+
+    def test_readiness_index_separates_verified_evidence_from_record_activity(self):
+        self.client.patch('/api/v1/testing/checklist/finance.receipting/', {
+            'status': 'passed', 'notes': 'Verified receipting against a live lease allocation.',
+        }, format='json', **self.headers)
+        FeatureTestProgress.objects.create(
+            organization=self.organization,
+            feature_key='property.onboarding',
+            status=FeatureTestProgress.Status.PASSED,
+            notes='Auto-verified: 1 property asset(s) active in organization.',
+        )
+
+        response = self.client.get('/api/v1/testing/checklist/', **self.headers)
+
+        self.assertEqual(response.data['verified_by_testing'], 1)
+        self.assertEqual(response.data['verified_by_activity'], 1)
+        self.assertEqual(response.data['summary']['passed'], 2)
+        total = response.data['total']
+        self.assertEqual(response.data['readiness_index'], round((1 / total) * 100))
+        self.assertEqual(response.data['usage_index'], round((2 / total) * 100))
+        self.assertLess(response.data['readiness_index'], response.data['usage_index'])
+
+    def test_auto_scan_verifies_construction_procurement_activity(self):
+        from construction.models import StoreSupplier
+
+        StoreSupplier.objects.create(organization=self.organization, name='Site Supplies Ltd')
+
+        response = self.client.post('/api/v1/testing/auto-scan/', {}, format='json', **self.headers)
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(
+            FeatureTestProgress.objects.filter(
+                organization=self.organization,
+                feature_key='construction.suppliers',
                 status=FeatureTestProgress.Status.PASSED,
             ).exists()
         )
