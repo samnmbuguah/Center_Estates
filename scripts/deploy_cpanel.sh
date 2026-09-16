@@ -28,6 +28,15 @@ NODE_VENV="/home2/monitori/nodevenv/${DOMAIN}/24/bin/activate"
 BACKEND_ARCHIVE="$(mktemp /tmp/center-estates-api.XXXXXX.tar.gz)"
 FRONTEND_ARCHIVE="$(mktemp /tmp/center-estates-web.XXXXXX.tar.gz)"
 DEPLOY_SCOPE="${DEPLOY_SCOPE:-full}"
+# Optional SSH port override so the deploy can target a host directly (e.g. when
+# an ssh alias still points at a retired address) without editing ssh config.
+SSH_PORT="${SSH_PORT:-}"
+SSH_OPTS=(-o ConnectTimeout=30)
+SCP_OPTS=(-o ConnectTimeout=30)
+if [[ -n "$SSH_PORT" ]]; then
+  SSH_OPTS+=(-p "$SSH_PORT")
+  SCP_OPTS+=(-P "$SSH_PORT")
+fi
 trap 'rm -f "$BACKEND_ARCHIVE" "$FRONTEND_ARCHIVE"' EXIT
 
 if [[ "$DEPLOY_SCOPE" != "full" && "$DEPLOY_SCOPE" != "backend" && "$DEPLOY_SCOPE" != "frontend" ]]; then
@@ -94,10 +103,10 @@ tar -czf "$BACKEND_ARCHIVE" \
   --exclude='apps/web/.next/trace' \
   passenger_wsgi.py apps/backend apps/web/public/center-estates-logo.png
 
-scp "$BACKEND_ARCHIVE" "${REMOTE_HOST}:${API_PATH}/deploy-api.tar.gz"
-scp "scripts/cpanel-api.htaccess" "${REMOTE_HOST}:${API_PATH}/.htaccess"
+scp "${SCP_OPTS[@]}" "$BACKEND_ARCHIVE" "${REMOTE_HOST}:${API_PATH}/deploy-api.tar.gz"
+scp "${SCP_OPTS[@]}" "scripts/cpanel-api.htaccess" "${REMOTE_HOST}:${API_PATH}/.htaccess"
 
-ssh "$REMOTE_HOST" "bash -s" <<EOF
+ssh "${SSH_OPTS[@]}" "$REMOTE_HOST" "bash -s" <<EOF
   set -e
   source '${PYTHON_VENV}'
   cd '${API_PATH}'
@@ -175,9 +184,9 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
   fi
   tar -czf "$FRONTEND_ARCHIVE" \
     app.js apps/web/.next/standalone apps/web/.next/static apps/web/public
-  scp "$FRONTEND_ARCHIVE" "${REMOTE_HOST}:${FRONTEND_PATH}/deploy-web.tar.gz"
-  scp "scripts/cpanel-web.htaccess" "${REMOTE_HOST}:${FRONTEND_PATH}/.htaccess"
-  ssh "$REMOTE_HOST" "bash -s" <<EOF
+  scp "${SCP_OPTS[@]}" "$FRONTEND_ARCHIVE" "${REMOTE_HOST}:${FRONTEND_PATH}/deploy-web.tar.gz"
+  scp "${SCP_OPTS[@]}" "scripts/cpanel-web.htaccess" "${REMOTE_HOST}:${FRONTEND_PATH}/.htaccess"
+  ssh "${SSH_OPTS[@]}" "$REMOTE_HOST" "bash -s" <<EOF
     set -e
     source '${NODE_VENV}'
     cd '${FRONTEND_PATH}'

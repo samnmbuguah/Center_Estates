@@ -11,9 +11,16 @@ API_DOMAIN="${3:-api.centerestates.com}"
 BACKUP_DIR="/home2/monitori/backups"
 API_PATH="/home2/monitori/${API_DOMAIN}"
 
+# Optional SSH port override (mirrors deploy_cpanel.sh).
+SSH_PORT="${SSH_PORT:-}"
+SSH_OPTS=(-o ConnectTimeout=30)
+if [[ -n "$SSH_PORT" ]]; then
+  SSH_OPTS+=(-p "$SSH_PORT")
+fi
+
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 
-ssh "$REMOTE_HOST" "
+ssh "${SSH_OPTS[@]}" "$REMOTE_HOST" "
   set -e
   mkdir -p '${BACKUP_DIR}'
   archive='${BACKUP_DIR}/center-estates-backup-${STAMP}.tar.gz'
