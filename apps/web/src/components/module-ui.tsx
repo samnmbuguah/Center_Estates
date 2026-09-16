@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import {
   Alert,
   Button,
+  ButtonBase,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -85,7 +86,7 @@ export function KpiCard({
   );
 
   if (onClick) {
-    return <button type="button" className="fc-kpi-card is-interactive" onClick={onClick} style={{ textAlign: "left", borderTop: borderColor ? `3px solid ${borderColor}` : undefined }}>{content}</button>;
+    return <ButtonBase component="button" className="fc-kpi-card is-interactive" onClick={onClick} style={{ textAlign: "left", borderTop: borderColor ? `3px solid ${borderColor}` : undefined }}>{content}</ButtonBase>;
   }
 
   return <article className="fc-kpi-card" style={{ textAlign: "left", borderTop: borderColor ? `3px solid ${borderColor}` : undefined }}>{content}</article>;
@@ -221,9 +222,9 @@ export function Pagination({ page, pageSize, total, onPage }: { page: number; pa
         Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}
       </span>
       <div className="row" style={{ gap: 8 }}>
-        <button className="btn ghost sm" disabled={page <= 1} onClick={() => onPage(page - 1)} style={{ fontWeight: 700 }}>← Prev</button>
+        <Button variant="outlined" size="small" disabled={page <= 1} onClick={() => onPage(page - 1)}>← Previous</Button>
         <span className="mono" style={{ fontSize: 13, fontWeight: 800, padding: "0 8px", color: "var(--text-primary)" }}>{page} / {pages}</span>
-        <button className="btn ghost sm" disabled={page >= pages} onClick={() => onPage(page + 1)} style={{ fontWeight: 700 }}>Next →</button>
+        <Button variant="outlined" size="small" disabled={page >= pages} onClick={() => onPage(page + 1)}>Next →</Button>
       </div>
     </div>
   );
@@ -315,12 +316,11 @@ export function DetailDrawer({ title, onClose, children, width = 540, centered =
           <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary, var(--color-slate-900))", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 }}>
             {title}
           </div>
-          <button
-            type="button"
-            className="btn ghost sm"
+          <IconButton
+            size="small"
             onClick={onClose}
-            aria-label="Close"
-            style={{
+            aria-label="Close details"
+            sx={{
               background: "var(--surface-2, var(--color-slate-100))",
               border: "1px solid var(--border, var(--color-slate-200))",
               borderRadius: 8,
@@ -337,7 +337,7 @@ export function DetailDrawer({ title, onClose, children, width = 540, centered =
             }}
           >
             ×
-          </button>
+          </IconButton>
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
           {children}

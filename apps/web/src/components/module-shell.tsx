@@ -1,6 +1,9 @@
 "use client";
 
 import { createElement, type CSSProperties, type ReactNode } from "react";
+import ButtonBase from "@mui/material/ButtonBase";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
 import {
   propertyNav,
   facilityNav,
@@ -121,22 +124,36 @@ export function ModuleShell({
           {/* Two-level module navigation: workflow groups, then pages in the active group. */}
           {hasGroups && (
             <nav className="module-nav-bar" aria-label={`${moduleName} navigation`}>
-              <label className="module-nav-mobile-select">
-                <span>Module page</span>
-                <select value={navigationActiveId ?? ""} onChange={(event) => onSelect?.(event.target.value)}>
-                  {resolvedGroups.flatMap((group) => group.items.map((item) => (
-                    <option value={item.id} key={`${group.label}-${item.id}`}>{group.label} — {item.label}</option>
-                  )))}
-                </select>
-              </label>
+              <div className="module-nav-mobile-select">
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="Module page"
+                  value={navigationActiveId ?? ""}
+                  onChange={(event) => onSelect?.(event.target.value)}
+                  slotProps={{ select: { MenuProps: { slotProps: { paper: { sx: { maxHeight: 420 } } } } } }}
+                >
+                  {resolvedGroups.flatMap((group) => [
+                    <MenuItem key={`${group.label}-heading`} disabled sx={{ fontSize: 11, fontWeight: 800, letterSpacing: ".07em", opacity: "1 !important" }}>
+                      {group.label}
+                    </MenuItem>,
+                    ...group.items.map((item) => (
+                      <MenuItem value={item.id} key={`${group.label}-${item.id}`} sx={{ pl: 3 }}>
+                        {item.icon ? <span aria-hidden="true" style={{ marginRight: 8 }}>{item.icon}</span> : null}
+                        {item.label}
+                      </MenuItem>
+                    )),
+                  ])}
+                </TextField>
+              </div>
 
               <div className="module-nav-groups" role="tablist" aria-label="Workflow sections">
                 {resolvedGroups.map((group) => {
                   const selected = group === activeGroup;
                   return (
-                    <button
+                    <ButtonBase
                       key={group.label}
-                      type="button"
                       role="tab"
                       aria-selected={selected}
                       className={selected ? "active" : ""}
@@ -145,7 +162,7 @@ export function ModuleShell({
                     >
                       {group.icon ? <span aria-hidden="true">{group.icon}</span> : null}
                       {group.label}
-                    </button>
+                    </ButtonBase>
                   );
                 })}
               </div>
@@ -153,9 +170,8 @@ export function ModuleShell({
               {activeGroup && (
                 <div className="module-nav-pages" aria-label={`${activeGroup.label} pages`}>
                   {activeGroup.items.map((item) => (
-                    <button
+                    <ButtonBase
                       key={item.id}
-                      type="button"
                       aria-current={navigationActiveId === item.id ? "page" : undefined}
                       className={navigationActiveId === item.id ? "active" : ""}
                       onClick={() => onSelect?.(item.id)}
@@ -163,7 +179,7 @@ export function ModuleShell({
                     >
                       {item.icon ? <span aria-hidden="true">{item.icon}</span> : null}
                       {item.label}
-                    </button>
+                    </ButtonBase>
                   ))}
                 </div>
               )}
@@ -193,19 +209,21 @@ export function ModuleShell({
                 )}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <label style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)" }}>Switch {entityLabel}:</label>
-                <select
+                <TextField
+                  select
+                  size="small"
+                  label={`Switch ${entityLabel}`}
                   value={activeEntityId ?? ""}
                   onChange={(e) => onSelectEntity?.(e.target.value)}
-                  style={{ fontSize: 13, fontWeight: 700, padding: "5px 12px", borderRadius: 6, border: `1.5px solid var(--brand-primary)`, background: "var(--bg-surface)", color: "var(--text-primary)", cursor: "pointer", outline: "none" }}
+                  sx={{ minWidth: 240, "& .MuiSelect-select": { fontSize: 13, fontWeight: 700 } }}
                 >
-                  <option value="">All {entityLabel}s</option>
+                  <MenuItem value="">All {entityLabel}s</MenuItem>
                   {entities.map((item) => (
-                    <option key={item.id} value={item.id}>
+                    <MenuItem key={item.id} value={item.id}>
                       {item.name} {item.code ? `(${item.code})` : ""}
-                    </option>
+                    </MenuItem>
                   ))}
-                </select>
+                </TextField>
               </div>
             </div>
           )}
