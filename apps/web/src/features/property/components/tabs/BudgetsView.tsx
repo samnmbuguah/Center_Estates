@@ -2,6 +2,10 @@
 
 import React, { useState } from "react";
 import {
+  Button, Chip, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, Typography,
+} from "@mui/material";
+import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
 } from "@/components/module-ui";
@@ -159,50 +163,50 @@ export function BudgetsView({
 
             <Panel title="Annual Property Budgets">
               <ListState loading={loading} empty={budgets.length === 0} emptyTitle="No budgets found" emptyDesc="Property budgets and estimates will appear here once created.">
-                <div className="table-scroll">
-                  <table className="fc-data-table">
-                    <thead>
-                      <tr>
-                        <th>Budget Line</th>
-                        <th>Type</th>
-                        <th>Year</th>
-                        <th>Allocated</th>
-                        <th>Actual</th>
-                        <th>Utilization</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: "action.hover" }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Budget Line</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Type</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Year</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Allocated</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actual</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Utilization</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
                       {budgets.map((b) => {
                         const u = pct(b.actual_amount, b.amount);
                         return (
-                          <tr key={String(b.id)} onClick={() => onSelectRow(b)}>
-                            <td>
-                              <strong style={{ fontSize: 13 }}>{String(b.name ?? b.category ?? "General Budget")}</strong>
-                              <div className="muted" style={{ fontSize: 11 }}>{String(b.property_name ?? "Property")}</div>
-                            </td>
-                            <td><Badge tone="blue">{String(b.type ?? "Operating")}</Badge></td>
-                            <td className="mono">{String(b.year ?? "2026")}</td>
-                            <td className="mono">{kM(b.amount)}</td>
-                            <td className="mono">{kM(b.actual_amount)}</td>
-                            <td>
-                              <span style={{ fontWeight: 800, color: u > 90 ? "var(--danger)" : "var(--color-success)" }}>
+                          <TableRow key={String(b.id)} hover onClick={() => onSelectRow(b)} sx={{ cursor: "pointer" }}>
+                            <TableCell>
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(b.name ?? b.category ?? "General Budget")}</Typography>
+                              <Typography variant="caption" color="text.secondary">{String(b.property_name ?? "Property")}</Typography>
+                            </TableCell>
+                            <TableCell><Badge tone="blue">{String(b.type ?? "Operating")}</Badge></TableCell>
+                            <TableCell><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{String(b.year ?? "2026")}</Typography></TableCell>
+                            <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{kM(b.amount)}</Typography></TableCell>
+                            <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{kM(b.actual_amount)}</Typography></TableCell>
+                            <TableCell align="center">
+                              <Typography variant="body2" sx={{ fontWeight: 800, color: u > 90 ? "error.main" : "success.main" }}>
                                 {u}%
-                              </span>
-                            </td>
-                            <td><StatusPill value={String(b.status ?? "approved")} /></td>
-                            <td>
-                              <button className="btn ghost sm" onClick={(e) => { e.stopPropagation(); onSelectRow(b); }}>
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center"><StatusPill value={String(b.status ?? "approved")} /></TableCell>
+                            <TableCell align="right">
+                              <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={(e) => { e.stopPropagation(); onSelectRow(b); }}>
                                 View Details
-                              </button>
-                            </td>
-                          </tr>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
                         );
                       })}
-                    </tbody>
-                  </table>
-                </div>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
               </ListState>
             </Panel>
           </div>
@@ -270,46 +274,50 @@ export function BudgetsView({
               </div>
 
               {/* Category Breakdown Table */}
-              <div className="table-scroll">
-                <table className="fc-data-table">
-                  <thead>
-                    <tr>
-                      <th>Service Category & Scope</th>
-                      <th style={{ textAlign: "right" }}>Annual OPEX (KES)</th>
-                      <th style={{ textAlign: "right" }}>Sinking Fund Reserve (KES)</th>
-                      <th style={{ textAlign: "right" }}>Total Annual Cost</th>
-                      <th style={{ textAlign: "right" }}>Cost / sq.ft / yr</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+              <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "action.hover" }}>
+                      <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Service Category & Scope</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Annual OPEX (KES)</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Sinking Fund Reserve (KES)</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Total Annual Cost</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Cost / sq.ft / yr</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
                     {scCategories.map((c) => {
                       const tot = c.opex + c.sinking;
                       const sqftCost = totalLettableSqft ? (tot / totalLettableSqft).toFixed(2) : "0.00";
                       return (
-                        <tr key={c.category}>
-                          <td>
-                            <strong style={{ fontSize: 13 }}>{c.category}</strong>
-                            <div className="muted" style={{ fontSize: 11 }}>{c.desc}</div>
-                          </td>
-                          <td className="mono" style={{ textAlign: "right" }}>{money.format(c.opex)}</td>
-                          <td className="mono" style={{ textAlign: "right", color: c.sinking > 0 ? "var(--color-success)" : "inherit", fontWeight: c.sinking > 0 ? 800 : 400 }}>
-                            {c.sinking > 0 ? money.format(c.sinking) : "—"}
-                          </td>
-                          <td className="mono" style={{ textAlign: "right", fontWeight: 800 }}>{money.format(tot)}</td>
-                          <td className="mono" style={{ textAlign: "right" }}>KES {sqftCost}</td>
-                        </tr>
+                        <TableRow key={c.category} hover>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>{c.category}</Typography>
+                            <Typography variant="caption" color="text.secondary">{c.desc}</Typography>
+                          </TableCell>
+                          <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{money.format(c.opex)}</Typography></TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: c.sinking > 0 ? "success.main" : "text.secondary", fontWeight: c.sinking > 0 ? 800 : 400 }}>
+                              {c.sinking > 0 ? money.format(c.sinking) : "—"}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 800 }}>{money.format(tot)}</Typography></TableCell>
+                          <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>KES {sqftCost}</Typography></TableCell>
+                        </TableRow>
                       );
                     })}
-                    <tr style={{ background: "var(--surface-2)", fontWeight: 900 }}>
-                      <td>TOTAL SERVICE CHARGE BUDGET</td>
-                      <td className="mono" style={{ textAlign: "right" }}>{money.format(totalOpexBudget)}</td>
-                      <td className="mono" style={{ textAlign: "right", color: "var(--color-success)" }}>{money.format(totalSinkingFund)}</td>
-                      <td className="mono" style={{ textAlign: "right", color: "var(--primary)" }}>{money.format(grandTotalSC)}</td>
-                      <td className="mono" style={{ textAlign: "right" }}>KES {ratePerSqftYear}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow sx={{ bgcolor: "action.selected" }}>
+                      <TableCell sx={{ fontWeight: 900 }}>TOTAL SERVICE CHARGE BUDGET</TableCell>
+                      <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 800 }}>{money.format(totalOpexBudget)}</Typography></TableCell>
+                      <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "success.main", fontWeight: 800 }}>{money.format(totalSinkingFund)}</Typography></TableCell>
+                      <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main", fontWeight: 900 }}>{money.format(grandTotalSC)}</Typography></TableCell>
+                      <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 800 }}>KES {ratePerSqftYear}</Typography></TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
+              </TableContainer>
 
               {/* Interactive Tenant Service Charge Simulator */}
               <div style={{ padding: 18, background: "var(--surface-2)", borderRadius: 8, border: "2px solid var(--border)" }}>

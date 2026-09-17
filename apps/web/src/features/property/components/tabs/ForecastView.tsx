@@ -1,5 +1,9 @@
 "use client";
 
+import {
+  Paper,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+} from "@mui/material";
 import { EmptyState, Panel } from "@/components/module-ui";
 import type { DashboardData } from "../../types/property.types";
 import { kM } from "../../utils/property.utils";
@@ -58,19 +62,36 @@ export function ForecastView({ dashboard }: { dashboard: DashboardData | null })
           </Panel>
 
           <Panel title="Selected Property Forecast">
-            <div className="table-scroll">
-              <table className="fc-data-table">
-                <thead><tr><th>Year</th><th>Rental income</th><th>Operating expenses</th><th>Net operating income</th></tr></thead>
-                <tbody>{projections.map((row) => (
-                  <tr key={row.year}>
-                    <td className="mono">{row.year}</td>
-                    <td className="mono">{kM(row.rentalIncome)}</td>
-                    <td className="mono" style={{ color: "var(--danger)" }}>{kM(row.operatingExpenses)}</td>
-                    <td className="mono" style={{ color: row.netOperatingIncome >= 0 ? "var(--color-success)" : "var(--danger)", fontWeight: 800 }}>{kM(row.netOperatingIncome)}</td>
-                  </tr>
-                ))}</tbody>
-              </table>
-            </div>
+            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Year</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Rental income</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Operating expenses</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Net operating income</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {projections.map((row) => (
+                    <TableRow key={row.year} hover>
+                      <TableCell><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{row.year}</Typography></TableCell>
+                      <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{kM(row.rentalIncome)}</Typography></TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "error.main" }}>
+                          {kM(row.operatingExpenses)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: row.netOperatingIncome >= 0 ? "success.main" : "error.main", fontWeight: 800 }}>
+                          {kM(row.netOperatingIncome)}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Panel>
 
           <EmptyState icon="🏗️" title="No approved capital plan" description="Approved capital projects for this property will appear here once they are recorded." />

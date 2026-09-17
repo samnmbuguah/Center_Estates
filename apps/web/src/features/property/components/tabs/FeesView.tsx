@@ -3,7 +3,9 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  MenuItem, Paper, Stack, Switch, TextField, Typography,
+  MenuItem, Paper, Stack, Switch,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  TextField, Typography,
 } from "@mui/material";
 import DownloadRounded from "@mui/icons-material/DownloadRounded";
 import ReceiptLongRounded from "@mui/icons-material/ReceiptLongRounded";
@@ -247,57 +249,81 @@ export function FeesView({
       {/* Invoice Register */}
       <Panel title="Landlord Fee Invoices">
         <ListState loading={fetching} empty={filteredInvoices.length === 0} emptyTitle="No fee invoices" emptyDesc="Generate a management fee invoice to start tracking landlord disbursements.">
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Invoice No</th>
-                  <th>Period</th>
-                  <th>Landlord</th>
-                  <th>Gross Collections</th>
-                  <th>Fee</th>
-                  <th>VAT</th>
-                  <th>Total</th>
-                  <th>Net Payout</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Invoice No</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Period</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Landlord</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Gross Collections</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Fee</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>VAT</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Total</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Net Payout</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {filteredInvoices.map((inv) => (
-                  <tr key={inv.id}>
-                    <td className="mono" style={{ fontWeight: 700, color: "var(--brand-primary, var(--color-danger))" }}>{inv.number}</td>
-                    <td style={{ fontSize: 12 }}>{inv.billing_period}</td>
-                    <td style={{ fontSize: 12 }}>{inv.landlord_name}</td>
-                    <td className="mono" style={{ color: "var(--color-success)", fontWeight: 600 }}>{kM(Number(inv.gross_collections))}</td>
-                    <td className="mono" style={{ color: "var(--color-indigo)" }}>{kM(Number(inv.fee_amount))}</td>
-                    <td className="mono" style={{ color: "var(--color-warning)" }}>{kM(Number(inv.vat_amount))}</td>
-                    <td className="mono" style={{ fontWeight: 800 }}>{kM(Number(inv.total_amount))}</td>
-                    <td className="mono" style={{ color: "var(--color-info)", fontWeight: 800 }}>{kM(Number(inv.net_payout))}</td>
-                    <td>
+                  <TableRow key={inv.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700, color: "primary.main" }}>
+                        {inv.number}
+                      </Typography>
+                    </TableCell>
+                    <TableCell><Typography variant="body2">{inv.billing_period}</Typography></TableCell>
+                    <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>{inv.landlord_name}</Typography></TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "success.main", fontWeight: 600 }}>
+                        {kM(Number(inv.gross_collections))}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "info.main" }}>
+                        {kM(Number(inv.fee_amount))}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "warning.main" }}>
+                        {kM(Number(inv.vat_amount))}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 800 }}>
+                        {kM(Number(inv.total_amount))}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.dark", fontWeight: 800 }}>
+                        {kM(Number(inv.net_payout))}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
                       <StatusPill value={inv.status} />
-                      {inv.payment_reference && <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{inv.payment_reference}</div>}
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      <div style={{ display: "inline-flex", gap: 4 }}>
+                      {inv.payment_reference && <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{inv.payment_reference}</Typography>}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
                         {inv.status === "draft" && (
-                          <Button size="small" variant="outlined" onClick={() => void handleSend(inv)} sx={{ fontSize: 11, py: 0.25 }}>Send</Button>
+                          <Button size="small" variant="outlined" onClick={() => void handleSend(inv)} sx={{ fontSize: 11, py: 0.25, minWidth: 0 }}>Send</Button>
                         )}
                         {inv.status === "sent" && (
-                          <Button size="small" variant="contained" color="success" onClick={() => void handleMarkPaid(inv)} sx={{ fontSize: 11, py: 0.25 }}>Mark Paid</Button>
+                          <Button size="small" variant="contained" color="success" onClick={() => void handleMarkPaid(inv)} sx={{ fontSize: 11, py: 0.25, minWidth: 0 }}>Mark Paid</Button>
                         )}
                         {inv.status === "draft" && (
                           <Button size="small" variant="outlined" color="error" onClick={() => void handleDelete(inv)} sx={{ fontSize: 11, py: 0.25, minWidth: 0 }}>
                             <DeleteRounded sx={{ fontSize: 15 }} />
                           </Button>
                         )}
-                      </div>
-                    </td>
-                  </tr>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>
 

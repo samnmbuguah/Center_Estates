@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useMemo, type ReactNode } from "react";
-import { Box, Button, Chip, MenuItem, TextField, Typography } from "@mui/material";
+import {
+  Box, Button, Chip, MenuItem, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+} from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -34,39 +37,43 @@ export function RemindersView({ rows, loading, search, setSearch, onSendReminder
 
       <Panel title="Reminders">
         <ListState loading={loading} empty={reminders.length === 0} emptyTitle="No reminders found" emptyDesc="Payment reminders sent from the collection workflow appear here.">
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Tenant</th>
-                  <th>Invoice</th>
-                  <th>Channel</th>
-                  <th>Recipient</th>
-                  <th>Sent At</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Invoice</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Channel</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Recipient</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Sent At</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {reminders.map((r) => (
-                  <tr key={String(r.id)}>
-                    <td><strong style={{ fontSize: 12 }}>{String(r.tenant_name ?? "—")}</strong></td>
-                    <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(r.invoice_number ?? "—")}</td>
-                    <td style={{ fontSize: 12 }}>{String(r.channel ?? "—").replace(/_/g, " ")}</td>
-                    <td style={{ fontSize: 12 }}>{String(r.recipient ?? "—")}</td>
-                    <td style={{ fontSize: 12 }}>{fmtDate(r.sent_at)}</td>
-                    <td><Badge tone="green">Sent</Badge></td>
-                    <td>
-                      <div className="row" style={{ gap: 6 }}>
-                        <button className="btn ghost sm" onClick={() => onSendReminder(r)}>Send now</button>
-                        <button className="btn ghost sm" onClick={() => setTab("rent")}>Invoices</button>
-                      </div>
-                    </td>
-                  </tr>
+                  <TableRow key={String(r.id)} hover>
+                    <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>{String(r.tenant_name ?? "—")}</Typography></TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main" }}>
+                        {String(r.invoice_number ?? "—")}
+                      </Typography>
+                    </TableCell>
+                    <TableCell><Typography variant="body2">{String(r.channel ?? "—").replace(/_/g, " ")}</Typography></TableCell>
+                    <TableCell><Typography variant="body2">{String(r.recipient ?? "—")}</Typography></TableCell>
+                    <TableCell><Typography variant="body2">{fmtDate(r.sent_at)}</Typography></TableCell>
+                    <TableCell align="center"><Badge tone="green">Sent</Badge></TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
+                        <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={() => onSendReminder(r)}>Send now</Button>
+                        <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={() => setTab("rent")}>Invoices</Button>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>
     </>

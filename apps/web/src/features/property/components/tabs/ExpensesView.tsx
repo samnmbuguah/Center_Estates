@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useMemo, type ReactNode } from "react";
-import { Box, Button, Chip, MenuItem, TextField, Typography } from "@mui/material";
+import {
+  Box, Button, Chip, MenuItem, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+} from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -142,56 +145,72 @@ export function ExpensesView({ rows, financial, loading, search, setSearch, setT
 
       <Panel title="Recent Transactions" action={<button className="btn ghost sm" onClick={() => setTab("receipts")}>Receipts →</button>}>
         <ListState loading={loading} empty={expenses.length === 0} emptyTitle="No transactions found" emptyDesc="Recorded property expenses and supplier invoices appear here.">
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Property</th>
-                  <th>Supplier / Description</th>
-                  <th>Category</th>
-                  <th>Invoice No</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Property</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Supplier / Description</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Category</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Invoice No</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Amount</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {expenses.map((e) => (
-                  <tr key={String(e.id)}>
-                    <td style={{ fontSize: 12 }}>{fmtDate(e.incurred_on)}</td>
-                    <td style={{ fontSize: 12 }}>{String(e.property_name ?? "—")}</td>
-                    <td style={{ fontSize: 12 }}>{String(e.supplier ?? e.description ?? "—")}</td>
-                    <td style={{ fontSize: 12 }}>{String(e.category ?? "—")}</td>
-                    <td className="mono" style={{ fontSize: 12 }}>
-                      <div>{String(e.invoice_number ?? "—")}</div>
+                  <TableRow key={String(e.id)} hover>
+                    <TableCell><Typography variant="body2">{fmtDate(e.incurred_on)}</Typography></TableCell>
+                    <TableCell><Typography variant="body2">{String(e.property_name ?? "—")}</Typography></TableCell>
+                    <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>{String(e.supplier ?? e.description ?? "—")}</Typography></TableCell>
+                    <TableCell><Typography variant="body2">{String(e.category ?? "—")}</Typography></TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main" }}>
+                        {String(e.invoice_number ?? "—")}
+                      </Typography>
                       {(e.attachment_url || (e as any).document_url || (e as any).receipt_url) && (
-                        <a
+                        <Button
+                          component="a"
                           href={String(e.attachment_url || (e as any).document_url || (e as any).receipt_url)}
                           target="_blank"
                           rel="noreferrer"
-                          className="btn ghost sm"
-                          style={{ fontSize: 10, padding: "1px 6px", marginTop: 2, display: "inline-block" }}
+                          size="small"
+                          variant="outlined"
+                          sx={{ minWidth: 0, px: 0.75, py: 0.1, fontSize: 10, mt: 0.5 }}
                         >
                           📎 Soft Copy
-                        </a>
+                        </Button>
                       )}
-                    </td>
-                    <td className="mono" style={{ color: "var(--danger)", fontWeight: 700 }}>{kM(e.amount)}</td>
-                    <td><StatusPill value={String(e.status ?? "—")} /></td>
-                    <td>
-                      <div className="row" style={{ gap: 6 }}>
-                        {(["draft", "rejected"].includes(String(e.status))) && <button className="btn ghost sm" onClick={() => onAction(e, "submit")}>Submit</button>}
-                        {e.status === "pending" && <button className="btn primary sm" onClick={() => onAction(e, "approve")}>Approve</button>}
-                        {e.status === "pending" && <button className="btn ghost sm" onClick={() => onAction(e, "reject")}>Reject</button>}
-                        {e.status === "approved" && <button className="btn primary sm" onClick={() => onAction(e, "mark-paid")}>Mark paid</button>}
-                      </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700, color: "error.main" }}>
+                        {kM(e.amount)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center"><StatusPill value={String(e.status ?? "—")} /></TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
+                        {(["draft", "rejected"].includes(String(e.status))) && (
+                          <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={() => onAction(e, "submit")}>Submit</Button>
+                        )}
+                        {e.status === "pending" && (
+                          <Button size="small" variant="contained" color="success" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={() => onAction(e, "approve")}>Approve</Button>
+                        )}
+                        {e.status === "pending" && (
+                          <Button size="small" variant="outlined" color="error" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={() => onAction(e, "reject")}>Reject</Button>
+                        )}
+                        {e.status === "approved" && (
+                          <Button size="small" variant="contained" color="primary" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={() => onAction(e, "mark-paid")}>Mark paid</Button>
+                        )}
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>
     </>

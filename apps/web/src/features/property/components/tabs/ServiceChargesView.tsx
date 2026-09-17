@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Button, Chip, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+} from "@mui/material";
 import { Badge, Panel, StatusPill } from "@/components/module-ui";
 import { ListState, ViewToolbar } from "../PropertyToolbar";
 import type { PropertyTab, Row, ServiceChargeRow } from "../../types/property.types";
@@ -129,76 +133,83 @@ export function ServiceChargesView({
         )}
       >
         <ListState loading={loading} empty={filteredCharges.length === 0} emptyTitle="No cost centres found" emptyDesc="Set up a service charge scheme for this property to begin allocation and reconciliation.">
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Cost Centre Scheme</th>
-                  <th>Apportionment Basis</th>
-                  <th>Annual Budget</th>
-                  <th>Monthly Pool</th>
-                  <th>Budget Share</th>
-                  <th>Allocated Units</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Cost Centre Scheme</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Apportionment Basis</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Annual Budget</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Monthly Pool</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Budget Share</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Allocated Units</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {filteredCharges.map((charge) => {
                   const allocCount = Number(charge.allocation_count ?? (Array.isArray(charge.allocations) ? charge.allocations.length : 0));
                   return (
-                    <tr key={String(charge.id)}>
-                      <td>
-                        <strong style={{ fontSize: 13, color: "var(--text)" }}>{String(charge.name ?? "—")}</strong>
-                        {Boolean(charge.description) && <div style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>{String(charge.description)}</div>}
-                      </td>
-                      <td>
+                    <TableRow key={String(charge.id)} hover>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(charge.name ?? "—")}</Typography>
+                        {Boolean(charge.description) && <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{String(charge.description)}</Typography>}
+                      </TableCell>
+                      <TableCell>
                         <Badge tone={charge.method === "area" ? "blue" : "purple"}>
                           {String(charge.method === "area" ? "Floor Area (m²)" : charge.method === "equal" ? "Equal Share" : "Fixed Amount")}
                         </Badge>
-                      </td>
-                      <td className="mono" style={{ fontWeight: 700, color: "var(--text)" }}>{kM(charge.annual_budget)}</td>
-                      <td className="mono" style={{ color: "var(--primary)", fontWeight: 700 }}>{kM(Number(charge.annual_budget ?? 0) / 12)}</td>
-                      <td className="mono" style={{ fontWeight: 600, color: "var(--text-secondary)" }}>{totalBudget > 0 ? pct(Number(charge.annual_budget ?? 0), totalBudget) : 0}%</td>
-                      <td>
+                      </TableCell>
+                      <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>{kM(charge.annual_budget)}</Typography></TableCell>
+                      <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main", fontWeight: 700 }}>{kM(Number(charge.annual_budget ?? 0) / 12)}</Typography></TableCell>
+                      <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{totalBudget > 0 ? pct(Number(charge.annual_budget ?? 0), totalBudget) : 0}%</Typography></TableCell>
+                      <TableCell align="center">
                         {allocCount > 0 ? (
                           <Badge tone="green">✓ {allocCount} Units Apportioned</Badge>
                         ) : (
                           <Badge tone="yellow">Pending Apportionment</Badge>
                         )}
-                      </td>
-                      <td><StatusPill value={charge.is_active !== false ? "Active" : "Inactive"} /></td>
-                      <td style={{ textAlign: "right" }}>
-                        <div style={{ display: "flex", gap: 5, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                          <button
-                            className="fc-action-btn primary"
+                      </TableCell>
+                      <TableCell align="center"><StatusPill value={charge.is_active !== false ? "Active" : "Inactive"} /></TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="primary"
                             onClick={() => onAllocate(charge)}
                             title="Generate unit apportionments"
+                            sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                           >
                             ⚡ Generate Allocations
-                          </button>
-                          <button
-                            className="fc-action-btn"
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
                             onClick={() => setSelectedScheme(charge)}
                             title="View apportionment schedule"
+                            sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                           >
                             📊 View Schedule
-                          </button>
-                          <button
-                            className="fc-action-btn"
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
                             onClick={() => onReconcile(charge)}
                             title="Reconcile cost centre expenses"
+                            sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                           >
                             🔄 Reconcile
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>
 

@@ -3,7 +3,9 @@
 import { useState } from "react";
 import {
   Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle,
-  MenuItem, Stack, TextField, Typography,
+  MenuItem, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  TextField, Typography,
 } from "@mui/material";
 import { Plus, Trash2 } from "lucide-react";
 import { Badge, EmptyState, KpiCard, KpiStrip, Panel } from "@/components/module-ui";
@@ -112,40 +114,52 @@ export function ServiceProfilesView({ rows, loading, search, setSearch, setTab, 
 
       <Panel title="Service Profiles">
         <ListState loading={loading} empty={profiles.length === 0} emptyTitle="No service profiles" emptyDesc="Create service profiles in Facility → Operations to define required services.">
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Service</th>
-                  <th>Category</th>
-                  <th>Type</th>
-                  <th>Criticality</th>
-                  <th>Frequency</th>
-                  <th>Allocations</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Code</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Service</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Category</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Type</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Criticality</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Frequency</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Allocations</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {profiles.map((p) => (
-                  <tr key={p.id}>
-                    <td className="mono" style={{ fontSize: 12, fontWeight: 700 }}>{p.code}</td>
-                    <td><strong style={{ fontSize: 13 }}>{p.name}</strong></td>
-                    <td style={{ fontSize: 12 }}>{p.category || "—"}</td>
-                    <td style={{ fontSize: 12 }}>{p.service_type?.replace(/_/g, " ") || "—"}</td>
-                    <td><Badge tone={p.criticality === "critical" ? "red" : p.criticality === "high" ? "yellow" : "blue"}>{p.criticality || "—"}</Badge></td>
-                    <td style={{ fontSize: 12 }}>{p.default_frequency?.replace(/_/g, " ") || "—"}</td>
-                    <td><Badge tone={p.allocations?.length ? "green" : "yellow"}>{p.allocations?.length || 0}</Badge></td>
-                    <td><Badge tone={p.status === "active" ? "green" : "gray"}>{p.status || "—"}</Badge></td>
-                    <td>
-                      <button className="btn ghost sm" onClick={() => void openAllocations(p)}>Allocate</button>
-                    </td>
-                  </tr>
+                  <TableRow key={p.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>
+                        {p.code}
+                      </Typography>
+                    </TableCell>
+                    <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>{p.name}</Typography></TableCell>
+                    <TableCell><Typography variant="body2">{p.category || "—"}</Typography></TableCell>
+                    <TableCell><Typography variant="body2">{p.service_type?.replace(/_/g, " ") || "—"}</Typography></TableCell>
+                    <TableCell align="center">
+                      <Badge tone={p.criticality === "critical" ? "red" : p.criticality === "high" ? "yellow" : "blue"}>{p.criticality || "—"}</Badge>
+                    </TableCell>
+                    <TableCell><Typography variant="body2">{p.default_frequency?.replace(/_/g, " ") || "—"}</Typography></TableCell>
+                    <TableCell align="center">
+                      <Badge tone={p.allocations?.length ? "green" : "yellow"}>{p.allocations?.length || 0}</Badge>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Badge tone={p.status === "active" ? "green" : "gray"}>{p.status || "—"}</Badge>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={() => void openAllocations(p)}>
+                        Allocate
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>
 
@@ -184,38 +198,42 @@ export function ServiceProfilesView({ rows, loading, search, setSearch, setTab, 
           {allocLoading ? null : allocations.length === 0 ? (
             <EmptyState title="No allocations" description="Assign this service to a property, optionally with a provider and SLA targets." />
           ) : (
-            <Box sx={{ overflowX: "auto" }}>
-              <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead>
-                  <tr style={{ textAlign: "left", borderBottom: "1px solid var(--border)" }}>
-                    <th style={{ padding: "8px 10px" }}>Property</th>
-                    <th style={{ padding: "8px 10px" }}>Provider</th>
-                    <th style={{ padding: "8px 10px" }}>Period</th>
-                    <th style={{ padding: "8px 10px" }}>SLA</th>
-                    <th style={{ padding: "8px 10px" }}>Status</th>
-                    <th style={{ padding: "8px 10px" }} />
-                  </tr>
-                </thead>
-                <tbody>
+            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Property</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Provider</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Period</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>SLA</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {allocations.map((a) => (
-                    <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "8px 10px", fontWeight: 600 }}>{a.property_name}</td>
-                      <td style={{ padding: "8px 10px" }}>{a.provider_name || "Unassigned"}</td>
-                      <td style={{ padding: "8px 10px" }}>{a.starts_on || "—"} → {a.ends_on || "open"}</td>
-                      <td style={{ padding: "8px 10px", fontSize: 11 }}>
-                        {a.response_target_minutes ? `R${a.response_target_minutes}` : "—"} / {a.resolution_target_minutes ? `R${a.resolution_target_minutes}` : "—"} / {a.quality_target_percent ? `${a.quality_target_percent}%` : "—"}
-                      </td>
-                      <td style={{ padding: "8px 10px" }}><Badge tone={a.is_active ? "green" : "gray"}>{a.is_active ? "Active" : "Inactive"}</Badge></td>
-                      <td style={{ padding: "8px 10px", textAlign: "right" }}>
+                    <TableRow key={a.id} hover>
+                      <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>{a.property_name}</Typography></TableCell>
+                      <TableCell><Typography variant="body2">{a.provider_name || "Unassigned"}</Typography></TableCell>
+                      <TableCell><Typography variant="body2">{a.starts_on || "—"} → {a.ends_on || "open"}</Typography></TableCell>
+                      <TableCell>
+                        <Typography variant="caption" sx={{ fontFamily: "ui-monospace, monospace" }}>
+                          {a.response_target_minutes ? `R${a.response_target_minutes}` : "—"} / {a.resolution_target_minutes ? `R${a.resolution_target_minutes}` : "—"} / {a.quality_target_percent ? `${a.quality_target_percent}%` : "—"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Badge tone={a.is_active ? "green" : "gray"}>{a.is_active ? "Active" : "Inactive"}</Badge>
+                      </TableCell>
+                      <TableCell align="right">
                         <Button size="small" color="error" startIcon={<Trash2 size={13} />} disabled={Boolean(busy)} onClick={() => void removeAllocation(a.id)}>
                           {busy === a.id ? "…" : "Remove"}
                         </Button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </Box>
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
         </DialogContent>
         <DialogActions><Button onClick={() => setSelected(null)}>Close</Button></DialogActions>

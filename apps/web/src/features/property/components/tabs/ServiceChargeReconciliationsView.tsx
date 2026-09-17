@@ -1,6 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
+import {
+  Button, Chip, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+} from "@mui/material";
 import { Badge, KpiCard, KpiStrip, Panel, StatusPill, money } from "@/components/module-ui";
 import { ListState, ViewToolbar } from "../PropertyToolbar";
 import type { Row, ServiceChargeReconciliationRow } from "../../types/property.types";
@@ -100,104 +104,122 @@ export function ServiceChargeReconciliationsView({
           emptyTitle="No reconciliations found"
           emptyDesc="Period reconciliations comparing budgeted to actual expenditure appear here. Click Reconcile on any Scheme to create one."
         >
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Reconciliation Ref</th>
-                  <th>Cost Centre Scheme</th>
-                  <th>Audit Period</th>
-                  <th>Budgeted OPEX</th>
-                  <th>Actual Incurred</th>
-                  <th>Net Variance</th>
-                  <th>Prepared / Reviewed By</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Reconciliation Ref</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Cost Centre Scheme</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Audit Period</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Budgeted OPEX</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actual Incurred</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Net Variance</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Prepared / Reviewed By</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {filtered.map((r) => {
                   const varianceNum = Number(r.variance ?? 0);
                   const isSurplus = varianceNum >= 0;
                   const statusStr = String(r.status ?? "draft").toLowerCase();
 
                   return (
-                    <tr key={String(r.id)}>
-                      <td className="mono" style={{ color: "var(--primary)", fontSize: 12, fontWeight: 700 }}>
-                        {shortId(r.id)}
-                      </td>
-                      <td>
-                        <strong style={{ fontSize: 13, color: "var(--text)" }}>{String(r.service_charge_name ?? "—")}</strong>
-                        {r.property_name && <div style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>{String(r.property_name)}</div>}
-                      </td>
-                      <td style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>
-                        {fmtDate(r.period_start)} — {fmtDate(r.period_end)}
-                      </td>
-                      <td className="mono" style={{ fontWeight: 700, color: "var(--text)" }}>
-                        {money.format(Number(r.budgeted_amount ?? 0))}
-                      </td>
-                      <td className="mono" style={{ fontWeight: 700, color: "var(--primary)" }}>
-                        {money.format(Number(r.actual_amount ?? 0))}
-                      </td>
-                      <td
-                        className="mono"
-                        style={{ fontWeight: 800, color: isSurplus ? "var(--color-emerald-strong)" : "var(--color-danger)" }}
-                      >
-                        {money.format(Math.abs(varianceNum))}
-                        <span style={{ fontSize: 10, marginLeft: 4, fontWeight: 700 }}>
-                          {isSurplus ? "(Surplus)" : "(Deficit)"}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: 12 }}>
-                        <div style={{ fontWeight: 700, color: "var(--text)" }}>
+                    <TableRow key={String(r.id)} hover>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main", fontWeight: 700 }}>
+                          {shortId(r.id)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(r.service_charge_name ?? "—")}</Typography>
+                        {r.property_name && <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{String(r.property_name)}</Typography>}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                          {fmtDate(r.period_start)} — {fmtDate(r.period_end)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>
+                          {money.format(Number(r.budgeted_amount ?? 0))}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main", fontWeight: 700 }}>
+                          {money.format(Number(r.actual_amount ?? 0))}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontFamily: "ui-monospace, monospace",
+                            fontWeight: 800,
+                            color: isSurplus ? "success.main" : "error.main",
+                          }}
+                        >
+                          {money.format(Math.abs(varianceNum))}
+                          <Typography component="span" variant="caption" sx={{ ml: 0.5, fontWeight: 700 }}>
+                            {isSurplus ? "(Surplus)" : "(Deficit)"}
+                          </Typography>
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
                           Prep: {String(r.prepared_by_name ?? "System")}
-                        </div>
+                        </Typography>
                         {Boolean(r.reviewed_by_name) && (
-                          <div style={{ fontSize: 11, color: "var(--color-emerald-strong)", fontWeight: 700 }}>
+                          <Typography variant="caption" sx={{ color: "success.main", fontWeight: 700, display: "block" }}>
                             Rev: {String(r.reviewed_by_name)}
-                          </div>
+                          </Typography>
                         )}
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell align="center">
                         <StatusPill value={statusStr} />
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <div className="row" style={{ gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
                           {statusStr === "draft" && onReview && (
-                            <button
-                              className="btn ghost sm"
-                              style={{ fontSize: 11, padding: "4px 8px" }}
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                               onClick={() => onReview(r)}
                             >
                               Review & Audit
-                            </button>
+                            </Button>
                           )}
                           {statusStr === "in_review" && onApprove && (
-                            <button
-                              className="btn primary sm"
-                              style={{ fontSize: 11, padding: "4px 8px" }}
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
+                              sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                               onClick={() => onApprove(r)}
                             >
                               ✓ Approve
-                            </button>
+                            </Button>
                           )}
                           {statusStr === "approved" && onDownloadPdf && (
-                            <button
-                              className="btn ghost sm"
-                              style={{ fontSize: 11, padding: "4px 8px" }}
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                               onClick={() => onDownloadPdf(r)}
                             >
                               📄 Download Cert
-                            </button>
+                            </Button>
                           )}
-                        </div>
-                      </td>
-                    </tr>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>
     </div>

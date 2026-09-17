@@ -1,6 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+  Paper,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+} from "@mui/material";
 import { Badge, KpiCard, KpiStrip, Panel, StatusPill, money } from "@/components/module-ui";
 import { ListState, ViewToolbar } from "../PropertyToolbar";
 import type { Row, ServiceChargeAllocationRow } from "../../types/property.types";
@@ -150,49 +154,59 @@ export function ServiceChargeAllocationsView({
           emptyTitle="No allocations found"
           emptyDesc="Generate allocations from a service charge to apportion its budget across property units."
         >
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Allocation Ref</th>
-                  <th>Cost Centre Scheme</th>
-                  <th>Unit Code</th>
-                  <th>Apportionment Ratio</th>
-                  <th>Monthly Charge</th>
-                  <th>Annual Allocation</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Allocation Ref</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Cost Centre Scheme</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Unit Code</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Apportionment Ratio</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Monthly Charge</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Annual Allocation</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {filteredAllocations.map((a) => (
-                  <tr key={String(a.id)}>
-                    <td className="mono" style={{ color: "var(--primary)", fontSize: 12, fontWeight: 700 }}>
-                      {shortId(a.id)}
-                    </td>
-                    <td>
-                      <strong style={{ fontSize: 13, color: "var(--text)" }}>{String(a.service_charge_name ?? "—")}</strong>
-                      {a.property_name && <div style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>{String(a.property_name)}</div>}
-                    </td>
-                    <td className="mono" style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
-                      {String(a.unit_code ?? "—")}
-                    </td>
-                    <td className="mono" style={{ fontWeight: 700, color: "var(--text-secondary)" }}>
-                      {(Number(a.ratio ?? 0) * 100).toFixed(4)}%
-                    </td>
-                    <td className="mono" style={{ color: "var(--primary)", fontWeight: 800 }}>
-                      {money.format(Number(a.monthly_amount ?? 0))}
-                    </td>
-                    <td className="mono" style={{ fontWeight: 700, color: "var(--text)" }}>
-                      {money.format(Number(a.annual_amount ?? 0))}
-                    </td>
-                    <td>
+                  <TableRow key={String(a.id)} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main", fontWeight: 700 }}>
+                        {shortId(a.id)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(a.service_charge_name ?? "—")}</Typography>
+                      {a.property_name && <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>{String(a.property_name)}</Typography>}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>
+                        {String(a.unit_code ?? "—")}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "text.secondary", fontWeight: 700 }}>
+                        {(Number(a.ratio ?? 0) * 100).toFixed(4)}%
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main", fontWeight: 800 }}>
+                        {money.format(Number(a.monthly_amount ?? 0))}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>
+                        {money.format(Number(a.annual_amount ?? 0))}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
                       <Badge tone="green">Active In Schedule</Badge>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>
     </div>

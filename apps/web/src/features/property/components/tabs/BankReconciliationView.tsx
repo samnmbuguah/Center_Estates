@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
+  Box, Button, Chip, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+} from "@mui/material";
+import {
   Badge, ErrorBanner, Field, KpiCard, KpiStrip, Modal, Panel, StatusPill,
 } from "@/components/module-ui";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
@@ -623,153 +626,152 @@ export function BankReconciliationView({
               : "No transactions match the selected filter."
           }
         >
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Date & Reference</th>
-                  <th>Type & Channel</th>
-                  <th>Extracted Details</th>
-                  <th>Narration</th>
-                  <th style={{ textAlign: "right" }}>Money In (KES)</th>
-                  <th>Reconciliation Status</th>
-                  <th style={{ textAlign: "right" }}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Date & Reference</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Type & Channel</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Extracted Details</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Narration</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Money In (KES)</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Reconciliation Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Action</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {filteredTransactions.map((tx) => {
                   const isCredit = Number(tx.money_in ?? 0) > 0 || (!tx.money_in && !tx.money_out && Number(tx.amount ?? 0) > 0);
                   const isMatched = tx.status === "matched";
                   const isUnreceipted = !isMatched && isCredit && tx.transaction_type !== "bank_fee" && tx.transaction_type !== "tax";
 
                   return (
-                    <tr
+                    <TableRow
                       key={String(tx.id)}
-                      style={{
-                        background: isUnreceipted ? "rgba(245, 158, 11, 0.05)" : undefined,
-                        borderLeft: isUnreceipted ? "3px solid var(--color-amber)" : undefined,
+                      hover
+                      sx={{
+                        bgcolor: isUnreceipted ? "rgba(245, 158, 11, 0.05)" : undefined,
+                        borderLeft: isUnreceipted ? "3px solid" : undefined,
+                        borderLeftColor: isUnreceipted ? "warning.main" : undefined,
                       }}
                     >
-                      <td>
-                        <div style={{ fontWeight: 650, fontSize: 13 }}>{fmtDate(tx.transacted_on)}</div>
-                        <div className="mono" style={{ color: "var(--primary)", fontWeight: 700, fontSize: 12 }}>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 650, fontSize: 13 }}>{fmtDate(tx.transacted_on)}</Typography>
+                        <Typography variant="caption" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main", fontWeight: 700, fontSize: 12, display: "block" }}>
                           {String(tx.reference ?? "—")}
-                        </div>
-                      </td>
-                      <td>
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
                         {tx.transaction_type === "mpesa_sweep" && <Badge tone="green">M-PESA Sweep</Badge>}
                         {tx.transaction_type === "direct_deposit" && <Badge tone="blue">Direct Deposit</Badge>}
                         {tx.transaction_type === "cheque" && <Badge tone="purple">Cheque</Badge>}
                         {tx.transaction_type === "bank_fee" && <Badge tone="gray">Bank Fee</Badge>}
                         {tx.transaction_type === "tax" && <Badge tone="gray">Excise / Tax</Badge>}
                         {(!tx.transaction_type || tx.transaction_type === "other") && <Badge tone="gray">Other</Badge>}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      </TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5}>
                           {/* Charge-type intelligence badge — derived from reference prefix or matched invoice */}
                           <ChargePrefixBadge tx={tx} />
                           {tx.extracted_mpesa_ref && (
-                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-success-strong)" }}>
-                              📱 M-PESA: <span className="mono">{tx.extracted_mpesa_ref}</span>
-                            </span>
+                            <Typography variant="caption" sx={{ fontSize: 11, fontWeight: 700, color: "success.dark" }}>
+                              📱 M-PESA: <Box component="span" sx={{ fontFamily: "ui-monospace, monospace" }}>{tx.extracted_mpesa_ref}</Box>
+                            </Typography>
                           )}
                           {tx.extracted_account && (
-                            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-primary)" }}>
+                            <Typography variant="caption" sx={{ fontSize: 11, fontWeight: 600, color: "text.primary" }}>
                               🏢 Unit/Acc: {tx.extracted_account}
-                            </span>
+                            </Typography>
                           )}
                           {tx.extracted_payer_name && (
-                            <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                            <Typography variant="caption" sx={{ fontSize: 11, color: "text.secondary" }}>
                               👤 {tx.extracted_payer_name}
-                            </span>
+                            </Typography>
                           )}
                           {!tx.extracted_mpesa_ref && !tx.extracted_account && !tx.extracted_payer_name && !detectChargePrefix(tx) && (
-                            <span className="muted" style={{ fontSize: 11 }}>—</span>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>—</Typography>
                           )}
-                        </div>
-                      </td>
-                      <td style={{ maxWidth: 280, fontSize: 12, lineHeight: 1.35, color: "var(--text-secondary)" }}>
+                        </Stack>
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 280, fontSize: 12, lineHeight: 1.35, color: "text.secondary" }}>
                         {String(tx.description || tx.raw_details || "—")}
-                      </td>
-                      <td style={{ textAlign: "right", fontWeight: 700 }} className="mono">
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontFamily: "ui-monospace, monospace" }}>
                         {isCredit ? (
-                          <span style={{ color: "var(--color-success)" }}>+{kM(tx.money_in || tx.amount)}</span>
+                          <Typography variant="body2" component="span" sx={{ color: "success.main", fontWeight: 700 }}>+{kM(tx.money_in || tx.amount)}</Typography>
                         ) : (
-                          <span style={{ color: "var(--color-danger)" }}>-{kM(tx.money_out || tx.amount)}</span>
+                          <Typography variant="body2" component="span" sx={{ color: "error.main", fontWeight: 700 }}>-{kM(tx.money_out || tx.amount)}</Typography>
                         )}
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         {isMatched ? (
-                          <div>
+                          <Box>
                             <StatusPill value="matched" />
                             {tx.receipt_number && (
-                              <div className="mono" style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+                              <Typography variant="caption" sx={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "text.secondary", display: "block", mt: 0.25 }}>
                                 {tx.receipt_number} {tx.receipt_unit ? `(${tx.receipt_unit})` : ""}
-                              </div>
+                              </Typography>
                             )}
-                          </div>
+                          </Box>
                         ) : isUnreceipted ? (
-                          <span
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 4,
-                              padding: "2px 8px",
-                              borderRadius: 9999,
-                              background: "var(--color-amber-bg)",
-                              color: "var(--color-amber-strong)",
+                          <Chip
+                            size="small"
+                            label="⚠️ Unreceipted"
+                            sx={{
+                              bgcolor: "warning.light",
+                              color: "warning.dark",
                               fontWeight: 700,
                               fontSize: 11,
-                              border: "1px solid var(--color-amber-200)",
+                              border: "1px solid",
+                              borderColor: "warning.main",
                             }}
-                          >
-                            ⚠️ Unreceipted
-                          </span>
+                          />
                         ) : (
                           <StatusPill value="unmatched" />
                         )}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
+                      </TableCell>
+                      <TableCell align="right">
                         {isUnreceipted && canFinance && (
-                          <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                            <button
-                              type="button"
-                              className="btn primary sm"
-                              style={{ background: "var(--color-success)", borderColor: "var(--color-success)", fontSize: 12, padding: "4px 8px" }}
+                          <Stack direction="row" spacing={0.75} sx={{ justifyContent: "flex-end" }}>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
                               onClick={() => setQuickReceiptTarget(tx)}
+                              sx={{ fontSize: 12, px: 1, py: 0.5 }}
                             >
                               + Create & Match Receipt
-                            </button>
-                            <button
-                              type="button"
-                              className="btn ghost sm"
-                              style={{ fontSize: 12, padding: "4px 8px" }}
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
                               onClick={() => onMatch(tx)}
+                              sx={{ fontSize: 12, px: 1, py: 0.5 }}
                             >
                               Link Existing
-                            </button>
-                          </div>
+                            </Button>
+                          </Stack>
                         )}
                         {!isUnreceipted && !isMatched && canFinance && (
-                          <button
-                            type="button"
-                            className="btn ghost sm"
-                            style={{ fontSize: 12 }}
+                          <Button
+                            size="small"
+                            variant="outlined"
                             onClick={() => onMatch(tx)}
+                            sx={{ fontSize: 12 }}
                           >
                             Match Receipt
-                          </button>
+                          </Button>
                         )}
                         {isMatched && (
-                          <span style={{ color: "var(--color-success)", fontSize: 12, fontWeight: 600 }}>✓ Reconciled</span>
+                          <Typography variant="caption" sx={{ color: "success.main", fontSize: 12, fontWeight: 600 }}>✓ Reconciled</Typography>
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>
 

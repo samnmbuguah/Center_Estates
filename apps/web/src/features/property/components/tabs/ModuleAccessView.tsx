@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Chip, CircularProgress } from "@mui/material";
+import {
+  Alert, Box, Chip, CircularProgress, Paper,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+} from "@mui/material";
 import { Panel } from "@/components/module-ui";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/components/monitoring/hooks/useToast";
@@ -120,32 +123,38 @@ export function ModuleAccessView() {
       </Alert>
       {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
       {loading ? (
-        <div style={{ display: "flex", justifyContent: "center", padding: 40 }}><CircularProgress size={28} /></div>
+        <Box sx={{ display: "flex", justifyContent: "center", p: 5 }}><CircularProgress size={28} /></Box>
       ) : properties.length === 0 ? (
-        <p style={{ color: "var(--muted)" }}>No properties yet. Onboard a property to assign it to modules.</p>
+        <Typography variant="body2" color="text.secondary">No properties yet. Onboard a property to assign it to modules.</Typography>
       ) : (
-        <div className="table-scroll">
-          <table className="fc-data-table" style={{ minWidth: 820 }}>
-            <thead>
-              <tr>
-                <th style={{ position: "sticky", left: 0, background: "var(--surface)" }}>Property</th>
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+          <Table size="small" sx={{ minWidth: 820 }}>
+            <TableHead>
+              <TableRow sx={{ bgcolor: "action.hover" }}>
+                <TableCell sx={{ position: "sticky", left: 0, bgcolor: "background.paper", zIndex: 1, fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>
+                  Property
+                </TableCell>
                 {MODULES.map((m) => (
-                  <th key={m.slug} style={{ textAlign: "center", whiteSpace: "nowrap" }}>{m.icon} {m.label}</th>
+                  <TableCell key={m.slug} align="center" sx={{ whiteSpace: "nowrap", fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>
+                    {m.icon} {m.label}
+                  </TableCell>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {properties.map((property) => (
-                <tr key={property.id}>
-                  <td style={{ position: "sticky", left: 0, background: "var(--surface)" }}>
-                    <strong style={{ fontSize: 12 }}>{property.name}</strong>
-                    <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{property.code ?? ""}</div>
-                  </td>
+                <TableRow key={property.id} hover>
+                  <TableCell sx={{ position: "sticky", left: 0, bgcolor: "background.paper", zIndex: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{property.name}</Typography>
+                    <Typography variant="caption" sx={{ fontFamily: "ui-monospace, monospace", color: "text.secondary", display: "block" }}>
+                      {property.code ?? ""}
+                    </Typography>
+                  </TableCell>
                   {MODULES.map((m) => {
                     const enabled = isEnabled(property, m.slug);
                     const key = `${property.id}:${m.slug}`;
                     return (
-                      <td key={m.slug} style={{ textAlign: "center" }}>
+                      <TableCell key={m.slug} align="center">
                         <button
                           type="button"
                           disabled={busy === key}
@@ -160,14 +169,14 @@ export function ModuleAccessView() {
                             variant={enabled ? "filled" : "outlined"}
                           />
                         </button>
-                      </td>
+                      </TableCell>
                     );
                   })}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
     </Panel>
   );
