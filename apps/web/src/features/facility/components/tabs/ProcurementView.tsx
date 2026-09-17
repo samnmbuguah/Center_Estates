@@ -3,9 +3,9 @@
 import { createElement, useEffect, useMemo, useState } from "react";
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  Divider, MenuItem, Paper, Stack, TextField, Typography,
+  Divider, IconButton, MenuItem, Paper, Stack, TextField, Typography,
 } from "@mui/material";
-import { CheckCircle2, FileCheck2, Plus, ShoppingCart, Wrench } from "lucide-react";
+import { CheckCircle2, FileCheck2, Plus, ShoppingCart, Wrench, X } from "lucide-react";
 import { EmptyState, StatusPill, money } from "@/components/module-ui";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import type { Row } from "../../types/facility.types";
@@ -83,27 +83,63 @@ export function ProcurementView({ rows, organizationId, reload, canApprove }: {
   }
 
   return <Box sx={{ display: "grid", gap: 2.25 }}>
-    <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 3, background: "linear-gradient(135deg, rgba(37,99,235,.08), rgba(14,165,233,.04))" }}>
-      <Stack direction={{ xs: "column", md: "row" }} sx={{ justifyContent: "space-between", gap: 2 }}>
+    <Paper
+      elevation={0}
+      sx={{
+        p: { xs: 2, md: 2.5 },
+        borderRadius: 3,
+        background: "#ffffff",
+        border: "1px solid #e2e8f0",
+        boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+      }}
+    >
+      <Stack direction={{ xs: "column", md: "row" }} sx={{ justifyContent: "space-between", alignItems: { xs: "flex-start", md: "center" }, gap: 2 }}>
         <Box>
-          <Typography variant="overline" sx={{ color: "primary.main", fontWeight: 900 }}>Approved requisition onward</Typography>
-          <Typography variant="h5" sx={{ fontWeight: 900 }}>Procurement control centre</Typography>
-          <Typography color="text.secondary">Compare quotations, document the award, issue the LPO and verify physical completion without recreating the ticket.</Typography>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.5 }}>
+            <Chip size="small" label="Procurement & Sourcing" sx={{ fontWeight: 800, fontSize: 11, bgcolor: "#fee2e2", color: "#b91c1c" }} />
+            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>
+              Controlled Supplier Lifecycle
+            </Typography>
+          </Stack>
+          <Typography variant="h5" sx={{ fontWeight: 900, color: "#0f172a" }}>
+            Procurement Control Centre
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, maxWidth: 650 }}>
+            Compare supplier quotations, document tender awards, issue LPOs, and verify physical Job Card completion without recreating maintenance tickets.
+          </Typography>
         </Box>
-        <Button variant="contained" startIcon={<Plus size={17} />} onClick={() => { setDialog("start"); setForm({}); }}>Open approved requisition</Button>
+        <Button
+          variant="contained"
+          startIcon={<Plus size={16} />}
+          onClick={() => { setDialog("start"); setForm({}); }}
+          sx={{ fontWeight: 700, borderRadius: "8px", px: 2, py: 1 }}
+        >
+          Open Approved Requisition
+        </Button>
       </Stack>
     </Paper>
 
     <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2,1fr)", lg: "repeat(4,1fr)" }, gap: 1.5 }}>
       {[
-        ["Sourcing & evaluation", kpis.queue, ShoppingCart, "primary.main"],
-        ["Awaiting LPO", kpis.awards, FileCheck2, "warning.main"],
-        ["Work in progress", kpis.active, Wrench, "info.main"],
-        ["Verified completion", kpis.verified, CheckCircle2, "success.main"],
-      ].map(([label, value, Icon, color]) => <Paper key={String(label)} variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
-        <Stack direction="row" sx={{ justifyContent: "space-between" }}><Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 800 }}>{String(label).toUpperCase()}</Typography>{createElement(Icon as typeof ShoppingCart, { size: 19 })}</Stack>
-        <Typography variant="h4" sx={{ fontWeight: 900, color: String(color) }}>{String(value)}</Typography>
-      </Paper>)}
+        ["Sourcing & evaluation", kpis.queue, ShoppingCart, "#2563eb", "#eff6ff"],
+        ["Awaiting LPO", kpis.awards, FileCheck2, "#d97706", "#fef3c7"],
+        ["Work in progress", kpis.active, Wrench, "#0284c7", "#e0f2fe"],
+        ["Verified completion", kpis.verified, CheckCircle2, "#16a34a", "#dcfce7"],
+      ].map(([label, value, Icon, color, bg]) => (
+        <Paper key={String(label)} elevation={0} sx={{ p: 2, borderRadius: 3, border: "1px solid #e2e8f0", background: "#ffffff" }}>
+          <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+            <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 800, letterSpacing: "0.04em" }}>
+              {String(label).toUpperCase()}
+            </Typography>
+            <Box sx={{ p: 0.75, borderRadius: "6px", bgcolor: String(bg), color: String(color), display: "flex" }}>
+              {createElement(Icon as typeof ShoppingCart, { size: 16 })}
+            </Box>
+          </Stack>
+          <Typography variant="h4" sx={{ fontWeight: 900, color: "#0f172a", mt: 1 }}>
+            {String(value)}
+          </Typography>
+        </Paper>
+      ))}
     </Box>
 
     {error && <Alert severity="error" onClose={() => setError("")}>{error}</Alert>}
@@ -141,7 +177,133 @@ export function ProcurementView({ rows, organizationId, reload, canApprove }: {
       </Box>)}
     </Paper>
 
-    <Dialog open={dialog === "start"} onClose={() => setDialog(null)} fullWidth maxWidth="sm"><DialogTitle>Open procurement from requisition</DialogTitle><DialogContent><TextField select fullWidth margin="normal" label="Approved requisition" value={form.requisition ?? ""} onChange={(e) => setForm({ ...form, requisition: e.target.value })}>{requisitions.map((r) => <MenuItem key={String(r.id)} value={String(r.id)}>{String(r.code)} · {String(r.title)}</MenuItem>)}</TextField></DialogContent><DialogActions><Button onClick={() => setDialog(null)}>Cancel</Button><Button variant="contained" disabled={!form.requisition || busy} onClick={() => void act("/facility/procurements/", { requisition: form.requisition })}>Open procurement</Button></DialogActions></Dialog>
+    <Dialog
+      open={dialog === "start"}
+      onClose={() => setDialog(null)}
+      fullWidth
+      maxWidth="sm"
+      slotProps={{ paper: { sx: { borderRadius: "14px", overflow: "hidden" } } }}
+    >
+      <DialogTitle sx={{ m: 0, p: 2.5, pb: 1.5, display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid #f1f5f9" }}>
+        <Box>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 0.5 }}>
+            <Box sx={{ p: 0.75, borderRadius: "8px", bgcolor: "#fee2e2", color: "#dc2626", display: "flex" }}>
+              <ShoppingCart size={18} />
+            </Box>
+            <Typography variant="h6" sx={{ fontWeight: 850, fontSize: "1.1rem" }}>
+              Open Procurement from Requisition
+            </Typography>
+          </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.82rem" }}>
+            Select an approved purchase requisition to open competitive vendor sourcing, quotations, and LPO issuance.
+          </Typography>
+        </Box>
+        <IconButton onClick={() => setDialog(null)} size="small" sx={{ color: "#94a3b8" }}>
+          <X size={18} />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent sx={{ p: 2.5, display: "flex", flexDirection: "column", gap: 2 }}>
+        {requisitions.length === 0 ? (
+          <Alert severity="info" icon={<FileCheck2 size={20} />} sx={{ borderRadius: "10px", py: 2 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>
+              No Approved Requisitions Awaiting Sourcing
+            </Typography>
+            <Typography variant="body2" sx={{ color: "text.secondary", fontSize: 13, lineHeight: 1.5 }}>
+              All current maintenance requisitions have either already been opened for procurement or are still in review. 
+              To create a new procurement, submit and approve a requisition under the <strong>Maintenance → Requisitions</strong> tab first.
+            </Typography>
+          </Alert>
+        ) : (
+          <>
+            <TextField
+              select
+              fullWidth
+              label="Select Approved Requisition"
+              value={form.requisition ?? ""}
+              onChange={(e) => setForm({ ...form, requisition: e.target.value })}
+              helperText="Select a requisition to automatically import items, location, and allocated budget."
+              sx={{ mt: 1 }}
+            >
+              {requisitions.map((r) => (
+                <MenuItem key={String(r.id)} value={String(r.id)} sx={{ py: 1 }}>
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 800, fontSize: 13 }}>{String(r.code)}</Typography>
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>{String(r.title)}</Typography>
+                    </Box>
+                    {Boolean(r.estimated_cost) && (
+                      <Chip size="small" label={money.format(Number(r.estimated_cost))} sx={{ fontSize: 11, fontWeight: 700, height: 22 }} />
+                    )}
+                  </Stack>
+                </MenuItem>
+              ))}
+            </TextField>
+
+            {(() => {
+              const selectedReq = requisitions.find((r) => String(r.id) === form.requisition);
+              if (!selectedReq) return null;
+              return (
+                <Paper variant="outlined" sx={{ p: 2, borderRadius: "10px", bgcolor: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                  <Typography variant="caption" sx={{ fontWeight: 800, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    Selected Requisition Overview
+                  </Typography>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 850, mt: 0.5, color: "#0f172a" }}>
+                    {String(selectedReq.title)}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "#64748b", fontSize: 12, mb: 1.5 }}>
+                    Code: <strong>{String(selectedReq.code)}</strong> {selectedReq.property_name ? `· Property: ${String(selectedReq.property_name)}` : ""}
+                  </Typography>
+
+                  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5, pt: 1.5, borderTop: "1px solid #e2e8f0", fontSize: 12 }}>
+                    <div>
+                      <span style={{ color: "#64748b", display: "block" }}>Estimated Budget</span>
+                      <strong style={{ fontSize: 14, color: "#16a34a" }}>
+                        {selectedReq.estimated_cost ? money.format(Number(selectedReq.estimated_cost)) : "To be quoted"}
+                      </strong>
+                    </div>
+                    <div>
+                      <span style={{ color: "#64748b", display: "block" }}>Priority</span>
+                      <Chip
+                        size="small"
+                        label={String(selectedReq.priority || "Normal").toUpperCase()}
+                        sx={{
+                          height: 20,
+                          fontSize: 10,
+                          fontWeight: 800,
+                          bgcolor: String(selectedReq.priority).toLowerCase() === "emergency" ? "#fee2e2" : "#eff6ff",
+                          color: String(selectedReq.priority).toLowerCase() === "emergency" ? "#b91c1c" : "#1d4ed8",
+                        }}
+                      />
+                    </div>
+                    {Boolean(selectedReq.required_repair) && (
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <span style={{ color: "#64748b", display: "block" }}>Scope of Work / Items</span>
+                        <Typography variant="body2" sx={{ color: "#334155", mt: 0.25, fontSize: 12 }}>
+                          {String(selectedReq.required_repair)}
+                        </Typography>
+                      </div>
+                    )}
+                  </Box>
+                </Paper>
+              );
+            })()}
+          </>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ px: 2.5, pb: 2.5, pt: 1.5, borderTop: "1px solid #f1f5f9" }}>
+        <Button onClick={() => setDialog(null)} variant="outlined">
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          disabled={!form.requisition || busy || requisitions.length === 0}
+          onClick={() => void act("/facility/procurements/", { requisition: form.requisition })}
+          startIcon={<ShoppingCart size={15} />}
+        >
+          {busy ? "Opening..." : "Open Procurement"}
+        </Button>
+      </DialogActions>
+    </Dialog>
 
     <Dialog open={dialog === "quote"} onClose={() => setDialog(null)} fullWidth maxWidth="md"><DialogTitle>Record supplier quotation</DialogTitle><DialogContent><Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5, mt: 1 }}>
       <TextField select label="Bidder" value={form.bidder ?? ""} onChange={(e) => setForm({ ...form, bidder: e.target.value })}>{bidders.map((b) => <MenuItem key={String(b.id)} value={String(b.id)}>{String(b.name)}</MenuItem>)}</TextField>
