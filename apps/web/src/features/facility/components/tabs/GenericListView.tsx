@@ -1,16 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Box,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from "@mui/material";
 import { DetailDrawer, Field, money } from "@/components/module-ui";
 import { FacilityTab, Row, facilityLabels } from "../../types/facility.types";
-
-function EmptyState({ message = "No data available." }: { message?: string }) {
-  return (
-    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
-      {message}
-    </div>
-  );
-}
 
 export function GenericListView({ tab, rows }: { tab: FacilityTab; rows: Row[] }) {
   const [selected, setSelected] = useState<Row | null>(null);
@@ -28,32 +31,48 @@ export function GenericListView({ tab, rows }: { tab: FacilityTab; rows: Row[] }
   const titleCase = (key: string) => key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
   return (
-    <article className="data-panel">
-      <div className="fc-table-toolbar">
-        <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 13 }}>{facilityLabels[tab]}</span>
-      </div>
+    <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+      <Box sx={{ px: 2.5, py: 2, borderBottom: "1px solid", borderColor: "divider" }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700 }} color="text.primary">
+          {facilityLabels[tab]}
+        </Typography>
+      </Box>
       {rows.length > 0 ? (
-        <div className="table-scroll">
-          <table className="fc-data-table">
-            <thead>
-              <tr>{cols.map((c) => <th key={c.key}>{c.label}</th>)}</tr>
-            </thead>
-            <tbody>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: "action.hover" }}>
+                {cols.map((c) => (
+                  <TableCell key={c.key} sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>
+                    {c.label}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {rows.map((row, i) => (
-                <tr
+                <TableRow
                   key={String(row.id ?? i)}
-                  className={selected?.id === row.id ? "selected" : ""}
+                  hover
+                  selected={selected?.id === row.id}
                   onClick={() => setSelected(selected?.id === row.id ? null : row)}
+                  sx={{ cursor: "pointer" }}
                 >
                   {cols.map((c) => (
-                    <td key={c.key} style={{ fontSize: 12 }}>{displayValue(c.key, row[c.key] ?? null)}</td>
+                    <TableCell key={c.key}>
+                      <Typography variant="body2">{displayValue(c.key, row[c.key] ?? null)}</Typography>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
-      ) : <EmptyState message={`No ${facilityLabels[tab]?.toLowerCase() ?? "item"} records found.`} />}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      ) : (
+        <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
+          {`No ${facilityLabels[tab]?.toLowerCase() ?? "item"} records found.`}
+        </Typography>
+      )}
       {selected && (
         <DetailDrawer title={`${facilityLabels[tab]} — Details`} onClose={() => setSelected(null)}>
           <div style={{ display: "grid", gap: 12 }}>
@@ -65,6 +84,6 @@ export function GenericListView({ tab, rows }: { tab: FacilityTab; rows: Row[] }
           </div>
         </DetailDrawer>
       )}
-    </article>
+    </Paper>
   );
 }

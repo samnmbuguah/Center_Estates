@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Box, Typography, Button, Paper } from "@mui/material";
+import { Box, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
 import { Field, Modal } from "@/components/module-ui";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { Row } from "../../types/facility.types";
@@ -310,42 +310,42 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
           )}
           <article className="data-panel">
             <PanelHeader title="Reconciliation register" />
-            <div className="table-scroll">
-              <table className="fc-data-table">
-                <thead>
-                  <tr>
-                    <th>Meter / property</th>
-                    <th>Period</th>
-                    <th>Bulk</th>
-                    <th>Checks</th>
-                    <th>Variance</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Meter / property</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Period</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Bulk</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Checks</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Variance</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Status</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {reconLoading ? (
-                    <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)" }}>Loading reconciliations…</td></tr>
+                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 3, color: "text.secondary" }}>Loading reconciliations…</TableCell></TableRow>
                   ) : reconciliations.length === 0 ? (
-                    <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)" }}>No bulk/check reconciliations recorded yet.</td></tr>
+                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 3, color: "text.secondary" }}>No bulk/check reconciliations recorded yet.</TableCell></TableRow>
                   ) : reconciliations.map((row) => (
-                    <tr key={String(row.id)}>
-                      <td style={{ fontSize: 12 }}>{String(row.meter_name ?? "—")}<br /><span style={{ color: "var(--text-secondary)", fontSize: 10 }}>{String(row.property_name ?? "")}</span></td>
-                      <td style={{ fontSize: 12 }}>{String(row.period_start ?? "—")} → {String(row.period_end ?? "—")}</td>
-                      <td style={{ fontSize: 12, fontWeight: 700 }}>{String(row.bulk_consumption ?? "—")}</td>
-                      <td style={{ fontSize: 12 }}>{String(row.check_consumption ?? "—")}</td>
-                      <td style={{ fontSize: 12 }}>{String(row.variance ?? "—")} ({String(row.variance_percent ?? "0")}%)</td>
-                      <td><FcStatus value={String(row.status ?? "pending")} /></td>
-                      <td>
+                    <TableRow key={String(row.id)} hover>
+                      <TableCell sx={{ fontSize: 12 }}>{String(row.meter_name ?? "—")}<br /><span style={{ color: "var(--text-secondary)", fontSize: 10 }}>{String(row.property_name ?? "")}</span></TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{String(row.period_start ?? "—")} → {String(row.period_end ?? "—")}</TableCell>
+                      <TableCell sx={{ fontSize: 12, fontWeight: 700 }}>{String(row.bulk_consumption ?? "—")}</TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{String(row.check_consumption ?? "—")}</TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{String(row.variance ?? "—")} ({String(row.variance_percent ?? "0")}%)</TableCell>
+                      <TableCell><FcStatus value={String(row.status ?? "pending")} /></TableCell>
+                      <TableCell>
                         {canApprove && row.status !== "approved" && (
                           <button type="button" className="btn primary sm" onClick={() => setApproveTarget(row)}>Approve</button>
                         )}
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
+            </TableContainer>
           </article>
         </div>
       ) : (() => {
@@ -362,39 +362,39 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
           {/* Meter readings table */}
           <article className="data-panel">
             <PanelHeader title="Latest Meter Readings" />
-            <div className="table-scroll">
-              <table className="fc-data-table">
-                <thead>
-                  <tr>
-                    <th>Utility Type</th>
-                    <th>Meter / Location</th>
-                    <th>Current Reading</th>
-                    <th>Previous Reading</th>
-                    <th>Consumption</th>
-                    <th>Rate</th>
-                    <th>Date & Time</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Utility Type</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Meter / Location</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Current Reading</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Previous Reading</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Consumption</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Rate</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Date &amp; Time</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Status</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {filteredRows.length > 0
                     ? (showAllMeters ? filteredRows : filteredRows.slice(0, 5)).map((row) => (
-                        <tr key={String(row.id)}>
-                          <td>
+                        <TableRow key={String(row.id)} hover>
+                          <TableCell>
                             <div style={{ alignItems: "center", display: "flex", gap: 8 }}>
                               <span>{row.utility_type === "electricity" ? "⚡" : row.utility_type === "water" ? "💧" : row.utility_type === "gas" ? "🔥" : "⛽"}</span>
                               <span style={{ fontSize: 12, textTransform: "capitalize" }}>{String(row.utility_type ?? "—")} ({String(row.unit ?? "")})</span>
                             </div>
-                          </td>
-                          <td style={{ fontSize: 12 }}>{String(row.name ?? "—")}<br /><span style={{ color: "var(--text-secondary)", fontSize: 10 }}>{String(row.property_name ?? "")}{row.unit_code ? ` · Unit ${String(row.unit_code)}` : ""}</span></td>
-                          <td style={{ fontSize: 12, fontWeight: 700 }}>{String(row.current_reading ?? "—")}</td>
-                          <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(row.previous_reading ?? "—")}</td>
-                          <td style={{ fontSize: 12, fontWeight: 700 }}>{String(row.consumption ?? "—")} {String(row.unit ?? "")}</td>
-                          <td style={{ fontSize: 12 }}>KES {Number(row.tariff ?? 0).toLocaleString(undefined, { maximumFractionDigits: 4 })}</td>
-                          <td style={{ fontSize: 11, color: "var(--text-secondary)" }}>{String(row.read_at ?? "—")}</td>
-                          <td><FcStatus value={String(row.reading_status ?? "not_read")} /></td>
-                          <td>
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 12 }}>{String(row.name ?? "—")}<br /><span style={{ color: "var(--text-secondary)", fontSize: 10 }}>{String(row.property_name ?? "")}{row.unit_code ? ` · Unit ${String(row.unit_code)}` : ""}</span></TableCell>
+                          <TableCell sx={{ fontSize: 12, fontWeight: 700 }}>{String(row.current_reading ?? "—")}</TableCell>
+                          <TableCell sx={{ fontSize: 12, color: "text.secondary" }}>{String(row.previous_reading ?? "—")}</TableCell>
+                          <TableCell sx={{ fontSize: 12, fontWeight: 700 }}>{String(row.consumption ?? "—")} {String(row.unit ?? "")}</TableCell>
+                          <TableCell sx={{ fontSize: 12 }}>KES {Number(row.tariff ?? 0).toLocaleString(undefined, { maximumFractionDigits: 4 })}</TableCell>
+                          <TableCell sx={{ fontSize: 11, color: "text.secondary" }}>{String(row.read_at ?? "—")}</TableCell>
+                          <TableCell><FcStatus value={String(row.reading_status ?? "not_read")} /></TableCell>
+                          <TableCell>
                             <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
                               {canWork && <button className="btn ghost sm" onClick={() => setReadingMeter(row)}>Record Reading</button>}
                               {canAdminister && <button className="btn ghost sm" onClick={() => setRateMeter(row)}>Edit Rate</button>}
@@ -406,13 +406,13 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
                                 </>;
                               })()}
                             </div>
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       ))
-                    : <tr><td colSpan={9} style={{ color: "var(--text-secondary)", padding: 24, textAlign: "center" }}>No utility meters or readings have been recorded yet.</td></tr>}
-                </tbody>
-              </table>
-            </div>
+                    : <TableRow><TableCell colSpan={9} align="center" sx={{ color: "text.secondary", py: 3 }}>No utility meters or readings have been recorded yet.</TableCell></TableRow>}
+                </TableBody>
+              </Table>
+            </TableContainer>
             <div style={{ padding: "12px 18px" }}>
               {filteredRows.length > 5 && <button type="button" onClick={() => setShowAllMeters((value) => !value)} style={{ background: "none", border: 0, color: "var(--color-brand-red)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>{showAllMeters ? "Show Recent Meters ↑" : `View All ${filteredRows.length} Meters →`}</button>}
             </div>

@@ -11,8 +11,20 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
   Typography,
 } from "@mui/material";
 import { Plus, X, Download, ShieldCheck, AlertTriangle, Check, RotateCcw } from "lucide-react";
@@ -37,16 +49,48 @@ function FcKpiCard({
   sub?: string;
 }) {
   return (
-    <div className="fc-kpi-card" style={{ textAlign: "left" }}>
-      <div className="fc-kpi-top">
-        <span className="fc-kpi-icon" style={{ background: iconBg, color: iconColor }}>
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 2,
+        display: "flex",
+        flexDirection: "column",
+        gap: 0.5,
+        borderRadius: 2,
+        flex: 1,
+        minWidth: 160,
+      }}
+    >
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+        <Box
+          sx={{
+            width: 32,
+            height: 32,
+            borderRadius: 1.5,
+            background: iconBg,
+            color: iconColor,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 16,
+            flexShrink: 0,
+          }}
+        >
           {icon}
-        </span>
-        <span className="fc-kpi-label">{label}</span>
-      </div>
-      <strong className="fc-kpi-value">{value}</strong>
-      {sub && <span className="fc-kpi-sub">{sub}</span>}
-    </div>
+        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: 0.4, fontWeight: 700 }}>
+          {label}
+        </Typography>
+      </Box>
+      <Typography variant="h6" sx={{ lineHeight: 1.2, fontWeight: 900 }}>
+        {value}
+      </Typography>
+      {sub && (
+        <Typography variant="caption" color="text.secondary">
+          {sub}
+        </Typography>
+      )}
+    </Paper>
   );
 }
 
@@ -293,9 +337,9 @@ export function ComplianceRiskView({
   const gradeBorder = healthPercent >= 90 ? "#bbf7d0" : healthPercent >= 75 ? "#fde68a" : "#fecaca";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       {/* Top Strip */}
-      <div className="fc-kpi-strip">
+      <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
         <FcKpiCard
           icon="🛡️"
           iconBg="var(--color-green-bg)"
@@ -336,7 +380,7 @@ export function ComplianceRiskView({
           value={String(flags.length)}
           sub="Rule-based operational triggers"
         />
-      </div>
+      </Box>
 
       {/* Compliance Mode: Executive Health Gauge Banner */}
       {mode === "compliance" && (
@@ -424,40 +468,26 @@ export function ComplianceRiskView({
 
       {/* Compliance Register Table */}
       {mode === "compliance" && (
-        <article className="data-panel">
-          <header
-            className="panel-title"
-            style={{
-              padding: "16px 20px",
-              borderBottom: "1px solid var(--border)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <div>
-              <h2 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>
-                Statutory Compliance Register & Certificate Tracking
-              </h2>
-              <small style={{ color: "var(--text-secondary)", fontSize: "0.78rem" }}>
-                Mandatory certificates with automated 30-day and 60-day expiry countdowns
-              </small>
-            </div>
-          </header>
-
-          <div style={{ overflowX: "auto" }}>
-            <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
-                  <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>CATEGORY & TITLE</th>
-                  <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>ISSUING AUTHORITY</th>
-                  <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>CERTIFICATE NO.</th>
-                  <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>EXPIRY DATE</th>
-                  <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>STATUS</th>
-                  <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>RESPONSIBLE PERSON</th>
-                </tr>
-              </thead>
-              <tbody>
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+          <Box sx={{ px: 2.5, py: 2, borderBottom: "1px solid", borderColor: "divider" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Statutory Compliance Register & Certificate Tracking</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Mandatory certificates with automated 30-day and 60-day expiry countdowns
+            </Typography>
+          </Box>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Category & Title</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Issuing Authority</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Certificate No.</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Expiry Date</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Responsible Person</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {obligations.map((c) => {
                   const expiry = c.expiry_date ? new Date(String(c.expiry_date)) : null;
                   const isExpired = expiry ? expiry.getTime() <= Date.now() : false;
@@ -465,56 +495,45 @@ export function ComplianceRiskView({
                   const daysLeft = expiry ? Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
 
                   return (
-                    <tr key={String(c.id)} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "12px 14px" }}>
-                        <strong style={{ display: "block", fontSize: "0.85rem", color: "var(--text-primary)" }}>
-                          {String(c.title)}
-                        </strong>
-                        <span style={{ color: "var(--color-info)", fontSize: 11, fontWeight: 700 }}>{String(c.category)}</span>
-                      </td>
-                      <td style={{ padding: "12px 14px", fontSize: 12 }}>{String(c.issuing_authority ?? "—")}</td>
-                      <td style={{ padding: "12px 14px", fontSize: 12, fontWeight: 700 }}>{String(c.certificate_number ?? "—")}</td>
-                      <td style={{ padding: "12px 14px", fontSize: 12, fontWeight: 800, color: isDueSoon ? "var(--color-warning)" : isExpired ? "var(--color-danger)" : "inherit" }}>
-                        {String(c.expiry_date)}
-                      </td>
-                      <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                        <span
-                          style={{
-                            background: isExpired
-                              ? "var(--color-red-bg)"
-                              : isDueSoon
-                              ? "var(--color-amber-bg)"
-                              : "var(--color-green-bg)",
-                            color: isExpired
-                              ? "var(--color-danger-deep)"
-                              : isDueSoon
-                              ? "var(--color-amber-strong)"
-                              : "var(--color-green-text)",
-                            padding: "3px 8px",
-                            borderRadius: 4,
-                            fontSize: 10,
-                            fontWeight: 800,
-                            textTransform: "uppercase",
-                          }}
+                    <TableRow key={String(c.id)} hover>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(c.title)}</Typography>
+                        <Typography variant="caption" color="info.main" sx={{ fontWeight: 700 }}>{String(c.category)}</Typography>
+                      </TableCell>
+                      <TableCell><Typography variant="body2">{String(c.issuing_authority ?? "—")}</Typography></TableCell>
+                      <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>{String(c.certificate_number ?? "—")}</Typography></TableCell>
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontWeight: 700 }}
+                          color={isExpired ? "error" : isDueSoon ? "warning.main" : "text.primary"}
                         >
-                          {isExpired ? "Expired" : isDueSoon ? `Due Soon (${daysLeft}d)` : "Compliant"}
-                        </span>
-                      </td>
-                      <td style={{ padding: "12px 14px", fontSize: 12 }}>{String(c.responsible_person_name ?? "—")}</td>
-                    </tr>
+                          {String(c.expiry_date)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={isExpired ? "Expired" : isDueSoon ? `Due Soon (${daysLeft}d)` : "Compliant"}
+                          size="small"
+                          color={isExpired ? "error" : isDueSoon ? "warning" : "success"}
+                          sx={{ fontWeight: 800, fontSize: 10 }}
+                        />
+                      </TableCell>
+                      <TableCell><Typography variant="body2">{String(c.responsible_person_name ?? "—")}</Typography></TableCell>
+                    </TableRow>
                   );
                 })}
                 {obligations.length === 0 && (
-                  <tr>
-                    <td colSpan={6}>
-                      <div className="empty-state">No statutory compliance obligations are recorded for this property.</div>
-                    </td>
-                  </tr>
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                      No statutory compliance obligations are recorded for this property.
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
-            </table>
-          </div>
-        </article>
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
       )}
 
       {/* Risks Mode: Executive Risk Posture Banner */}
@@ -591,13 +610,15 @@ export function ComplianceRiskView({
                 </small>
               </div>
               {selectedCell && (
-                <button
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
                   onClick={() => setSelectedCell(null)}
-                  className="fc-toolbar-btn"
-                  style={{ background: "var(--color-red-bg)", color: "var(--color-danger-deep)", fontWeight: 800 }}
+                  sx={{ fontWeight: 800 }}
                 >
                   ✕ Clear Filter (L{selectedCell.l} × I{selectedCell.i})
-                </button>
+                </Button>
               )}
             </header>
 
@@ -743,138 +764,146 @@ export function ComplianceRiskView({
           )}
 
           {/* Risk Table */}
-          <article className="data-panel">
-            <header className="panel-title" style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
-              <h2 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>
+          <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Box sx={{ px: 2.5, py: 2, borderBottom: "1px solid", borderColor: "divider" }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
                 Facilities Risk Register & Mitigation Controls {selectedCell ? `(Filtered: L${selectedCell.l} × I${selectedCell.i})` : "(All Risks)"}
-              </h2>
-            </header>
-            <div style={{ overflowX: "auto" }}>
-              <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
-                    <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>RISK ID & DESCRIPTION</th>
-                    <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>INHERENT SCORE</th>
-                    <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>MITIGATION CONTROLS</th>
-                    <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>RESIDUAL</th>
-                    <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>OWNER & DUE DATE</th>
-                    <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>STATUS</th>
-                  </tr>
-                </thead>
-                <tbody>
+              </Typography>
+            </Box>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Risk ID & Description</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Inherent Score</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Mitigation Controls</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Residual</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Owner & Due Date</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {visibleRisks.map((r) => {
                     const inherentVal = Number(r.inherent_score ?? 9);
                     const isSelected = selectedRisk?.id === r.id;
                     return (
-                      <tr
+                      <TableRow
                         key={String(r.id)}
+                        hover
                         onClick={() => setSelectedRisk(isSelected ? null : r)}
-                        style={{
-                          borderBottom: "1px solid var(--border)",
-                          cursor: "pointer",
-                          background: isSelected ? "var(--color-blue-soft)" : "transparent",
-                        }}
+                        sx={{ cursor: "pointer", bgcolor: isSelected ? "primary.50" : undefined }}
                       >
-                        <td style={{ padding: "12px 14px" }}>
-                          <span style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 800 }}>
-                            {String(r.risk_id)}
-                          </span>
-                          <strong style={{ display: "block", fontSize: "0.85rem", color: "var(--text-primary)", marginTop: 2 }}>
-                            {String(r.description)}
-                          </strong>
-                          <span style={{ fontSize: 11, color: "var(--color-info)", fontWeight: 700 }}>{String(r.category)}</span>
-                        </td>
-                        <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                          <span style={{ background: inherentVal >= 12 ? "var(--color-red-bg)" : "var(--color-amber-bg)", color: inherentVal >= 12 ? "var(--color-danger-deep)" : "var(--color-amber-strong)", padding: "3px 8px", borderRadius: 4, fontWeight: 900 }}>
-                            {inherentVal} / 25
-                          </span>
-                        </td>
-                        <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--text-secondary)", maxWidth: 320 }}>
-                          {String(r.mitigation_controls ?? "—")}
-                        </td>
-                        <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                          <span style={{ background: "var(--color-green-bg)", color: "var(--color-green-text)", padding: "3px 8px", borderRadius: 4, fontWeight: 800 }}>
-                            {String(r.residual_score ?? "—")}
-                          </span>
-                        </td>
-                        <td style={{ padding: "12px 14px", fontSize: 12 }}>
-                          <div style={{ fontWeight: 700 }}>{String(r.action_owner_name ?? "—")}</div>
-                          <small style={{ color: "var(--text-muted)" }}>Due: {String(r.due_date ?? "—")}</small>
-                        </td>
-                        <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                          <span style={{ background: r.status === "mitigating" ? "var(--color-blue-bg)" : "var(--color-amber-bg)", color: r.status === "mitigating" ? "var(--color-info-deep)" : "var(--color-amber-strong)", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}>
-                            {String(r.status ?? "open")}
-                          </span>
-                        </td>
-                      </tr>
+                        <TableCell>
+                          <Chip
+                            label={String(r.risk_id)}
+                            size="small"
+                            variant="outlined"
+                            sx={{ fontWeight: 800, fontSize: 10, mb: 0.5 }}
+                          />
+                          <Typography variant="body2" sx={{ fontWeight: 700, mt: 0.5 }}>{String(r.description)}</Typography>
+                          <Typography variant="caption" color="info.main" sx={{ fontWeight: 700 }}>{String(r.category)}</Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={`${inherentVal} / 25`}
+                            size="small"
+                            color={inherentVal >= 12 ? "error" : "warning"}
+                            sx={{ fontWeight: 900 }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ maxWidth: 320 }}>
+                          <Typography variant="body2" color="text.secondary">{String(r.mitigation_controls ?? "—")}</Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={String(r.residual_score ?? "—")}
+                            size="small"
+                            color="success"
+                            sx={{ fontWeight: 800 }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(r.action_owner_name ?? "—")}</Typography>
+                          <Typography variant="caption" color="text.secondary">Due: {String(r.due_date ?? "—")}</Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={String(r.status ?? "open")}
+                            size="small"
+                            color={r.status === "mitigating" ? "info" : "warning"}
+                            sx={{ fontWeight: 800, fontSize: 10, textTransform: "uppercase" }}
+                          />
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
                   {visibleRisks.length === 0 && (
-                    <tr>
-                      <td colSpan={6}>
-                        <div className="empty-state">No risk records match this property and filter.</div>
-                      </td>
-                    </tr>
+                    <TableRow>
+                      <TableCell colSpan={6} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                        No risk records match this property and filter.
+                      </TableCell>
+                    </TableRow>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </article>
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
         </div>
       )}
 
       {/* Flags Section */}
       {mode === "compliance" && (
-        <article className="data-panel">
-          <header className="panel-title" style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
-            <h2 style={{ fontSize: 15, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+          <Box sx={{ px: 2.5, py: 2, borderBottom: "1px solid", borderColor: "divider" }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
               Automated Rule-Based Flags & Operational Escalations
-            </h2>
-          </header>
-          <div style={{ padding: "16px 20px", display: "grid", gap: 12 }}>
-            {flagError && <div className="form-error" role="alert">{flagError}</div>}
-            {flags.length === 0 && !flagError && <div className="empty-state">No active operational flags for this property.</div>}
+            </Typography>
+          </Box>
+          <Box sx={{ p: 2.5, display: "grid", gap: 1.5 }}>
+            {flagError && (
+              <Alert severity="error" sx={{ borderRadius: 2 }}>{flagError}</Alert>
+            )}
+            {flags.length === 0 && !flagError && (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: "center" }}>
+                No active operational flags for this property.
+              </Typography>
+            )}
             {flags.map((f) => (
-              <div
+              <Paper
                 key={String(f.id)}
-                style={{
-                  padding: "14px 18px",
-                  background: "var(--surface-sunken)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 8,
+                variant="outlined"
+                sx={{
+                  px: 2,
+                  py: 1.5,
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
                   flexWrap: "wrap",
-                  gap: 12,
+                  gap: 1.5,
+                  borderRadius: 2,
                 }}
               >
-                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                  <span style={{ fontSize: "1.4rem" }}>{f.severity === "warning" ? "⚠️" : "ℹ️"}</span>
-                  <div>
-                    <strong style={{ fontSize: "0.9rem", color: "var(--text-primary)" }}>{String(f.title ?? "Operational flag")}</strong>
-                    <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: 2 }}>{String(f.message ?? "")}</div>
-                  </div>
-                </div>
-                <button
-                  style={{
-                    background: "var(--surface)",
-                    border: "1px solid var(--border)",
-                    padding: "6px 12px",
-                    borderRadius: 6,
-                    fontSize: "0.78rem",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
+                <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
+                  <Typography sx={{ fontSize: 22 }}>{f.severity === "warning" ? "⚠️" : "ℹ️"}</Typography>
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(f.title ?? "Operational flag")}</Typography>
+                    <Typography variant="caption" color="text.secondary">{String(f.message ?? "")}</Typography>
+                  </Box>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<Check size={14} />}
                   disabled={resolvingFlag === String(f.id)}
                   onClick={() => void resolveFlag(f)}
+                  sx={{ fontWeight: 700 }}
                 >
-                  {resolvingFlag === String(f.id) ? "Resolving…" : "✓ Acknowledge / Resolve"}
-                </button>
-              </div>
+                  {resolvingFlag === String(f.id) ? "Resolving…" : "Acknowledge / Resolve"}
+                </Button>
+              </Paper>
             ))}
-          </div>
-        </article>
+          </Box>
+        </Paper>
       )}
 
       {/* Modal: Add Statutory Obligation */}
@@ -893,163 +922,83 @@ export function ComplianceRiskView({
           </DialogTitle>
           <form onSubmit={handleCreateCompliance}>
             <DialogContent dividers sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                  Category *
-                </label>
-                <select
+              <FormControl fullWidth size="small">
+                <InputLabel>Category *</InputLabel>
+                <Select
+                  label="Category *"
                   value={complianceForm.category}
                   onChange={(e) => setComplianceForm((f) => ({ ...f, category: e.target.value }))}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    border: "1px solid var(--border)",
-                    background: "var(--surface)",
-                    color: "var(--text-primary)",
-                    fontSize: 13,
-                  }}
                 >
-                  <option value="Fire Safety & Suppression">Fire Safety & Clearance Certificate</option>
-                  <option value="Vertical Transport (Lifts)">Vertical Transport / Lift Annual Inspection (DOSHS)</option>
-                  <option value="Environmental (NEMA)">NEMA Annual Environmental Audit</option>
-                  <option value="Occupational Safety (DOSHS/OSHA)">DOSHS / OSHA Workplace Health & Safety Audit</option>
-                  <option value="Energy & Electrical (EPRA)">EPRA Energy & Solar/Generator Audit</option>
-                  <option value="County Licensing">County Single Business Permit</option>
-                  <option value="Water & Borehole (WRMA)">WRMA Borehole Water Abstraction Permit</option>
-                </select>
-              </div>
+                  <MenuItem value="Fire Safety & Suppression">Fire Safety & Clearance Certificate</MenuItem>
+                  <MenuItem value="Vertical Transport (Lifts)">Vertical Transport / Lift Annual Inspection (DOSHS)</MenuItem>
+                  <MenuItem value="Environmental (NEMA)">NEMA Annual Environmental Audit</MenuItem>
+                  <MenuItem value="Occupational Safety (DOSHS/OSHA)">DOSHS / OSHA Workplace Health & Safety Audit</MenuItem>
+                  <MenuItem value="Energy & Electrical (EPRA)">EPRA Energy & Solar/Generator Audit</MenuItem>
+                  <MenuItem value="County Licensing">County Single Business Permit</MenuItem>
+                  <MenuItem value="Water & Borehole (WRMA)">WRMA Borehole Water Abstraction Permit</MenuItem>
+                </Select>
+              </FormControl>
 
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                  Obligation / Certificate Title *
-                </label>
-                <input
-                  type="text"
+              <TextField
+                label="Obligation / Certificate Title *"
+                size="small"
+                required
+                fullWidth
+                placeholder="e.g. 2026 Annual Fire Clearance Certificate"
+                value={complianceForm.title}
+                onChange={(e) => setComplianceForm((f) => ({ ...f, title: e.target.value }))}
+              />
+
+              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
+                <TextField
+                  label="Issuing Authority"
+                  size="small"
+                  fullWidth
+                  placeholder="e.g. Nairobi City County Fire Dept"
+                  value={complianceForm.issuing_authority}
+                  onChange={(e) => setComplianceForm((f) => ({ ...f, issuing_authority: e.target.value }))}
+                />
+                <TextField
+                  label="Certificate Number"
+                  size="small"
+                  fullWidth
+                  placeholder="e.g. NCC/FIRE/2026/0419"
+                  value={complianceForm.certificate_number}
+                  onChange={(e) => setComplianceForm((f) => ({ ...f, certificate_number: e.target.value }))}
+                />
+              </Box>
+
+              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
+                <TextField
+                  label="Expiry Date *"
+                  type="date"
+                  size="small"
                   required
-                  placeholder="e.g. 2026 Annual Fire Clearance Certificate"
-                  value={complianceForm.title}
-                  onChange={(e) => setComplianceForm((f) => ({ ...f, title: e.target.value }))}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    border: "1px solid var(--border)",
-                    background: "var(--surface)",
-                    color: "var(--text-primary)",
-                    fontSize: 13,
-                  }}
+                  fullWidth
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  value={complianceForm.expiry_date}
+                  onChange={(e) => setComplianceForm((f) => ({ ...f, expiry_date: e.target.value }))}
                 />
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                    Issuing Authority
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Nairobi City County Fire Dept"
-                    value={complianceForm.issuing_authority}
-                    onChange={(e) => setComplianceForm((f) => ({ ...f, issuing_authority: e.target.value }))}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: 6,
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                      color: "var(--text-primary)",
-                      fontSize: 13,
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                    Certificate Number
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. NCC/FIRE/2026/0419"
-                    value={complianceForm.certificate_number}
-                    onChange={(e) => setComplianceForm((f) => ({ ...f, certificate_number: e.target.value }))}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: 6,
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                      color: "var(--text-primary)",
-                      fontSize: 13,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                    Expiry Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={complianceForm.expiry_date}
-                    onChange={(e) => setComplianceForm((f) => ({ ...f, expiry_date: e.target.value }))}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: 6,
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                      color: "var(--text-primary)",
-                      fontSize: 13,
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                    Responsible Person
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Facilities Engineer"
-                    value={complianceForm.responsible_person_name}
-                    onChange={(e) => setComplianceForm((f) => ({ ...f, responsible_person_name: e.target.value }))}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: 6,
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                      color: "var(--text-primary)",
-                      fontSize: 13,
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                  Auditing Notes / Action Plan
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Renewal workflow details or required inspection attachments..."
-                  value={complianceForm.notes}
-                  onChange={(e) => setComplianceForm((f) => ({ ...f, notes: e.target.value }))}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    border: "1px solid var(--border)",
-                    background: "var(--surface)",
-                    color: "var(--text-primary)",
-                    fontSize: 13,
-                    fontFamily: "inherit",
-                    resize: "vertical",
-                  }}
+                <TextField
+                  label="Responsible Person"
+                  size="small"
+                  fullWidth
+                  placeholder="e.g. Facilities Engineer"
+                  value={complianceForm.responsible_person_name}
+                  onChange={(e) => setComplianceForm((f) => ({ ...f, responsible_person_name: e.target.value }))}
                 />
-              </div>
+              </Box>
+
+              <TextField
+                label="Auditing Notes / Action Plan"
+                size="small"
+                fullWidth
+                multiline
+                rows={2}
+                placeholder="Renewal workflow details or required inspection attachments..."
+                value={complianceForm.notes}
+                onChange={(e) => setComplianceForm((f) => ({ ...f, notes: e.target.value }))}
+              />
             </DialogContent>
             <DialogActions sx={{ px: 3, py: 2 }}>
               <Button onClick={() => setShowAddComplianceModal(false)}>Cancel</Button>
@@ -1077,221 +1026,121 @@ export function ComplianceRiskView({
           </DialogTitle>
           <form onSubmit={handleCreateRisk}>
             <DialogContent dividers sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 12 }}>
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                    Risk Reference
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={riskForm.risk_id}
-                    onChange={(e) => setRiskForm((f) => ({ ...f, risk_id: e.target.value }))}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: 6,
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                      color: "var(--text-primary)",
-                      fontSize: 13,
-                      fontWeight: 800,
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                    Risk Category
-                  </label>
-                  <select
+              <Box sx={{ display: "grid", gridTemplateColumns: "140px 1fr", gap: 1.5 }}>
+                <TextField
+                  label="Risk Reference"
+                  size="small"
+                  required
+                  fullWidth
+                  value={riskForm.risk_id}
+                  onChange={(e) => setRiskForm((f) => ({ ...f, risk_id: e.target.value }))}
+                  slotProps={{ htmlInput: { style: { fontWeight: 800 } } }}
+                />
+                <FormControl fullWidth size="small">
+                  <InputLabel>Risk Category</InputLabel>
+                  <Select
+                    label="Risk Category"
                     value={riskForm.category}
                     onChange={(e) => setRiskForm((f) => ({ ...f, category: e.target.value }))}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: 6,
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                      color: "var(--text-primary)",
-                      fontSize: 13,
-                    }}
                   >
-                    <option value="operational">Operational</option>
-                    <option value="life_safety">Life Safety & Health (HSE)</option>
-                    <option value="structural">Structural & Civil</option>
-                    <option value="financial">Financial & Commercial</option>
-                    <option value="statutory">Statutory & Compliance</option>
-                    <option value="environmental">Environmental & Sustainability</option>
-                  </select>
-                </div>
-              </div>
+                    <MenuItem value="operational">Operational</MenuItem>
+                    <MenuItem value="life_safety">Life Safety & Health (HSE)</MenuItem>
+                    <MenuItem value="structural">Structural & Civil</MenuItem>
+                    <MenuItem value="financial">Financial & Commercial</MenuItem>
+                    <MenuItem value="statutory">Statutory & Compliance</MenuItem>
+                    <MenuItem value="environmental">Environmental & Sustainability</MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
 
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                  Hazard Description *
-                </label>
-                <textarea
-                  rows={2}
-                  required
-                  placeholder="Describe the failure, root cause, or hazard (e.g. backup generator radiator leak during high ambient load)..."
-                  value={riskForm.description}
-                  onChange={(e) => setRiskForm((f) => ({ ...f, description: e.target.value }))}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    border: "1px solid var(--border)",
-                    background: "var(--surface)",
-                    color: "var(--text-primary)",
-                    fontSize: 13,
-                    fontFamily: "inherit",
-                    resize: "vertical",
-                  }}
-                />
-              </div>
+              <TextField
+                label="Hazard Description *"
+                size="small"
+                required
+                fullWidth
+                multiline
+                rows={2}
+                placeholder="Describe the failure, root cause, or hazard..."
+                value={riskForm.description}
+                onChange={(e) => setRiskForm((f) => ({ ...f, description: e.target.value }))}
+              />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, alignItems: "center" }}>
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                    Likelihood (1–5)
-                  </label>
-                  <select
+              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 1.5, alignItems: "center" }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Likelihood (1–5)</InputLabel>
+                  <Select
+                    label="Likelihood (1–5)"
                     value={riskForm.likelihood}
                     onChange={(e) => setRiskForm((f) => ({ ...f, likelihood: Number(e.target.value) }))}
-                    style={{
-                      width: "100%",
-                      padding: "8px 10px",
-                      borderRadius: 6,
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                      color: "var(--text-primary)",
-                      fontSize: 13,
-                    }}
                   >
-                    <option value={1}>1 · Rare</option>
-                    <option value={2}>2 · Unlikely</option>
-                    <option value={3}>3 · Possible</option>
-                    <option value={4}>4 · Likely</option>
-                    <option value={5}>5 · Almost Certain</option>
-                  </select>
-                </div>
+                    <MenuItem value={1}>1 · Rare</MenuItem>
+                    <MenuItem value={2}>2 · Unlikely</MenuItem>
+                    <MenuItem value={3}>3 · Possible</MenuItem>
+                    <MenuItem value={4}>4 · Likely</MenuItem>
+                    <MenuItem value={5}>5 · Almost Certain</MenuItem>
+                  </Select>
+                </FormControl>
 
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                    Impact (1–5)
-                  </label>
-                  <select
+                <FormControl fullWidth size="small">
+                  <InputLabel>Impact (1–5)</InputLabel>
+                  <Select
+                    label="Impact (1–5)"
                     value={riskForm.impact}
                     onChange={(e) => setRiskForm((f) => ({ ...f, impact: Number(e.target.value) }))}
-                    style={{
-                      width: "100%",
-                      padding: "8px 10px",
-                      borderRadius: 6,
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                      color: "var(--text-primary)",
-                      fontSize: 13,
-                    }}
                   >
-                    <option value={1}>1 · Negligible</option>
-                    <option value={2}>2 · Minor</option>
-                    <option value={3}>3 · Moderate</option>
-                    <option value={4}>4 · Major</option>
-                    <option value={5}>5 · Catastrophic</option>
-                  </select>
-                </div>
+                    <MenuItem value={1}>1 · Negligible</MenuItem>
+                    <MenuItem value={2}>2 · Minor</MenuItem>
+                    <MenuItem value={3}>3 · Moderate</MenuItem>
+                    <MenuItem value={4}>4 · Major</MenuItem>
+                    <MenuItem value={5}>5 · Catastrophic</MenuItem>
+                  </Select>
+                </FormControl>
 
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                    Inherent Score
-                  </label>
-                  {(() => {
-                    const score = Number(riskForm.likelihood) * Number(riskForm.impact);
-                    const bg = score >= 15 ? "var(--color-red-bg)" : score >= 8 ? "var(--color-amber-bg)" : "var(--color-green-bg)";
-                    const col = score >= 15 ? "var(--color-danger-deep)" : score >= 8 ? "var(--color-amber-strong)" : "var(--color-green-text)";
-                    return (
-                      <div
-                        style={{
-                          padding: "7px 10px",
-                          borderRadius: 6,
-                          background: bg,
-                          color: col,
-                          fontWeight: 900,
-                          fontSize: 14,
-                          textAlign: "center",
-                        }}
-                      >
-                        {score} / 25
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
+                {(() => {
+                  const score = Number(riskForm.likelihood) * Number(riskForm.impact);
+                  return (
+                    <Box>
+                      <Typography variant="caption" sx={{ fontWeight: 700, display: "block", mb: 0.5 }}>Inherent Score</Typography>
+                      <Chip
+                        label={`${score} / 25`}
+                        color={score >= 15 ? "error" : score >= 8 ? "warning" : "success"}
+                        sx={{ fontWeight: 900, width: "100%", borderRadius: 1.5 }}
+                      />
+                    </Box>
+                  );
+                })()}
+              </Box>
 
-              <div>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                  Mitigation Controls & Action Plan
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Preventive maintenance, bypass valve installation, contractor callout SLA..."
-                  value={riskForm.mitigation_controls}
-                  onChange={(e) => setRiskForm((f) => ({ ...f, mitigation_controls: e.target.value }))}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    borderRadius: 6,
-                    border: "1px solid var(--border)",
-                    background: "var(--surface)",
-                    color: "var(--text-primary)",
-                    fontSize: 13,
-                    fontFamily: "inherit",
-                    resize: "vertical",
-                  }}
+              <TextField
+                label="Mitigation Controls & Action Plan"
+                size="small"
+                fullWidth
+                multiline
+                rows={2}
+                placeholder="Preventive maintenance, bypass valve installation, contractor callout SLA..."
+                value={riskForm.mitigation_controls}
+                onChange={(e) => setRiskForm((f) => ({ ...f, mitigation_controls: e.target.value }))}
+              />
+
+              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5 }}>
+                <TextField
+                  label="Action Owner"
+                  size="small"
+                  fullWidth
+                  placeholder="e.g. Lead Mechanical Engineer"
+                  value={riskForm.action_owner_name}
+                  onChange={(e) => setRiskForm((f) => ({ ...f, action_owner_name: e.target.value }))}
                 />
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                    Action Owner
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Lead Mechanical Engineer"
-                    value={riskForm.action_owner_name}
-                    onChange={(e) => setRiskForm((f) => ({ ...f, action_owner_name: e.target.value }))}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: 6,
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                      color: "var(--text-primary)",
-                      fontSize: 13,
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                    Target Due Date
-                  </label>
-                  <input
-                    type="date"
-                    value={riskForm.due_date}
-                    onChange={(e) => setRiskForm((f) => ({ ...f, due_date: e.target.value }))}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      borderRadius: 6,
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                      color: "var(--text-primary)",
-                      fontSize: 13,
-                    }}
-                  />
-                </div>
-              </div>
+                <TextField
+                  label="Target Due Date"
+                  type="date"
+                  size="small"
+                  fullWidth
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  value={riskForm.due_date}
+                  onChange={(e) => setRiskForm((f) => ({ ...f, due_date: e.target.value }))}
+                />
+              </Box>
             </DialogContent>
             <DialogActions sx={{ px: 3, py: 2 }}>
               <Button onClick={() => setShowAddRiskModal(false)}>Cancel</Button>
@@ -1302,6 +1151,6 @@ export function ComplianceRiskView({
           </form>
         </Dialog>
       )}
-    </div>
+    </Box>
   );
 }

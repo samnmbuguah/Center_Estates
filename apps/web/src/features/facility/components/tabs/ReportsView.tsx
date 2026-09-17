@@ -14,6 +14,12 @@ import {
   Paper,
   Stack,
   Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Tabs,
   TextField,
   Typography,
@@ -721,20 +727,20 @@ export function ReportsView({
               </Box>
 
               {/* Table Render */}
-              <div className="table-scroll" style={{ maxHeight: 600, overflowY: "auto" }}>
-                <table className="fc-data-table">
-                  <thead>
-                    <tr>
+              <TableContainer sx={{ maxHeight: 600 }}>
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow>
                       {previewData.headers.map((h, i) => (
-                        <th key={i}>{h}</th>
+                        <TableCell key={i} sx={{ fontWeight: 700 }}>{h}</TableCell>
                       ))}
-                    </tr>
-                  </thead>
-                  <tbody>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
                     {previewData.rows.map((row, rIdx) => (
-                      <tr key={rIdx}>
+                      <TableRow key={rIdx} hover>
                         {row.map((cell, cIdx) => (
-                          <td key={cIdx}>
+                          <TableCell key={cIdx}>
                             {cell === null || cell === undefined || cell === "" ? (
                               "—"
                             ) : typeof cell === "string" && (cell.toLowerCase() === "active" || cell.toLowerCase() === "completed" || cell.toLowerCase() === "high") ? (
@@ -751,13 +757,13 @@ export function ReportsView({
                             ) : (
                               String(cell)
                             )}
-                          </td>
+                          </TableCell>
                         ))}
-                      </tr>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Paper>
           ) : (
             <EmptyState

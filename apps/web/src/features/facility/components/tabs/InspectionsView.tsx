@@ -1,44 +1,47 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Box,
+  Button,
+  Chip,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+} from "@mui/material";
+import { Download, Plus } from "lucide-react";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
 import { FcStatus, HealthBar } from "../FacilityToolbar";
 
-function EmptyState({ message = "No data available." }: { message?: string }) {
-  return (
-    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
-      {message}
-    </div>
-  );
-}
-
 function FcKpiCard({
-  icon,
-  iconBg,
-  iconColor,
-  label,
-  value,
-  sub,
+  icon, iconBg, iconColor, label, value, sub,
 }: {
-  icon: string;
-  iconBg: string;
-  iconColor: string;
-  label: string;
-  value: string;
-  sub?: string;
+  icon: string; iconBg: string; iconColor: string; label: string; value: string; sub?: string;
 }) {
   return (
-    <div className="fc-kpi-card" style={{ textAlign: "left" }}>
-      <div className="fc-kpi-top">
-        <span className="fc-kpi-icon" style={{ background: iconBg, color: iconColor }}>
+    <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 0.5, borderRadius: 2, flex: 1, minWidth: 140 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+        <Box sx={{ width: 32, height: 32, borderRadius: 1.5, background: iconBg, color: iconColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
           {icon}
-        </span>
-        <span className="fc-kpi-label">{label}</span>
-      </div>
-      <strong className="fc-kpi-value">{value}</strong>
-      {sub && <span className="fc-kpi-sub">{sub}</span>}
-    </div>
+        </Box>
+        <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: 0.4, fontWeight: 700 }}>
+          {label}
+        </Typography>
+      </Box>
+      <Typography variant="h6" sx={{ lineHeight: 1.2, fontWeight: 900 }}>{value}</Typography>
+      {sub && <Typography variant="caption" color="text.secondary">{sub}</Typography>}
+    </Paper>
   );
 }
 
@@ -72,131 +75,180 @@ export function InspectionsView({
   const complianceScore = scoredRows.length ? Math.round(scoredRows.reduce((s, r) => s + Number(r.score ?? 0), 0) / scoredRows.length) : Number(kpis?.maintenanceCompliance ?? 0);
   const pctOfTotal = (n: number) => (totalInsp ? Math.round((n / totalInsp) * 100) : 0);
 
+  const term = search.trim().toLowerCase();
+  const completedStatuses = new Set(["passed", "failed"]);
+  const filteredRows = displayRows.filter((row) => {
+    const status = String(row.status ?? "");
+    const statusMatches = statusFilter === "all" || statusFilter === "list"
+      || (statusFilter === "completed" ? completedStatuses.has(status) : status === statusFilter);
+    const searchMatches = !term || [row.title, row.reference, row.asset_name, row.property_name, row.inspection_type]
+      .some((value) => String(value ?? "").toLowerCase().includes(term));
+    return statusMatches && searchMatches;
+  });
+
   return (
     <>
-      <div className="fc-kpi-strip six-col">
+      {/* KPI Strip */}
+      <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
         <FcKpiCard icon="📋" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total Inspections" value={String(totalInsp)} sub={hasData ? "All records" : "0"} />
         <FcKpiCard icon="✓" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Completed" value={String(completedInsp)} sub={`${pctOfTotal(completedInsp)}%`} />
         <FcKpiCard icon="⏳" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="In Progress" value={String(inProgressInsp)} sub={`${pctOfTotal(inProgressInsp)}%`} />
         <FcKpiCard icon="⚠" iconBg="var(--color-red-bg)" iconColor="var(--color-danger-strong)" label="Overdue" value={String(overdueInsp)} sub={`${pctOfTotal(overdueInsp)}%`} />
         <FcKpiCard icon="🔍" iconBg="#fdf4ff" iconColor="var(--color-purple)" label="Defects Found" value={String(defectsFound)} sub="All items" />
         <FcKpiCard icon="🛡" iconBg="var(--color-green-soft)" iconColor="var(--color-success-strong)" label="Compliance Score" value={`${complianceScore}%`} sub="Avg. completed score" />
-      </div>
+      </Box>
 
-      {/* Table Toolbar & View Filter */}
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: selectedRow ? "minmax(0,1fr) 340px" : "1fr" }}>
-        <article className="data-panel">
-          <div className="fc-table-toolbar">
-            <div className="fc-table-toolbar-left">
-              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search inspections…" data-testid="insp-search-input" style={{ border: "1px solid var(--border-color)", borderRadius: 8, fontSize: 12, padding: "8px 12px", minWidth: 200 }} />
-              <select className="fc-toolbar-select" aria-label="Inspection status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                <option value="all">All Inspections</option>
-                <option value="scheduled">Scheduled</option>
-                <option value="in_progress">In progress</option>
-                <option value="completed">Completed</option>
-                <option value="follow_up">Follow-up required</option>
-              </select>
-            </div>
-            <div className="fc-table-toolbar-right">
-              <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "inspections.csv")}>↓ Export</button>
-              <button className="fc-toolbar-btn primary" onClick={onAdd} data-testid="facility-create-inspection-btn">New Inspection</button>
-            </div>
-          </div>
+      <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: selectedRow ? "minmax(0,1fr) 340px" : "1fr" }}>
+        <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+          {/* Toolbar */}
+          <Box sx={{ px: 2, py: 1.5, borderBottom: "1px solid", borderColor: "divider", display: "flex", gap: 1.5, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+              <TextField
+                size="small"
+                placeholder="Search inspections…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                slotProps={{ htmlInput: { "data-testid": "insp-search-input" } }}
+                sx={{ minWidth: 200 }}
+              />
+              <FormControl size="small" sx={{ minWidth: 160 }}>
+                <Select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  displayEmpty
+                >
+                  <MenuItem value="all">All Inspections</MenuItem>
+                  <MenuItem value="scheduled">Scheduled</MenuItem>
+                  <MenuItem value="in_progress">In progress</MenuItem>
+                  <MenuItem value="completed">Completed</MenuItem>
+                  <MenuItem value="follow_up">Follow-up required</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <Button size="small" variant="outlined" startIcon={<Download size={14} />} onClick={() => exportCsv(displayRows, "inspections.csv")}>
+                Export
+              </Button>
+              <Button size="small" variant="contained" startIcon={<Plus size={14} />} onClick={onAdd} data-testid="facility-create-inspection-btn">
+                New Inspection
+              </Button>
+            </Box>
+          </Box>
 
-          {(() => {
-            const term = search.trim().toLowerCase();
-            const completedStatuses = new Set(["passed", "failed"]);
-            const filteredRows = displayRows.filter((row) => {
-              const status = String(row.status ?? "");
-              const statusMatches = statusFilter === "all" || statusFilter === "list"
-                || (statusFilter === "completed" ? completedStatuses.has(status) : status === statusFilter);
-              const searchMatches = !term || [row.title, row.reference, row.asset_name, row.property_name, row.inspection_type]
-                .some((value) => String(value ?? "").toLowerCase().includes(term));
-              return statusMatches && searchMatches;
-            });
-            return (
-              <div className="table-scroll">
-                <table className="fc-data-table">
-                  <thead>
-                    <tr>
-                      <th>Inspection Name</th>
-                      <th>Asset / System</th>
-                      <th>Building / Location</th>
-                      <th>Type</th>
-                      <th>Date</th>
-                      <th>Status</th>
-                      <th>Score</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRows.length === 0 ? (
-                      <tr>
-                        <td colSpan={8} style={{ textAlign: "center", padding: "32px 16px", color: "var(--text-secondary)" }}>
-                          No inspections recorded. Click &quot;+ New Inspection&quot; to create an inspection.
-                        </td>
-                      </tr>
-                    ) : filteredRows.map((row) => {
-                      const score = Number(row.score ?? 0);
-                      const status = String(row.status ?? "scheduled");
-                      const insType = String(row.inspection_type ?? "routine");
-                      return (
-                        <tr key={String(row.id)} className={selectedRow?.id === row.id ? "selected" : ""} onClick={() => setSelectedRow(selectedRow?.id === row.id ? null : row)}>
-                          <td>
-                            <strong style={{ fontSize: 13, color: "var(--text-primary)", display: "block" }}>{String(row.title ?? "—")}</strong>
-                            {Boolean(row.reference) && <small style={{ fontSize: 10, color: "var(--text-faint)" }}>{String(row.reference)}</small>}
-                          </td>
-                          <td style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 600 }}>{String(row.asset_name ?? "—")}</td>
-                          <td style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 600 }}>{String(row.property_name ?? "—")}</td>
-                          <td><FcStatus value={insType} /></td>
-                          <td style={{ fontSize: 12, color: "var(--text-primary)", fontWeight: 600 }}>{String(row.scheduled_on ?? "—")}</td>
-                          <td><FcStatus value={status.replace("_", "-")} /></td>
-                          <td>
-                            {score > 0 ? (
-                              <div className="fc-score">
-                                <span className="fc-score-dot" style={{ background: score >= 90 ? "var(--color-green)" : score >= 75 ? "var(--color-amber)" : "var(--color-danger)" }} />
-                                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{score}%</span>
-                              </div>
-                            ) : <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>}
-                          </td>
-                          <td>
-                            <div style={{ display: "flex", gap: 6 }}>
-                              {permissions.canInspect && ["scheduled", "in_progress"].includes(status) && (
-                                <button onClick={(e) => { e.stopPropagation(); onAction(row, "complete"); }} style={{ background: "var(--color-brand-red)", border: 0, borderRadius: 6, color: "white", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: "4px 8px" }}>
-                                  Complete
-                                </button>
-                              )}
-                              <button onClick={(event) => { event.stopPropagation(); setSelectedRow(row); }} className="fc-toolbar-btn">View details</button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            );
-          })()}
-          <div className="fc-pagination">
-            <span className="fc-pager-info">Showing {displayRows.length} inspections</span>
-          </div>
-        </article>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Inspection Name</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Asset / System</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Building / Location</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Type</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Score</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                      No inspections recorded. Click &quot;+ New Inspection&quot; to create an inspection.
+                    </TableCell>
+                  </TableRow>
+                ) : filteredRows.map((row) => {
+                  const score = Number(row.score ?? 0);
+                  const status = String(row.status ?? "scheduled");
+                  const insType = String(row.inspection_type ?? "routine");
+                  return (
+                    <TableRow
+                      key={String(row.id)}
+                      hover
+                      selected={selectedRow?.id === row.id}
+                      onClick={() => setSelectedRow(selectedRow?.id === row.id ? null : row)}
+                      sx={{ cursor: "pointer" }}
+                    >
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(row.title ?? "—")}</Typography>
+                        {Boolean(row.reference) && (
+                          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "ui-monospace, monospace" }}>
+                            {String(row.reference)}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>{String(row.asset_name ?? "—")}</Typography></TableCell>
+                      <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>{String(row.property_name ?? "—")}</Typography></TableCell>
+                      <TableCell><FcStatus value={insType} /></TableCell>
+                      <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>{String(row.scheduled_on ?? "—")}</Typography></TableCell>
+                      <TableCell><FcStatus value={status.replace("_", "-")} /></TableCell>
+                      <TableCell>
+                        {score > 0 ? (
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                            <Box
+                              sx={{
+                                width: 8, height: 8, borderRadius: "50%",
+                                bgcolor: score >= 90 ? "success.main" : score >= 75 ? "warning.main" : "error.main",
+                              }}
+                            />
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>{score}%</Typography>
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.disabled">—</Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: "flex", gap: 0.75 }}>
+                          {permissions.canInspect && ["scheduled", "in_progress"].includes(status) && (
+                            <Button
+                              size="small"
+                              variant="contained"
+                              onClick={(e) => { e.stopPropagation(); onAction(row, "complete"); }}
+                              sx={{ fontSize: 11, fontWeight: 700, py: 0.25 }}
+                            >
+                              Complete
+                            </Button>
+                          )}
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={(e) => { e.stopPropagation(); setSelectedRow(row); }}
+                            sx={{ fontSize: 11 }}
+                          >
+                            View details
+                          </Button>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
-        {/* Inspection detail */}
+          <Box sx={{ px: 2, py: 1.5, borderTop: "1px solid", borderColor: "divider" }}>
+            <Typography variant="caption" color="text.secondary">Showing {displayRows.length} inspections</Typography>
+          </Box>
+        </Paper>
+
+        {/* Inspection detail panel */}
         {selectedRow && (
-          <div className="fc-detail-panel">
-            <div className="fc-detail-header">
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "var(--text-secondary)" }}>{String(selectedRow.reference ?? "")}</span>
+          <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Box sx={{ px: 2.5, py: 2, borderBottom: "1px solid", borderColor: "divider", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <Box>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                  <Typography variant="caption" sx={{ fontFamily: "ui-monospace, monospace", color: "text.secondary" }}>
+                    {String(selectedRow.reference ?? "")}
+                  </Typography>
                   <FcStatus value={String(selectedRow.status ?? "completed").replace("_", "-")} />
-                </div>
-                <strong style={{ display: "block", fontSize: 15 }}>{String(selectedRow.title ?? "—")}</strong>
-                <small style={{ color: "var(--text-secondary)" }}>{String(selectedRow.asset_name ?? "—")} • {String(selectedRow.property_name ?? "—")}</small>
-              </div>
-              <button onClick={() => setSelectedRow(null)} style={{ background: "none", border: 0, color: "var(--text-secondary)", cursor: "pointer", fontSize: 20 }}>×</button>
-            </div>
-            <div style={{ padding: "16px 18px" }}>
+                </Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{String(selectedRow.title ?? "—")}</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {String(selectedRow.asset_name ?? "—")} • {String(selectedRow.property_name ?? "—")}
+                </Typography>
+              </Box>
+              <Button size="small" onClick={() => setSelectedRow(null)} sx={{ minWidth: 0, color: "text.secondary", fontSize: 18 }}>×</Button>
+            </Box>
+            <Box sx={{ p: 2.5 }}>
               {[
                 { label: "Inspection Type", value: String(selectedRow.inspection_type ?? "—") },
                 { label: "Inspection Date", value: String(selectedRow.scheduled_on ?? "—") },
@@ -205,32 +257,32 @@ export function InspectionsView({
                 { label: "Property", value: String(selectedRow.property_name ?? "—") },
                 { label: "Violations", value: String(selectedRow.violations ?? "0") },
               ].map((f) => (
-                <div key={f.label} style={{ borderBottom: "1px solid #f0f2f6", display: "flex", justifyContent: "space-between", padding: "9px 0" }}>
-                  <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>{f.label}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>{f.value}</span>
-                </div>
+                <Box key={f.label} sx={{ borderBottom: "1px solid", borderColor: "divider", display: "flex", justifyContent: "space-between", py: 1.25 }}>
+                  <Typography variant="caption" color="text.secondary">{f.label}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{f.value}</Typography>
+                </Box>
               ))}
 
               {Number(selectedRow.score ?? 0) > 0 && (
-                <div style={{ marginTop: 14 }}>
-                  <span style={{ color: "var(--text-secondary)", display: "block", fontSize: 11, marginBottom: 6 }}>Overall Score</span>
-                  <strong style={{ fontSize: 22 }}>{String(selectedRow.score ?? 0)}%</strong>
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.75 }}>Overall Score</Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 900 }}>{String(selectedRow.score ?? 0)}%</Typography>
                   <HealthBar pct={Number(selectedRow.score ?? 0)} />
-                </div>
+                </Box>
               )}
 
               {Boolean(selectedRow.findings) && (
-                <div style={{ marginTop: 14 }}>
-                  <strong style={{ display: "block", fontSize: 12, marginBottom: 8 }}>Findings</strong>
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }} gutterBottom>Findings</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
                     {String(selectedRow.findings)}
-                  </div>
-                </div>
+                  </Typography>
+                </Box>
               )}
-            </div>
-          </div>
+            </Box>
+          </Paper>
         )}
-      </div>
+      </Box>
     </>
   );
 }
