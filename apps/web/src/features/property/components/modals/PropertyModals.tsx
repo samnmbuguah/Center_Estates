@@ -456,64 +456,42 @@ export function PropertyModals(props: PropertyModalsProps) {
           <Modal title="Add Single Lease" onClose={() => setShowAddLease(false)} wide>
             <form onSubmit={submitAddLease} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div className="grid-2">
-                <Field label="Lease Reference" required>
-                  <input name="reference" required placeholder="e.g. LSE-2026-0001" data-testid="lease-ref-input" />
-                </Field>
-                <Field label="Billing Day">
-                  <input name="billing_day" type="number" min={1} max={28} defaultValue={1} />
-                </Field>
+                <TextField fullWidth size="small" name="reference" label="Lease reference" required placeholder="e.g. LSE-2026-0001" slotProps={{ htmlInput: { "data-testid": "lease-ref-input" } }} />
+                <TextField fullWidth size="small" name="billing_day" label="Billing day" type="number" defaultValue={1} slotProps={{ htmlInput: { min: 1, max: 28 } }} />
               </div>
               <div className="grid-2">
-                <Field label="Tenant" required>
-                  <select name="tenant" required defaultValue="" data-testid="lease-tenant-select">
+                <TextField select fullWidth size="small" name="tenant" label="Tenant" required defaultValue="" slotProps={{ select: { native: true }, htmlInput: { "data-testid": "lease-tenant-select" } }}>
                     <option value="" disabled>Select tenant</option>
                     {tenantOptions.map((t) => (
                       <option key={String(t.id)} value={String(t.id)}>{String(t.name)}</option>
                     ))}
-                  </select>
-                </Field>
-                <Field label="Unit" required>
-                  <select name="unit" required defaultValue="" data-testid="lease-unit-select">
+                </TextField>
+                <TextField select fullWidth size="small" name="unit" label="Unit" required defaultValue="" slotProps={{ select: { native: true }, htmlInput: { "data-testid": "lease-unit-select" } }}>
                     <option value="" disabled>Select unit</option>
                     {unitOptions.map((u) => (
                       <option key={String(u.id)} value={String(u.id)}>{String(u.code)} · {String(u.property_name ?? "")}</option>
                     ))}
-                  </select>
-                </Field>
+                </TextField>
               </div>
               <div className="grid-1">
-                <Field label="Lease Onboarding Type">
-                  <select name="contract_type" defaultValue="paper_lease" style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 13, background: "var(--surface)" }}>
-                    <option value="paper_lease">📄 Existing Paper Lease (Already signed offline — Onboarded property)</option>
-                    <option value="new_digital_signing">✍️ New Tenant (Issue digital offer letter for tenant portal signing)</option>
-                  </select>
-                </Field>
+                <TextField select fullWidth size="small" name="contract_type" label="Lease onboarding type" defaultValue="paper_lease" slotProps={{ select: { native: true } }}>
+                  <option value="paper_lease">Existing paper lease — already signed offline</option>
+                  <option value="new_digital_signing">New tenant — issue digital offer for portal signing</option>
+                </TextField>
               </div>
               <div className="grid-2">
-                <Field label="Start Date" required>
-                  <input name="starts_on" type="date" required data-testid="lease-start-input" />
-                </Field>
-                <Field label="End Date" required>
-                  <input name="ends_on" type="date" required data-testid="lease-end-input" />
-                </Field>
+                <TextField fullWidth size="small" name="starts_on" label="Start date" type="date" required slotProps={{ inputLabel: { shrink: true }, htmlInput: { "data-testid": "lease-start-input" } }} />
+                <TextField fullWidth size="small" name="ends_on" label="End date" type="date" required slotProps={{ inputLabel: { shrink: true }, htmlInput: { "data-testid": "lease-end-input" } }} />
               </div>
               <div className="grid-3">
-                <Field label="Monthly Rent (KES)" required>
-                  <input name="monthly_rent" type="number" min={1} required data-testid="lease-rent-input" />
-                </Field>
-                <Field label="Deposit (KES)">
-                  <input name="deposit" type="number" min={0} defaultValue={0} data-testid="lease-deposit-input" />
-                </Field>
-                <Field label="Escalation %">
-                  <input name="escalation_percent" type="number" min={0} defaultValue={0} />
-                </Field>
-                <Field label="Escalation frequency">
-                  <select name="escalation_interval_months" defaultValue="12"><option value="12">Annually</option><option value="24">Biennially</option><option value="36">Triennially</option></select>
-                </Field>
+                <TextField fullWidth size="small" name="monthly_rent" label="Monthly rent (KES)" type="number" required slotProps={{ htmlInput: { min: 1, "data-testid": "lease-rent-input" } }} />
+                <TextField fullWidth size="small" name="deposit" label="Deposit (KES)" type="number" defaultValue={0} slotProps={{ htmlInput: { min: 0, "data-testid": "lease-deposit-input" } }} />
+                <TextField fullWidth size="small" name="escalation_percent" label="Escalation %" type="number" defaultValue={0} slotProps={{ htmlInput: { min: 0 } }} />
+                <TextField select fullWidth size="small" name="escalation_interval_months" label="Escalation frequency" defaultValue="12" slotProps={{ select: { native: true } }}><option value="12">Annually</option><option value="24">Biennially</option><option value="36">Triennially</option></TextField>
               </div>
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
-                <button type="button" className="btn ghost" onClick={() => setShowAddLease(false)}>Cancel</button>
-                <button type="submit" className="btn primary" data-testid="lease-save-btn">Save Lease</button>
+                <Button type="button" variant="outlined" onClick={() => setShowAddLease(false)}>Cancel</Button>
+                <Button type="submit" variant="contained" data-testid="lease-save-btn">Save Lease</Button>
               </div>
             </form>
           </Modal>
@@ -523,16 +501,13 @@ export function PropertyModals(props: PropertyModalsProps) {
           <Modal title="Upload Tenant Document" onClose={() => setShowUploadDoc(false)} wide>
             <form onSubmit={submitUploadDoc} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div className="grid-2">
-                <Field label="Tenant" required>
-                  <select name="tenant" required defaultValue="">
+                <TextField select fullWidth size="small" name="tenant" label="Tenant" required defaultValue="" slotProps={{ select: { native: true } }}>
                     <option value="" disabled>Select tenant</option>
                     {tenantOptions.map((t) => (
                       <option key={String(t.id)} value={String(t.id)}>{String(t.name)}</option>
                     ))}
-                  </select>
-                </Field>
-                <Field label="Document Type" required>
-                  <select name="document_type" required defaultValue="">
+                </TextField>
+                <TextField select fullWidth size="small" name="document_type" label="Document type" required defaultValue="" slotProps={{ select: { native: true } }}>
                     <option value="" disabled>Select type</option>
                     <option value="national_id">National ID</option>
                     <option value="passport">Passport</option>
@@ -541,28 +516,19 @@ export function PropertyModals(props: PropertyModalsProps) {
                     <option value="lease_agreement">Lease Agreement</option>
                     <option value="guarantee">Guarantee</option>
                     <option value="other">Other</option>
-                  </select>
-                </Field>
+                </TextField>
               </div>
               <div className="grid-2">
-                <Field label="Document Number">
-                  <input name="document_number" placeholder="Reference on the document" />
-                </Field>
-                <Field label="File URL (Optional)">
-                  <input name="file_url" placeholder="https://… or /media/documents/… (optional)" />
-                </Field>
+                <TextField fullWidth size="small" name="document_number" label="Document number" placeholder="Reference on the document" />
+                <TextField fullWidth size="small" name="file_url" label="File URL" placeholder="https://… or /media/documents/…" />
               </div>
               <div className="grid-2">
-                <Field label="Issued On">
-                  <input name="issued_on" type="date" />
-                </Field>
-                <Field label="Expires On">
-                  <input name="expires_on" type="date" />
-                </Field>
+                <TextField fullWidth size="small" name="issued_on" label="Issued on" type="date" slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField fullWidth size="small" name="expires_on" label="Expires on" type="date" slotProps={{ inputLabel: { shrink: true } }} />
               </div>
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
-                <button type="button" className="btn ghost" onClick={() => setShowUploadDoc(false)}>Cancel</button>
-                <button type="submit" className="btn primary">Upload Document</button>
+                <Button type="button" variant="outlined" onClick={() => setShowUploadDoc(false)}>Cancel</Button>
+                <Button type="submit" variant="contained">Upload Document</Button>
               </div>
             </form>
           </Modal>
@@ -954,37 +920,27 @@ export function PropertyModals(props: PropertyModalsProps) {
         {showAddServiceCharge && (
           <Modal title="Set up service charge" onClose={() => setShowAddServiceCharge(false)} wide>
             <form onSubmit={submitServiceCharge} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <Field label="Property" required>
-                <select name="property" required defaultValue={String(activeProperty?.id ?? (propertyOptions[0]?.id ?? ""))}>
+              <TextField select fullWidth size="small" name="property" label="Property" required defaultValue={String(activeProperty?.id ?? (propertyOptions[0]?.id ?? ""))} slotProps={{ select: { native: true } }}>
                   {!activeProperty && !propertyOptions[0] && <option value="" disabled>Select property</option>}
                   {propertyOptions.map((property) => (
                     <option key={String(property.id)} value={String(property.id)}>{String(property.name ?? property.code)}</option>
                   ))}
-                </select>
-              </Field>
+              </TextField>
               <div className="grid-2">
-                <Field label="Scheme name" required>
-                  <input name="name" required placeholder="e.g. 2026 Commercial Service Charge" />
-                </Field>
-                <Field label="Allocation method" required>
-                  <select name="method" defaultValue="area">
+                <TextField fullWidth size="small" name="name" label="Scheme name" required placeholder="e.g. 2026 Commercial Service Charge" />
+                <TextField select fullWidth size="small" name="method" label="Allocation method" required defaultValue="area" slotProps={{ select: { native: true } }}>
                     <option value="area">Floor area</option>
                     <option value="equal">Equal share</option>
                     <option value="fixed">Fixed allocation</option>
-                  </select>
-                </Field>
+                </TextField>
               </div>
               <div className="grid-2">
-                <Field label="Starts on" required>
-                  <input name="starts_on" type="date" required />
-                </Field>
-                <Field label="Annual service budget" required>
-                  <input name="annual_budget" type="number" min={1} step="0.01" required />
-                </Field>
+                <TextField fullWidth size="small" name="starts_on" label="Starts on" type="date" required slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField fullWidth size="small" name="annual_budget" label="Annual service budget" type="number" required slotProps={{ htmlInput: { min: 1, step: 0.01 } }} />
               </div>
               <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
-                <button type="button" className="btn ghost" onClick={() => setShowAddServiceCharge(false)}>Cancel</button>
-                <button type="submit" className="btn primary">Save draft</button>
+                <Button type="button" variant="outlined" onClick={() => setShowAddServiceCharge(false)}>Cancel</Button>
+                <Button type="submit" variant="contained">Save draft</Button>
               </div>
             </form>
           </Modal>

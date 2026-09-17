@@ -187,33 +187,23 @@ export function NewSaleModal({
         onSubmit(Object.fromEntries(new FormData(e.currentTarget).entries()) as Record<string, string>);
       }}>
         <div className="grid-2">
-          <Field label="Sale Reference" required>
-            <input name="reference" required placeholder="SALE-2026-0001" />
-          </Field>
-          <Field label="Buyer" required>
-            <select name="buyer" required defaultValue="">
+          <TextField fullWidth size="small" name="reference" label="Sale reference" required placeholder="SALE-2026-0001" />
+          <TextField select fullWidth size="small" name="buyer" label="Buyer" required defaultValue="" slotProps={{ select: { native: true } }}>
               <option value="" disabled>Select buyer…</option>
               {buyers.map((b) => <option key={String(b.id)} value={String(b.id)}>{String(b.full_name ?? "—")} · {String(b.reference ?? "—")}</option>)}
-            </select>
-          </Field>
+          </TextField>
         </div>
-        <Field label="Unit Listing" required>
-          <select name="listing" required defaultValue="">
+        <TextField select fullWidth size="small" name="listing" label="Unit listing" required defaultValue="" slotProps={{ select: { native: true } }} sx={{ mb: 2 }}>
             <option value="" disabled>Select listing…</option>
             {listings.map((l) => <option key={String(l.id)} value={String(l.id)}>{String(l.project_name ?? "—")} · {String(l.unit_code ?? "—")} · {fmtMoney(l.list_price)}</option>)}
-          </select>
-        </Field>
+        </TextField>
         <div className="grid-2">
-          <Field label="Agreed Price (KES)" required>
-            <input name="agreed_price" type="number" min="1" required placeholder="12500000" />
-          </Field>
-          <Field label="Reservation Fee (KES)">
-            <input name="reservation_fee" type="number" min="0" defaultValue="0" />
-          </Field>
+          <TextField fullWidth size="small" name="agreed_price" label="Agreed price (KES)" type="number" required placeholder="12500000" slotProps={{ htmlInput: { min: 1 } }} />
+          <TextField fullWidth size="small" name="reservation_fee" label="Reservation fee (KES)" type="number" defaultValue="0" slotProps={{ htmlInput: { min: 0 } }} />
         </div>
         <div className="modal-actions">
-          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn primary">Create Sale</button>
+          <Button type="button" variant="outlined" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="contained">Create Sale</Button>
         </div>
       </form>
     </Modal>
@@ -249,46 +239,25 @@ export function RecordVisitModal({
         onSubmit(payload);
       }}>
         <div className="grid-2">
-          <Field label="Visit Reference (Auto-generated)">
-            <input
-              name="reference"
-              defaultValue={defaultRef}
-              placeholder="Auto-generated (e.g. VS-2026-0001)"
-              style={{ background: "var(--surface-sunken, #f8fafc)", fontWeight: 600 }}
-            />
-          </Field>
-          <Field label="Visitor Name" required>
-            <input name="visitor_name" required placeholder="Client full name" />
-          </Field>
+          <TextField fullWidth size="small" name="reference" label="Visit reference" defaultValue={defaultRef} helperText="Generated automatically; you may adjust it before saving" />
+          <TextField fullWidth size="small" name="visitor_name" label="Visitor name" required placeholder="Client full name" />
         </div>
         <div className="grid-2">
-          <Field label="Phone">
-            <input name="phone" placeholder="+254 700 000 000" />
-          </Field>
-          <Field label="Email">
-            <input name="email" type="email" placeholder="visitor@domain.co.ke" />
-          </Field>
+          <TextField fullWidth size="small" name="phone" label="Phone" placeholder="+254 700 000 000" />
+          <TextField fullWidth size="small" name="email" label="Email" type="email" placeholder="visitor@domain.co.ke" />
         </div>
         <div className="grid-2">
-          <Field label="Project" required>
-            <select name="project" required defaultValue="">
+          <TextField select fullWidth size="small" name="project" label="Project" required defaultValue="" slotProps={{ select: { native: true } }}>
               <option value="" disabled>Select project…</option>
               {projects.map((p) => <option key={String(p.id)} value={String(p.id)}>{String(p.name ?? "—")}</option>)}
-            </select>
-          </Field>
-          <Field label="Interested Unit Type">
-            <input name="interested_unit_type" placeholder="e.g. 3-Bedroom Apartment" />
-          </Field>
+          </TextField>
+          <TextField fullWidth size="small" name="interested_unit_type" label="Interested unit type" placeholder="e.g. 3-Bedroom Apartment" />
         </div>
-        <Field label="Visit Date & Time" required>
-          <input name="visited_at" type="datetime-local" required defaultValue={defaultVisitDate} />
-        </Field>
-        <Field label="Notes">
-          <textarea name="notes" rows={3} placeholder="Presentation summary, financing interest, next steps…" />
-        </Field>
+        <TextField fullWidth size="small" name="visited_at" label="Visit date and time" type="datetime-local" required defaultValue={defaultVisitDate} slotProps={{ inputLabel: { shrink: true } }} sx={{ mb: 2 }} />
+        <TextField fullWidth size="small" name="notes" label="Notes" multiline minRows={3} placeholder="Presentation summary, financing interest, next steps…" />
         <div className="modal-actions">
-          <button type="button" className="btn ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn primary">Record Visit</button>
+          <Button type="button" variant="outlined" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="contained">Record Visit</Button>
         </div>
       </form>
     </Modal>
@@ -721,22 +690,18 @@ export function PaymentActionModal({
           <p className="muted" style={{ fontSize: 12, margin: "0 0 14px" }}>
             Approving allocates the full amount to the linked installment and recalculates commission gates. Rejecting requires a reason that is retained in the audit trail.
           </p>
-          <Field label="Rejection Reason (required to reject)">
-            <textarea name="reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. M-Pesa reference does not match, duplicate submission…" />
-          </Field>
+          <TextField fullWidth size="small" name="reason" label="Rejection reason" multiline minRows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. M-Pesa reference does not match, duplicate submission…" />
           <div className="modal-actions">
-            <button className="btn ghost" disabled={!reason.trim()} onClick={() => onAction({ action: "reject", reason })}>Reject</button>
-            <button className="btn primary" onClick={() => onAction({ action: "verify" })}>✓ Approve Payment</button>
+            <Button variant="outlined" color="error" disabled={!reason.trim()} onClick={() => onAction({ action: "reject", reason })}>Reject</Button>
+            <Button variant="contained" onClick={() => onAction({ action: "verify" })}>Approve Payment</Button>
           </div>
         </>
       ) : (
         <>
-          <Field label="Reversal Reason" required>
-            <textarea name="reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why is this verified payment being reversed?" />
-          </Field>
+          <TextField fullWidth size="small" name="reason" label="Reversal reason" required multiline minRows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why is this verified payment being reversed?" />
           <div className="modal-actions">
-            <button className="btn ghost" onClick={onClose}>Cancel</button>
-            <button className="btn danger" onClick={() => onAction({ action: "reverse", reason })}>↩ Reverse Payment</button>
+            <Button variant="outlined" onClick={onClose}>Cancel</Button>
+            <Button variant="contained" color="error" disabled={!reason.trim()} onClick={() => onAction({ action: "reverse", reason })}>Reverse Payment</Button>
           </div>
         </>
       )}
@@ -771,18 +736,14 @@ export function TransitionModal({
         <div className="row" style={{ justifyContent: "space-between" }}><span className="muted">Reference</span><span className="mono">{String(row.reference ?? "—")}</span></div>
         <div className="row" style={{ justifyContent: "space-between" }}><span className="muted">Current Status</span><StatusPill value={String(row.status ?? "—")} /></div>
       </div>
-      <Field label="Move to" required>
-        <select value={target} onChange={(e) => setTarget(e.target.value)} required>
+      <TextField select fullWidth size="small" label="Move to" value={target} onChange={(e) => setTarget(e.target.value)} required slotProps={{ select: { native: true } }}>
           <option value="" disabled>Select next status…</option>
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-      </Field>
-      <Field label={needsNotes ? "Reason (required for cancellation)" : "Notes"}>
-        <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={needsNotes ? "Required — retained in the audit trail." : "Optional note for the audit trail."} />
-      </Field>
+      </TextField>
+      <TextField fullWidth size="small" label={needsNotes ? "Cancellation reason" : "Notes"} required={needsNotes} multiline minRows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={needsNotes ? "Required — retained in the audit trail." : "Optional note for the audit trail."} sx={{ mt: 2 }} />
       <div className="modal-actions">
-        <button className="btn ghost" onClick={onClose}>Cancel</button>
-        <button className="btn primary" disabled={!target || (needsNotes && !notes.trim())} onClick={() => onSubmit({ status: target, notes })}>Apply Transition</button>
+        <Button variant="outlined" onClick={onClose}>Cancel</Button>
+        <Button variant="contained" color={needsNotes ? "error" : "primary"} disabled={!target || (needsNotes && !notes.trim())} onClick={() => onSubmit({ status: target, notes })}>Apply Transition</Button>
       </div>
     </Modal>
   );
