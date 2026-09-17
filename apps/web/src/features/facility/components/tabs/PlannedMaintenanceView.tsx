@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Button, Stack } from "@mui/material";
+import { Plus } from "lucide-react";
 import { Modal } from "@/components/module-ui";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { Row } from "../../types/facility.types";
@@ -245,9 +247,9 @@ export function PlannedMaintenanceView({
         {(subTab === "calendar" || subTab === "gantt" || subTab === "plans" || subTab === "templates") && (
         <div>
           <article className="data-panel">
-            <div style={{ borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", padding: "14px 16px" }}>
+            <div style={{ borderBottom: "1px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px" }}>
               <strong style={{ fontSize: 13 }}>Maintenance Plans</strong>
-              <button onClick={() => setSubTab("list")} style={{ background: "none", border: 0, color: "var(--color-brand-red)", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>View all</button>
+              <Button size="small" variant="text" onClick={() => setSubTab("list")} sx={{ fontSize: "11px", fontWeight: 700, color: "var(--color-brand-red, #dc2626)", p: 0, minHeight: 0, minWidth: 0 }}>View all</Button>
             </div>
             {maintenancePlans.map((plan) => {
               const colors = ["var(--color-indigo)", "var(--color-danger)", "var(--color-amber)", "var(--color-blue)", "#a855f7", "var(--color-emerald)", "var(--color-indigo-strong)"];
@@ -276,7 +278,7 @@ export function PlannedMaintenanceView({
             })}
             {maintenancePlans.length === 0 && <EmptyState message="No maintenance plans are configured for this property." />}
             <div style={{ padding: "12px 16px" }}>
-              <button onClick={onAdd} style={{ background: "none", border: 0, color: "var(--color-brand-red)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Add New Maintenance Plan</button>
+              <Button fullWidth size="small" variant="outlined" onClick={onAdd} startIcon={<Plus size={14} />} sx={{ borderRadius: "8px", fontWeight: 700, textTransform: "none" }}>Add Maintenance Plan</Button>
             </div>
           </article>
         </div>
@@ -293,8 +295,10 @@ export function PlannedMaintenanceView({
                 <strong className="fc-ppm-cal-month">{days[0]} – {days[6]}</strong>
                 <button aria-label="Next week" onClick={() => setWeekOffset((value) => value + 1)}>›</button>
               </div>
-              {weekOffset !== 0 && <button className="fc-toolbar-btn" onClick={() => setWeekOffset(0)}>This week</button>}
-              <button className="fc-toolbar-btn primary" onClick={onAdd}>Create PPM Task</button>
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                {weekOffset !== 0 && <Button size="small" variant="outlined" onClick={() => setWeekOffset(0)} sx={{ borderRadius: "8px", fontWeight: 700, textTransform: "none" }}>This week</Button>}
+                <Button size="small" variant="contained" onClick={onAdd} startIcon={<Plus size={14} />} sx={{ borderRadius: "8px", fontWeight: 700, textTransform: "none" }}>Create PPM Task</Button>
+              </Stack>
             </div>
             {/* Week grid */}
             <div className="fc-ppm-week-grid kanban-scroll">

@@ -56,9 +56,24 @@ export const getTheme = (mode: 'light' | 'dark') => {
             paddingInline: 12,
             fontSize: '0.75rem',
           },
+          contained: {
+            '&.MuiButton-containedPrimary': {
+              backgroundColor: 'var(--color-brand-red, #dc2626)',
+              color: '#ffffff',
+              '&:hover': {
+                backgroundColor: '#b91c1c',
+              },
+            },
+          },
           outlined: {
             borderWidth: 1,
-            '&:hover': { borderWidth: 1 },
+            borderColor: mode === 'light' ? '#cbd5e1' : '#36516f',
+            color: mode === 'light' ? '#334155' : '#d5deea',
+            '&:hover': {
+              borderWidth: 1,
+              borderColor: mode === 'light' ? '#94a3b8' : '#527396',
+              backgroundColor: mode === 'light' ? '#f8fafc' : '#162c44',
+            },
           },
         },
       },

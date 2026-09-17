@@ -3494,13 +3494,13 @@ a.profile-dropdown-item { text-decoration: none; }
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
 }
 .fc-toolbar-btn.primary {
-  background: var(--brand-primary, #2563eb);
-  border-color: var(--brand-primary, #2563eb);
+  background: var(--color-brand-red, #dc2626);
+  border-color: var(--color-brand-red, #dc2626);
   color: #ffffff;
 }
 .fc-toolbar-btn.primary:hover {
-  background: var(--brand-primary-hover, #1d4ed8);
-  border-color: var(--brand-primary-hover, #1d4ed8);
+  background: #b91c1c;
+  border-color: #b91c1c;
   color: #ffffff;
 }
 .fc-toolbar-btn.success {
