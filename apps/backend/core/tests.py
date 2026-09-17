@@ -196,6 +196,79 @@ class TestingChecklistTests(TestCase):
             ).exists()
         )
 
+    def test_get_checklist_does_not_write_on_auto_scan_param(self):
+        from unittest.mock import patch
+        with patch('core.views.auto_detect_organization_activity', side_effect=AssertionError('GET should not call auto_scan')):
+            response = self.client.get('/api/v1/testing/checklist/?auto_scan=true', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['auto_detected_count'], 0)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], SECURE_SSL_REDIRECT=False)
+class TestingCIStatusTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='test-admin', password='test')
+        self.organization = Organization.objects.create(name='CI Test Org', slug='ci-test-org')
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
+        self.client = APIClient(); self.client.force_authenticate(self.user)
+        self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
+
+    def test_ci_status_returns_github_run_data(self):
+        from unittest.mock import patch, MagicMock
+        mock_run = {
+            'id': 12345,
+            'run_number': 78,
+            'conclusion': 'success',
+            'head_sha': 'abc123def456',
+            'html_url': 'https://github.com/test/repo/actions/runs/12345',
+            'created_at': '2026-09-16T10:00:00Z',
+            'event': 'schedule',
+            'head_branch': 'main',
+        }
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({'workflow_runs': [mock_run]}).encode('utf-8')
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        with patch('core.views.urllib.request.urlopen', return_value=mock_resp):
+            response = self.client.get('/api/v1/testing/ci-status/', **self.headers)
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['status'], 'fetched')
+        self.assertEqual(response.data['conclusion'], 'success')
+        self.assertEqual(response.data['run_number'], 78)
+        self.assertEqual(response.data['head_sha'], 'abc123def456')
+
+    def test_ci_status_handles_no_runs(self):
+        from unittest.mock import patch, MagicMock
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({'workflow_runs': []}).encode('utf-8')
+        mock_resp.__enter__ = lambda s: s
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        with patch('core.views.urllib.request.urlopen', return_value=mock_resp):
+            response = self.client.get('/api/v1/testing/ci-status/', **self.headers)
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['status'], 'unavailable')
+
+    def test_ci_status_handles_network_error(self):
+        import urllib.error
+        from unittest.mock import patch
+        with patch('core.views.urllib.request.urlopen', side_effect=urllib.error.URLError('timeout')):
+            response = self.client.get('/api/v1/testing/ci-status/', **self.headers)
+
+        self.assertEqual(response.status_code, 503, response.data)
+        self.assertEqual(response.data['status'], 'unavailable')
+
+    def test_non_admin_cannot_access_ci_status(self):
+        user = get_user_model().objects.create_user(username='test-member', password='test')
+        org = Organization.objects.create(name='Member', slug='member-ci')
+        Membership.objects.create(user=user, organization=org, is_default=True)
+        client = APIClient(); client.force_authenticate(user)
+        response = client.get('/api/v1/testing/ci-status/', HTTP_X_ORGANIZATION_ID=str(org.id))
+        self.assertEqual(response.status_code, 403)
+
 
 @override_settings(ALLOWED_HOSTS=['testserver'], SECURE_SSL_REDIRECT=False)
 class ApiSchemaAuthenticationTests(TestCase):

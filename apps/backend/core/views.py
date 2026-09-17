@@ -13,6 +13,9 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.csrf import ensure_csrf_cookie, csrf_exempt, csrf_protect
 import logging
 import re
+import json
+import urllib.request
+import urllib.error
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
@@ -320,19 +323,6 @@ class TestingChecklistView(APIView):
         if not organization:
             return Response({'detail': 'An active organization membership is required.'}, status=403)
         
-        auto_scan = request.query_params.get('auto_scan') == 'true'
-        auto_detected = auto_detect_organization_activity(organization, request.user) if auto_scan else {}
-
-        if auto_detected:
-            for key, evidence in auto_detected.items():
-                progress, created = FeatureTestProgress.objects.get_or_create(organization=organization, feature_key=key)
-                if progress.status in (FeatureTestProgress.Status.NOT_STARTED, FeatureTestProgress.Status.IN_PROGRESS) or not progress.notes:
-                    progress.status = FeatureTestProgress.Status.PASSED
-                    progress.notes = evidence
-                    progress.tested_by = request.user
-                    progress.tested_at = timezone.now()
-                    progress.save()
-
         progress_by_key = {
             row.feature_key: row for row in FeatureTestProgress.objects.filter(organization=organization).select_related('tested_by')
         }
@@ -366,7 +356,7 @@ class TestingChecklistView(APIView):
             'summary': counts,
             'total': total,
             'organization_name': organization.name,
-            'auto_detected_count': len(auto_detected),
+            'auto_detected_count': 0,
             # Two distinct signals: workflows a person verified against the
             # running release, versus workflows inferred from record activity.
             'verified_by_testing': verified_by_testing,
@@ -503,6 +493,83 @@ class TestingAIAuditView(APIView):
             'assessment': assessment_text,
             'evaluated_at': timezone.now().isoformat(),
         })
+
+
+GITHUB_REPO = getattr(settings, 'CI_GITHUB_REPO', 'samnmbuguah/Center_Estates')
+
+
+class TestingCIStatusView(APIView):
+    """Return the latest CI acceptance-run status from GitHub Actions.
+
+    This gives the release-readiness hub a direct feed of real automated
+    test results without requiring the CI pipeline to push data back
+    into the application.
+    """
+
+    permission_classes = (IsAuthenticated,)
+
+    @staticmethod
+    def _check_admin(request):
+        organization = get_active_organization(request)
+        if not organization:
+            return None
+        if request.user.is_superuser:
+            return organization
+        membership = get_active_membership(request, organization)
+        if not membership or not membership.is_organization_admin:
+            return None
+        return organization
+
+    @extend_schema(request=None, responses={200: OpenApiTypes.OBJECT})
+    def get(self, request):
+        if not self._check_admin(request):
+            return Response({'detail': 'An active organization membership is required.'}, status=403)
+        url = (
+            f"https://api.github.com/repos/{GITHUB_REPO}/actions/runs"
+            f"?workflow=acceptance.yml&per_page=1&status=completed"
+        )
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={
+                    'Accept': 'application/vnd.github+json',
+                    'User-Agent': 'CenterEstates-ERP',
+                },
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+
+            runs = data.get('workflow_runs', [])
+            if not runs:
+                return Response({
+                    'status': 'unavailable',
+                    'detail': 'No completed CI runs found.',
+                })
+
+            run = runs[0]
+            return Response({
+                'status': 'fetched',
+                'run_id': run['id'],
+                'run_number': run['run_number'],
+                'conclusion': run.get('conclusion', 'in_progress'),
+                'head_sha': (run.get('head_sha') or '')[:12],
+                'run_url': run.get('html_url', ''),
+                'created_at': run.get('created_at', ''),
+                'event': run.get('event', ''),
+                'branch': run.get('head_branch', ''),
+            })
+        except urllib.error.URLError as exc:
+            logger.warning('Could not fetch CI status: %s', exc)
+            return Response({
+                'status': 'unavailable',
+                'detail': 'CI status unavailable (network error).',
+            }, status=503)
+        except Exception as exc:
+            logger.warning('Unexpected CI status error: %s', exc)
+            return Response({
+                'status': 'unavailable',
+                'detail': 'CI status unavailable.',
+            }, status=503)
 
 
 class CalendarFeedView(APIView):

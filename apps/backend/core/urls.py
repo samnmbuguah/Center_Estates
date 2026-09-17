@@ -3,7 +3,7 @@ from django.urls import path
 from .views import (
     ClientErrorHealthView, ClientErrorView, DemoIdentitiesView, ImpersonateView, LoginView, LogoutView, MeView, MobileTokenView,
     PasswordResetRequestView, RefreshView, RegisterView, StopImpersonateView,
-    CalendarFeedView, TestingAIAuditView, TestingAutoScanView, TestingChecklistView, TicketsFeedView, WorkspaceInboxView, WorkspacePulseView, csrf, health, security_audit,
+    CalendarFeedView, TestingAIAuditView, TestingAutoScanView, TestingChecklistView, TestingCIStatusView, TicketsFeedView, WorkspaceInboxView, WorkspacePulseView, csrf, health, security_audit,
 )
 
 urlpatterns = [
@@ -28,6 +28,7 @@ urlpatterns = [
     path('testing/checklist/', TestingChecklistView.as_view(), name='testing-checklist'),
     path('testing/auto-scan/', TestingAutoScanView.as_view(), name='testing-auto-scan'),
     path('testing/ai-audit/', TestingAIAuditView.as_view(), name='testing-ai-audit'),
+    path('testing/ci-status/', TestingCIStatusView.as_view(), name='testing-ci-status'),
     path('testing/checklist/<str:feature_key>/', TestingChecklistView.as_view(), name='testing-checklist-detail'),
     path('security/audit/', security_audit, name='security-audit'),
 ]

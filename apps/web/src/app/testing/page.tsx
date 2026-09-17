@@ -37,6 +37,19 @@ type Checklist = {
   usage_index?: number;
 };
 
+type CIStatus = {
+  status: string;
+  run_id?: number;
+  run_number?: number;
+  conclusion?: string;
+  head_sha?: string;
+  run_url?: string;
+  created_at?: string;
+  event?: string;
+  branch?: string;
+  detail?: string;
+};
+
 type AIAuditResult = {
   score: number;
   readiness_index?: number;
@@ -74,6 +87,7 @@ export default function TestingPage() {
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [editNotes, setEditNotes] = useState("");
   const [editEvidenceUrl, setEditEvidenceUrl] = useState("");
+  const [ciStatus, setCiStatus] = useState<CIStatus | null>(null);
 
   const load = useCallback(async (autoScan = false) => {
     setLoading(true); setError("");
@@ -93,6 +107,13 @@ export default function TestingPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void apiFetch("/testing/ci-status/", {}, session?.activeOrganizationId ?? null)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) setCiStatus(d); })
+      .catch(() => {});
+  }, [session?.activeOrganizationId]);
 
   const handleAutoScan = async () => {
     setScanning(true);
@@ -251,6 +272,32 @@ export default function TestingPage() {
       {/* Alerts */}
       {error && <div role="alert" className="alert-error no-print" style={{ marginBottom: 14, padding: "12px 16px", borderRadius: 8, background: "var(--color-red-soft)", border: "1px solid var(--color-red-200)", color: "var(--color-danger)" }}>{error}</div>}
       {successMsg && <div role="status" className="no-print" style={{ marginBottom: 14, padding: "12px 16px", borderRadius: 8, background: "var(--color-green-soft)", border: "1px solid var(--color-green-200)", color: "var(--color-success)", fontWeight: 650, display: "flex", alignItems: "center", gap: 8 }}><CheckCheck size={18} />{successMsg}</div>}
+
+      {/* Live CI Status */}
+      {ciStatus && ciStatus.status === "fetched" && (
+        <section className="content-card no-print" style={{ marginBottom: 16, padding: "14px 20px", background: "var(--surface, #ffffff)", borderRadius: 10, border: "1px solid var(--border, var(--color-slate-200))", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{
+              width: 10, height: 10, borderRadius: "50%",
+              background: ciStatus.conclusion === "success" ? "var(--color-success)" : ciStatus.conclusion === "failure" ? "var(--color-danger)" : "var(--color-warning)",
+              flexShrink: 0,
+            }} />
+            <div>
+              <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)" }}>
+                CI Acceptance {ciStatus.conclusion === "success" ? "Passed" : ciStatus.conclusion === "failure" ? "Failed" : ciStatus.conclusion}
+              </span>
+              <span className="muted" style={{ marginLeft: 8, fontSize: 12, color: "var(--text-faint)" }}>
+                #{ciStatus.run_number} · {ciStatus.head_sha} · {ciStatus.created_at ? new Date(ciStatus.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : ""}
+              </span>
+            </div>
+          </div>
+          {ciStatus.run_url && (
+            <a href={ciStatus.run_url} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: "5px 12px", fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
+              View Run <ExternalLink size={11} />
+            </a>
+          )}
+        </section>
+      )}
 
       {/* Release Metrics Overview Card */}
       <section className="content-card no-print" style={{ padding: "20px 24px", marginBottom: 16, background: "var(--surface, #ffffff)", borderRadius: 12, border: "1px solid var(--border, var(--color-slate-200))", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
