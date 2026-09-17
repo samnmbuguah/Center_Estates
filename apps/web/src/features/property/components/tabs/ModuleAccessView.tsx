@@ -71,13 +71,25 @@ export function ModuleAccessView() {
       if (existing) {
         res = await apiFetch(`/property/property-modules/${existing.id}/`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          // This screen manages every property in the portfolio. Keep writes in
+          // the same scope as the list request; otherwise an assignment for a
+          // property other than the header selection is intentionally hidden by
+          // the API and the detail update returns 404.
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfFromCookie(),
+            "X-Property-Scope": "portfolio",
+          },
           body: JSON.stringify({ is_enabled: nextEnabled }),
         }, organizationId);
       } else {
         res = await apiFetch("/property/property-modules/", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfFromCookie(),
+            "X-Property-Scope": "portfolio",
+          },
           body: JSON.stringify({ property: property.id, module, is_enabled: nextEnabled }),
         }, organizationId);
       }
