@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
+  Box, Button, Chip, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+} from "@mui/material";
+import {
   KpiCard, KpiStrip, StatusPill, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, money,
 } from "@/components/module-ui";
@@ -338,94 +341,100 @@ export function OwnersView({
             }
           />
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="table" style={{ width: "100%", fontSize: 13 }}>
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Landlord / Owner</th>
-                  <th>Contact Details</th>
-                  <th>KRA PIN / Reg No</th>
-                  <th>Units Owned</th>
-                  <th>Settlement Destination</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Code</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Landlord / Owner</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Contact Details</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>KRA PIN / Reg No</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Units Owned</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Settlement Destination</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {filteredOwners.map((o) => (
-                  <tr
+                  <TableRow
                     key={o.id}
+                    hover
                     onClick={() => handleSelectOwner(o)}
-                    style={{ cursor: "pointer" }}
+                    sx={{ cursor: "pointer" }}
                   >
-                    <td>
-                      <span style={{ fontWeight: 750, color: "var(--color-info-strong)", fontFamily: "monospace" }}>{o.code || "—"}</span>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 750, color: "var(--text-primary)", fontSize: 13.5 }}>{o.name}</div>
-                    </td>
-                    <td>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>{o.email || "—"}</div>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-soft)" }}>{o.phone || "—"}</div>
-                    </td>
-                    <td>
-                      <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{o.pin_number || "—"}</div>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-soft)" }}>{o.id_or_registration_number || ""}</div>
-                    </td>
-                    <td>
-                      <span className="badge badge-purple" style={{ fontWeight: 700 }}>{o.units_count ?? (o.units_list?.length ?? 0)} Units</span>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 750, color: "info.main", fontFamily: "ui-monospace, monospace" }}>{o.code || "—"}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 750, color: "text.primary", fontSize: 13.5 }}>{o.name}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="caption" sx={{ fontSize: 12, fontWeight: 600, color: "text.primary", display: "block" }}>{o.email || "—"}</Typography>
+                      <Typography variant="caption" sx={{ fontSize: 11, fontWeight: 600, color: "text.secondary", display: "block" }}>{o.phone || "—"}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="caption" sx={{ fontFamily: "ui-monospace, monospace", fontSize: 12, fontWeight: 700, color: "text.primary", display: "block" }}>{o.pin_number || "—"}</Typography>
+                      <Typography variant="caption" sx={{ fontSize: 11, fontWeight: 600, color: "text.secondary", display: "block" }}>{o.id_or_registration_number || ""}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" color="secondary" variant="outlined" label={`${o.units_count ?? (o.units_list?.length ?? 0)} Units`} sx={{ fontWeight: 700 }} />
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={0.75} alignItems="center">
                         <Landmark size={14} color="var(--color-info)" />
-                        <span>{o.settlement_bank_name || "NCBA Bank"}</span>
-                      </div>
-                      <div style={{ fontSize: 11, color: "var(--text-soft)", fontWeight: 600, fontFamily: "monospace" }}>
+                        <Typography variant="caption" sx={{ fontSize: 12, fontWeight: 700, color: "text.primary" }}>{o.settlement_bank_name || "NCBA Bank"}</Typography>
+                      </Stack>
+                      <Typography variant="caption" sx={{ fontSize: 11, color: "text.secondary", fontWeight: 600, fontFamily: "ui-monospace, monospace", display: "block" }}>
                         {o.settlement_bank_account || o.settlement_paybill_or_till || "Not Configured"}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <button
-                          type="button"
-                          className="btn ghost sm"
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.75} sx={{ justifyContent: "flex-end" }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleSelectOwner(o);
                           }}
+                          sx={{ fontSize: 12, px: 1, py: 0.25 }}
                         >
                           Ledger
-                        </button>
-                        <button
-                          type="button"
-                          className="btn primary sm"
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="primary"
+                          startIcon={<DollarSign size={13} />}
                           onClick={(e) => {
                             e.stopPropagation();
                             void fetchRemittanceStatement(o);
                           }}
                           title="Generate Landlord Remittance Statement"
+                          sx={{ fontSize: 12, px: 1, py: 0.25 }}
                         >
-                          <DollarSign size={13} style={{ marginRight: 3 }} /> Statement
-                        </button>
-                        <button
-                          type="button"
-                          className="btn secondary sm"
+                          Statement
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="inherit"
                           onClick={(e) => {
                             e.stopPropagation();
                             window.open(`/owner-portal?owner=${o.id}`, "_blank", "noopener,noreferrer");
                           }}
                           title="Open Unit Owner Portal in a new tab"
+                          sx={{ fontSize: 12, px: 1, py: 0.25 }}
                         >
                           🌐 Portal ↗
-                        </button>
-                      </div>
-                    </td>
-
-                  </tr>
+                        </Button>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
       </Panel>
 
@@ -775,7 +784,40 @@ export function OwnersView({
             </div>
             {ownerImportFile && <div style={{ fontSize: 13, fontWeight: 600 }}>Preview: {ownerImportFile} · {ownerImportRows.length} row(s)</div>}
             {ownerImportError && <ErrorBanner message={ownerImportError} />}
-            {ownerImportRows.length > 0 && <div style={{ overflowX: "auto", maxHeight: 360, border: "1px solid var(--border)", borderRadius: 8 }}><table className="table" style={{ minWidth: 780 }}><thead><tr><th>Row</th><th>Owner</th><th>PIN</th><th>Units</th><th>Engagements</th><th>Status</th></tr></thead><tbody>{ownerImportRows.map((row) => <tr key={row.row}><td>{row.row}</td><td>{row.name || row.owner_name || row.landlord_name}</td><td>{row.pin_number || row.kra_pin || "—"}</td><td>{row.unit_codes || row.unit_code || "—"}</td><td>{row.engaged_for_unit_management === "yes" ? "Unit management " : ""}{row.engaged_for_letting === "yes" ? "Letting" : "—"}</td><td>{Object.keys(row.errors || {}).length ? <span className="badge badge-red">{Object.values(row.errors || {}).join(" ")}</span> : <span className="badge badge-green">Ready</span>}</td></tr>)}</tbody></table></div>}
+            {ownerImportRows.length > 0 && (
+              <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 360 }}>
+                <Table size="small" stickyHeader sx={{ minWidth: 780 }}>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "action.hover" }}>
+                      <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Row</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Owner</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>PIN</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Units</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Engagements</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Status</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {ownerImportRows.map((row) => (
+                      <TableRow key={row.row} hover>
+                        <TableCell>{row.row}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{row.name || row.owner_name || row.landlord_name}</TableCell>
+                        <TableCell sx={{ fontFamily: "ui-monospace, monospace" }}>{row.pin_number || row.kra_pin || "—"}</TableCell>
+                        <TableCell>{row.unit_codes || row.unit_code || "—"}</TableCell>
+                        <TableCell>{row.engaged_for_unit_management === "yes" ? "Unit management " : ""}{row.engaged_for_letting === "yes" ? "Letting" : "—"}</TableCell>
+                        <TableCell>
+                          {Object.keys(row.errors || {}).length ? (
+                            <Chip size="small" color="error" label={Object.values(row.errors || {}).join(" ")} />
+                          ) : (
+                            <Chip size="small" color="success" label="Ready" />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button type="button" className="btn ghost" onClick={() => setShowBulkOwnerModal(false)}>Cancel</button>
               <button type="button" className="btn primary" disabled={!ownerImportRows.length || ownerImportRows.some((row) => Object.keys(row.errors || {}).length > 0) || ownerImportBusy} onClick={() => void importOwners()}>{ownerImportBusy ? "Importing…" : `Import ${ownerImportRows.length} owner(s)`}</button>
@@ -902,46 +944,46 @@ export function OwnersView({
                 </div>
 
                 {/* Per-Unit Breakdown Table */}
-                <div style={{ border: "1px solid var(--border)", borderRadius: 8, overflowX: "auto" }}>
-                  <table className="table" style={{ width: "100%", minWidth: 700, fontSize: 12 }}>
-                    <thead>
-                      <tr>
-                        <th>Unit Code</th>
-                        <th>Property</th>
-                        <th>Tenant</th>
-                        <th style={{ textAlign: "right" }}>Monthly Rent</th>
-                        <th style={{ textAlign: "right" }}>Gross Collected</th>
-                        <th style={{ textAlign: "right" }}>Commission</th>
-                        <th style={{ textAlign: "right" }}>SC Deducted</th>
-                        <th style={{ textAlign: "right" }}>Net Payout</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <TableContainer component={Paper} variant="outlined">
+                  <Table size="small" sx={{ minWidth: 700 }}>
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: "action.hover" }}>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Unit Code</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Property</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Tenant</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Monthly Rent</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Gross Collected</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Commission</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>SC Deducted</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase" }}>Net Payout</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
                       {(remittanceData.units || []).length > 0 ? (
                         remittanceData.units.map((u: any) => (
-                          <tr key={u.unit_id}>
-                            <td className="mono" style={{ fontWeight: 700, color: "var(--color-indigo-300)" }}>{u.unit_code}</td>
-                            <td>{u.property_name || "—"}</td>
-                            <td><strong>{u.tenant_name}</strong></td>
-                            <td className="mono" style={{ textAlign: "right" }}>{money.format(u.monthly_rent)}</td>
-                            <td className="mono" style={{ textAlign: "right", color: "var(--color-emerald)", fontWeight: 600 }}>{money.format(u.gross_collected)}</td>
-                            <td className="mono" style={{ textAlign: "right", color: "var(--color-amber)" }}>
+                          <TableRow key={u.unit_id} hover>
+                            <TableCell sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700, color: "primary.main" }}>{u.unit_code}</TableCell>
+                            <TableCell>{u.property_name || "—"}</TableCell>
+                            <TableCell sx={{ fontWeight: 600 }}>{u.tenant_name}</TableCell>
+                            <TableCell align="right" sx={{ fontFamily: "ui-monospace, monospace" }}>{money.format(u.monthly_rent)}</TableCell>
+                            <TableCell align="right" sx={{ fontFamily: "ui-monospace, monospace", color: "success.main", fontWeight: 600 }}>{money.format(u.gross_collected)}</TableCell>
+                            <TableCell align="right" sx={{ fontFamily: "ui-monospace, monospace", color: "warning.main" }}>
                               {money.format(u.commission_deducted)} <span style={{ fontSize: 10, opacity: 0.7 }}>({u.commission_rate}%)</span>
-                            </td>
-                            <td className="mono" style={{ textAlign: "right", color: "var(--color-violet-strong)" }}>{money.format(u.service_charge_deducted)}</td>
-                            <td className="mono" style={{ textAlign: "right", fontWeight: 700, color: "var(--text)" }}>{money.format(u.net_payout)}</td>
-                          </tr>
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontFamily: "ui-monospace, monospace", color: "secondary.main" }}>{money.format(u.service_charge_deducted)}</TableCell>
+                            <TableCell align="right" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>{money.format(u.net_payout)}</TableCell>
+                          </TableRow>
                         ))
                       ) : (
-                        <tr>
-                          <td colSpan={8} style={{ textAlign: "center", padding: 16, color: "var(--muted)" }}>
+                        <TableRow>
+                          <TableCell colSpan={8} align="center" sx={{ py: 3, color: "text.secondary" }}>
                             No active units recorded for this landlord in the selected billing period.
-                          </td>
-                        </tr>
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </tbody>
-                  </table>
-                </div>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
 
                 {/* Modal Footer Actions */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>

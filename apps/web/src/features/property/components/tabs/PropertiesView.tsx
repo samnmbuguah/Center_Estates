@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Box, Button, Menu, MenuItem, ListItemIcon, ListItemText } from "@mui/material";
+import {
+  Box, Button, Chip, ListItemIcon, ListItemText, Menu, MenuItem, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+} from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, Pagination, money,
 } from "@/components/module-ui";
@@ -140,71 +143,101 @@ export function PropertiesView({
           emptyTitle="No Accessible Properties"
           emptyDesc="No properties found in your scope. As a Property Manager, you have access to properties you create or those explicitly assigned to you by an organization administrator."
         >
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Property</th>
-                  <th>Type</th>
-                  <th>Location</th>
-                  <th>Units</th>
-                  <th>Occupied</th>
-                  <th>Occupancy %</th>
-                  <th>Monthly Rent</th>
-                  <th>Outstanding</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Property</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Type</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Location</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Units</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Occupied</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Occupancy %</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Monthly Rent</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Outstanding</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {pagedRows.map((p) => (
-                  <tr key={String(p.id)} onClick={() => onSelectRow(p)} style={{ cursor: "pointer" }}>
-                    <td>
-                      <strong style={{ fontSize: 13, color: "var(--text)" }}>{String(p.name ?? "—")}</strong>
-                      <div className="mono" style={{ fontSize: 11, color: "var(--primary)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <span>{String(p.code ?? "—")}</span>
-                        {p.scheme_registration_number ? <span>• {p.scheme_registration_number}</span> : null}
-                        {p.created_by_username ? (
-                          <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 4, background: "rgba(37, 99, 235, 0.08)", color: "var(--color-info-strong)", fontWeight: 700 }}>
-                            @{p.created_by_username}
-                          </span>
+                  <TableRow key={String(p.id)} hover onClick={() => onSelectRow(p)} sx={{ cursor: "pointer" }}>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(p.name ?? "—")}</Typography>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", mt: 0.5 }}>
+                        <Typography variant="caption" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700, color: "primary.main" }}>
+                          {String(p.code ?? "—")}
+                        </Typography>
+                        {p.scheme_registration_number ? (
+                          <Typography variant="caption" color="text.secondary">
+                            • {p.scheme_registration_number}
+                          </Typography>
                         ) : null}
-                      </div>
-                    </td>
-                    <td>
-                      <span
-                        className={p.is_sectional_title ? "badge badge-purple" : "badge badge-blue"}
-                        style={{ textTransform: "capitalize", fontSize: 11 }}
-                      >
-                        {p.is_sectional_title ? "Sectional Scheme" : String(p.property_type ?? "Commercial").replace(/_/g, " ")}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: 12 }}>{String(p.city ?? p.location ?? "—")}</td>
-                    <td className="mono" style={{ fontWeight: 700 }}>{kN(p.units_count)}</td>
-                    <td className="mono">{p.occupied === undefined ? "—" : kN(p.occupied)}</td>
-                    <td>
+                        {p.created_by_username ? (
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={`@${p.created_by_username}`}
+                            sx={{ fontSize: 10, height: 18 }}
+                          />
+                        ) : null}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        color={p.is_sectional_title ? "secondary" : "primary"}
+                        variant="outlined"
+                        label={p.is_sectional_title ? "Sectional Scheme" : String(p.property_type ?? "Commercial").replace(/_/g, " ")}
+                        sx={{ textTransform: "capitalize", fontSize: 11, fontWeight: 700 }}
+                      />
+                    </TableCell>
+                    <TableCell><Typography variant="body2">{String(p.city ?? p.location ?? "—")}</Typography></TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>
+                        {kN(p.units_count)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>
+                        {p.occupied === undefined ? "—" : kN(p.occupied)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
                       {p.occupancy === undefined ? (
-                        <span className="muted">—</span>
+                        <Typography variant="caption" color="text.secondary">—</Typography>
                       ) : (
                         <Badge tone={occupancyTone(Number(p.occupancy))}>{pct(p.occupied, p.units_count)}%</Badge>
                       )}
-                    </td>
-                    <td className="mono" style={{ fontWeight: 700 }}>
-                      {p.monthly_rent || p.monthlyRent ? kM(p.monthly_rent || p.monthlyRent) : "—"}
-                    </td>
-                    <td className="mono" style={{ color: Number(p.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)" }}>
-                      {p.outstanding === undefined ? "—" : kM(p.outstanding)}
-                    </td>
-                    <td><StatusPill value={String(p.status ?? "active")} /></td>
-                    <td className="table-action-cell">
-                      <div className="table-primary-actions">
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>
+                        {p.monthly_rent || p.monthlyRent ? kM(p.monthly_rent || p.monthlyRent) : "—"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontFamily: "ui-monospace, monospace",
+                          fontWeight: 700,
+                          color: Number(p.outstanding ?? 0) > 0 ? "error.main" : "text.secondary",
+                        }}
+                      >
+                        {p.outstanding === undefined ? "—" : kM(p.outstanding)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center"><StatusPill value={String(p.status ?? "active")} /></TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", alignItems: "center" }}>
                         <Button
                           variant="outlined"
                           size="small"
-                          startIcon={<FileText size={15} />}
+                          startIcon={<FileText size={14} />}
                           onClick={(e) => { e.stopPropagation(); setSelectedDossier(p); }}
+                          sx={{ fontSize: 11, py: 0.25, px: 1, minWidth: 0 }}
                         >
-                          View profile
+                          Profile
                         </Button>
                         <Button
                           variant="text"
@@ -218,17 +251,17 @@ export function PropertiesView({
                             setActionProperty(p);
                             setActionAnchor(e.currentTarget);
                           }}
-                          sx={{ minWidth: 36, px: 0.75 }}
+                          sx={{ minWidth: 32, px: 0.5 }}
                         >
-                          <MoreHorizontal size={19} />
+                          <MoreHorizontal size={18} />
                         </Button>
-                      </div>
-                    </td>
-                  </tr>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
           <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </ListState>
       </Panel>

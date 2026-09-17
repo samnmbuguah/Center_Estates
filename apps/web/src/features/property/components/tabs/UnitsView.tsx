@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useMemo, useEffect, type ReactNode } from "react";
-import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, MenuItem, Select, Stack, TextField, Typography } from "@mui/material";
+import {
+  Alert, Autocomplete, Box, Button, Checkbox, Chip, CircularProgress, MenuItem, Paper, Select, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+} from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -883,151 +886,189 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
           )}
 
           <ListState loading={loading} empty={displayUnits.length === 0} emptyTitle="No units found" emptyDesc={filterTypology ? `No units match typology "${filterTypology}".` : "Generate units from a property or register them individually."}>
-            <div className="table-scroll">
-              <table className="fc-data-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: 40, textAlign: "center" }}>
-                      <input
-                        type="checkbox"
+            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell padding="checkbox" sx={{ width: 44, textAlign: "center" }}>
+                      <Checkbox
+                        size="small"
                         checked={allVisibleSelected}
                         onChange={handleToggleSelectAll}
-                        style={{ cursor: "pointer" }}
-                        title="Select/Deselect all visible units"
+                        aria-label="Select all visible units"
                       />
-                    </th>
-                    <th>Unit Code</th>
-                    <th>Building</th>
-                    <th>Floor</th>
-                    <th>Landlord / Owner</th>
-                    <th>Mandate</th>
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Unit Code</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Building</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Floor</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Landlord / Owner</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Mandate</TableCell>
                     {view === "commercial" ? (
                       <>
-                        <th>Area (sq.ft)</th>
-                        <th>Area (m²)</th>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Area (sq.ft)</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Area (m²)</TableCell>
                       </>
                     ) : (
-                      <th>Typology</th>
+                      <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Typology</TableCell>
                     )}
-                    <th>Status</th>
-                    <th>Tenant</th>
-                    <th>Billing</th>
-                  </tr>
-                </thead>
-                <tbody>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Billing</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {displayUnits.map((u) => {
                     const rent = (u.metadata as Record<string, unknown> | undefined)?.rent;
                     const area = u.area === undefined || u.area === null ? null : Number(u.area);
                     const isSelected = selectedIds.has(String(u.id));
                     return (
-                      <tr key={String(u.id)} onClick={() => onSelectRow?.(u)} style={{ background: isSelected ? "rgba(37, 99, 235, 0.04)" : undefined }}>
-                        <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
+                      <TableRow
+                        key={String(u.id)}
+                        hover
+                        selected={isSelected}
+                        onClick={() => onSelectRow?.(u)}
+                        sx={{ cursor: "pointer" }}
+                      >
+                        <TableCell padding="checkbox" sx={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            size="small"
                             checked={isSelected}
                             onChange={() => handleToggleSelectOne(String(u.id))}
-                            style={{ cursor: "pointer" }}
                           />
-                        </td>
-                        <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(u.code ?? "—")}</td>
-                        <td style={{ fontSize: 12 }}>{String(u.building_name ?? "—")}</td>
-                        <td className="mono" style={{ fontSize: 12 }}>{String(u.floor ?? "—")}</td>
-                        <td style={{ fontSize: 12 }}>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main", fontWeight: 700 }}>
+                            {String(u.code ?? "—")}
+                          </Typography>
+                        </TableCell>
+                        <TableCell><Typography variant="body2">{String(u.building_name ?? "—")}</Typography></TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>
+                            {String(u.floor ?? "—")}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
                           {u.owner_name ? (
-                            <span style={{ fontWeight: 600, color: "#818cf8" }}>{u.owner_name}</span>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: "secondary.main" }}>{u.owner_name}</Typography>
                           ) : (
-                            <span className="muted">—</span>
+                            <Typography variant="body2" color="text.secondary">—</Typography>
                           )}
-                        </td>
-                        <td>
+                        </TableCell>
+                        <TableCell>
                           {u.management_mandate ? (
-                            <span className="badge badge-purple" style={{ fontSize: 10 }}>
-                              {u.management_mandate.replace(/_/g, " ")}
-                            </span>
+                            <Chip
+                              size="small"
+                              variant="outlined"
+                              color="secondary"
+                              label={u.management_mandate.replace(/_/g, " ")}
+                              sx={{ fontSize: 10, height: 20 }}
+                            />
                           ) : (
-                            <span className="muted">—</span>
+                            <Typography variant="caption" color="text.secondary">—</Typography>
                           )}
-                        </td>
+                        </TableCell>
                         {view === "commercial" ? (
                           <>
-                            <td className="mono">{area === null ? "—" : kN(area)}</td>
-                            <td className="mono">{area === null ? "—" : kN(area / 10.7639)}</td>
+                            <TableCell align="right">
+                              <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>
+                                {area === null ? "—" : kN(area)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="right">
+                              <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>
+                                {area === null ? "—" : kN(area / 10.7639)}
+                              </Typography>
+                            </TableCell>
                           </>
                         ) : (
-                          <td style={{ fontSize: 12 }}>
-                            <span
+                          <TableCell>
+                            <Button
+                              size="small"
+                              variant="outlined"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 openEditSingleUnit(u);
                               }}
-                              style={{
-                                cursor: "pointer",
-                                padding: "2px 8px",
-                                borderRadius: 4,
-                                background: "var(--surface-2)",
-                                border: "1px solid var(--border)",
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 6,
-                                fontWeight: 500,
-                              }}
+                              endIcon={<Edit2 size={11} />}
                               title="Click to edit unit typology"
+                              sx={{ textTransform: "none", py: 0.2, px: 1, minWidth: 0, fontSize: 12 }}
                             >
                               {String(u.unit_type ?? "—")}
-                              <Edit2 size={11} style={{ opacity: 0.6 }} />
-                            </span>
-                          </td>
+                            </Button>
+                          </TableCell>
                         )}
-                        <td><StatusPill value={String(u.status ?? "—")} /></td>
-                        <td style={{ fontSize: 12 }}>
-                          <div style={{ fontWeight: 600 }}>{String(u.tenant_name || (u.metadata as Record<string, unknown> | undefined)?.tenant || "—")}</div>
+                        <TableCell align="center"><StatusPill value={String(u.status ?? "—")} /></TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {String(u.tenant_name || (u.metadata as Record<string, unknown> | undefined)?.tenant || "—")}
+                          </Typography>
                           {u.status !== "occupied" ? (
-                            <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, background: "var(--surface-sunken)", color: "#64748b", fontSize: 10, fontWeight: 700, marginTop: 3 }}>
-                              ⚪ Vacant
-                            </span>
+                            <Chip size="small" label="⚪ Vacant" sx={{ height: 18, fontSize: 10, fontWeight: 700, mt: 0.5 }} />
                           ) : isDevTenanted(u) ? (
-                            <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", fontSize: 10, fontWeight: 700, marginTop: 3 }}>
-                              🏢 Developer Unit · Rent KES {Number(u.effective_rent || u.monthly_rent || 0).toLocaleString()}
-                            </span>
+                            <Chip
+                              size="small"
+                              color="primary"
+                              variant="outlined"
+                              label={`🏢 Developer Unit · Rent KES ${Number(u.effective_rent || u.monthly_rent || 0).toLocaleString()}`}
+                              sx={{ height: 18, fontSize: 10, fontWeight: 700, mt: 0.5 }}
+                            />
                           ) : isDirectLandlord(u) ? (
-                            <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, background: "#faf5ff", color: "#7c3aed", border: "1px solid #e9d5ff", fontSize: 10, fontWeight: 700, marginTop: 3 }}>
-                              🔑 Direct Landlord · KES 0 Mgmt
-                            </span>
+                            <Chip
+                              size="small"
+                              color="secondary"
+                              variant="outlined"
+                              label="🔑 Direct Landlord · KES 0 Mgmt"
+                              sx={{ height: 18, fontSize: 10, fontWeight: 700, mt: 0.5 }}
+                            />
                           ) : isOwnerOccupied(u) ? (
-                            <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, background: "#fffbeb", color: "#d97706", border: "1px solid #fde68a", fontSize: 10, fontWeight: 700, marginTop: 3 }}>
-                              🏠 Owner Occupier · SC Only
-                            </span>
+                            <Chip
+                              size="small"
+                              color="warning"
+                              variant="outlined"
+                              label="🏠 Owner Occupier · SC Only"
+                              sx={{ height: 18, fontSize: 10, fontWeight: 700, mt: 0.5 }}
+                            />
                           ) : (
-                            <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, background: "#f0fdf4", color: "#16a34a", fontSize: 10, fontWeight: 700, marginTop: 3 }}>
-                              👤 Active Tenancy
-                            </span>
+                            <Chip
+                              size="small"
+                              color="success"
+                              variant="outlined"
+                              label="👤 Active Tenancy"
+                              sx={{ height: 18, fontSize: 10, fontWeight: 700, mt: 0.5 }}
+                            />
                           )}
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                            <button type="button" className="btn ghost sm" onClick={(event) => { event.stopPropagation(); setBillingUnit(u); }}>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
+                            <Button
+                              size="small"
+                              variant="text"
+                              onClick={(event) => { event.stopPropagation(); setBillingUnit(u); }}
+                              sx={{ minWidth: 0, px: 0.75, py: 0.25, fontSize: 11 }}
+                            >
                               {u.billing_isolation?.bill_rent ? "Rent + utilities" : u.billing_isolation?.bill_utilities_to_tenant ? "Utilities only" : "Schedule"}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn ghost sm"
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="primary"
                               title="Issue ad-hoc letting fee invoice to landlord"
-                              style={{ color: "#2563eb", fontWeight: 700, fontSize: 11 }}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 openLettingFeeModalForUnit(u);
                               }}
+                              sx={{ minWidth: 0, px: 0.75, py: 0.25, fontSize: 11, fontWeight: 700 }}
                             >
                               ⚡ Letting
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
+                            </Button>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
+            </TableContainer>
           </ListState>
         </Panel>
       )}

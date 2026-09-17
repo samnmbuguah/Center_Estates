@@ -2,6 +2,9 @@
 
 import React, { useMemo, useState } from "react";
 import {
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+} from "@mui/material";
+import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   money, number,
 } from "@/components/module-ui";
@@ -675,40 +678,48 @@ export function OverviewView({
           }
         >
           {overdue.length > 0 ? (
-            <div className="table-scroll">
-              <table className="fc-data-table">
-                <thead>
-                  <tr>
-                    <th>Invoice</th>
-                    <th>Tenant</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                    <th style={{ textAlign: "right" }}>Outstanding</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Invoice</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Due Date</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Outstanding</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {overdue.map((inv) => (
-                    <tr key={String(inv.id)}>
-                      <td className="mono" style={{ color: "var(--primary)", fontSize: 12, fontWeight: 700 }}>
-                        {String(inv.number ?? "—")}
-                      </td>
-                      <td>
-                        <strong style={{ fontSize: 12 }}>{String(inv.tenant_name ?? "—")}</strong>
-                      </td>
-                      <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                        {fmtDate(inv.due_on)}
-                      </td>
-                      <td>
+                    <TableRow key={String(inv.id)} hover>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main", fontSize: 12, fontWeight: 700 }}>
+                          {String(inv.number ?? "—")}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12 }}>
+                          {String(inv.tenant_name ?? "—")}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontSize: 12, color: "text.secondary" }}>
+                          {fmtDate(inv.due_on)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
                         <Badge tone="red">{overdueLabel(inv.due_on)}</Badge>
-                      </td>
-                      <td className="mono" style={{ color: "var(--danger)", fontWeight: 800, textAlign: "right" }}>
-                        {kM(inv.balance)}
-                      </td>
-                    </tr>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "error.main", fontWeight: 800 }}>
+                          {kM(inv.balance)}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
+            </TableContainer>
           ) : (
             <div style={{ padding: "24px 20px", textAlign: "center", color: "var(--text-secondary)", fontSize: 13 }}>
               ✓ All property invoices and accounts are fully reconciled and up to date.

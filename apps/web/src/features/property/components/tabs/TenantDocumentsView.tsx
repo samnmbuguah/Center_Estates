@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useMemo, type ReactNode } from "react";
-import { Box, Button, Chip, MenuItem, TextField, Typography } from "@mui/material";
+import {
+  Box, Button, Chip, MenuItem, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+} from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -36,42 +39,46 @@ export function TenantDocumentsView({ rows, loading, search, setSearch, onUpload
 
       <Panel title="Documents">
         <ListState loading={loading} empty={docs.length === 0} emptyTitle="No documents found" emptyDesc="Uploaded tenant documents such as IDs, KRA PINs and agreements appear here.">
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Document</th>
-                  <th>Tenant</th>
-                  <th>Type</th>
-                  <th>Number</th>
-                  <th>Uploaded</th>
-                  <th>Expires</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Document</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Type</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Number</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Uploaded</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Expires</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {docs.map((d) => (
-                  <tr key={String(d.id)}>
-                    <td><strong style={{ fontSize: 12 }}>{String(d.document_type ?? "—")}</strong></td>
-                    <td style={{ fontSize: 12 }}>{String(d.tenant_name ?? "—")}</td>
-                    <td style={{ fontSize: 12 }}>{String(d.document_type ?? "—")}</td>
-                    <td className="mono" style={{ fontSize: 12 }}>{String(d.document_number ?? "—")}</td>
-                    <td style={{ fontSize: 12 }}>{fmtDate(d.created_at)}</td>
-                    <td style={{ fontSize: 12 }}>{fmtDate(d.expires_on)}</td>
-                    <td><StatusPill value={String(d.status ?? "—")} /></td>
-                    <td>
-                      <div className="row" style={{ gap: 6 }}>
-                        <button className="btn ghost sm" onClick={() => onDownload(d)}>Download</button>
-                        {d.status === "pending" && <button className="btn primary sm" onClick={() => onVerify(d)}>Verify</button>}
-                        {d.status === "pending" && <button className="btn ghost sm" onClick={() => onReject(d)}>Reject</button>}
-                      </div>
-                    </td>
-                  </tr>
+                  <TableRow key={String(d.id)} hover>
+                    <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>{String(d.document_type ?? "—")}</Typography></TableCell>
+                    <TableCell><Typography variant="body2">{String(d.tenant_name ?? "—")}</Typography></TableCell>
+                    <TableCell><Typography variant="body2">{String(d.document_type ?? "—")}</Typography></TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>
+                        {String(d.document_number ?? "—")}
+                      </Typography>
+                    </TableCell>
+                    <TableCell><Typography variant="body2">{fmtDate(d.created_at)}</Typography></TableCell>
+                    <TableCell><Typography variant="body2">{fmtDate(d.expires_on)}</Typography></TableCell>
+                    <TableCell align="center"><StatusPill value={String(d.status ?? "—")} /></TableCell>
+                    <TableCell align="right">
+                      <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
+                        <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={() => onDownload(d)}>Download</Button>
+                        {d.status === "pending" && <Button size="small" variant="contained" color="success" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={() => onVerify(d)}>Verify</Button>}
+                        {d.status === "pending" && <Button size="small" variant="outlined" color="error" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={() => onReject(d)}>Reject</Button>}
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>
     </>

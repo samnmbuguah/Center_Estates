@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useMemo, type FormEvent } from "react";
-import { Box, Button, Chip, MenuItem, TextField, Typography, Checkbox, Paper } from "@mui/material";
+import {
+  Box, Button, Checkbox, Chip, MenuItem, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  TextField, Typography,
+} from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -320,79 +324,157 @@ export function LeasesView({
 
       <Panel title="Lease Register" action={<button className="fc-toolbar-btn" onClick={() => setTab("rent")}>Invoices →</button>}>
         <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No leases found" emptyDesc="Add a single lease or bulk import a tenancy schedule to populate the register.">
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 36, textAlign: "center" }}>
-                    <input
-                      type="checkbox"
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell padding="checkbox" sx={{ width: 44, textAlign: "center" }}>
+                    <Checkbox
+                      size="small"
                       checked={allPagedSelected}
                       onChange={toggleSelectAll}
-                      title="Select all on this page"
+                      aria-label="Select all on this page"
                     />
-                  </th>
-                  <th>Lease No</th>
-                  <th>Tenant</th>
-                  <th>Unit</th>
-                  <th>Start</th>
-                  <th>End</th>
-                  <th>Monthly Rent</th>
-                  <th>Escalation %</th>
-                  <th>Status</th>
-                  <th>Outstanding</th>
-                  <th>Days Left</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Lease No</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Unit</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Start</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>End</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Monthly Rent</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Escalation %</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Outstanding</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Days Left</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {pagedRows.map((l) => {
                   const isSelected = selectedIds.includes(String(l.id));
                   return (
-                    <tr
+                    <TableRow
                       key={String(l.id)}
+                      hover
+                      selected={isSelected}
                       onClick={() => onSelectRow(l)}
-                      style={{ background: isSelected ? "rgba(2, 132, 199, 0.05)" : undefined }}
+                      sx={{ cursor: "pointer" }}
                     >
-                      <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
+                      <TableCell padding="checkbox" sx={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          size="small"
                           checked={isSelected}
                           onChange={() => toggleSelectOne(String(l.id))}
                         />
-                      </td>
-                      <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(l.reference ?? "—")}</td>
-                      <td><strong style={{ fontSize: 12 }}>{String(l.tenant_name ?? "—")}</strong></td>
-                      <td className="mono" style={{ fontSize: 12 }}>{String(l.unit_code ?? "—")}</td>
-                      <td style={{ fontSize: 12 }}>{fmtDate(l.starts_on)}</td>
-                      <td style={{ fontSize: 12 }}>{fmtDate(l.ends_on)}</td>
-                      <td className="mono">{kM(l.monthly_rent)}</td>
-                      <td className="mono" style={{ fontWeight: 600 }}>{l.escalation_percent ? `${l.escalation_percent}%` : "0%"}</td>
-                      <td><StatusPill value={String(l.status ?? "—")} /></td>
-                      <td className="mono" style={{ color: Number(l.outstanding ?? 0) > 0 ? "var(--danger)" : "var(--muted)" }}>{l.outstanding === undefined ? "—" : kM(l.outstanding)}</td>
-                      <td className="mono" style={{ fontSize: 12 }}>{daysLeftLabel(l.ends_on)}</td>
-                      <td>
-                        <div style={{ display: "flex", gap: 5, alignItems: "center", justifyContent: "flex-end", flexWrap: "nowrap" }}>
-                          <button className="fc-action-btn" onClick={(e) => { e.stopPropagation(); openEditModal(l); }} title="Edit lease details">Edit</button>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main", fontWeight: 700 }}>
+                          {String(l.reference ?? "—")}
+                        </Typography>
+                      </TableCell>
+                      <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>{String(l.tenant_name ?? "—")}</Typography></TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>
+                          {String(l.unit_code ?? "—")}
+                        </Typography>
+                      </TableCell>
+                      <TableCell><Typography variant="body2">{fmtDate(l.starts_on)}</Typography></TableCell>
+                      <TableCell><Typography variant="body2">{fmtDate(l.ends_on)}</Typography></TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>
+                          {kM(l.monthly_rent)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 600 }}>
+                          {l.escalation_percent ? `${l.escalation_percent}%` : "0%"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center"><StatusPill value={String(l.status ?? "—")} /></TableCell>
+                      <TableCell align="right">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontFamily: "ui-monospace, monospace",
+                            fontWeight: 700,
+                            color: Number(l.outstanding ?? 0) > 0 ? "error.main" : "text.secondary",
+                          }}
+                        >
+                          {l.outstanding === undefined ? "—" : kM(l.outstanding)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={daysLeftLabel(l.ends_on)}
+                          sx={{ fontFamily: "ui-monospace, monospace", fontSize: 11, height: 20 }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "nowrap" }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={(e) => { e.stopPropagation(); openEditModal(l); }}
+                            title="Edit lease details"
+                            sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
+                          >
+                            Edit
+                          </Button>
                           {l.status === "draft" && (
-                            <button className="fc-action-btn success" onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "activate"); }} title="Activate draft lease">⚡ Activate</button>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
+                              onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "activate"); }}
+                              title="Activate draft lease"
+                              sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11, fontWeight: 700 }}
+                            >
+                              ⚡ Activate
+                            </Button>
                           )}
                           {(["active", "expiring"].includes(String(l.status))) && (
-                            <button className="fc-action-btn primary" onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "renew"); }} title="Renew lease">Renew</button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                              onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "renew"); }}
+                              title="Renew lease"
+                              sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
+                            >
+                              Renew
+                            </Button>
                           )}
                           {(["active", "expiring"].includes(String(l.status))) && (
-                            <button className="fc-action-btn danger" onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "terminate"); }} title="Terminate lease">Terminate</button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "terminate"); }}
+                              title="Terminate lease"
+                              sx={{ minWidth: 0, px: 0.75, py: 0.25, fontSize: 11 }}
+                            >
+                              Terminate
+                            </Button>
                           )}
-                          <button className="fc-action-btn" onClick={(e) => { e.stopPropagation(); setTab("rent"); }} title="View tenant invoices">Invoices</button>
-                        </div>
-                      </td>
-
-                    </tr>
+                          <Button
+                            size="small"
+                            variant="text"
+                            onClick={(e) => { e.stopPropagation(); setTab("rent"); }}
+                            title="View tenant invoices"
+                            sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
+                          >
+                            Invoices
+                          </Button>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
           <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </ListState>
       </Panel>

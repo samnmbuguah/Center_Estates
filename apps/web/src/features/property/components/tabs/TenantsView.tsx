@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useMemo, type ReactNode } from "react";
-import { Box, Button, Chip, MenuItem, TextField, Typography } from "@mui/material";
+import {
+  Box, Button, Checkbox, Chip, MenuItem, Paper, Select, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  TextField, Typography,
+} from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -177,152 +181,206 @@ export function TenantsView({
           </Box>
         </Panel>
       ) : (
-      <Panel title={`Search results ${selectedIds.length ? `(${selectedIds.length} selected)` : ''}`}>
-        <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No tenants found" emptyDesc="Register a tenant to link leases, invoices and documents.">
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
+        <Panel title={`Search results ${selectedIds.length ? `(${selectedIds.length} selected)` : ''}`}>
+          <ListState loading={loading} empty={filtered.length === 0} emptyTitle="No tenants found" emptyDesc="Register a tenant to link leases, invoices and documents.">
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
                   {canLease && (
-                    <th style={{ width: 36, textAlign: "center" }}>
-                      <input
-                        type="checkbox"
+                    <TableCell padding="checkbox" sx={{ width: 48, textAlign: "center" }}>
+                      <Checkbox
+                        size="small"
                         checked={allVisibleSelected}
                         onChange={toggleSelectAll}
-                        style={{ cursor: "pointer" }}
-                        title="Select visible"
+                        aria-label="Select all visible tenants"
                       />
-                    </th>
+                    </TableCell>
                   )}
-                  <th>Tenant</th>
-                  <th>Unit</th>
-                  <th>Contact</th>
-                  <th>Lease Period</th>
-                  <th>Status</th>
-                  <th>Outstanding</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Unit</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Contact</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Lease Period</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Outstanding</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {pagedRows.map((t) => {
                   const isSelected = selectedIds.includes(String(t.id));
                   return (
-                    <tr
+                    <TableRow
                       key={String(t.id)}
+                      hover
+                      selected={isSelected}
                       onClick={() => onSelectRow(t)}
-                      style={{ background: isSelected ? "rgba(59, 130, 246, 0.06)" : undefined }}
+                      sx={{ cursor: "pointer" }}
                     >
                       {canLease && (
-                        <td style={{ textAlign: "center" }} onClick={(e) => toggleSelectOne(String(t.id), e)}>
-                          <input
-                            type="checkbox"
+                        <TableCell padding="checkbox" sx={{ textAlign: "center" }} onClick={(e) => toggleSelectOne(String(t.id), e)}>
+                          <Checkbox
+                            size="small"
                             checked={isSelected}
                             onChange={() => {}}
-                            style={{ cursor: "pointer" }}
                           />
-                        </td>
+                        </TableCell>
                       )}
-                      <td>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{String(t.name ?? "—")}</div>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "1px 6px", borderRadius: 4, display: "inline-block", marginTop: 3 }}>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(t.name ?? "—")}</Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontFamily: "ui-monospace, monospace",
+                            fontWeight: 700,
+                            bgcolor: "action.hover",
+                            border: "1px solid",
+                            borderColor: "divider",
+                            px: 0.75,
+                            py: 0.2,
+                            borderRadius: 0.5,
+                            display: "inline-block",
+                            mt: 0.5,
+                          }}
+                        >
                           {String(t.code ?? "—")}
-                        </span>
-                      </td>
-                      <td>
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
                         {(t as any).units && (t as any).units.length > 1 ? (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--color-info)" }}>
+                          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                            <Typography variant="caption" sx={{ fontWeight: 700, color: "info.main" }}>
                               🏢 {(t as any).units.length} Units ({[...new Set((t as any).units.map((u: any) => u.floor).filter(Boolean))].map((f: any) => `Fl ${f}`).join(', ') || 'Multi-floor'})
-                            </span>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                            </Typography>
+                            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                               {(t as any).units.map((u: any, idx: number) => (
-                                <span key={idx} style={{ fontSize: 11, fontWeight: 600, background: "var(--surface-sunken)", padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border)", color: "var(--text-primary)" }}>
-                                  {u.code}{u.floor ? ` (${u.floor})` : ''}
-                                </span>
+                                <Chip
+                                  key={idx}
+                                  size="small"
+                                  variant="outlined"
+                                  label={`${u.code}${u.floor ? ` (${u.floor})` : ''}`}
+                                  sx={{ fontSize: 11, height: 20 }}
+                                />
                               ))}
-                            </div>
-                          </div>
+                            </Box>
+                          </Box>
                         ) : (
-                          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{String(t.unit ?? "—")}</span>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(t.unit ?? "—")}</Typography>
                         )}
-                      </td>
-                      <td style={{ fontSize: 12 }}>
-                        <div>{t.email ? <a href={`mailto:${t.email}`} onClick={e => e.stopPropagation()} style={{ color: "var(--color-info)", fontSize: 12, fontWeight: 500, textDecoration: "none" }}>{String(t.email)}</a> : <span className="muted">—</span>}</div>
-                        <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2, fontWeight: 600 }}>{t.phone ? String(t.phone) : "—"}</div>
-                      </td>
-                      <td style={{ fontSize: 12 }}>
+                      </TableCell>
+                      <TableCell>
+                        {t.email ? (
+                          <Typography
+                            component="a"
+                            href={`mailto:${t.email}`}
+                            onClick={(e) => e.stopPropagation()}
+                            variant="body2"
+                            sx={{ color: "primary.main", textDecoration: "none", fontWeight: 500, display: "block" }}
+                          >
+                            {String(t.email)}
+                          </Typography>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">—</Typography>
+                        )}
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25, fontWeight: 600 }}>
+                          {t.phone ? String(t.phone) : "—"}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
                         {t.lease_start ? (
                           <>
-                            <div style={{ fontWeight: 600, color: "var(--text-primary)" }}>{fmtDate(t.lease_start)}</div>
-                            <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>→ {t.lease_end ? fmtDate(t.lease_end) : "—"}</div>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{fmtDate(t.lease_start)}</Typography>
+                            <Typography variant="caption" color="text.secondary">→ {t.lease_end ? fmtDate(t.lease_end) : "—"}</Typography>
                           </>
                         ) : (
-                          <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>No lease</span>
+                          <Typography variant="caption" color="text.secondary">No lease</Typography>
                         )}
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         {t.status === "prospect" ? (
-                          <StatusPill tone="yellow">Pending Activation</StatusPill>
+                          <Chip size="small" label="Pending Activation" color="warning" sx={{ fontWeight: 700, fontSize: 11 }} />
                         ) : (
                           <StatusPill value={String(t.status ?? "—")} />
                         )}
-                      </td>
-                      <td style={{ fontSize: 13, color: Number(t.outstanding ?? 0) > 0 ? "var(--color-danger)" : "var(--text-secondary)", fontWeight: 700 }}>
-                        {t.outstanding === undefined ? "—" : kM(t.outstanding)}
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", gap: 5, alignItems: "center", justifyContent: "flex-end", flexWrap: "nowrap" }}>
+                      </TableCell>
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 700,
+                            color: Number(t.outstanding ?? 0) > 0 ? "error.main" : "text.secondary",
+                            fontFamily: "ui-monospace, monospace",
+                          }}
+                        >
+                          {t.outstanding === undefined ? "—" : kM(t.outstanding)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "nowrap" }}>
                           {t.status === "prospect" && canLease && (
-                            <button
-                              className="fc-action-btn success"
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
                               onClick={(e) => { e.stopPropagation(); void onActivate(t); }}
                               title="Activate this tenant and all draft leases"
+                              sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11, fontWeight: 800 }}
                             >
                               ⚡ Activate
-                            </button>
+                            </Button>
                           )}
-                          <button
-                            className="fc-action-btn"
+                          <Button
+                            size="small"
+                            variant="outlined"
                             onClick={(e) => { e.stopPropagation(); onEdit(t); }}
                             title="Edit tenant profile"
+                            sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                           >
                             ✏️ Edit
-                          </button>
-                          <button
-                            className="fc-action-btn portal"
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="info"
                             data-testid="tenant-portal-btn"
                             onClick={(e) => {
                               e.stopPropagation();
                               window.open(`/tenant-portal?tenant=${t.id}`, "_blank", "noopener,noreferrer");
                             }}
-                            title="Open tenant portal in a new tab (impersonate tenant view)"
+                            title="Open tenant portal in a new tab"
+                            sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                           >
                             🌐 Portal ↗
-                          </button>
-                          <button
-                            className="fc-action-btn"
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
                             onClick={(e) => { e.stopPropagation(); onUploadDoc(t); }}
                             title="Upload / view tenant documents"
+                            sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                           >
                             📁 Docs
-                          </button>
+                          </Button>
                           {canLease && (
-                            <button
-                              className="fc-action-btn danger"
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
                               onClick={(e) => { e.stopPropagation(); onDelete(t); }}
                               title="Delete duplicate or erroneous tenant"
+                              sx={{ minWidth: 0, px: 0.75, py: 0.25, fontSize: 11 }}
                             >
                               🗑️
-                            </button>
+                            </Button>
                           )}
-                        </div>
-                      </td>
-                    </tr>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
           <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </ListState>
       </Panel>

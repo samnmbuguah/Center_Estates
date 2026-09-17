@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  LinearProgress, MenuItem, Paper, Stack, TextField, Typography,
+  LinearProgress, MenuItem, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  TextField, Typography,
 } from "@mui/material";
 import { CheckCircle, KeyRound, Plus } from "lucide-react";
 import { EmptyState, KpiCard, KpiStrip, StatusPill, money } from "@/components/module-ui";
@@ -127,55 +129,61 @@ export function HandoverExitView({ handovers, clearances, loading, error, search
             {canLease && <button className="fc-toolbar-btn primary" onClick={() => setCreateOpen(true)}>+ New Handover</button>}
           </ViewToolbar>
 
-          <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
             {hList.length === 0 && !loading ? (
               <EmptyState title="No handovers" description="Record a move-in handover to capture condition, keys and opening meter readings." />
             ) : (
-              <Box sx={{ overflowX: "auto" }}>
-                <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-                      <th style={{ padding: "10px 14px" }}>Code</th>
-                      <th style={{ padding: "10px 14px" }}>Tenant / Unit</th>
-                      <th style={{ padding: "10px 14px" }}>Lease</th>
-                      <th style={{ padding: "10px 14px" }}>Condition lines</th>
-                      <th style={{ padding: "10px 14px" }}>Caretaker</th>
-                      <th style={{ padding: "10px 14px" }}>Status</th>
-                      <th style={{ padding: "10px 14px", textAlign: "right" }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {hList.map((h) => (
-                      <tr key={h.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                        <td style={{ padding: "12px 14px" }}><span className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, var(--color-info))" }}>{h.code}</span></td>
-                        <td style={{ padding: "12px 14px" }}>
-                          <div style={{ fontWeight: 700 }}>{h.tenant_name}</div>
-                          <div style={{ fontSize: 11, color: "text.secondary" }}>Unit {h.unit_code || "—"}</div>
-                        </td>
-                        <td className="mono" style={{ padding: "12px 14px", fontSize: 12 }}>{h.lease_reference}</td>
-                        <td style={{ padding: "12px 14px", fontSize: 12 }}>{h.condition_lines?.length ?? 0} lines · {h.keys_items?.length ?? 0} keys</td>
-                        <td style={{ padding: "12px 14px", fontSize: 12 }}>{h.caretaker_name || "—"}</td>
-                        <td style={{ padding: "12px 14px" }}><StatusPill value={h.status} /></td>
-                        <td style={{ padding: "12px 14px", textAlign: "right" }}>
-                          <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
-                            {["draft", "in_progress"].includes(h.status) && canLease && !h.caretaker_name && (
-                              <Button size="small" variant="outlined" disabled={Boolean(busy)} onClick={() => void run(`/property/handovers/${h.id}/sign-caretaker/`, { caretaker_name: "Caretaker on duty" })}>Sign caretaker</Button>
-                            )}
-                            {["draft", "in_progress"].includes(h.status) && h.caretaker_name && (
-                              <Button size="small" variant="outlined" disabled={Boolean(busy)} onClick={() => void run(`/property/handovers/${h.id}/sign-tenant/`, {})}>Sign tenant</Button>
-                            )}
-                            {h.status === "completed" && canApprove && (
-                              <Button size="small" variant="contained" startIcon={<CheckCircle size={13} />} disabled={Boolean(busy)} onClick={() => void run(`/property/handovers/${h.id}/acknowledge/`, {})}>Acknowledge</Button>
-                            )}
-                          </Stack>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </Box>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Code</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant / Unit</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Lease</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Condition lines</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Caretaker</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {hList.map((h) => (
+                    <TableRow key={h.id} hover>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700, color: "info.main" }}>
+                          {h.code}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{h.tenant_name}</Typography>
+                        <Typography variant="caption" color="text.secondary">Unit {h.unit_code || "—"}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{h.lease_reference}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{h.condition_lines?.length ?? 0} lines · {h.keys_items?.length ?? 0} keys</Typography>
+                      </TableCell>
+                      <TableCell><Typography variant="body2">{h.caretaker_name || "—"}</Typography></TableCell>
+                      <TableCell align="center"><StatusPill value={h.status} /></TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
+                          {["draft", "in_progress"].includes(h.status) && canLease && !h.caretaker_name && (
+                            <Button size="small" variant="outlined" disabled={Boolean(busy)} onClick={() => void run(`/property/handovers/${h.id}/sign-caretaker/`, { caretaker_name: "Caretaker on duty" })}>Sign caretaker</Button>
+                          )}
+                          {["draft", "in_progress"].includes(h.status) && h.caretaker_name && (
+                            <Button size="small" variant="outlined" disabled={Boolean(busy)} onClick={() => void run(`/property/handovers/${h.id}/sign-tenant/`, {})}>Sign tenant</Button>
+                          )}
+                          {h.status === "completed" && canApprove && (
+                            <Button size="small" variant="contained" startIcon={<CheckCircle size={13} />} disabled={Boolean(busy)} onClick={() => void run(`/property/handovers/${h.id}/acknowledge/`, {})}>Acknowledge</Button>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
-          </Paper>
+          </TableContainer>
         </>
       )}
 
@@ -186,81 +194,87 @@ export function HandoverExitView({ handovers, clearances, loading, error, search
             {canLease && <button className="fc-toolbar-btn primary" onClick={() => setExitOpen(true)}>+ New Exit Clearance</button>}
           </ViewToolbar>
 
-          <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
             {cList.length === 0 && !loading ? (
               <EmptyState title="No exit clearances" description="Start an exit clearance when a tenant gives notice to vacate." />
             ) : (
-              <Box sx={{ overflowX: "auto" }}>
-                <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-                      <th style={{ padding: "10px 14px" }}>Code</th>
-                      <th style={{ padding: "10px 14px" }}>Tenant / Lease</th>
-                      <th style={{ padding: "10px 14px" }}>Clearances</th>
-                      <th style={{ padding: "10px 14px" }}>Deposit → Refund</th>
-                      <th style={{ padding: "10px 14px" }}>Status</th>
-                      <th style={{ padding: "10px 14px", textAlign: "right" }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cList.map((c) => {
-                      const sections = [
-                        { label: "Utilities", ok: c.utilities_cleared }, { label: "Inspection", ok: c.inspection_passed },
-                        { label: "Rent", ok: c.rent_cleared }, { label: "S/C", ok: c.service_charge_cleared },
-                      ];
-                      return (
-                        <tr key={c.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                          <td style={{ padding: "12px 14px" }}><span className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, var(--color-danger))" }}>{c.code}</span></td>
-                          <td style={{ padding: "12px 14px" }}>
-                            <div style={{ fontWeight: 700 }}>{c.tenant_name}</div>
-                            <div className="mono" style={{ fontSize: 11, color: "text.secondary" }}>{c.lease_reference}</div>
-                          </td>
-                          <td style={{ padding: "12px 14px" }}>
-                            <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
-                              {sections.map(s => (
-                                <Chip key={s.label} size="small" label={s.label} color={s.ok ? "success" : "default"} variant={s.ok ? "filled" : "outlined"} sx={{ fontSize: 10, height: 18 }} />
-                              ))}
-                            </Stack>
-                          </td>
-                          <td style={{ padding: "12px 14px" }}>
-                            <div className="mono" style={{ fontSize: 12 }}>{c.deposit_amount ? money.format(Number(c.deposit_amount)) : "—"}</div>
-                            {c.refund_amount !== null && <div className="mono" style={{ fontSize: 12, color: "var(--color-success)" }}>→ {money.format(Number(c.refund_amount))}</div>}
-                          </td>
-                          <td style={{ padding: "12px 14px" }}>
-                            <StatusPill value={c.status} />
-                            {c.gate_pass_number && <div className="mono" style={{ fontSize: 11, marginTop: 2 }}>{c.gate_pass_number}</div>}
-                            {c.rejected_reason && <div style={{ fontSize: 11, color: "var(--error, var(--color-danger))", marginTop: 2 }}>{c.rejected_reason}</div>}
-                          </td>
-                          <td style={{ padding: "12px 14px", textAlign: "right" }}>
-                            <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
-                              {["draft", "in_progress"].includes(c.status) && !(c.utilities_cleared && c.inspection_passed && c.rent_cleared && c.service_charge_cleared) && canLease && (
-                                <Button size="small" variant="outlined" disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/`, {
-                                  utilities_cleared: true, inspection_passed: true, rent_cleared: true, service_charge_cleared: true,
-                                  inspection_notes: "Cleared via workspace quick action.",
-                                }, "PATCH")}>Mark sections cleared</Button>
-                              )}
-                              {["draft", "in_progress"].includes(c.status) && canLease && (
-                                <Button size="small" variant="contained" disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/mark-cleared/`, {})}>Complete</Button>
-                              )}
-                              {c.status === "cleared" && canApprove && (
-                                <Button size="small" variant="contained" disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/approve-manager/`, {})}>Approve (mgr)</Button>
-                              )}
-                              {c.status === "cleared" && c.manager_approved_at && canApprove && (
-                                <Button size="small" variant="contained" disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/approve-finance/`, {})}>Approve (fin)</Button>
-                              )}
-                              {c.status === "approved" && canApprove && (
-                                <Button size="small" variant="contained" color="success" startIcon={<KeyRound size={13} />} disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/issue-gate-pass/`, {})}>Gate pass</Button>
-                              )}
-                            </Stack>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </Box>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Code</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant / Lease</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Clearances</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Deposit → Refund</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {cList.map((c) => {
+                    const sections = [
+                      { label: "Utilities", ok: c.utilities_cleared }, { label: "Inspection", ok: c.inspection_passed },
+                      { label: "Rent", ok: c.rent_cleared }, { label: "S/C", ok: c.service_charge_cleared },
+                    ];
+                    return (
+                      <TableRow key={c.id} hover>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700, color: "error.main" }}>
+                            {c.code}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 700 }}>{c.tenant_name}</Typography>
+                          <Typography variant="caption" sx={{ fontFamily: "ui-monospace, monospace", color: "text.secondary", display: "block" }}>{c.lease_reference}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap" }}>
+                            {sections.map(s => (
+                              <Chip key={s.label} size="small" label={s.label} color={s.ok ? "success" : "default"} variant={s.ok ? "filled" : "outlined"} sx={{ fontSize: 10, height: 18 }} />
+                            ))}
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{c.deposit_amount ? money.format(Number(c.deposit_amount)) : "—"}</Typography>
+                          {c.refund_amount !== null && (
+                            <Typography variant="caption" sx={{ fontFamily: "ui-monospace, monospace", color: "success.main", display: "block" }}>
+                              → {money.format(Number(c.refund_amount))}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="center">
+                          <StatusPill value={c.status} />
+                          {c.gate_pass_number && <Typography variant="caption" sx={{ fontFamily: "ui-monospace, monospace", display: "block", mt: 0.5 }}>{c.gate_pass_number}</Typography>}
+                          {c.rejected_reason && <Typography variant="caption" sx={{ color: "error.main", display: "block", mt: 0.5 }}>{c.rejected_reason}</Typography>}
+                        </TableCell>
+                        <TableCell align="right">
+                          <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
+                            {["draft", "in_progress"].includes(c.status) && !(c.utilities_cleared && c.inspection_passed && c.rent_cleared && c.service_charge_cleared) && canLease && (
+                              <Button size="small" variant="outlined" disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/`, {
+                                utilities_cleared: true, inspection_passed: true, rent_cleared: true, service_charge_cleared: true,
+                                inspection_notes: "Cleared via workspace quick action.",
+                              }, "PATCH")}>Mark sections cleared</Button>
+                            )}
+                            {["draft", "in_progress"].includes(c.status) && canLease && (
+                              <Button size="small" variant="contained" disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/mark-cleared/`, {})}>Complete</Button>
+                            )}
+                            {c.status === "cleared" && canApprove && (
+                              <Button size="small" variant="contained" disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/approve-manager/`, {})}>Approve (mgr)</Button>
+                            )}
+                            {c.status === "cleared" && c.manager_approved_at && canApprove && (
+                              <Button size="small" variant="contained" disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/approve-finance/`, {})}>Approve (fin)</Button>
+                            )}
+                            {c.status === "approved" && canApprove && (
+                              <Button size="small" variant="contained" color="success" startIcon={<KeyRound size={13} />} disabled={Boolean(busy)} onClick={() => void run(`/property/exit-clearances/${c.id}/issue-gate-pass/`, {})}>Gate pass</Button>
+                            )}
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
             )}
-          </Paper>
+          </TableContainer>
         </>
       )}
 
