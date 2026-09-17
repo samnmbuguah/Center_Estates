@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
 import { BarChart3, ClipboardCheck, Download, Plus, Printer, QrCode, Upload } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { money } from "@/components/module-ui";
@@ -167,8 +168,14 @@ export function AssetsView({
               Unified asset hierarchy: Property → Building → Floor → Area → Asset ID
             </small>
           </div>
-          <div className="panel-actions">
-            <Button variant="outlined" size="small" startIcon={<Download size={15} />} onClick={() => exportCsv(displayRows, "asset-register.csv")}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Download size={15} />}
+              onClick={() => exportCsv(displayRows, "asset-register.csv")}
+              sx={{ textTransform: "none", fontWeight: 700, borderRadius: "8px", borderColor: "#cbd5e1", color: "#334155" }}
+            >
               Export CSV
             </Button>
             <Button
@@ -177,6 +184,7 @@ export function AssetsView({
               size="small"
               startIcon={<Upload size={15} />}
               title="Upload multiple assets at once using a CSV file"
+              sx={{ textTransform: "none", fontWeight: 700, borderRadius: "8px", borderColor: "#cbd5e1", color: "#334155" }}
             >
               Upload Assets (CSV)
             </Button>
@@ -185,10 +193,18 @@ export function AssetsView({
               variant="contained"
               size="small"
               startIcon={<Plus size={15} />}
+              sx={{
+                textTransform: "none",
+                fontWeight: 700,
+                borderRadius: "8px",
+                bgcolor: "var(--color-brand-red, #dc2626)",
+                color: "#ffffff",
+                "&:hover": { bgcolor: "#b91c1c" },
+              }}
             >
               Add Asset
             </Button>
-          </div>
+          </Stack>
         </header>
 
         <div style={{ overflowX: "auto" }}>
@@ -215,7 +231,7 @@ export function AssetsView({
                 <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>CRITICALITY</th>
                 <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>CONDITION</th>
                 <th style={{ padding: "10px 14px", textAlign: "right", fontSize: 11, color: "var(--text-secondary)" }}>REPLACEMENT COST</th>
-                <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>LIFECYCLE & ACTIONS</th>
+                <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)", minWidth: 280 }}>LIFECYCLE &amp; ACTIONS</th>
               </tr>
             </thead>
             <tbody>
@@ -288,14 +304,26 @@ export function AssetsView({
                       {money.format(Number(asset.replacement_cost ?? asset.purchase_value ?? 0))}
                     </td>
 
-                    <td style={{ padding: "12px 14px", textAlign: "center" }}>
-                      <div className="table-primary-actions">
+                    <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                      <Stack direction="row" spacing={0.75} sx={{ justifyContent: "center", minWidth: 260 }}>
                         <Button
                           component={Link}
                           href={`/facility/assets/${asset.id}`}
                           variant="outlined"
                           size="small"
                           title="Open digital asset passport"
+                          sx={{
+                            textTransform: "none",
+                            fontWeight: 700,
+                            fontSize: "11px",
+                            borderRadius: "6px",
+                            borderColor: "#cbd5e1",
+                            color: "#334155",
+                            py: 0.3,
+                            px: 1,
+                            minWidth: 0,
+                            "&:hover": { borderColor: "#94a3b8", bgcolor: "#f8fafc" },
+                          }}
                         >
                           Passport
                         </Button>
@@ -308,6 +336,18 @@ export function AssetsView({
                           size="small"
                           startIcon={<ClipboardCheck size={13} />}
                           title="Log Condition Assessment"
+                          sx={{
+                            textTransform: "none",
+                            fontWeight: 700,
+                            fontSize: "11px",
+                            borderRadius: "6px",
+                            borderColor: "#93c5fd",
+                            color: "#1d4ed8",
+                            py: 0.3,
+                            px: 1,
+                            minWidth: 0,
+                            "&:hover": { borderColor: "#60a5fa", bgcolor: "#eff6ff" },
+                          }}
                         >
                           Assess
                         </Button>
@@ -317,10 +357,22 @@ export function AssetsView({
                           size="small"
                           startIcon={<BarChart3 size={13} />}
                           title="View 5-Year Capital Renewal Plan"
+                          sx={{
+                            textTransform: "none",
+                            fontWeight: 700,
+                            fontSize: "11px",
+                            borderRadius: "6px",
+                            borderColor: "#c4b5fd",
+                            color: "#6d28d9",
+                            py: 0.3,
+                            px: 1,
+                            minWidth: 0,
+                            "&:hover": { borderColor: "#a78bfa", bgcolor: "#f5f3ff" },
+                          }}
                         >
-                          Lifecycle & CAPEX
+                          Lifecycle &amp; CAPEX
                         </Button>
-                      </div>
+                      </Stack>
                     </td>
                   </tr>
                 );

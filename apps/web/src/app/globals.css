@@ -2950,7 +2950,7 @@ a.profile-dropdown-item { text-decoration: none; }
 .data-panel { background: white; border: 1px solid var(--line); border-radius: 11px; min-width: 0; overflow: hidden; }
 .panel-title, .collection-title { align-items: center; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding: 18px 20px; }
 .panel-title h2, .collection-title h2 { font-size: 17px; margin: 0; }
-.panel-title button, .cost-summary button, .form-error button { background: none; border: 0; color: #cc3030; cursor: pointer; font-weight: 700; }
+.panel-title > button:not(.MuiButton-root), .cost-summary button, .form-error button { background: none; border: 0; color: #cc3030; cursor: pointer; font-weight: 700; }
 .table-scroll { overflow-x: auto; }
 .data-table { border-collapse: collapse; font-size: 12px; width: 100%; }
 .data-table th { color: #7c8599; font-size: 10px; letter-spacing: .06em; padding: 12px 18px; text-align: left; text-transform: uppercase; }
