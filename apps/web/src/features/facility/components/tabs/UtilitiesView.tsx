@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { Box, Typography, Button, Paper } from "@mui/material";
 import { Field, Modal } from "@/components/module-ui";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { Row } from "../../types/facility.types";
@@ -8,9 +9,9 @@ import { FcStatus } from "../FacilityToolbar";
 
 function PanelHeader({ title }: { title: string }) {
   return (
-    <header className="panel-title">
-      <h2 style={{ fontSize: 14, margin: 0 }}>{title}</h2>
-    </header>
+    <Box sx={{ p: "12px 18px", borderBottom: "1px solid var(--border)", background: "#f8fafc" }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--text-primary)" }}>{title}</Typography>
+    </Box>
   );
 }
 
@@ -29,9 +30,9 @@ export function UtilityBarChart({
 }) {
   const max = Math.max(...values, 1);
   return (
-    <article className="data-panel">
+    <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: "10px", overflow: "hidden" }}>
       <PanelHeader title={title} />
-      <div style={{ padding: "14px 18px" }}>
+      <Box sx={{ p: "14px 18px" }}>
         <div style={{ alignItems: "flex-end", display: "flex", gap: 10, height: 140 }}>
           {months.map((m, i) => (
             <div key={m} style={{ alignItems: "flex-end", display: "flex", flexDirection: "column", flex: 1, gap: 4 }}>
@@ -41,8 +42,8 @@ export function UtilityBarChart({
             </div>
           ))}
         </div>
-      </div>
-    </article>
+      </Box>
+    </Paper>
   );
 }
 
@@ -303,7 +304,7 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
                   </Field>
                 </div>
                 <p className="form-hint">Out-of-tolerance variances require an approver rationale before the period can be closed for billing.</p>
-                <div className="row" style={{ justifyContent: "flex-end" }}><button className="btn primary" type="submit">Save reconciliation</button></div>
+                <div className="row" style={{ justifyContent: "flex-end" }}><Button variant="contained" type="submit">Save reconciliation</Button></div>
               </form>
             </article>
           )}

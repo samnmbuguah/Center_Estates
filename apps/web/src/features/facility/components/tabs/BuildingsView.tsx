@@ -1,6 +1,20 @@
 "use client";
 
 import React, { useState } from "react";
+import {
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+  Chip,
+  Stack,
+  Box,
+  Button,
+} from "@mui/material";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
 
@@ -14,17 +28,15 @@ function PanelHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <header className="panel-title" style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <h2 style={{ fontSize: 14, margin: 0, fontWeight: 800, color: "var(--text-primary)" }}>{title}</h2>
+    <Box sx={{ p: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--text-primary)" }}>{title}</Typography>
         {count !== undefined && (
-          <span style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "2px 7px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
-            {count}
-          </span>
+          <Chip size="small" label={count} sx={{ height: 20, fontSize: 11, fontWeight: 700 }} />
         )}
-      </div>
+      </Stack>
       {action}
-    </header>
+    </Box>
   );
 }
 
@@ -488,44 +500,57 @@ export function BuildingsView({ rows }: { rows: Row[]; kpis: Record<string, stri
       </article>
 
       {/* Floor-by-Floor Area Breakdown Table */}
-      <article className="data-panel">
-        <PanelHeader title={`Floor-by-Floor Area Schedule (${String(currentBuilding.name)})`} />
-        <div style={{ overflowX: "auto" }}>
-          <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>FLOOR LEVEL</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>PRIMARY USE</th>
-                <th style={{ padding: "10px 14px", textAlign: "right", fontSize: 11, color: "var(--text-secondary)" }}>GROSS AREA (GFA)</th>
-                <th style={{ padding: "10px 14px", textAlign: "right", fontSize: 11, color: "var(--text-secondary)" }}>COMMON AREA</th>
-                <th style={{ padding: "10px 14px", textAlign: "right", fontSize: 11, color: "var(--text-secondary)" }}>LETTABLE AREA</th>
-                <th style={{ padding: "10px 14px", textAlign: "right", fontSize: 11, color: "var(--text-secondary)" }}>OCCUPIED</th>
-                <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>OCCUPANCY %</th>
-              </tr>
-            </thead>
-            <tbody>
+      <Paper elevation={0} sx={{ border: "1px solid rgba(0,0,0,0.08)", borderRadius: "10px", overflow: "hidden" }}>
+        <Box sx={{ p: 2, borderBottom: "1px solid rgba(0,0,0,0.08)", background: "#f8fafc", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+            Floor-by-Floor Area Schedule ({String(currentBuilding.name)})
+          </Typography>
+          <Chip size="small" label={`${floorBreakdown.length} Floors`} sx={{ fontWeight: 700, bgcolor: "#eff6ff", color: "#1e40af" }} />
+        </Box>
+        <TableContainer>
+          <Table size="small">
+            <TableHead sx={{ background: "#f8fafc" }}>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700, color: "#475569" }}>FLOOR LEVEL</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: "#475569" }}>PRIMARY USE</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: "#475569" }}>GROSS AREA (GFA)</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: "#475569" }}>COMMON AREA</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: "#475569" }}>LETTABLE AREA</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: "#475569" }}>OCCUPIED</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, color: "#475569" }}>OCCUPANCY %</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {floorBreakdown.map((fl) => {
                 const flOcc = fl.lettable > 0 ? ((fl.occupied / fl.lettable) * 100).toFixed(0) : "—";
+                const isFull = flOcc === "100";
                 return (
-                  <tr key={fl.floor} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={{ padding: "10px 14px", fontWeight: 700 }}>{fl.floor}</td>
-                    <td style={{ padding: "10px 14px", color: "var(--text-secondary)", fontSize: 12 }}>{fl.use}</td>
-                    <td style={{ padding: "10px 14px", textAlign: "right" }}>{fl.gfa} m²</td>
-                    <td style={{ padding: "10px 14px", textAlign: "right", color: "var(--text-secondary)" }}>{fl.common} m²</td>
-                    <td style={{ padding: "10px 14px", textAlign: "right", fontWeight: 700 }}>{fl.lettable} m²</td>
-                    <td style={{ padding: "10px 14px", textAlign: "right", color: "var(--color-success)" }}>{fl.occupied} m²</td>
-                    <td style={{ padding: "10px 14px", textAlign: "center" }}>
-                      <span style={{ background: flOcc === "100" ? "var(--color-green-bg)" : flOcc === "—" ? "var(--surface-sunken)" : "var(--color-blue-bg)", color: flOcc === "100" ? "var(--color-green-text)" : flOcc === "—" ? "var(--text-muted)" : "var(--color-info-deep)", padding: "2px 6px", borderRadius: 4, fontSize: 11, fontWeight: 800 }}>
-                        {flOcc === "—" ? "N/A" : `${flOcc}%`}
-                      </span>
-                    </td>
-                  </tr>
+                  <TableRow key={fl.floor} hover>
+                    <TableCell sx={{ fontWeight: 700, color: "#1e293b" }}>{fl.floor}</TableCell>
+                    <TableCell sx={{ color: "#64748b" }}>{fl.use}</TableCell>
+                    <TableCell align="right">{fl.gfa} m²</TableCell>
+                    <TableCell align="right" sx={{ color: "#64748b" }}>{fl.common} m²</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>{fl.lettable} m²</TableCell>
+                    <TableCell align="right" sx={{ color: "#16a34a", fontWeight: 700 }}>{fl.occupied} m²</TableCell>
+                    <TableCell align="center">
+                      <Chip
+                        size="small"
+                        label={flOcc === "—" ? "N/A" : `${flOcc}%`}
+                        sx={{
+                          fontWeight: 800,
+                          fontSize: "11px",
+                          bgcolor: isFull ? "#f0fdf4" : flOcc === "—" ? "#f1f5f9" : "#eff6ff",
+                          color: isFull ? "#15803d" : flOcc === "—" ? "#64748b" : "#1d4ed8",
+                        }}
+                      />
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-      </article>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
     </div>
   );
 }
