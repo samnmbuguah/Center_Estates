@@ -46,15 +46,16 @@ def serialize_modules(organization, membership=None):
     if not organization:
         return []
 
-    # Ensure default core subscriptions exist for the organization
     existing_modules = set(organization.subscriptions.values_list('module', flat=True))
-    for mod_choice, _ in Module.choices:
-        if mod_choice not in existing_modules:
-            Subscription.objects.get_or_create(
-                organization=organization,
-                module=mod_choice,
-                defaults={'is_active': True, 'status': Subscription.Status.ACTIVE}
-            )
+    missing = [m for m, _ in Module.choices if m not in existing_modules]
+    if missing:
+        Subscription.objects.bulk_create(
+            [
+                Subscription(organization=organization, module=m, is_active=True, status=Subscription.Status.ACTIVE)
+                for m in missing
+            ],
+            ignore_conflicts=True,
+        )
 
     subscriptions = Subscription.objects.available().filter(organization=organization)
     is_superuser = bool(membership and getattr(membership.user, 'is_superuser', False))

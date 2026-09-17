@@ -683,7 +683,7 @@ def _sync_property_service_providers(property_record, user=None):
 
 class PropertyViewSet(OrganizationModelViewSet):
     write_permission = 'property.operations'
-    queryset = Property.objects.annotate(
+    queryset = Property.objects.select_related('created_by').annotate(
         buildings_count=Count('buildings'), units_count=Count('units'),
     ).prefetch_related('module_assignments')
     serializer_class = PropertySerializer
