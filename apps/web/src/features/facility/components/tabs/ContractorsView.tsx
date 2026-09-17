@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Alert,
   AlertTitle,
@@ -16,7 +17,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { Download, FileUp, Pencil, Plus, RotateCcw, Trophy, X, Printer, Copy, Check } from "lucide-react";
+import { Download, FileUp, Pencil, Plus, RotateCcw, Trophy, X, Printer, Copy, Check, ClipboardCheck } from "lucide-react";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
 import { FcStatus } from "../FacilityToolbar";
@@ -209,6 +210,7 @@ export function ContractorsView({
   organizationId?: string | null;
   reload?: () => void;
 }) {
+  const router = useRouter();
   const [selectedContractor, setSelectedContractor] = useState<Row | null>(null);
   const [editingContractor, setEditingContractor] = useState<Row | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -300,6 +302,11 @@ Date Generated: ${new Date().toLocaleDateString("en-GB", { day: "numeric", month
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAppraise = (vendor: Row) => {
+    const propId = String(vendor.property || vendor.property_id || "");
+    router.push(`/facility?tab=appraisals&contractor=${vendor.id}${propId ? `&property=${propId}` : ""}`);
   };
 
   return (
@@ -448,6 +455,18 @@ Date Generated: ${new Date().toLocaleDateString("en-GB", { day: "numeric", month
 
                   <td style={{ padding: "12px 14px", textAlign: "right" }}>
                     <Stack direction="row" spacing={0.75} sx={{ justifyContent: "flex-end" }}>
+                      <Tooltip title="Conduct a periodic performance appraisal for this provider">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="success"
+                          startIcon={<ClipboardCheck size={14} />}
+                          onClick={() => handleAppraise(vendor)}
+                          sx={{ textTransform: "none", fontWeight: 700, borderRadius: "6px" }}
+                        >
+                          Appraise
+                        </Button>
+                      </Tooltip>
                       <Tooltip title="Edit provider information, contacts and compliance">
                         <span>
                           <Button size="small" variant="outlined" startIcon={<Pencil size={14} />} onClick={() => setEditingContractor(vendor)} disabled={!canAdminister}>

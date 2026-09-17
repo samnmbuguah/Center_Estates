@@ -28,6 +28,10 @@ const FMBudgetView = dynamic(() => import("./components/tabs/FMBudgetView").then
 const ComplianceRiskView = dynamic(() => import("./components/tabs/ComplianceRiskView").then((m) => m.ComplianceRiskView), { loading: () => <LoadingState rows={6} /> });
 const ReportsView = dynamic(() => import("./components/tabs/ReportsView").then((module) => module.ReportsView), { loading: () => <LoadingState rows={6} /> });
 const ExpenditureView = dynamic(() => import("./components/tabs/ExpenditureView").then((module) => module.ExpenditureView), { loading: () => <LoadingState rows={6} /> });
+const ServiceLinesView = dynamic(() => import("./components/tabs/ServiceLinesView").then((m) => m.ServiceLinesView), { loading: () => <LoadingState rows={6} /> });
+const AppraisalsView = dynamic(() => import("./components/tabs/AppraisalsView").then((m) => m.AppraisalsView), { loading: () => <LoadingState rows={6} /> });
+const CorrectiveActionsView = dynamic(() => import("./components/tabs/CorrectiveActionsView").then((m) => m.CorrectiveActionsView), { loading: () => <LoadingState rows={6} /> });
+const VendorScorecardReportsView = dynamic(() => import("./components/tabs/VendorScorecardReportsView").then((m) => m.VendorScorecardReportsView), { loading: () => <LoadingState rows={6} /> });
 const ModuleTicketsView = dynamic(() => import("@/components/module-activity").then((module) => module.ModuleTicketsView), { loading: () => <LoadingState rows={6} /> });
 const ModuleCalendarView = dynamic(() => import("@/components/module-activity").then((module) => module.ModuleCalendarView), { loading: () => <LoadingState rows={6} /> });
 
@@ -146,7 +150,7 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
             canAdminister={logic.canAdminister}
             reload={logic.load}
           />
-        ) : logic.tab === "service-providers" ? (
+        ) : logic.tab === "contractors" || logic.tab === "service-providers" ? (
           <ContractorsView
             rows={logic.rows}
             organizationId={logic.organizationId}
@@ -154,14 +158,14 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
             canAdminister={logic.canAdminister}
             reload={logic.load}
           />
-        ) : logic.tab === "contractors" ? (
-          <ContractorsView
-            rows={logic.rows}
-            organizationId={logic.organizationId}
-            onAdd={() => logic.setCreateModal("contractor")}
-            canAdminister={logic.canAdminister}
-            reload={logic.load}
-          />
+        ) : logic.tab === "service-lines" ? (
+          <ServiceLinesView organizationId={logic.organizationId} canAdminister={logic.canAdminister} />
+        ) : logic.tab === "appraisals" ? (
+          <AppraisalsView organizationId={logic.organizationId} canAdminister={logic.canAdminister} />
+        ) : logic.tab === "corrective-actions" ? (
+          <CorrectiveActionsView organizationId={logic.organizationId} canAdminister={logic.canAdminister} />
+        ) : logic.tab === "vendor-reports" ? (
+          <VendorScorecardReportsView organizationId={logic.organizationId} />
         ) : logic.tab === "reports" || logic.tab === "operations-reports" || logic.tab === "asset-reports" || logic.tab === "compliance-reports" || logic.tab === "energy-reports" ? (
           logic.dashboard ? (
             <ReportsView

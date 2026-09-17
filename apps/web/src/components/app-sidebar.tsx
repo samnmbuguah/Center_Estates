@@ -58,6 +58,15 @@ const ADMIN_SUBITEMS = [
   { id: "feedback-qr", label: "Public Feedback QR Codes", icon: "▦", href: "/administration?tab=feedback-qr" },
 ];
 
+const VENDORS_SUBITEMS = [
+  { id: "planned-maintenance", label: "Planned Maintenance", icon: "📅", href: "/facility?tab=planned-maintenance" },
+  { id: "contractors", label: "Vendors & Contracts", icon: "🤝", href: "/facility?tab=contractors" },
+  { id: "service-lines", label: "Service Lines & Scorecards", icon: "📋", href: "/facility?tab=service-lines" },
+  { id: "appraisals", label: "Performance Appraisals", icon: "⭐", href: "/facility?tab=appraisals" },
+  { id: "corrective-actions", label: "Corrective Actions", icon: "🛠️", href: "/facility?tab=corrective-actions" },
+  { id: "vendor-reports", label: "Scorecard Reports", icon: "📈", href: "/facility?tab=vendor-reports" },
+];
+
 type AppSidebarProps = {
   menuOpen: boolean;
   onCloseMobile: () => void;
@@ -75,6 +84,9 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
 
   const [settingsExpanded, setSettingsExpanded] = useState(pathname.startsWith("/settings"));
   const [adminExpanded, setAdminExpanded] = useState(pathname.startsWith("/administration") || pathname === "/testing");
+  const [vendorsExpanded, setVendorsExpanded] = useState(
+    pathname === "/facility" && VENDORS_SUBITEMS.some((i) => i.id === currentTab)
+  );
 
   // Hydrate collapsed state from localStorage
   useEffect(() => {
@@ -101,7 +113,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
   useEffect(() => {
     if (pathname.startsWith("/settings")) setSettingsExpanded(true);
     if (pathname.startsWith("/administration") || pathname === "/testing") setAdminExpanded(true);
-  }, [pathname]);
+    if (pathname === "/facility" && VENDORS_SUBITEMS.some((i) => i.id === currentTab)) setVendorsExpanded(true);
+  }, [pathname, currentTab]);
 
   const activeModuleSlug = modules.find((m) => (
     pathname === `/${m.slug}` || pathname.startsWith(`/${m.slug}/`)
@@ -413,6 +426,114 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
               {!collapsed && <span>Portfolio Overview</span>}
             </Link>
           </Tooltip>
+
+          {/* Vendors & Contracts — Top-level navigation with Planned Maintenance under it */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div
+              role="button"
+              tabIndex={0}
+              aria-expanded={vendorsExpanded}
+              onClick={() => {
+                if (collapsed) {
+                  setCollapsed(false);
+                  setVendorsExpanded(true);
+                } else {
+                  setVendorsExpanded((prev) => !prev);
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setVendorsExpanded((prev) => !prev);
+                }
+              }}
+              title={collapsed ? "Vendors & Contracts" : undefined}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: collapsed ? "center" : "space-between",
+                borderRadius: 6,
+                background: (pathname === "/facility" && VENDORS_SUBITEMS.some((i) => i.id === currentTab)) ? "rgba(226, 59, 59, 0.15)" : "transparent",
+                color: (pathname === "/facility" && VENDORS_SUBITEMS.some((i) => i.id === currentTab)) ? "#ffffff" : "var(--color-slate-300)",
+                transition: "all 0.15s ease",
+                cursor: "pointer",
+                padding: isMobile ? "12px 14px" : (collapsed ? "10px 0" : "9px 12px"),
+                userSelect: "none",
+              }}
+            >
+              <Tooltip title={collapsed ? "Vendors & Contracts" : ""} placement="right" disableHoverListener={!collapsed}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    justifyContent: collapsed ? "center" : "flex-start",
+                    flex: 1,
+                    fontWeight: (pathname === "/facility" && VENDORS_SUBITEMS.some((i) => i.id === currentTab)) ? 700 : 500,
+                    fontSize: isMobile ? 15 : 13,
+                  }}
+                >
+                  <span style={{ fontSize: isMobile ? 18 : 15 }}>🤝</span>
+                  {!collapsed && <span>Vendors & Contracts</span>}
+                </div>
+              </Tooltip>
+
+              {!collapsed && (
+                <div
+                  style={{
+                    color: "rgba(255,255,255,0.4)",
+                    display: "flex",
+                    alignItems: "center",
+                    paddingLeft: 4,
+                  }}
+                >
+                  {vendorsExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </div>
+              )}
+            </div>
+
+            {vendorsExpanded && !collapsed && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  paddingLeft: 14,
+                  borderLeft: "2px solid rgba(255, 255, 255, 0.12)",
+                  marginLeft: 14,
+                  marginTop: 2,
+                  marginBottom: 4,
+                }}
+              >
+                {VENDORS_SUBITEMS.map((item) => {
+                  const isItemActive = pathname === "/facility" && currentTab === item.id;
+                  return (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      onClick={onCloseMobile}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "6px 10px",
+                        borderRadius: 5,
+                        fontSize: 12,
+                        textDecoration: "none",
+                        background: isItemActive ? "var(--color-brand-red)" : "transparent",
+                        color: isItemActive ? "#ffffff" : "var(--color-slate-400)",
+                        fontWeight: isItemActive ? 700 : 500,
+                        transition: "all 0.12s ease",
+                      }}
+                    >
+                      <span style={{ fontSize: 13 }}>{item.icon}</span>
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           {!activeModuleSlug && (isAdministrator || session?.modules?.some((module) => module.slug === "monitoring")) && (
             <>

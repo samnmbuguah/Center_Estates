@@ -94,11 +94,21 @@ export const facilityNav: ModuleNavGroup[] = [
     ],
   },
   {
+    label: "VENDORS & CONTRACTS",
+    items: [
+      { id: "contractors",         label: "Vendors & Contracts",   icon: "🤝" },
+      { id: "planned-maintenance", label: "Planned Maintenance",   icon: "📅" },
+      { id: "service-lines",       label: "Service Lines & Scorecards", icon: "📋" },
+      { id: "appraisals",          label: "Performance Appraisals", icon: "⭐" },
+      { id: "corrective-actions",  label: "Corrective Actions",    icon: "🛠️" },
+      { id: "vendor-reports",      label: "Scorecard Reports",     icon: "📈" },
+    ],
+  },
+  {
     label: "MAINTENANCE",
     items: [
       { id: "work-orders",       label: "Work Orders",         icon: "🔧" },
       { id: "requisitions",      label: "Repair Requisitions", icon: "📝" },
-      { id: "planned-maintenance",label: "Planned Maintenance",icon: "📅" },
       { id: "work-order-events", label: "Work History",        icon: "🕘" },
       { id: "work-order-cost-items", label: "Labor & Parts",   icon: "🧾" },
       { id: "work-order-attachments", label: "Work Media",     icon: "📎" },
@@ -111,7 +121,6 @@ export const facilityNav: ModuleNavGroup[] = [
       { id: "incidents", label: "Incident Reporting", icon: "🔍" },
       { id: "inspections", label: "Inspections", icon: "🔎" },
       { id: "meters", label: "Energy & Utilities", icon: "⚡" },
-      { id: "contractors", label: "Vendors & Contracts", icon: "🤝" },
     ],
   },
   {
