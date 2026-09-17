@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
   Divider, FormControlLabel, LinearProgress, MenuItem, Paper, Stack, Switch,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   TextField, Typography,
 } from "@mui/material";
 import { Eye, Plus, Send, Upload } from "lucide-react";
@@ -160,54 +161,54 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
         {invoices.length === 0 && !loading ? (
           <EmptyState title="No supplier invoices" description="Record a supplier invoice to start the verification and payment workflow." />
         ) : (
-          <Box sx={{ overflowX: "auto" }}>
-            <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-                  <th style={{ padding: "10px 14px" }}>Code / Supplier No.</th>
-                  <th style={{ padding: "10px 14px" }}>Supplier</th>
-                  <th style={{ padding: "10px 14px" }}>Source</th>
-                  <th style={{ padding: "10px 14px" }}>Total</th>
-                  <th style={{ padding: "10px 14px" }}>Variance</th>
-                  <th style={{ padding: "10px 14px" }}>Status</th>
-                  <th style={{ padding: "10px 14px", textAlign: "right" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ background: "var(--surface-sunken)" }}>
+                  <TableCell sx={{ fontWeight: 700 }}>Code / Supplier No.</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Supplier</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Source</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Variance</TableCell>
+                  <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 700, textAlign: "right" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {invoices.map((inv) => (
-                  <tr key={inv.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={{ padding: "12px 14px" }}>
+                  <TableRow key={inv.id} hover>
+                    <TableCell>
                       <div className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, var(--color-danger))" }}>{inv.code}</div>
                       <div className="mono" style={{ fontSize: 11, color: "text.secondary" }}>{inv.supplier_invoice_number}</div>
-                    </td>
-                    <td style={{ padding: "12px 14px" }}>
+                    </TableCell>
+                    <TableCell>
                       <div style={{ fontWeight: 700 }}>{inv.supplier_name}</div>
                       <div style={{ fontSize: 11, color: "text.secondary" }}>{inv.property_name}</div>
-                    </td>
-                    <td style={{ padding: "12px 14px", fontSize: 12 }}>
+                    </TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>
                       <Chip size="small" label={inv.classification === "repair" ? "Repair" : "Recurring"} sx={{ fontSize: 10, height: 18 }} />
                       {inv.work_order_number && <div className="mono" style={{ fontSize: 11, marginTop: 2 }}>WO {inv.work_order_number}</div>}
                       {inv.job_card_number && <div className="mono" style={{ fontSize: 11 }}>Job {inv.job_card_number} · LPO {inv.lpo_number}</div>}
                       {inv.requisition_code && <div className="mono" style={{ fontSize: 11 }}>{inv.requisition_code}{inv.ticket_reference ? ` · ${inv.ticket_reference}` : ""}</div>}
                       {inv.service_profile_name && <div style={{ fontSize: 11, marginTop: 2 }}>{inv.service_profile_name}</div>}
-                    </td>
-                    <td style={{ padding: "12px 14px" }}>
+                    </TableCell>
+                    <TableCell>
                       <div style={{ fontWeight: 800 }} className="mono">{money.format(Number(inv.total))}</div>
                       {inv.payment_reference && <div style={{ fontSize: 11, color: "text.secondary" }}>{inv.payment_reference}</div>}
-                    </td>
-                    <td style={{ padding: "12px 14px" }}>
+                    </TableCell>
+                    <TableCell>
                       {inv.variance === null || inv.variance === undefined ? "—" : (
                         <span className="mono" style={{ color: Number(inv.variance) > 0 ? "var(--error, var(--color-danger))" : "var(--color-success)", fontWeight: 700 }}>
                           {Number(inv.variance) > 0 ? "+" : ""}{money.format(Number(inv.variance))}
                         </span>
                       )}
-                    </td>
-                    <td style={{ padding: "12px 14px" }}>
+                    </TableCell>
+                    <TableCell>
                       <StatusPill value={inv.status} />
                       {inv.exception_approved && <Chip size="small" label="Exception" color="warning" sx={{ fontSize: 9, height: 16, ml: 0.5 }} />}
                       {inv.rejected_reason && <div style={{ fontSize: 11, color: "var(--error, var(--color-danger))", marginTop: 2 }}>{inv.rejected_reason}</div>}
-                    </td>
-                    <td style={{ padding: "12px 14px", textAlign: "right" }}>
+                    </TableCell>
+                    <TableCell sx={{ textAlign: "right" }}>
                       <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
                         <Button size="small" variant="text" startIcon={<Eye size={12} />} onClick={() => { setInspectTarget(inv); setIsException(Boolean(inv.exception_approved)); setExceptionNotes(""); }}>Review</Button>
                         {inv.status === "draft" && <Button size="small" variant="outlined" startIcon={<Send size={12} />} disabled={Boolean(busy)} onClick={() => void runAction(inv, "submit")}>Submit</Button>}
@@ -222,12 +223,12 @@ export function SupplierInvoicesView({ rows, loading, error, search, setSearch, 
                         {inv.status === "payment_processing" && <Button size="small" variant="contained" color="success" onClick={() => setPayTarget(inv)}>Mark paid</Button>}
                         {inv.status === "rejected" && <Button size="small" variant="outlined" startIcon={<Send size={12} />} disabled={Boolean(busy)} onClick={() => void runAction(inv, "submit")}>Resubmit</Button>}
                       </Stack>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </Box>
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
       </Paper>
 

@@ -14,6 +14,12 @@ import {
   DialogTitle,
   IconButton,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -385,85 +391,60 @@ Date Generated: ${new Date().toLocaleDateString("en-GB", { day: "numeric", month
           </Stack>
         </Box>
 
-        <div style={{ overflowX: "auto" }}>
-          <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "12px 16px", textAlign: "left" }}>Provider</th>
-                <th style={{ padding: "12px 16px", textAlign: "left" }}>Primary contact</th>
-                <th style={{ padding: "12px 16px", textAlign: "left" }}>Emergency and compliance</th>
-                <th style={{ padding: "12px 16px", textAlign: "center" }}>Rating</th>
-                <th style={{ padding: "12px 16px", textAlign: "center" }}>Approval status</th>
-                <th style={{ padding: "12px 16px", textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: "action.hover" }}>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Provider</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Primary contact</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Emergency and compliance</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Rating</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Approval status</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {displayRows.map((vendor) => (
-                <tr key={String(vendor.id)} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "12px 14px" }}>
-                    <strong style={{ display: "block", fontSize: "0.85rem", color: "var(--text-primary)" }}>
-                      {String(vendor.name)}
-                    </strong>
-                    <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
-                      <span style={{ background: "var(--surface-sunken)", border: "1px solid var(--border)", padding: "1px 5px", borderRadius: 3, fontSize: 10, fontWeight: 800 }}>
+                <TableRow key={String(vendor.id)} hover>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(vendor.name)}</Typography>
+                    <Box sx={{ display: "flex", gap: 0.75, alignItems: "center", mt: 0.25 }}>
+                      <Typography variant="caption" sx={{ background: "action.hover", border: "1px solid", borderColor: "divider", px: 0.5, borderRadius: 0.5, fontWeight: 800 }}>
                         {String(vendor.code)}
-                      </span>
-                      <span style={{ color: "var(--color-info)", fontSize: 11, fontWeight: 700 }}>{String(vendor.specialty)}</span>
-                    </div>
-                  </td>
-
-                  <td style={{ padding: "12px 14px", fontSize: 12 }}>
-                    <div style={{ color: "var(--text-primary)", fontWeight: 700 }}>{String(vendor.contact_name ?? "Desk Lead")}</div>
-                    <div style={{ color: "var(--text-secondary)" }}>{String(vendor.phone ?? "—")} · {String(vendor.email ?? "")}</div>
-                  </td>
-
-                  <td style={{ padding: "12px 14px", fontSize: 12 }}>
-                    <span style={{ color: "var(--color-danger)", fontWeight: 800 }}>🚨 {String(vendor.emergency_phone ?? "24/7 Callout Ready")}</span>
-                    <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>Tax PIN: {String(vendor.pin_number ?? "—")}</div>
-                  </td>
-
-                  <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                      </Typography>
+                      <Typography variant="caption" color="info.main" sx={{ fontWeight: 700 }}>{String(vendor.specialty)}</Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(vendor.contact_name ?? "Desk Lead")}</Typography>
+                    <Typography variant="caption" color="text.secondary">{String(vendor.phone ?? "—")} · {String(vendor.email ?? "")}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="error" sx={{ fontWeight: 800 }}>🚨 {String(vendor.emergency_phone ?? "24/7 Callout Ready")}</Typography>
+                    <Typography variant="caption" color="text.secondary">Tax PIN: {String(vendor.pin_number ?? "—")}</Typography>
+                  </TableCell>
+                  <TableCell align="center">
                     {(() => {
                       const tier = getVendorTier(vendor.rating);
                       return (
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                          <span style={{ background: "var(--color-orange-bg)", color: "var(--color-orange)", padding: "2px 8px", borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
+                          <Typography variant="caption" sx={{ background: "var(--color-orange-bg)", color: "var(--color-orange)", px: 1, borderRadius: 0.75, fontWeight: 800 }}>
                             ★ {vendor.rating == null ? "Not rated" : Number(vendor.rating).toFixed(1)}
-                          </span>
-                          <span
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 800,
-                              padding: "1px 6px",
-                              borderRadius: 4,
-                              background: tier.bg,
-                              color: tier.color,
-                              border: `1px solid ${tier.border}`,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
+                          </Typography>
+                          <Typography variant="caption" sx={{ fontWeight: 800, px: 0.75, borderRadius: 0.5, bgcolor: tier.bg, color: tier.color, border: `1px solid ${tier.border}`, whiteSpace: "nowrap" }}>
                             {tier.label}
-                          </span>
-                        </div>
+                          </Typography>
+                        </Box>
                       );
                     })()}
-                  </td>
-
-                  <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                  </TableCell>
+                  <TableCell align="center">
                     <FcStatus value={String(vendor.approval_status ?? vendor.status ?? "review")} />
-                  </td>
-
-                  <td style={{ padding: "12px 14px", textAlign: "right" }}>
+                  </TableCell>
+                  <TableCell align="right">
                     <Stack direction="row" spacing={0.75} sx={{ justifyContent: "flex-end" }}>
                       <Tooltip title="Conduct a periodic performance appraisal for this provider">
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="success"
-                          startIcon={<ClipboardCheck size={14} />}
-                          onClick={() => handleAppraise(vendor)}
-                          sx={{ textTransform: "none", fontWeight: 700, borderRadius: "6px" }}
-                        >
+                        <Button size="small" variant="outlined" color="success" startIcon={<ClipboardCheck size={14} />} onClick={() => handleAppraise(vendor)} sx={{ textTransform: "none", fontWeight: 700, borderRadius: "6px" }}>
                           Appraise
                         </Button>
                       </Tooltip>
@@ -478,15 +459,19 @@ Date Generated: ${new Date().toLocaleDateString("en-GB", { day: "numeric", month
                         Scorecard
                       </Button>
                     </Stack>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
               {displayRows.length === 0 && (
-                <tr><td colSpan={6} style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>No service providers have been added for this property.</td></tr>
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 5, color: "text.secondary" }}>
+                    No service providers have been added for this property.
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
       </article>
 
       {/* 7-Pillar Scorecard Modal */}

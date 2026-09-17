@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  LinearProgress, MenuItem, Paper, Stack, TextField, Typography,
+  LinearProgress, MenuItem, Paper, Stack, Table, TableBody, TableCell,
+  TableContainer, TableHead, TableRow, TextField, Typography,
 } from "@mui/material";
 import { Plus, CheckCircle, X, Send, Download } from "lucide-react";
 import { EmptyState, StatusPill, money } from "@/components/module-ui";
@@ -142,41 +143,47 @@ export function RequisitionsView({ rows, loading, error, search, setSearch, orga
         {requisitions.length === 0 && !loading ? (
           <EmptyState title="No requisitions" description="Raise a requisition from a ticket or directly to start the repair approval workflow." />
         ) : (
-          <Box sx={{ overflowX: "auto" }}>
-            <table className="fc-data-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-                  <th style={{ padding: "10px 14px" }}>Code</th>
-                  <th style={{ padding: "10px 14px" }}>Title / Location</th>
-                  <th style={{ padding: "10px 14px" }}>Property</th>
-                  <th style={{ padding: "10px 14px" }}>Est. Cost</th>
-                  <th style={{ padding: "10px 14px" }}>Priority</th>
-                  <th style={{ padding: "10px 14px" }}>Status</th>
-                  <th style={{ padding: "10px 14px", textAlign: "right" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Code</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Title / Location</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Property</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Est. Cost</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Priority</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {requisitions.map((r) => (
-                  <tr key={r.id} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={{ padding: "12px 14px" }}>
-                      <div className="mono" style={{ fontWeight: 700, fontSize: 12, color: "var(--brand-primary, var(--color-danger))" }}>{r.code}</div>
-                      {r.service_request_reference && <div style={{ fontSize: 11, color: "text.secondary" }}>from {r.service_request_reference}</div>}
-                    </td>
-                    <td style={{ padding: "12px 14px" }}>
-                      <div style={{ fontWeight: 700 }}>{r.title}</div>
-                      <div style={{ fontSize: 11, color: "text.secondary" }}>{r.location || r.property_name}</div>
-                    </td>
-                    <td style={{ padding: "12px 14px", fontSize: 12 }}>{r.property_name}{r.unit_code ? ` · ${r.unit_code}` : ""}</td>
-                    <td style={{ padding: "12px 14px" }} className="mono">{r.estimated_cost ? money.format(Number(r.estimated_cost)) : "—"}</td>
-                    <td style={{ padding: "12px 14px" }}>
+                  <TableRow key={r.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: "ui-monospace, monospace", color: "error.main" }}>{r.code}</Typography>
+                      {r.service_request_reference && <Typography variant="caption" color="text.secondary">from {r.service_request_reference}</Typography>}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{r.title}</Typography>
+                      <Typography variant="caption" color="text.secondary">{r.location || r.property_name}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{r.property_name}{r.unit_code ? ` · ${r.unit_code}` : ""}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>
+                        {r.estimated_cost ? money.format(Number(r.estimated_cost)) : "—"}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
                       <Chip size="small" label={r.priority} color={r.priority === "emergency" ? "error" : r.priority === "high" ? "warning" : "default"} sx={{ fontWeight: 700, fontSize: 11 }} />
-                    </td>
-                    <td style={{ padding: "12px 14px" }}>
+                    </TableCell>
+                    <TableCell>
                       <StatusPill value={r.status} />
-                      {r.work_order_number && <div className="mono" style={{ fontSize: 11, color: "text.secondary", marginTop: 2 }}>→ {r.work_order_number}</div>}
-                      {r.rejected_reason && <div style={{ fontSize: 11, color: "var(--error, var(--color-danger))", marginTop: 2 }}>{r.rejected_reason}</div>}
-                    </td>
-                    <td style={{ padding: "12px 14px", textAlign: "right" }}>
+                      {r.work_order_number && <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontFamily: "ui-monospace, monospace", mt: 0.25 }}>→ {r.work_order_number}</Typography>}
+                      {r.rejected_reason && <Typography variant="caption" color="error" sx={{ display: "block", mt: 0.25 }}>{r.rejected_reason}</Typography>}
+                    </TableCell>
+                    <TableCell align="right">
                       <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
                         <Button size="small" variant="outlined" startIcon={<Download size={13} />} onClick={() => void downloadRequisitionPdf(r)}>PDF</Button>
                         {r.status === "draft" && canWork && (
@@ -192,12 +199,12 @@ export function RequisitionsView({ rows, loading, error, search, setSearch, orga
                           <Button size="small" variant="contained" disabled={Boolean(busy)} onClick={() => setTab("procurement")}>Open procurement</Button>
                         )}
                       </Stack>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </Box>
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
       </Paper>
 

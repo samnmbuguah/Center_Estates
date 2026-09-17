@@ -1,19 +1,25 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import {
+  Box,
+  Button,
+  LinearProgress,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from "@mui/material";
+import { Download, Plus } from "lucide-react";
 import { Field, Modal, money } from "@/components/module-ui";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
 import { FcStatus } from "../FacilityToolbar";
-
-function EmptyState({ message = "No data available." }: { message?: string }) {
-  return (
-    <div className="empty-state" style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-secondary)" }}>
-      {message}
-    </div>
-  );
-}
 
 export function ExpenditureView({ rows, organizationId, propertyId, canApprove, reload }: {
   rows: Row[];
@@ -98,93 +104,139 @@ export function ExpenditureView({ rows, organizationId, propertyId, canApprove, 
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div>
-          <h2 style={{ fontSize: 20, fontWeight: 900, color: "var(--text-primary)", margin: 0, letterSpacing: "-.02em" }}>Expenditure & Landlord Floats</h2>
-          <p style={{ color: "var(--text-secondary)", fontSize: 14, fontWeight: 750, margin: "4px 0 0" }}>
+      {/* Header */}
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 900, letterSpacing: "-.02em" }}>Expenditure & Landlord Floats</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700, mt: 0.5 }}>
             Track the landlord float cash-flow advance against facilities expenditure.
-          </p>
-        </div>
-        <button className="fc-toolbar-btn primary" onClick={() => { setFormError(""); setShowRecord(true); }} style={{ fontWeight: 800 }}>+ Record Expenditure</button>
-      </div>
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<Plus size={16} />}
+          onClick={() => { setFormError(""); setShowRecord(true); }}
+          sx={{ fontWeight: 800 }}
+        >
+          Record Expenditure
+        </Button>
+      </Box>
 
-      {/* Landlord Float balance card */}
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", marginBottom: 16 }}>
-        <div className="data-panel" style={{ padding: 18, border: "1.5px solid var(--color-info)", background: "rgba(37, 99, 235, 0.05)" }}>
-          <span style={{ color: "var(--color-info)", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>LANDLORD FLOAT ALLOCATED</span>
-          <strong style={{ color: "var(--text-primary)", display: "block", fontSize: 26, fontWeight: 900 }}>{money.format(floatAllocated)}</strong>
-          <small style={{ color: "var(--text-secondary)", display: "block", fontWeight: 700, marginTop: 10 }}>From the approved FM budget for this property</small>
-        </div>
-        <div className="data-panel" style={{ padding: 18 }}>
-          <span style={{ color: "var(--text-primary)", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>SPENT</span>
-          <strong style={{ display: "block", fontSize: 26, color: "var(--color-danger-strong)", fontWeight: 900 }}>{money.format(spent)}</strong>
-          <span style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 700 }}>{spentPct}% of allocated float</span>
-        </div>
-        <div className="data-panel" style={{ padding: 18 }}>
-          <span style={{ color: "var(--text-primary)", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>REMAINING BALANCE</span>
-          <strong style={{ display: "block", fontSize: 26, color: remaining < 0 ? "var(--color-danger-strong)" : "var(--color-success-strong)", fontWeight: 900 }}>{money.format(Math.max(remaining, 0))}</strong>
-          {remaining < 0 && <span style={{ color: "var(--color-danger-strong)", fontSize: 12, fontWeight: 800 }}>Float exceeded by {money.format(Math.abs(remaining))}</span>}
-        </div>
-        <div className="data-panel" style={{ padding: 18 }}>
-          <span style={{ color: "var(--text-primary)", display: "block", fontSize: 12, fontWeight: 800, marginBottom: 8, letterSpacing: "0.04em" }}>FLOAT UTILIZATION</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 6 }}>
-            <div style={{ background: "var(--color-surface-alt)", borderRadius: 99, flex: 1, height: 10, overflow: "hidden" }}>
-              <i style={{ background: spentPct >= 100 ? "var(--color-danger)" : spentPct >= 75 ? "var(--color-amber)" : "var(--color-green)", borderRadius: "inherit", display: "block", height: "100%", width: `${spentPct}%` }} />
-            </div>
-            <strong style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{spentPct}%</strong>
-          </div>
-          <span style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 700 }}>remaining = float − sum(spent)</span>
-        </div>
-      </div>
+      {/* Float KPI cards */}
+      <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", mb: 2 }}>
+        <Paper variant="outlined" sx={{ p: 2.25, borderRadius: 2, border: "1.5px solid", borderColor: "info.main", bgcolor: "rgba(37, 99, 235, 0.04)" }}>
+          <Typography variant="caption" color="info.main" sx={{ fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", display: "block", mb: 1 }}>
+            Landlord Float Allocated
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 900 }}>{money.format(floatAllocated)}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, mt: 1.25, display: "block" }}>
+            From the approved FM budget for this property
+          </Typography>
+        </Paper>
 
-      {formError && <div className="form-error" role="alert" style={{ marginBottom: 16 }}>{formError}</div>}
+        <Paper variant="outlined" sx={{ p: 2.25, borderRadius: 2 }}>
+          <Typography variant="caption" sx={{ fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", display: "block", mb: 1 }}>Spent</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 900 }} color="error">{money.format(spent)}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>{spentPct}% of allocated float</Typography>
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 2.25, borderRadius: 2 }}>
+          <Typography variant="caption" sx={{ fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", display: "block", mb: 1 }}>Remaining Balance</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 900 }} color={remaining < 0 ? "error" : "success.main"}>
+            {money.format(Math.max(remaining, 0))}
+          </Typography>
+          {remaining < 0 && (
+            <Typography variant="caption" color="error" sx={{ fontWeight: 800 }}>
+              Float exceeded by {money.format(Math.abs(remaining))}
+            </Typography>
+          )}
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 2.25, borderRadius: 2 }}>
+          <Typography variant="caption" sx={{ fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", display: "block", mb: 1 }}>Float Utilization</Typography>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mt: 0.75 }}>
+            <LinearProgress
+              variant="determinate"
+              value={spentPct}
+              color={spentPct >= 100 ? "error" : spentPct >= 75 ? "warning" : "success"}
+              sx={{ flex: 1, height: 10, borderRadius: 99 }}
+            />
+            <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>{spentPct}%</Typography>
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>remaining = float − sum(spent)</Typography>
+        </Paper>
+      </Box>
+
+      {formError && <Box className="form-error" role="alert" sx={{ mb: 2 }}>{formError}</Box>}
 
       {/* Expenditure table */}
-      <div className="data-panel">
-        <div className="fc-table-toolbar">
-          <div className="fc-table-toolbar-left">
-            <span style={{ color: "var(--text-primary)", fontWeight: 800, fontSize: 14 }}>Expenditures ({expenditures.length})</span>
-          </div>
-          <div className="fc-table-toolbar-right">
-            <button className="fc-toolbar-btn" onClick={() => exportCsv(expenditures, "facility-expenditures.csv")} style={{ fontWeight: 800 }}>↓ Export</button>
-          </div>
-        </div>
-        <div className="table-scroll">
-          <table className="fc-data-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Category</th>
-                <th>Description</th>
-                <th>Amount</th>
-                <th>Float Reference</th>
-                <th>Status</th>
-                {canApprove && <th>Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+        <Box sx={{ px: 2.5, py: 2, borderBottom: "1px solid", borderColor: "divider", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Expenditures ({expenditures.length})</Typography>
+          <Button size="small" variant="outlined" startIcon={<Download size={14} />} onClick={() => exportCsv(expenditures, "facility-expenditures.csv")} sx={{ fontWeight: 800 }}>
+            Export
+          </Button>
+        </Box>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: "action.hover" }}>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Date</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Category</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Description</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Amount</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Float Reference</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                {canApprove && <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>}
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {expenditures.length > 0 ? expenditures.map((e) => (
-                <tr key={String(e.id)}>
-                  <td style={{ fontSize: 12, fontWeight: 750, color: "var(--text-primary)" }}>{e.spent_on ? new Date(String(e.spent_on)).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</td>
-                  <td style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", textTransform: "capitalize" }}>{String(e.category ?? "—")}</td>
-                  <td style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>{String(e.description ?? "—")}</td>
-                  <td style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)" }}>{money.format(Number(e.amount ?? 0))}</td>
-                  <td style={{ fontSize: 12, fontWeight: 800, fontFamily: "ui-monospace, monospace", color: "var(--text-primary)" }}>{String(e.float_reference ?? "—")}</td>
-                  <td><FcStatus value={String(e.status ?? "pending")} /></td>
-                  {canApprove && <td>
-                    {e.status === "pending" ? <div className="table-actions">
-                      <button disabled={actionId === String(e.id)} onClick={() => { setFormError(""); setDecisionTarget({ row: e, action: "approve" }); }}>Approve</button>
-                      <button disabled={actionId === String(e.id)} onClick={() => { setFormError(""); setDecisionTarget({ row: e, action: "reject" }); }}>Reject</button>
-                    </div> : <span className="muted">Reviewed</span>}
-                  </td>}
-                </tr>
+                <TableRow key={String(e.id)} hover>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 750 }}>
+                      {e.spent_on ? new Date(String(e.spent_on)).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                    </Typography>
+                  </TableCell>
+                  <TableCell><Typography variant="body2" sx={{ fontWeight: 700, textTransform: "capitalize" }}>{String(e.category ?? "—")}</Typography></TableCell>
+                  <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>{String(e.description ?? "—")}</Typography></TableCell>
+                  <TableCell><Typography variant="body2" sx={{ fontWeight: 800 }}>{money.format(Number(e.amount ?? 0))}</Typography></TableCell>
+                  <TableCell>
+                    <Typography variant="caption" sx={{ fontWeight: 800, fontFamily: "ui-monospace, monospace" }}>
+                      {String(e.float_reference ?? "—")}
+                    </Typography>
+                  </TableCell>
+                  <TableCell><FcStatus value={String(e.status ?? "pending")} /></TableCell>
+                  {canApprove && (
+                    <TableCell>
+                      {e.status === "pending" ? (
+                        <Box sx={{ display: "flex", gap: 0.75 }}>
+                          <Button size="small" variant="contained" color="success" disabled={actionId === String(e.id)}
+                            onClick={() => { setFormError(""); setDecisionTarget({ row: e, action: "approve" }); }}>
+                            Approve
+                          </Button>
+                          <Button size="small" variant="outlined" color="error" disabled={actionId === String(e.id)}
+                            onClick={() => { setFormError(""); setDecisionTarget({ row: e, action: "reject" }); }}>
+                            Reject
+                          </Button>
+                        </Box>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">Reviewed</Typography>
+                      )}
+                    </TableCell>
+                  )}
+                </TableRow>
               )) : (
-                <tr><td colSpan={canApprove ? 7 : 6}><EmptyState message="No expenditures recorded yet." /></td></tr>
+                <TableRow>
+                  <TableCell colSpan={canApprove ? 7 : 6} align="center" sx={{ py: 4, color: "text.secondary" }}>
+                    No expenditures recorded yet.
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
       {/* Record expenditure modal */}
       {showRecord && (
