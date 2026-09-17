@@ -51,3 +51,47 @@ jobs:
             artifacts/test-results
           if-no-files-found: warn
           retention-days: 30
+      - name: Post CI results to the readiness hub
+        if: always() && env.E2E_ADMIN_PASSWORD != ''
+        run: |
+          # Parse the JUnit XML to extract spec counts.
+          XML="artifacts/playwright-results.xml"
+          if [ -f "$XML" ]; then
+            TOTAL=$(grep -oP 'tests="\K[0-9]+' "$XML" | head -1)
+            FAILED=$(grep -oP 'failures="\K[0-9]+' "$XML" | head -1)
+            PASSED=$((TOTAL - FAILED))
+          else
+            TOTAL=0; FAILED=0; PASSED=0
+          fi
+          if [ "$FAILED" -gt 0 ]; then
+            CONCLUSION="failure"
+          elif [ "$TOTAL" -gt 0 ]; then
+            CONCLUSION="success"
+          else
+            CONCLUSION="unknown"
+          fi
+          SHA="${GITHUB_SHA::12}"
+          # Authenticate with the application API.
+          CSRF_URL="${E2E_BASE_URL}/api/v1/auth/csrf/"
+          curl -sf -c /tmp/ci-cookies.txt "$CSRF_URL" >/dev/null 2>&1 || true
+          curl -sf -c /tmp/ci-cookies.txt -b /tmp/ci-cookies.txt \
+            -X POST "${E2E_BASE_URL}/api/v1/auth/login/" \
+            -H "Content-Type: application/json" \
+            -H "Referer: ${E2E_BASE_URL}/" \
+            -d "{\"username\":\"admin\",\"password\":\"${E2E_ADMIN_PASSWORD}\"}" >/dev/null
+          CSRF_TOKEN=$(grep csrftoken /tmp/ci-cookies.txt | awk '{print $NF}')
+          # Push the summary to the application.
+          curl -sf -b /tmp/ci-cookies.txt \
+            -X POST "${E2E_BASE_URL}/api/v1/testing/ci-results/" \
+            -H "Content-Type: application/json" \
+            -H "X-CSRFToken: ${CSRF_TOKEN}" \
+            -d "{
+              \"run_number\": ${GITHUB_RUN_NUMBER},
+              \"conclusion\": \"${CONCLUSION}\",
+              \"total_specs\": ${TOTAL},
+              \"passed_specs\": ${PASSED},
+              \"failed_specs\": ${FAILED},
+              \"head_sha\": \"${SHA}\",
+              \"run_url\": \"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\",
+              \"branch\": \"${GITHUB_REF_NAME}\"
+            }" >/dev/null || echo "Warning: Could not post CI results to the readiness hub."

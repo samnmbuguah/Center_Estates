@@ -213,53 +213,40 @@ class TestingCIStatusTests(TestCase):
         self.client = APIClient(); self.client.force_authenticate(self.user)
         self.headers = {'HTTP_X_ORGANIZATION_ID': str(self.organization.id)}
 
-    def test_ci_status_returns_github_run_data(self):
-        from unittest.mock import patch, MagicMock
-        mock_run = {
-            'id': 12345,
-            'run_number': 78,
-            'conclusion': 'success',
-            'head_sha': 'abc123def456',
-            'html_url': 'https://github.com/test/repo/actions/runs/12345',
-            'created_at': '2026-09-16T10:00:00Z',
-            'event': 'schedule',
-            'head_branch': 'main',
-        }
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = json.dumps({'workflow_runs': [mock_run]}).encode('utf-8')
-        mock_resp.__enter__ = lambda s: s
-        mock_resp.__exit__ = MagicMock(return_value=False)
-
-        with patch('core.views.urllib.request.urlopen', return_value=mock_resp):
-            response = self.client.get('/api/v1/testing/ci-status/', **self.headers)
-
+    def test_ci_status_returns_latest_stored_result(self):
+        from core.models import CITestResult
+        CITestResult.objects.create(
+            run_number=78, conclusion='success', total_specs=30, passed_specs=30, failed_specs=0,
+            head_sha='abc123def456', run_url='https://github.com/test/repo/actions/runs/12345',
+            branch='main',
+        )
+        response = self.client.get('/api/v1/testing/ci-status/', **self.headers)
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data['status'], 'fetched')
         self.assertEqual(response.data['conclusion'], 'success')
         self.assertEqual(response.data['run_number'], 78)
         self.assertEqual(response.data['head_sha'], 'abc123def456')
+        self.assertEqual(response.data['total_specs'], 30)
 
-    def test_ci_status_handles_no_runs(self):
-        from unittest.mock import patch, MagicMock
-        mock_resp = MagicMock()
-        mock_resp.read.return_value = json.dumps({'workflow_runs': []}).encode('utf-8')
-        mock_resp.__enter__ = lambda s: s
-        mock_resp.__exit__ = MagicMock(return_value=False)
-
-        with patch('core.views.urllib.request.urlopen', return_value=mock_resp):
-            response = self.client.get('/api/v1/testing/ci-status/', **self.headers)
-
+    def test_ci_status_returns_unavailable_when_empty(self):
+        response = self.client.get('/api/v1/testing/ci-status/', **self.headers)
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data['status'], 'unavailable')
 
-    def test_ci_status_handles_network_error(self):
-        import urllib.error
-        from unittest.mock import patch
-        with patch('core.views.urllib.request.urlopen', side_effect=urllib.error.URLError('timeout')):
-            response = self.client.get('/api/v1/testing/ci-status/', **self.headers)
+    def test_ci_results_post_creates_record(self):
+        from core.models import CITestResult
+        response = self.client.post('/api/v1/testing/ci-results/', {
+            'run_number': 99, 'conclusion': 'failure',
+            'total_specs': 30, 'passed_specs': 28, 'failed_specs': 2,
+            'head_sha': 'abc123', 'run_url': 'https://example.com/run/99',
+            'branch': 'main',
+        }, format='json', **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertTrue(CITestResult.objects.filter(run_number=99, conclusion='failure').exists())
 
-        self.assertEqual(response.status_code, 503, response.data)
-        self.assertEqual(response.data['status'], 'unavailable')
+    def test_ci_results_post_requires_run_number_and_conclusion(self):
+        response = self.client.post('/api/v1/testing/ci-results/', {}, format='json', **self.headers)
+        self.assertEqual(response.status_code, 400, response.data)
 
     def test_non_admin_cannot_access_ci_status(self):
         user = get_user_model().objects.create_user(username='test-member', password='test')
@@ -267,6 +254,16 @@ class TestingCIStatusTests(TestCase):
         Membership.objects.create(user=user, organization=org, is_default=True)
         client = APIClient(); client.force_authenticate(user)
         response = client.get('/api/v1/testing/ci-status/', HTTP_X_ORGANIZATION_ID=str(org.id))
+        self.assertEqual(response.status_code, 403)
+
+    def test_non_admin_cannot_post_ci_results(self):
+        user = get_user_model().objects.create_user(username='test-member2', password='test')
+        org = Organization.objects.create(name='Member2', slug='member-ci2')
+        Membership.objects.create(user=user, organization=org, is_default=True)
+        client = APIClient(); client.force_authenticate(user)
+        response = client.post('/api/v1/testing/ci-results/', {
+            'run_number': 1, 'conclusion': 'success',
+        }, format='json', HTTP_X_ORGANIZATION_ID=str(org.id))
         self.assertEqual(response.status_code, 403)
 
 

@@ -109,3 +109,20 @@ class FeatureTestProgress(OrganizationOwnedModel):
                 name='unique_feature_test_progress_per_organization',
             ),
         ]
+
+
+class CITestResult(models.Model):
+    """Platform-wide CI acceptance-run result pushed by the CI pipeline."""
+
+    run_number = models.IntegerField()
+    conclusion = models.CharField(max_length=20)  # success, failure, cancelled, etc.
+    total_specs = models.IntegerField(default=0)
+    passed_specs = models.IntegerField(default=0)
+    failed_specs = models.IntegerField(default=0)
+    head_sha = models.CharField(max_length=40, blank=True)
+    run_url = models.URLField(blank=True)
+    branch = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
