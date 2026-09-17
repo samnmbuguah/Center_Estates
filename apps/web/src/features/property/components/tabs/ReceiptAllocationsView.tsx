@@ -2,6 +2,11 @@
 
 import { useState, useMemo } from "react";
 import {
+  Button, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Typography,
+} from "@mui/material";
+import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   DetailDrawer,
 } from "@/components/module-ui";
@@ -249,70 +254,85 @@ export function ReceiptAllocationsView({
           emptyTitle="No allocations found"
           emptyDesc="When receipts are matched to invoices, allocation records will appear here."
         >
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>Allocation Ref</th>
-                  <th>Receipt No</th>
-                  <th>Invoice No</th>
-                  <th>Tenant</th>
-                  <th>Allocated Amount</th>
-                  <th>Date</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Allocation Ref</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Receipt No</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Invoice No</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Allocated Amount</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Date</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {filteredAllocations.map((a) => (
-                  <tr
+                  <TableRow
                     key={String(a.id)}
+                    hover
                     onClick={() => setSelectedAllocation(a)}
-                    style={{ cursor: "pointer" }}
+                    sx={{ cursor: "pointer" }}
                   >
-                    <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>
-                      {shortId(a.id)}
-                    </td>
-                    <td className="mono" style={{ fontSize: 12, fontWeight: 600 }}>
-                      {String(a.receipt_number ?? "—")}
-                    </td>
-                    <td className="mono" style={{ fontSize: 12, color: "var(--color-sky)" }}>
-                      {String(a.invoice_number ?? "—")}
-                    </td>
-                    <td>
-                      <strong style={{ fontSize: 12 }}>{String(a.tenant_name ?? "—")}</strong>
-                    </td>
-                    <td className="mono" style={{ fontWeight: 700, color: "var(--color-success)" }}>
-                      {kM(a.amount)}
-                    </td>
-                    <td style={{ fontSize: 12 }}>{fmtDate(a.created_at)}</td>
-                    <td>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main" }}>
+                        {shortId(a.id)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 600 }}>
+                        {String(a.receipt_number ?? "—")}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "info.main" }}>
+                        {String(a.invoice_number ?? "—")}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        {String(a.tenant_name ?? "—")}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "success.main", fontWeight: 700 }}>
+                        {kM(a.amount)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell><Typography variant="body2">{fmtDate(a.created_at)}</Typography></TableCell>
+                    <TableCell align="center">
                       <Badge tone="green">Applied</Badge>
-                    </td>
-                    <td>
-                      <div className="row" style={{ gap: 4 }} onClick={(e) => e.stopPropagation()}>
-                        <button
-                          className="btn ghost sm"
+                    </TableCell>
+                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                           onClick={() => setSelectedAllocation(a)}
                         >
                           Details
-                        </button>
+                        </Button>
                         {canFinance && (
-                          <button
-                            className="btn ghost sm"
-                            style={{ color: "var(--danger)" }}
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                             onClick={() => handleReverseAllocation(a)}
                           >
                             Reverse
-                          </button>
+                          </Button>
                         )}
-                      </div>
-                    </td>
-                  </tr>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>
 

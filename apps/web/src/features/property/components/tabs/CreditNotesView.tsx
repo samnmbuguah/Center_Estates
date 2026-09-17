@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useMemo, type ReactNode } from "react";
-import { Box, Button, Chip, MenuItem, TextField, Typography } from "@mui/material";
+import {
+  Box, Button, Chip, MenuItem, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+} from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -35,45 +38,61 @@ export function CreditNotesView({ rows, loading, search, setSearch, setTab, onAd
 
       <Panel title="Credit Notes">
         <ListState loading={loading} empty={notes.length === 0} emptyTitle="No credit notes found" emptyDesc="Credit notes issued against invoices appear here.">
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th>CN No</th>
-                  <th>Date</th>
-                  <th>Tenant</th>
-                  <th>Invoice</th>
-                  <th>Reason</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>CN No</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Invoice</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Reason</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Amount</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {notes.map((c) => (
-                  <tr key={String(c.id)}>
-                    <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>{String(c.number ?? "—")}</td>
-                    <td style={{ fontSize: 12 }}>{fmtDate(c.issued_on)}</td>
-                    <td><strong style={{ fontSize: 12 }}>{String(c.tenant_name ?? "—")}</strong></td>
-                    <td className="mono" style={{ fontSize: 12 }}>{String(c.invoice_number ?? "—")}</td>
-                    <td style={{ fontSize: 12 }}>{String(c.reason ?? "—")}</td>
-                    <td className="mono" style={{ color: "var(--danger)" }}>{kM(c.amount)}</td>
-                    <td><StatusPill value={String(c.status ?? "—")} /></td>
-                    <td>
+                  <TableRow key={String(c.id)} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main", fontWeight: 600 }}>
+                        {String(c.number ?? "—")}
+                      </Typography>
+                    </TableCell>
+                    <TableCell><Typography variant="body2">{fmtDate(c.issued_on)}</Typography></TableCell>
+                    <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>{String(c.tenant_name ?? "—")}</Typography></TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>
+                        {String(c.invoice_number ?? "—")}
+                      </Typography>
+                    </TableCell>
+                    <TableCell><Typography variant="body2">{String(c.reason ?? "—")}</Typography></TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "error.main", fontWeight: 700 }}>
+                        {kM(c.amount)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center"><StatusPill value={String(c.status ?? "—")} /></TableCell>
+                    <TableCell align="right">
                       {c.status === "void" ? (
-                        <span className="muted" style={{ fontSize: 12 }}>Voided</span>
+                        <Typography variant="caption" color="text.disabled">Voided</Typography>
                       ) : (
-                        <div className="row" style={{ gap: 4 }}>
-                          <button className="btn ghost sm" onClick={() => setTab("rent")}>View Invoice</button>
-                          <button className="btn ghost sm" style={{ color: "var(--danger)" }} onClick={() => onVoid(c)}>Void</button>
-                        </div>
+                        <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
+                          <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={() => setTab("rent")}>
+                            View Invoice
+                          </Button>
+                          <Button size="small" variant="outlined" color="error" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={() => onVoid(c)}>
+                            Void
+                          </Button>
+                        </Stack>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>
     </>

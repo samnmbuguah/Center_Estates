@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Alert, Box, Button, Typography } from "@mui/material";
+import {
+  Alert, Box, Button, Chip, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+} from "@mui/material";
 import { SubTabs } from "../PropertyToolbar";
 import { PropertyBillingDashboard } from "@/components/property-billing-dashboard";
 import { RentView } from "./RentView";
@@ -123,70 +126,94 @@ function LandlordInvoicePanel({ search }: { search: string }) {
         />
       )}
       {!fetching && filtered.length > 0 && (
-        <div className="table-scroll">
-          <table className="fc-data-table">
-            <thead>
-              <tr>
-                <th>Invoice No</th>
-                <th>Type</th>
-                <th>Period</th>
-                <th>Property</th>
-                <th>Landlord</th>
-                <th>Fee Amount</th>
-                <th>VAT</th>
-                <th>Total</th>
-                <th>Net Payout</th>
-                <th>Issued</th>
-                <th>Status</th>
-                <th style={{ textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: "action.hover" }}>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Invoice No</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Type</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Period</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Property</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Landlord</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Fee Amount</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>VAT</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Total</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Net Payout</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Issued</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {filtered.map((inv) => (
-                <tr key={inv.id}>
-                  <td className="mono" style={{ fontWeight: 700, color: "var(--brand-primary, var(--color-danger))" }}>{inv.number}</td>
-                  <td style={{ fontSize: 12 }}>
-                    <span style={{
-                      fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
-                      background: inv.fee_type === "letting" ? "var(--color-violet-bg)" : "var(--color-blue-bg)",
-                      color: inv.fee_type === "letting" ? "var(--color-violet)" : "var(--color-info-strong)",
-                    }}>
-                      {inv.fee_type === "letting" ? "Letting Fee" : "Mgmt Commission"}
-                    </span>
-                  </td>
-                  <td style={{ fontSize: 12 }}>{inv.billing_period}</td>
-                  <td style={{ fontSize: 12, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{inv.property_name}</td>
-                  <td style={{ fontSize: 12 }}>{inv.landlord_name}</td>
-                  <td className="mono" style={{ color: "var(--color-indigo)" }}>{kM(Number(inv.fee_amount))}</td>
-                  <td className="mono" style={{ color: "var(--color-warning)" }}>{kM(Number(inv.vat_amount))}</td>
-                  <td className="mono" style={{ fontWeight: 800 }}>{kM(Number(inv.total_amount))}</td>
-                  <td className="mono" style={{ color: "var(--color-info)", fontWeight: 800 }}>{kM(Number(inv.net_payout))}</td>
-                  <td style={{ fontSize: 12 }}>{inv.issued_on ? fmtDate(inv.issued_on) : "—"}</td>
-                  <td>
+                <TableRow key={inv.id} hover>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700, color: "primary.main" }}>
+                      {inv.number}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={inv.fee_type === "letting" ? "Letting Fee" : "Mgmt Commission"}
+                      color={inv.fee_type === "letting" ? "secondary" : "info"}
+                      variant="outlined"
+                      sx={{ height: 20, fontSize: 11, fontWeight: 700 }}
+                    />
+                  </TableCell>
+                  <TableCell><Typography variant="body2">{inv.billing_period}</Typography></TableCell>
+                  <TableCell sx={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <Typography variant="body2">{inv.property_name}</Typography>
+                  </TableCell>
+                  <TableCell><Typography variant="body2">{inv.landlord_name}</Typography></TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main" }}>
+                      {kM(Number(inv.fee_amount))}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "warning.main" }}>
+                      {kM(Number(inv.vat_amount))}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 800 }}>
+                      {kM(Number(inv.total_amount))}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "info.main", fontWeight: 800 }}>
+                      {kM(Number(inv.net_payout))}
+                    </Typography>
+                  </TableCell>
+                  <TableCell><Typography variant="body2">{inv.issued_on ? fmtDate(inv.issued_on) : "—"}</Typography></TableCell>
+                  <TableCell align="center">
                     <StatusPill value={inv.status === "sent" ? "issued" : inv.status} />
                     {inv.payment_reference && (
-                      <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{inv.payment_reference}</div>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontSize: 11 }}>
+                        {inv.payment_reference}
+                      </Typography>
                     )}
-                  </td>
-                  <td style={{ textAlign: "right" }}>
-                    <div style={{ display: "inline-flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                      <Button size="small" variant="outlined" sx={{ fontSize: 10, py: 0.25 }} onClick={() => handleDownloadPdf(inv)}>PDF</Button>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
+                      <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 0.75, py: 0.25, fontSize: 10 }} onClick={() => handleDownloadPdf(inv)}>PDF</Button>
                       {inv.status === "draft" && (
-                        <Button size="small" variant="contained" sx={{ fontSize: 10, py: 0.25 }} onClick={() => void handleSend(inv)}>Issue</Button>
+                        <Button size="small" variant="contained" sx={{ minWidth: 0, px: 0.75, py: 0.25, fontSize: 10 }} onClick={() => void handleSend(inv)}>Issue</Button>
                       )}
                       {inv.status === "sent" && (
-                        <Button size="small" variant="contained" color="success" sx={{ fontSize: 10, py: 0.25 }} onClick={() => void handleMarkPaid(inv)}>Mark Paid</Button>
+                        <Button size="small" variant="contained" color="success" sx={{ minWidth: 0, px: 0.75, py: 0.25, fontSize: 10 }} onClick={() => void handleMarkPaid(inv)}>Mark Paid</Button>
                       )}
                       {inv.status === "draft" && (
-                        <Button size="small" variant="outlined" color="error" sx={{ fontSize: 10, py: 0.25 }} onClick={() => void handleDelete(inv)}>Del</Button>
+                        <Button size="small" variant="outlined" color="error" sx={{ minWidth: 0, px: 0.75, py: 0.25, fontSize: 10 }} onClick={() => void handleDelete(inv)}>Del</Button>
                       )}
-                    </div>
-                  </td>
-                </tr>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
       {invoices.length > 0 && (
         <Box sx={{ pt: 1.5, pb: 0.5, px: 1, display: "flex", gap: 2, borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>

@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Alert, Button, Typography } from "@mui/material";
+import {
+  Alert, Box, Button, Chip, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TableRow, Typography,
+} from "@mui/material";
 import { Panel, EmptyState, Badge, KpiStrip, KpiCard } from "@/components/module-ui";
 import { ListState, SubTabs } from "../PropertyToolbar";
 import { PropertyTab, Row, AgingTenantRow, AgingAnalytics, ReminderRow } from "../../types/property.types";
@@ -95,34 +98,51 @@ export function ArrearsRecoveryView({
 
           <Panel title="Aging Buckets">
             {total > 0 ? (
-              <div className="table-scroll">
-                <table className="fc-data-table">
-                  <thead><tr><th>Bucket</th><th>Amount</th><th>% of total</th><th>Bar</th></tr></thead>
-                  <tbody>
+              <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "action.hover" }}>
+                      <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Bucket</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Amount</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>% of total</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Bar</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
                     {buckets.map((b) => {
                       const amount = Number(summary[b.key] ?? 0) + (b.key === "over_120" ? Number(summary["91_120"] ?? 0) : 0);
                       return (
-                        <tr key={b.key}>
-                          <td style={{ fontSize: 12 }}>{b.label}</td>
-                          <td className="mono" style={{ color: amount > 0 ? "var(--danger)" : "var(--muted)" }}>{kM(amount)}</td>
-                          <td className="mono" style={{ fontSize: 11, width: 50 }}>{pct(amount, total)}%</td>
-                          <td>
-                            <div style={{ flex: 1, height: 6, borderRadius: 99, background: "var(--border)", overflow: "hidden", minWidth: 120 }}>
-                              <div style={{ width: `${pct(amount, total)}%`, height: "100%", background: amount > 0 ? "var(--color-brand-red)" : "var(--border-strong)", transition: "width 0.3s" }} />
-                            </div>
-                          </td>
-                        </tr>
+                        <TableRow key={b.key} hover>
+                          <TableCell><Typography variant="body2">{b.label}</Typography></TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: amount > 0 ? "error.main" : "text.secondary" }}>
+                              {kM(amount)}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>
+                              {pct(amount, total)}%
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Box sx={{ width: "100%", maxWidth: 200, height: 6, borderRadius: 99, bgcolor: "action.selected", overflow: "hidden" }}>
+                              <Box sx={{ width: `${pct(amount, total)}%`, height: "100%", bgcolor: amount > 0 ? "error.main" : "text.disabled", transition: "width 0.3s" }} />
+                            </Box>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                    <tr>
-                      <td><strong style={{ fontSize: 12 }}>Total</strong></td>
-                      <td className="mono" style={{ color: "var(--danger)" }}><strong>{kM(total)}</strong></td>
-                      <td />
-                      <td />
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow sx={{ bgcolor: "action.selected" }}>
+                      <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>Total</Typography></TableCell>
+                      <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "error.main", fontWeight: 800 }}>{kM(total)}</Typography></TableCell>
+                      <TableCell />
+                      <TableCell />
+                    </TableRow>
+                  </TableFooter>
+                </Table>
+              </TableContainer>
             ) : (
               <EmptyState icon="✓" title="No arrears" description="All invoices have been collected." />
             )}
@@ -130,24 +150,38 @@ export function ArrearsRecoveryView({
 
           <Panel title="Tenants in Arrears">
             <ListState loading={loading} empty={tenants.length === 0} emptyTitle="No tenants in arrears" emptyDesc="Tenants with unpaid invoices will appear here.">
-              <div className="table-scroll">
-                <table className="fc-data-table">
-                  <thead><tr><th>Tenant</th><th>Property</th><th>Outstanding</th><th>Days Overdue</th><th>Actions</th></tr></thead>
-                  <tbody>
+              <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "action.hover" }}>
+                      <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Property</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Outstanding</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Days Overdue</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
                     {tenants.map((t, i) => (
-                      <tr key={i}>
-                        <td><strong style={{ fontSize: 12 }}>{String(t.tenant ?? "—")}</strong></td>
-                        <td style={{ fontSize: 12 }}>{String(t.property ?? "—")}</td>
-                        <td className="mono" style={{ color: "var(--danger)" }}>{kM(t.outstanding)}</td>
-                        <td><Badge tone={Number(t.oldest_days ?? 0) > 90 ? "red" : Number(t.oldest_days ?? 0) > 60 ? "yellow" : "blue"}>{kN(t.oldest_days)}d</Badge></td>
-                        <td>
-                          <button className="btn primary sm" onClick={() => setTab("rent")}>Remind via Invoices</button>
-                        </td>
-                      </tr>
+                      <TableRow key={i} hover>
+                        <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>{String(t.tenant ?? "—")}</Typography></TableCell>
+                        <TableCell><Typography variant="body2">{String(t.property ?? "—")}</Typography></TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "error.main", fontWeight: 700 }}>
+                            {kM(t.outstanding)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center"><Badge tone={Number(t.oldest_days ?? 0) > 90 ? "red" : Number(t.oldest_days ?? 0) > 60 ? "yellow" : "blue"}>{kN(t.oldest_days)}d</Badge></TableCell>
+                        <TableCell align="right">
+                          <Button size="small" variant="contained" color="primary" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} onClick={() => setTab("rent")}>
+                            Remind via Invoices
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </ListState>
           </Panel>
         </>
@@ -160,38 +194,97 @@ export function ArrearsRecoveryView({
         {notice && <Alert severity="success" sx={{ mb: 2 }}>{notice}</Alert>}
         {exposureError && <Alert severity="error" sx={{ mb: 2 }}>{exposureError}</Alert>}
         <ListState loading={exposureLoading} empty={exposure.length === 0} emptyTitle="No current lease exposure" emptyDesc="Current leases will appear here with deposit cover and arrears.">
-          <div className="table-scroll"><table className="fc-data-table"><thead><tr><th>Tenant / unit</th><th>Deposit required</th><th>Deposit paid</th><th>Arrears</th><th>Net exposure</th><th>Age</th><th>Recommended next step</th></tr></thead>
-            <tbody>{exposure.map((row) => <tr key={row.lease_reference}>
-              <td><strong>{row.tenant}</strong><br/><span className="muted">{row.unit} · {row.lease_reference}</span></td>
-              <td className="mono">{kM(row.deposit_required)}</td><td className="mono">{kM(row.deposit_paid)}</td>
-              <td className="mono" style={{ color: Number(row.arrears) > 0 ? "var(--danger)" : undefined }}>{kM(row.arrears)}</td>
-              <td className="mono"><strong>{kM(row.net_exposure)}</strong></td><td>{row.oldest_days}d</td>
-              <td>{row.recommended_action === "none" ? <Badge tone="green">Clear</Badge> : <Button size="small" variant="outlined" color={row.recommended_action === "notice_to_vacate" ? "error" : "primary"} onClick={() => sendRecoveryNotice(row)}>{row.recommended_action.replaceAll("_", " ")}</Button>}</td>
-            </tr>)}</tbody></table></div>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant / Unit</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Deposit Required</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Deposit Paid</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Arrears</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Net Exposure</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Age</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Recommended Next Step</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {exposure.map((row) => (
+                  <TableRow key={row.lease_reference} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>{row.tenant}</Typography>
+                      <Typography variant="caption" color="text.secondary">{row.unit} · {row.lease_reference}</Typography>
+                    </TableCell>
+                    <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{kM(row.deposit_required)}</Typography></TableCell>
+                    <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{kM(row.deposit_paid)}</Typography></TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: Number(row.arrears) > 0 ? "error.main" : "inherit" }}>
+                        {kM(row.arrears)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 800 }}>
+                        {kM(row.net_exposure)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center"><Typography variant="body2">{row.oldest_days}d</Typography></TableCell>
+                    <TableCell align="center">
+                      {row.recommended_action === "none" ? (
+                        <Badge tone="green">Clear</Badge>
+                      ) : (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color={row.recommended_action === "notice_to_vacate" ? "error" : "primary"}
+                          onClick={() => sendRecoveryNotice(row)}
+                          sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
+                        >
+                          {row.recommended_action.replaceAll("_", " ")}
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>}
 
       {subTab === "reminders" && (
         <Panel title="Payment Reminders">
           <ListState loading={loading} empty={reminderList.length === 0} emptyTitle="No reminders sent" emptyDesc="Payment reminders sent from the arrears workflow appear here.">
-            <div className="table-scroll">
-              <table className="fc-data-table">
-                <thead><tr><th>Tenant</th><th>Invoice</th><th>Notice type</th><th>Channel</th><th>Recipient</th><th>Sent</th><th>Status</th></tr></thead>
-                <tbody>
+            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Invoice</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Notice Type</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Channel</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Recipient</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Sent</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {reminderList.map((r) => (
-                    <tr key={String(r.id)}>
-                      <td><strong style={{ fontSize: 12 }}>{String(r.tenant_name ?? "—")}</strong></td>
-                      <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(r.invoice_number ?? "—")}</td>
-                      <td style={{ fontSize: 12 }}>{String(r.notice_type ?? "payment reminder").replace(/_/g, " ")}</td>
-                      <td style={{ fontSize: 12 }}>{String(r.channel ?? "—").replace(/_/g, " ")}</td>
-                      <td style={{ fontSize: 12 }}>{String(r.recipient ?? "—")}</td>
-                      <td style={{ fontSize: 12 }}>{fmtDate(r.sent_at)}</td>
-                      <td><Badge tone="green">Sent</Badge></td>
-                    </tr>
+                    <TableRow key={String(r.id)} hover>
+                      <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>{String(r.tenant_name ?? "—")}</Typography></TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main" }}>
+                          {String(r.invoice_number ?? "—")}
+                        </Typography>
+                      </TableCell>
+                      <TableCell><Typography variant="body2">{String(r.notice_type ?? "payment reminder").replace(/_/g, " ")}</Typography></TableCell>
+                      <TableCell><Typography variant="body2">{String(r.channel ?? "—").replace(/_/g, " ")}</Typography></TableCell>
+                      <TableCell><Typography variant="body2">{String(r.recipient ?? "—")}</Typography></TableCell>
+                      <TableCell><Typography variant="body2">{fmtDate(r.sent_at)}</Typography></TableCell>
+                      <TableCell align="center"><Badge tone="green">Sent</Badge></TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
+            </TableContainer>
           </ListState>
         </Panel>
       )}

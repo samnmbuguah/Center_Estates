@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Box } from "@mui/material";
+import {
+  Box, Button, Checkbox, Chip, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+} from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
 } from "@/components/module-ui";
@@ -445,29 +448,30 @@ export function RentView({
               </button>
             </div>
           )}
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 36 }}>
-                    <input
-                      type="checkbox"
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell padding="checkbox" sx={{ width: 44, textAlign: "center" }}>
+                    <Checkbox
+                      size="small"
                       checked={filteredInvoices.length > 0 && selectedIds.size === filteredInvoices.length}
                       onChange={toggleSelectAll}
+                      aria-label="Select all invoices"
                     />
-                  </th>
-                  <th>Invoice No</th>
-                  <th>Type</th>
-                  <th>Tenant / Recipient</th>
-                  <th>Property</th>
-                  <th>Due Date</th>
-                  <th>Amount</th>
-                  <th>Balance</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Invoice No</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Type</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant / Recipient</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Property</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Due Date</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Amount</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Balance</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {filteredInvoices.map((inv) => {
                   const isSelected = selectedIds.has(String(inv.id));
                   const bal = Number(inv.balance ?? 0);
@@ -476,141 +480,175 @@ export function RentView({
                   const isOverdue = bal > 0 && inv.due_on && new Date(String(inv.due_on)) < new Date();
 
                   return (
-                    <tr
+                    <TableRow
                       key={String(inv.id)}
+                      hover
+                      selected={isSelected}
                       onClick={() => onSelectRow(inv)}
-                      style={{ background: isSelected ? "rgba(79, 70, 229, 0.05)" : undefined }}
+                      sx={{ cursor: "pointer" }}
                     >
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
+                      <TableCell padding="checkbox" sx={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          size="small"
                           checked={isSelected}
                           onChange={(e) => toggleSelectOne(String(inv.id), e as any)}
                         />
-                      </td>
-                      <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>
-                        {String(inv.number ?? "—")}
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main", fontWeight: 700 }}>
+                          {String(inv.number ?? "—")}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
                         {getTypeBadge(inv.invoice_type)}
-                      </td>
-                      <td>
-                        <strong style={{ fontSize: 12 }}>{String(inv.tenant_name ?? "—")}</strong>
-                      </td>
-                      <td style={{ fontSize: 12 }}>
-                        {String((inv.metadata as Record<string, unknown> | undefined)?.property_name ?? "—")}
-                      </td>
-                      <td style={{ fontSize: 12 }}>
-                        {fmtDate(inv.due_on)}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(inv.tenant_name ?? "—")}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{String((inv.metadata as Record<string, unknown> | undefined)?.property_name ?? "—")}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{fmtDate(inv.due_on)}</Typography>
                         {isOverdue && (
-                          <span style={{ color: "var(--danger)", fontSize: 10, display: "block", fontWeight: 700 }}>
-                            Overdue
-                          </span>
+                          <Chip size="small" color="error" variant="outlined" label="Overdue" sx={{ height: 18, fontSize: 10, fontWeight: 700, mt: 0.5 }} />
                         )}
-                      </td>
-                      <td className="mono">{kM(inv.amount)}</td>
-                      <td className="mono" style={{ color: bal > 0 ? "var(--danger)" : "var(--color-success)", fontWeight: 700 }}>
-                        {kM(inv.balance)}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 600 }}>
+                          {kM(inv.amount)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontFamily: "ui-monospace, monospace",
+                            fontWeight: 700,
+                            color: bal > 0 ? "error.main" : "success.main",
+                          }}
+                        >
+                          {kM(inv.balance)}
+                        </Typography>
                         {isPartial && (
-                          <span style={{ display: "block", fontSize: 10, color: "var(--muted)", fontWeight: 400 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontSize: 10 }}>
                             Partial
-                          </span>
+                          </Typography>
                         )}
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell align="center">
                         <StatusPill value={String(inv.status ?? "—")} />
-                      </td>
-                      <td>
-                        <div className="row" style={{ gap: 4, flexWrap: "wrap" }}>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end", flexWrap: "wrap" }}>
                           {bal > 0 && (
-                            <button
-                              className="btn ghost sm"
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onRecordReceipt(String(inv.id));
                               }}
+                              sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11, fontWeight: 700 }}
                             >
                               Pay
-                            </button>
+                            </Button>
                           )}
-                          <button
-                            className="fc-action-btn"
+                          <Button
+                            size="small"
+                            variant="outlined"
                             onClick={(e) => {
                               e.stopPropagation();
                               onDownloadPdf(inv);
                             }}
                             title="Download PDF invoice"
+                            sx={{ minWidth: 0, px: 0.75, py: 0.25, fontSize: 11 }}
                           >
                             PDF
-                          </button>
+                          </Button>
                           {bal > 0 && !["draft", "void", "paid"].includes(String(inv.status)) && (
-                            <button
-                              className="fc-action-btn"
+                            <Button
+                              size="small"
+                              variant="outlined"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onSendReminder(inv);
                               }}
                               title="Send payment reminder"
+                              sx={{ minWidth: 0, px: 0.75, py: 0.25, fontSize: 11 }}
                             >
                               Remind
-                            </button>
+                            </Button>
                           )}
                           {inv.status === "draft" && canFinance && (
-                            <button
-                              className="fc-action-btn primary"
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="primary"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onInvoiceAction(inv, "submit-review");
                               }}
                               title="Submit draft invoice for approval"
+                              sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                             >
                               Submit
-                            </button>
+                            </Button>
                           )}
                           {inv.status === "review" && canApprove && (
-                            <button
-                              className="fc-action-btn success"
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onInvoiceAction(inv, "approve");
                               }}
                               title="Confirm and approve invoice"
+                              sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                             >
                               Confirm
-                            </button>
+                            </Button>
                           )}
                           {inv.status === "approved" && canApprove && (
-                            <button
-                              className="fc-action-btn primary"
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="primary"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onInvoiceAction(inv, "issue");
                               }}
                               title="Issue invoice to tenant"
+                              sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
                             >
                               Issue
-                            </button>
+                            </Button>
                           )}
                           {["draft", "issued", "overdue"].includes(String(inv.status)) && (
-                            <button
-                              className="fc-action-btn danger"
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onInvoiceAction(inv, "void");
                               }}
                               title="Void invoice"
+                              sx={{ minWidth: 0, px: 0.75, py: 0.25, fontSize: 11 }}
                             >
                               Void
-                            </button>
+                            </Button>
                           )}
-                        </div>
-                      </td>
-                    </tr>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>
 

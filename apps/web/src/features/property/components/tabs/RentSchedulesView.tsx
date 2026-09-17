@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useMemo, type ReactNode } from "react";
-import { Box, Button, Chip, MenuItem, TextField, Typography } from "@mui/material";
+import {
+  Box, Button, Checkbox, Chip, MenuItem, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+} from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   ErrorBanner, SearchInput, DetailDrawer, Modal, Field, Pagination, money, number,
@@ -71,42 +74,79 @@ export function RentSchedulesView({ rows, loading, search, setSearch, onGenerate
         <button className="btn primary sm" disabled={selected.length === 0 || busy} onClick={() => void bulkCreateDrafts()} data-testid="bulk-invoice-drafts">Create {selected.length || "selected"} draft{selected.length === 1 ? "" : "s"}</button>
       </div> : undefined}>
         <ListState loading={loading} empty={schedules.length === 0} emptyTitle="No rent schedules found" emptyDesc="Generate rent schedules from active leases to build the rent roll.">
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  {canFinance && <th><input type="checkbox" aria-label="Select all available schedules" checked={available.length > 0 && selected.length === available.length} onChange={(event) => setSelected(event.target.checked ? available.map((row) => String(row.id)) : [])} /></th>}
-                  <th>Lease Ref</th>
-                  <th>Tenant</th>
-                  <th>Period</th>
-                  <th>Due</th>
-                  <th>Base Rent</th>
-                  <th>Escalation</th>
-                  <th>Service Charge</th>
-                  <th>Total</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  {canFinance && (
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        size="small"
+                        inputProps={{ "aria-label": "Select all available schedules" } as any}
+                        checked={available.length > 0 && selected.length === available.length}
+                        onChange={(event) => setSelected(event.target.checked ? available.map((row) => String(row.id)) : [])}
+                      />
+                    </TableCell>
+                  )}
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Lease Ref</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Period</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Due</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Base Rent</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Escalation</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Service Charge</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Total</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {schedules.map((s) => (
-                  <tr key={String(s.id)}>
-                    {canFinance && <td><input type="checkbox" aria-label={`Select schedule ${String(s.lease_reference ?? s.id)}`} disabled={Boolean(s.invoice) || s.status === "waived"} checked={selected.includes(String(s.id))} onChange={() => toggleSelected(String(s.id))} /></td>}
-                    <td className="mono" style={{ color: "var(--primary)", fontSize: 12 }}>{String(s.lease_reference ?? "—")}</td>
-                    <td><strong style={{ fontSize: 12 }}>{String(s.tenant_name ?? "—")}</strong></td>
-                    <td style={{ fontSize: 12 }}>{fmtDate(s.period_start)} — {fmtDate(s.period_end)}</td>
-                    <td style={{ fontSize: 12 }}>{fmtDate(s.due_on)}</td>
-                    <td className="mono">{kM(s.base_rent)}</td>
-                    <td className="mono">{s.escalation_amount ? kM(s.escalation_amount) : "—"}</td>
-                    <td className="mono">{s.service_charge ? kM(s.service_charge) : "—"}</td>
-                    <td className="mono"><strong>{kM(s.total)}</strong></td>
-                    <td><StatusPill value={String(s.status ?? "—")} /></td>
-                    <td>{!s.invoice && s.status !== "waived" && canFinance ? <button className="btn ghost sm" disabled={busy} onClick={() => void previewSchedule(s)}>Preview</button> : <span className="muted">{s.invoice ? "Invoiced" : s.status === "waived" ? "Waived" : "View only"}</span>}</td>
-                  </tr>
+                  <TableRow key={String(s.id)} hover selected={selected.includes(String(s.id))}>
+                    {canFinance && (
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          size="small"
+                          inputProps={{ "aria-label": `Select schedule ${String(s.lease_reference ?? s.id)}` } as any}
+                          disabled={Boolean(s.invoice) || s.status === "waived"}
+                          checked={selected.includes(String(s.id))}
+                          onChange={() => toggleSelected(String(s.id))}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main" }}>
+                        {String(s.lease_reference ?? "—")}
+                      </Typography>
+                    </TableCell>
+                    <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>{String(s.tenant_name ?? "—")}</Typography></TableCell>
+                    <TableCell><Typography variant="body2" color="text.secondary">{fmtDate(s.period_start)} — {fmtDate(s.period_end)}</Typography></TableCell>
+                    <TableCell><Typography variant="body2">{fmtDate(s.due_on)}</Typography></TableCell>
+                    <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{kM(s.base_rent)}</Typography></TableCell>
+                    <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{s.escalation_amount ? kM(s.escalation_amount) : "—"}</Typography></TableCell>
+                    <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{s.service_charge ? kM(s.service_charge) : "—"}</Typography></TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 800 }}>
+                        {kM(s.total)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center"><StatusPill value={String(s.status ?? "—")} /></TableCell>
+                    <TableCell align="right">
+                      {!s.invoice && s.status !== "waived" && canFinance ? (
+                        <Button size="small" variant="outlined" sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }} disabled={busy} onClick={() => void previewSchedule(s)}>
+                          Preview
+                        </Button>
+                      ) : (
+                        <Typography variant="caption" color="text.disabled">
+                          {s.invoice ? "Invoiced" : s.status === "waived" ? "Waived" : "View only"}
+                        </Typography>
+                      )}
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </ListState>
       </Panel>
       {preview && (

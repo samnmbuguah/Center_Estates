@@ -2,6 +2,10 @@
 
 import { useState, useMemo } from "react";
 import {
+  Box, Button, Checkbox, Chip, Paper, Stack,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+} from "@mui/material";
+import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
   Pagination,
 } from "@/components/module-ui";
@@ -339,83 +343,102 @@ export function ReceiptsView({
           emptyTitle="No receipts found"
           emptyDesc="Recorded tenant payments will appear in this ledger."
         >
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 36, textAlign: "center" }}>
-                    <input
-                      type="checkbox"
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell padding="checkbox" sx={{ width: 44, textAlign: "center" }}>
+                    <Checkbox
+                      size="small"
                       checked={selectedIds.size === pagedRows.length && pagedRows.length > 0}
                       onChange={toggleSelectAll}
-                      title="Select all on this page"
+                      aria-label="Select all receipts on this page"
                     />
-                  </th>
-                  <th>Receipt No</th>
-                  <th>Date</th>
-                  <th>Tenant / Payer</th>
-                  <th>Charge Type</th>
-                  <th>Payment Method</th>
-                  <th>Reference</th>
-                  <th>Amount</th>
-                  <th>Allocation</th>
-                  <th>Document</th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Receipt No</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Date</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant / Payer</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Charge Type</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Payment Method</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Reference</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Amount</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Allocation</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Document</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {pagedRows.map((r) => {
                   const isSelected = selectedIds.has(String(r.id));
                   return (
-                    <tr key={String(r.id)} style={isSelected ? { background: "rgba(99,102,241,0.06)" } : undefined}>
-                      <td style={{ textAlign: "center" }}>
-                        <input
-                          type="checkbox"
+                    <TableRow
+                      key={String(r.id)}
+                      hover
+                      selected={isSelected}
+                      sx={{ cursor: "pointer" }}
+                    >
+                      <TableCell padding="checkbox" sx={{ textAlign: "center" }}>
+                        <Checkbox
+                          size="small"
                           checked={isSelected}
                           onChange={() => toggleSelectRow(String(r.id))}
                         />
-                      </td>
-                      <td className="mono" style={{ color: "var(--primary)", fontWeight: 600 }}>
-                        {String(r.number ?? "—")}
-                      </td>
-                      <td style={{ fontSize: 12 }}>{fmtDate(r.received_on)}</td>
-                      <td>
-                        <strong style={{ fontSize: 12 }}>{String(r.tenant_name ?? (r as any).owner_name ?? "—")}</strong>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main", fontWeight: 700 }}>
+                          {String(r.number ?? "—")}
+                        </Typography>
+                      </TableCell>
+                      <TableCell><Typography variant="body2">{fmtDate(r.received_on)}</Typography></TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(r.tenant_name ?? (r as any).owner_name ?? "—")}</Typography>
                         {(r as any).recipient_type === "owner" && (
-                          <span style={{ display: "block", fontSize: 10, color: "var(--color-violet)", fontWeight: 600 }}>Owner</span>
+                          <Chip size="small" variant="outlined" color="secondary" label="Owner" sx={{ height: 18, fontSize: 10, mt: 0.25 }} />
                         )}
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
                         {(r as any).charge_type ? (
                           <ChargeTypeBadge chargeType={(r as any).charge_type} />
                         ) : (
-                          <span className="muted" style={{ fontSize: 12 }}>—</span>
+                          <Typography variant="body2" color="text.secondary">—</Typography>
                         )}
-                      </td>
-                      <td style={{ fontSize: 12, textTransform: "capitalize" }}>
-                        {String(r.payment_method ?? "—").replace(/_/g, " ")}
-                      </td>
-                      <td className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>
-                        {String(r.external_reference ?? "—")}
-                      </td>
-                      <td className="mono" style={{ fontWeight: 700, color: "var(--text)" }}>
-                        {kM(r.amount)}
-                      </td>
-                      <td>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ textTransform: "capitalize" }}>
+                          {String(r.payment_method ?? "—").replace(/_/g, " ")}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "text.secondary" }}>
+                          {String(r.external_reference ?? "—")}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>
+                          {kM(r.amount)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
                         <StatusPill tone={r.invoice ? "green" : "yellow"}>
                           {r.invoice ? "Applied" : "Unapplied"}
                         </StatusPill>
-                      </td>
-                      <td>
-                        <button className="fc-action-btn" onClick={() => onDownloadPdf(r as ReceiptRow)} title="Download PDF receipt">
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => onDownloadPdf(r as ReceiptRow)}
+                          title="Download PDF receipt"
+                          sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11 }}
+                        >
                           PDF
-                        </button>
-                      </td>
-                    </tr>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
           <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </ListState>
       </Panel>
