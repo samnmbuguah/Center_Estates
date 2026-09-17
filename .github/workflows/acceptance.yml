@@ -85,6 +85,7 @@ jobs:
             -X POST "${E2E_BASE_URL}/api/v1/testing/ci-results/" \
             -H "Content-Type: application/json" \
             -H "X-CSRFToken: ${CSRF_TOKEN}" \
+            -H "Referer: ${E2E_BASE_URL}/" \
             -d "{
               \"run_number\": ${GITHUB_RUN_NUMBER},
               \"conclusion\": \"${CONCLUSION}\",
