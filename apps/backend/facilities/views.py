@@ -38,6 +38,8 @@ from core.property_scope import scope_model_queryset, scope_queryset_to_property
 from properties.models import Building, Property
 from notifications.models import Notification
 from notifications.services import notify_permission, notify_user
+import openpyxl
+from .rubric_templates import STANDARD_RUBRIC_TEMPLATES
 
 from .models import (
     AssetConditionAssessment, ComplianceObligation, Contractor, ContractorContract, FacilityAsset,
@@ -46,6 +48,7 @@ from .models import (
     LocalPurchaseOrder, MeterResetEvent, PettyCashVoucher, PreventiveSchedule, ProcurementQuotation, ProcurementRecord,
     RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, SupplierInvoice, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
+    ServiceLine, ScorecardVersion, ScorecardKPI, ServiceAppraisal, AppraisalItemResult, ImprovementAction,
 )
 from .serializers import (
     AssetConditionAssessmentSerializer, ComplianceObligationSerializer, ContractorContractSerializer,
@@ -58,6 +61,8 @@ from .serializers import (
     ServiceProfileAllocationSerializer, ServiceProfileSerializer, ServiceRequestSerializer, StrategicFMPlanSerializer, UtilityMeterSerializer,
     WorkOrderAttachmentSerializer, WorkOrderCostItemSerializer, WorkOrderEventSerializer,
     WorkOrderSerializer,
+    ServiceLineSerializer, ScorecardVersionSerializer, ScorecardKPISerializer,
+    ServiceAppraisalSerializer, AppraisalItemResultSerializer, ImprovementActionSerializer,
 )
 
 
@@ -3398,3 +3403,440 @@ class FacilityAnalyticsViewSet(ViewSet):
         response = HttpResponse(stream.getvalue(), content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="facility-performance-{today:%Y-%m-%d}.pdf"'
         return response
+
+
+class ServiceLineViewSet(FacilityModelViewSet):
+    queryset = ServiceLine.objects.select_related('property', 'responsible_manager').prefetch_related('scorecard_versions__kpis')
+    serializer_class = ServiceLineSerializer
+    search_fields = ('name', 'code', 'property__name')
+
+    @transaction.atomic
+    def perform_create(self, serializer):
+        organization = get_active_organization(self.request)
+        service_line = serializer.save(organization=organization)
+
+        template_key = self.request.data.get('rubric_template')
+        custom_kpis = self.request.data.get('custom_kpis') or self.request.data.get('kpis')
+
+        kpi_list = []
+        if custom_kpis and isinstance(custom_kpis, list) and len(custom_kpis) > 0:
+            kpi_list = custom_kpis
+        elif template_key and template_key in STANDARD_RUBRIC_TEMPLATES:
+            kpi_list = STANDARD_RUBRIC_TEMPLATES[template_key]['kpis']
+
+        total_weight = sum(Decimal(str(item.get('max_weight', 0))) for item in kpi_list) if kpi_list else Decimal('0')
+        is_active = (total_weight == Decimal('100.0') or total_weight == Decimal('100'))
+
+        scorecard = ScorecardVersion.objects.create(
+            organization=organization,
+            service_line=service_line,
+            version_code=str(self.request.data.get('initial_version_code') or 'V1.0').strip(),
+            status=ScorecardVersion.Status.ACTIVE if is_active else ScorecardVersion.Status.DRAFT,
+            effective_date=timezone.localdate() if is_active else None,
+            notes=f'Configured scorecard using {template_key or "custom"} rubric'
+        )
+
+        for idx, kpi in enumerate(kpi_list):
+            ScorecardKPI.objects.create(
+                organization=organization,
+                scorecard_version=scorecard,
+                order=kpi.get('order') or (idx + 1),
+                area=str(kpi.get('area', 'General Delivery')),
+                measure=str(kpi.get('measure', '')),
+                target_standard=str(kpi.get('target_standard', '')),
+                evidence_method=str(kpi.get('evidence_method', 'Inspection report')),
+                max_weight=Decimal(str(kpi.get('max_weight', 5))),
+                is_active=bool(kpi.get('is_active', True)),
+            )
+
+    @action(detail=False, methods=['get'], url_path='rubric_templates')
+    def rubric_templates(self, request):
+        """Returns catalog of standard service line appraisal rubric templates."""
+        return Response({'templates': list(STANDARD_RUBRIC_TEMPLATES.values())})
+
+    @action(detail=False, methods=['post'], url_path='seed_defaults')
+    def seed_defaults(self, request):
+        """Seed default service lines and scorecard templates (All 11 FM service lines or specified keys)."""
+        organization = get_active_organization(request)
+        property_id = request.data.get('property_id')
+        if not property_id:
+            prop = Property.objects.filter(organization=organization).first()
+            if not prop:
+                return Response({'detail': 'No property found to seed service lines for.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            prop = Property.objects.filter(organization=organization, id=property_id).first()
+            if not prop:
+                return Response({'detail': 'Property not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        selected_templates = request.data.get('templates')
+        if not selected_templates or selected_templates == 'all':
+            template_keys = list(STANDARD_RUBRIC_TEMPLATES.keys())
+        elif isinstance(selected_templates, list):
+            template_keys = selected_templates
+        else:
+            template_keys = ['cleaning', 'security']
+
+        created_lines = []
+        with transaction.atomic():
+            for t_key in template_keys:
+                tpl = STANDARD_RUBRIC_TEMPLATES.get(t_key)
+                if not tpl:
+                    continue
+                code = f"{tpl['code']}-{prop.code or '01'}"
+                s_line, _ = ServiceLine.objects.get_or_create(
+                    organization=organization,
+                    property=prop,
+                    code=code,
+                    defaults={
+                        'name': tpl['name'],
+                        'scope': tpl['scope'],
+                        'sla_standard': tpl['sla_standard'],
+                        'appraisal_frequency': tpl['appraisal_frequency'],
+                        'is_active': True,
+                    }
+                )
+                sc_version, _ = ScorecardVersion.objects.get_or_create(
+                    organization=organization,
+                    service_line=s_line,
+                    version_code='V1.0',
+                    defaults={
+                        'status': ScorecardVersion.Status.ACTIVE,
+                        'effective_date': timezone.localdate(),
+                        'notes': f"Standard 100% {tpl['name']} Scorecard"
+                    }
+                )
+                if not sc_version.kpis.exists():
+                    for kpi in tpl['kpis']:
+                        ScorecardKPI.objects.create(
+                            organization=organization,
+                            scorecard_version=sc_version,
+                            order=kpi['order'],
+                            area=kpi['area'],
+                            measure=kpi['measure'],
+                            target_standard=kpi['target_standard'],
+                            evidence_method=kpi['evidence_method'],
+                            max_weight=Decimal(str(kpi['max_weight'])),
+                            is_active=True,
+                        )
+                created_lines.append(s_line.name)
+
+        return Response({
+            'status': 'ok',
+            'detail': f'Seeded {len(created_lines)} service lines and 100% active scorecards for {prop.name}.',
+            'seeded_lines': created_lines,
+        })
+
+
+class ScorecardVersionViewSet(FacilityModelViewSet):
+    queryset = ScorecardVersion.objects.select_related('service_line').prefetch_related('kpis')
+    serializer_class = ScorecardVersionSerializer
+
+    @action(detail=True, methods=['post'], url_path='save_kpis')
+    def save_kpis(self, request, pk=None):
+        version = self.get_object()
+        kpis_data = request.data.get('kpis', [])
+        organization = get_active_organization(request)
+
+        with transaction.atomic():
+            version.kpis.all().delete()
+            total_w = Decimal('0.0')
+            for idx, item in enumerate(kpis_data):
+                w = Decimal(str(item.get('max_weight', 5)))
+                total_w += w
+                ScorecardKPI.objects.create(
+                    organization=organization,
+                    scorecard_version=version,
+                    order=idx + 1,
+                    area=str(item.get('area', '')),
+                    measure=str(item.get('measure', '')),
+                    target_standard=str(item.get('target_standard', '')),
+                    evidence_method=str(item.get('evidence_method', '')),
+                    max_weight=w,
+                    is_active=bool(item.get('is_active', True)),
+                )
+        return Response({
+            'status': 'ok',
+            'total_weight': float(total_w),
+            'version': ScorecardVersionSerializer(version).data
+        })
+
+    @action(detail=True, methods=['post'], url_path='activate')
+    def activate(self, request, pk=None):
+        version = self.get_object()
+        total_w = sum(kpi.max_weight for kpi in version.kpis.filter(is_active=True))
+        if total_w != Decimal('100.0') and total_w != Decimal('100'):
+            return Response(
+                {'detail': f'Scorecard cannot be activated: total weight is {total_w}%, must equal exactly 100%.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        version.service_line.scorecard_versions.filter(status=ScorecardVersion.Status.ACTIVE).exclude(id=version.id).update(
+            status=ScorecardVersion.Status.SUPERSEDED
+        )
+        version.status = ScorecardVersion.Status.ACTIVE
+        version.effective_date = timezone.localdate()
+        version.save(update_fields=['status', 'effective_date', 'updated_at'])
+        return Response({'status': 'ok', 'detail': 'Scorecard version is now active.'})
+
+
+class ServiceAppraisalViewSet(FacilityModelViewSet):
+    queryset = ServiceAppraisal.objects.select_related(
+        'contract', 'property', 'contractor', 'service_line', 'scorecard_version', 'posted_by'
+    ).prefetch_related('results', 'improvement_actions')
+    serializer_class = ServiceAppraisalSerializer
+    search_fields = ('period_name', 'contractor__name', 'property__name', 'service_line__name')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        contract_id = self.request.query_params.get('contract_id')
+        property_id = self.request.query_params.get('property_id')
+        contractor_id = self.request.query_params.get('contractor_id')
+        service_line_id = self.request.query_params.get('service_line_id')
+        period_name = self.request.query_params.get('period')
+        status_filter = self.request.query_params.get('status')
+        if contract_id:
+            qs = qs.filter(contract_id=contract_id)
+        if property_id:
+            qs = qs.filter(property_id=property_id)
+        if contractor_id:
+            qs = qs.filter(contractor_id=contractor_id)
+        if service_line_id:
+            qs = qs.filter(service_line_id=service_line_id)
+        if period_name:
+            qs = qs.filter(period_name__icontains=period_name)
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs
+
+    def perform_create(self, serializer):
+        organization = get_active_organization(self.request)
+        appraisal = serializer.save(organization=organization)
+
+        scorecard = appraisal.scorecard_version
+        if not scorecard and appraisal.contract and appraisal.contract.scorecard_version:
+            scorecard = appraisal.contract.scorecard_version
+            appraisal.scorecard_version = scorecard
+            appraisal.save(update_fields=['scorecard_version'])
+
+        if not scorecard and appraisal.service_line:
+            scorecard = appraisal.service_line.scorecard_versions.filter(status=ScorecardVersion.Status.ACTIVE).first()
+            if not scorecard:
+                scorecard = appraisal.service_line.scorecard_versions.first()
+            if scorecard:
+                appraisal.scorecard_version = scorecard
+                appraisal.save(update_fields=['scorecard_version'])
+
+        if scorecard and not appraisal.results.exists():
+            for kpi in scorecard.kpis.filter(is_active=True).order_by('order'):
+                AppraisalItemResult.objects.create(
+                    organization=organization,
+                    appraisal=appraisal,
+                    scorecard_kpi=kpi,
+                    order=kpi.order,
+                    area=kpi.area,
+                    measure=kpi.measure,
+                    target_standard=kpi.target_standard,
+                    actual_observation='',
+                    score=kpi.max_weight,
+                    max_weight=kpi.max_weight,
+                    weighted_score=kpi.max_weight,
+                    comment='',
+                )
+            appraisal.calculate_totals()
+            appraisal.save(update_fields=['total_score', 'tier_rating'])
+
+        # Automatically carry forward open improvement actions from previous period
+        if appraisal.contract:
+            prev_appraisals = ServiceAppraisal.objects.filter(
+                organization=organization,
+                contract=appraisal.contract,
+            ).exclude(id=appraisal.id).order_by('-created_at')
+        elif appraisal.contractor and appraisal.service_line:
+            prev_appraisals = ServiceAppraisal.objects.filter(
+                organization=organization,
+                contractor=appraisal.contractor,
+                service_line=appraisal.service_line,
+            ).exclude(id=appraisal.id).order_by('-created_at')
+        else:
+            prev_appraisals = ServiceAppraisal.objects.none()
+
+        if prev_appraisals.exists():
+            prev_appraisal = prev_appraisals.first()
+            for action_item in prev_appraisal.improvement_actions.filter(status__in=['open', 'in_progress']):
+                ImprovementAction.objects.create(
+                    organization=organization,
+                    appraisal=appraisal,
+                    issue=action_item.issue,
+                    required_action=action_item.required_action,
+                    responsible_party=action_item.responsible_party,
+                    target_date=action_item.target_date,
+                    evidence_required=action_item.evidence_required,
+                    status=action_item.status,
+                    carried_forward_from=action_item,
+                    correction_status=ImprovementAction.CorrectionStatus.NOT_CORRECTED,
+                    manager_comment=f"Carried forward from {prev_appraisal.period_name}",
+                )
+
+    @action(detail=True, methods=['post'], url_path='save_results')
+    def save_results(self, request, pk=None):
+        appraisal = self.get_object()
+        if appraisal.status == ServiceAppraisal.Status.POSTED and not request.data.get('force'):
+            return Response({'detail': 'Posted appraisal is locked against ordinary editing.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        results_data = request.data.get('results', [])
+        actions_data = request.data.get('actions', [])
+        remarks = request.data.get('remarks')
+        pm_signatory = request.data.get('property_manager_signatory')
+        sup_signatory = request.data.get('provider_supervisor_signatory')
+        is_posting = bool(request.data.get('post', False))
+
+        with transaction.atomic():
+            for item in results_data:
+                res_id = item.get('id')
+                if res_id:
+                    result_obj = appraisal.results.filter(id=res_id).first()
+                    if result_obj:
+                        score_val = Decimal(str(item.get('score', 0)))
+                        result_obj.score = score_val
+                        result_obj.weighted_score = score_val
+                        result_obj.actual_observation = str(item.get('actual_observation', ''))
+                        result_obj.comment = str(item.get('comment', ''))
+                        if 'evidence_files' in item:
+                            result_obj.evidence_files = item.get('evidence_files')
+                        result_obj.save()
+
+            for act in actions_data:
+                act_id = act.get('id')
+                if act_id:
+                    act_obj = appraisal.improvement_actions.filter(id=act_id).first()
+                    if act_obj:
+                        act_obj.status = act.get('status', act_obj.status)
+                        act_obj.correction_status = act.get('correction_status', act_obj.correction_status)
+                        act_obj.manager_comment = act.get('manager_comment', act_obj.manager_comment)
+                        act_obj.save()
+                elif act.get('issue'):
+                    ImprovementAction.objects.create(
+                        organization=appraisal.organization,
+                        appraisal=appraisal,
+                        issue=act['issue'],
+                        required_action=act.get('required_action', ''),
+                        responsible_party=act.get('responsible_party', 'Service Provider'),
+                        target_date=act.get('target_date'),
+                        evidence_required=act.get('evidence_required', ''),
+                        status='open',
+                    )
+
+            if remarks is not None:
+                appraisal.remarks = remarks
+            if pm_signatory is not None:
+                appraisal.property_manager_signatory = pm_signatory
+            if sup_signatory is not None:
+                appraisal.provider_supervisor_signatory = sup_signatory
+
+            appraisal.calculate_totals()
+            if is_posting:
+                appraisal.status = ServiceAppraisal.Status.POSTED
+                appraisal.posted_at = timezone.now()
+                appraisal.posted_by = request.user if request.user.is_authenticated else None
+            appraisal.save()
+
+        return Response({
+            'status': 'ok',
+            'detail': 'Appraisal saved successfully.',
+            'appraisal': ServiceAppraisalSerializer(appraisal).data
+        })
+
+    @action(detail=True, methods=['get'], url_path='export_excel')
+    def export_excel(self, request, pk=None):
+        appraisal = self.get_object()
+        output = io.BytesIO()
+        workbook = openpyxl.Workbook()
+        ws = workbook.active
+        ws.title = (appraisal.property.name[:25] if appraisal.property else 'Appraisal').upper()
+
+        ws.cell(row=3, column=2, value="CENTER ESTATES ERP - SERVICE PROVIDER APPRAISAL").font = openpyxl.styles.Font(bold=True, size=13)
+        ws.cell(row=5, column=2, value="Month / Period").font = openpyxl.styles.Font(bold=True)
+        ws.cell(row=5, column=3, value=appraisal.period_name)
+        ws.cell(row=6, column=2, value="Building / Property").font = openpyxl.styles.Font(bold=True)
+        ws.cell(row=6, column=3, value=appraisal.property.name if appraisal.property else "—")
+        ws.cell(row=7, column=2, value="Service Provider").font = openpyxl.styles.Font(bold=True)
+        ws.cell(row=7, column=3, value=appraisal.contractor.name if appraisal.contractor else "—")
+        ws.cell(row=8, column=2, value="Service Line").font = openpyxl.styles.Font(bold=True)
+        ws.cell(row=8, column=3, value=appraisal.service_line.name if appraisal.service_line else "—")
+
+        ws.cell(row=10, column=2, value=f"{appraisal.service_line.name.upper() if appraisal.service_line else 'SERVICE'} EVALUATION METRIC").font = openpyxl.styles.Font(bold=True, size=11)
+
+        headers = ["No", "Responsibilities / KPI Description", "Target Standard", "Score Rating", "Max Weight", "Observation / Comment"]
+        for c_idx, h in enumerate(headers, start=2):
+            cell = ws.cell(row=12, column=c_idx, value=h)
+            cell.font = openpyxl.styles.Font(bold=True, color="FFFFFF")
+            cell.fill = openpyxl.styles.PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
+
+        cur_row = 13
+        results = appraisal.results.all().order_by('order')
+        for r in results:
+            ws.cell(row=cur_row, column=2, value=r.order)
+            ws.cell(row=cur_row, column=3, value=r.measure)
+            ws.cell(row=cur_row, column=4, value=r.target_standard or "Agreed standard")
+            ws.cell(row=cur_row, column=5, value=float(r.score))
+            ws.cell(row=cur_row, column=6, value=float(r.max_weight))
+            ws.cell(row=cur_row, column=7, value=r.comment or r.actual_observation or "")
+            cur_row += 1
+
+        total_cell_label = ws.cell(row=cur_row, column=4, value="Total Score:")
+        total_cell_label.font = openpyxl.styles.Font(bold=True)
+        total_cell_val = ws.cell(row=cur_row, column=5, value=float(appraisal.total_score))
+        total_cell_val.font = openpyxl.styles.Font(bold=True, size=12, color="0000FF")
+        ws.cell(row=cur_row, column=6, value=100)
+        ws.cell(row=cur_row, column=7, value=f"Tier Status: {appraisal.tier_rating}").font = openpyxl.styles.Font(bold=True)
+        cur_row += 3
+
+        ws.cell(row=cur_row, column=2, value="Property Manager Signatory:").font = openpyxl.styles.Font(bold=True)
+        ws.cell(row=cur_row, column=4, value=appraisal.property_manager_signatory or "Authorized Property Manager")
+        cur_row += 2
+        ws.cell(row=cur_row, column=2, value="Supervisor Service Provider:").font = openpyxl.styles.Font(bold=True)
+        ws.cell(row=cur_row, column=4, value=appraisal.provider_supervisor_signatory or "Contractor Supervisor")
+        cur_row += 2
+        ws.cell(row=cur_row, column=2, value="Manager Remarks:").font = openpyxl.styles.Font(bold=True)
+        ws.cell(row=cur_row, column=4, value=appraisal.remarks or "Service delivered in line with contract.")
+
+        workbook.save(output)
+        output.seek(0)
+        filename = f"appraisal-{appraisal.period_name.replace(' ', '_')}.xlsx"
+        response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    @action(detail=False, methods=['get'], url_path='trend_report')
+    def trend_report(self, request):
+        """Returns multi-period historical appraisal results for trend charting and reporting."""
+        contractor_id = request.query_params.get('contractor_id')
+        property_id = request.query_params.get('property_id')
+        organization = get_active_organization(request)
+        qs = ServiceAppraisal.objects.filter(organization=organization)
+        if contractor_id:
+            qs = qs.filter(contractor_id=contractor_id)
+        if property_id:
+            qs = qs.filter(property_id=property_id)
+
+        appraisals = qs.order_by('period_end', 'created_at')
+        trend = []
+        for app in appraisals:
+            trend.append({
+                'id': app.id,
+                'period_name': app.period_name,
+                'property_name': app.property.name if app.property else '',
+                'contractor_name': app.contractor.name if app.contractor else '',
+                'service_line_name': app.service_line.name if app.service_line else '',
+                'total_score': float(app.total_score),
+                'tier_rating': app.tier_rating,
+                'status': app.status,
+                'open_actions_count': app.improvement_actions.filter(status='open').count(),
+            })
+        return Response({'trend': trend})
+
+
+class ImprovementActionViewSet(FacilityModelViewSet):
+    queryset = ImprovementAction.objects.select_related('appraisal', 'appraisal__contractor', 'appraisal__property')
+    serializer_class = ImprovementActionSerializer
+    search_fields = ('issue', 'required_action', 'responsible_party', 'appraisal__contractor__name')
+

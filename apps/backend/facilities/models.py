@@ -646,9 +646,82 @@ class StrategicFMPlan(OrganizationOwnedModel):
             raise ValidationError('FM plan property must belong to the same organization.')
 
 
+class ServiceLine(OrganizationOwnedModel):
+    class Frequency(models.TextChoices):
+        MONTHLY = 'monthly', 'Monthly'
+        QUARTERLY = 'quarterly', 'Quarterly'
+        SEMI_ANNUAL = 'semi_annual', 'Semi-Annual'
+        ANNUAL = 'annual', 'Annual'
+
+    property = models.ForeignKey('properties.Property', on_delete=models.CASCADE, related_name='service_lines')
+    name = models.CharField(max_length=160)
+    code = models.CharField(max_length=60)
+    scope = models.TextField(blank=True)
+    sla_standard = models.TextField(blank=True)
+    appraisal_frequency = models.CharField(max_length=20, choices=Frequency.choices, default=Frequency.MONTHLY)
+    responsible_manager = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='managed_service_lines')
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('name',)
+        constraints = [
+            models.UniqueConstraint(fields=('property', 'code'), name='unique_property_service_line_code')
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.property.name})"
+
+
+class ScorecardVersion(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        ACTIVE = 'active', 'Active'
+        SUPERSEDED = 'superseded', 'Superseded'
+
+    service_line = models.ForeignKey(ServiceLine, on_delete=models.CASCADE, related_name='scorecard_versions')
+    version_code = models.CharField(max_length=40, default='V1.0')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    effective_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f"{self.service_line.name} - {self.version_code} ({self.status})"
+
+    @property
+    def total_weight(self):
+        return sum(kpi.max_weight for kpi in self.kpis.filter(is_active=True))
+
+
+class ScorecardKPI(OrganizationOwnedModel):
+    scorecard_version = models.ForeignKey(ScorecardVersion, on_delete=models.CASCADE, related_name='kpis')
+    order = models.PositiveSmallIntegerField(default=1)
+    area = models.CharField(max_length=120, blank=True)
+    measure = models.CharField(max_length=240)
+    target_standard = models.CharField(max_length=240, blank=True)
+    evidence_method = models.CharField(max_length=240, blank=True)
+    max_weight = models.DecimalField(max_digits=5, decimal_places=2, default=5.0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ('order', 'id')
+
+    def __str__(self):
+        return f"{self.order}. {self.measure} ({self.max_weight}%)"
+
+
 class ContractorContract(OrganizationOwnedModel):
+    class AcceptanceStatus(models.TextChoices):
+        PENDING = 'pending', 'Pending acceptance'
+        ACCEPTED = 'accepted', 'Accepted'
+        REJECTED = 'rejected', 'Rejected'
+
     contractor = models.ForeignKey(Contractor, on_delete=models.CASCADE, related_name='contracts')
     property = models.ForeignKey('properties.Property', on_delete=models.SET_NULL, null=True, blank=True, related_name='contractor_contracts')
+    service_line = models.ForeignKey(ServiceLine, on_delete=models.SET_NULL, null=True, blank=True, related_name='contracts')
+    scorecard_version = models.ForeignKey(ScorecardVersion, on_delete=models.SET_NULL, null=True, blank=True, related_name='contracts')
     contract_number = models.CharField(max_length=80)
     scope_of_work = models.TextField()
     contract_value = models.DecimalField(max_digits=14, decimal_places=2, default=0)
@@ -658,6 +731,9 @@ class ContractorContract(OrganizationOwnedModel):
     resolution_sla_hours = models.PositiveIntegerField(default=24)
     rate_card = models.JSONField(default=dict, blank=True)
     status = models.CharField(max_length=20, default='active')
+    acceptance_status = models.CharField(max_length=20, choices=AcceptanceStatus.choices, default=AcceptanceStatus.ACCEPTED)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    accepted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='accepted_contracts')
 
     class Meta:
         ordering = ('-end_date',)
@@ -666,6 +742,94 @@ class ContractorContract(OrganizationOwnedModel):
     def clean(self):
         if self.contractor_id and self.contractor.organization_id != self.organization_id:
             raise ValidationError('Contractor must belong to the same organization.')
+
+
+class ServiceAppraisal(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        POSTED = 'posted', 'Posted'
+        AMENDED = 'amended', 'Amended'
+
+    contract = models.ForeignKey(ContractorContract, on_delete=models.SET_NULL, null=True, blank=True, related_name='service_appraisals')
+    property = models.ForeignKey('properties.Property', on_delete=models.PROTECT, related_name='service_appraisals')
+    contractor = models.ForeignKey(Contractor, on_delete=models.PROTECT, related_name='service_appraisals')
+    service_line = models.ForeignKey(ServiceLine, on_delete=models.SET_NULL, null=True, blank=True, related_name='service_appraisals')
+    scorecard_version = models.ForeignKey(ScorecardVersion, on_delete=models.SET_NULL, null=True, blank=True, related_name='service_appraisals')
+    period_name = models.CharField(max_length=80)
+    period_start = models.DateField(null=True, blank=True)
+    period_end = models.DateField(null=True, blank=True)
+    total_score = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
+    tier_rating = models.CharField(max_length=40, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    property_manager_signatory = models.CharField(max_length=160, blank=True)
+    provider_supervisor_signatory = models.CharField(max_length=160, blank=True)
+    remarks = models.TextField(blank=True)
+    posted_at = models.DateTimeField(null=True, blank=True)
+    posted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='posted_service_appraisals')
+
+    class Meta:
+        ordering = ('-period_end', '-created_at')
+
+    def calculate_totals(self):
+        results = self.results.all()
+        if not results.exists():
+            self.total_score = 0
+            self.tier_rating = 'Unrated'
+            return
+        total = sum(r.score for r in results)
+        self.total_score = round(total, 2)
+        if self.total_score >= 85:
+            self.tier_rating = 'Tier 1 · Approved'
+        elif self.total_score >= 70:
+            self.tier_rating = 'Tier 2 · Monitored'
+        else:
+            self.tier_rating = 'High Risk · Review'
+
+
+class AppraisalItemResult(OrganizationOwnedModel):
+    appraisal = models.ForeignKey(ServiceAppraisal, on_delete=models.CASCADE, related_name='results')
+    scorecard_kpi = models.ForeignKey(ScorecardKPI, on_delete=models.SET_NULL, null=True, blank=True, related_name='results')
+    order = models.PositiveSmallIntegerField(default=1)
+    area = models.CharField(max_length=120, blank=True)
+    measure = models.CharField(max_length=240)
+    target_standard = models.CharField(max_length=240, blank=True)
+    actual_observation = models.TextField(blank=True)
+    score = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
+    max_weight = models.DecimalField(max_digits=5, decimal_places=2, default=5.0)
+    weighted_score = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
+    comment = models.TextField(blank=True)
+    evidence_files = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ('order', 'id')
+
+
+class ImprovementAction(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        OPEN = 'open', 'Open'
+        IN_PROGRESS = 'in_progress', 'In progress'
+        CLOSED = 'closed', 'Closed'
+
+    class CorrectionStatus(models.TextChoices):
+        CORRECTED = 'corrected', 'Corrected'
+        PARTIALLY_CORRECTED = 'partially_corrected', 'Partially corrected'
+        NOT_CORRECTED = 'not_corrected', 'Not corrected'
+        NA = 'na', 'Not applicable'
+
+    appraisal = models.ForeignKey(ServiceAppraisal, on_delete=models.CASCADE, related_name='improvement_actions')
+    issue = models.TextField()
+    required_action = models.TextField()
+    responsible_party = models.CharField(max_length=160)
+    target_date = models.DateField(null=True, blank=True)
+    evidence_required = models.CharField(max_length=240, blank=True)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.OPEN)
+    carried_forward_from = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='subsequent_actions')
+    correction_status = models.CharField(max_length=24, choices=CorrectionStatus.choices, default=CorrectionStatus.NOT_CORRECTED)
+    closure_evidence = models.JSONField(default=list, blank=True)
+    manager_comment = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('status', 'target_date')
 
 
 class FMBudget(OrganizationOwnedModel):

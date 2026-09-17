@@ -11,6 +11,7 @@ from .views import (
     PreventiveScheduleViewSet, ProcurementRecordViewSet, RepairRequisitionViewSet, ServiceProfileAllocationViewSet, ServiceProfileViewSet, ServiceRequestViewSet, StrategicFMPlanViewSet,
     SupplierInvoiceViewSet, UtilityMeterViewSet, WorkOrderAttachmentViewSet, WorkOrderCostItemViewSet,
     WorkOrderEventViewSet, WorkOrderViewSet,
+    ServiceLineViewSet, ScorecardVersionViewSet, ServiceAppraisalViewSet, ImprovementActionViewSet,
 )
 
 router = DefaultRouter()
@@ -44,6 +45,10 @@ router.register('meter-reset-events', MeterResetEventViewSet)
 router.register('meter-reconciliations', MeterReconciliationViewSet)
 router.register('contractors', ContractorViewSet)
 router.register('contracts', ContractorContractViewSet)
+router.register('service-lines', ServiceLineViewSet)
+router.register('scorecard-versions', ScorecardVersionViewSet)
+router.register('appraisals', ServiceAppraisalViewSet)
+router.register('corrective-actions', ImprovementActionViewSet)
 router.register('budgets', FMBudgetViewSet)
 router.register('expenses', FacilityExpenseViewSet)
 router.register('compliance', ComplianceObligationViewSet)

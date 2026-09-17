@@ -11,6 +11,7 @@ from .models import (
     LocalPurchaseOrder, MeterResetEvent, PettyCashVoucher, PreventiveSchedule, ProcurementQuotation, ProcurementRecord,
     RepairRequisition, ServiceProfile, ServiceProfileAllocation, ServiceRequest, StrategicFMPlan, SupplierInvoice, UtilityMeter, WorkOrder,
     WorkOrderAttachment, WorkOrderCostItem, WorkOrderEvent,
+    ServiceLine, ScorecardVersion, ScorecardKPI, ServiceAppraisal, AppraisalItemResult, ImprovementAction,
 )
 
 
@@ -610,6 +611,8 @@ class StrategicFMPlanSerializer(serializers.ModelSerializer):
 class ContractorContractSerializer(serializers.ModelSerializer):
     contractor_name = serializers.CharField(source='contractor.name', read_only=True)
     property_name = serializers.CharField(source='property.name', read_only=True, default='')
+    service_line_name = serializers.CharField(source='service_line.name', read_only=True, default='')
+    scorecard_version_code = serializers.CharField(source='scorecard_version.version_code', read_only=True, default='')
 
     class Meta:
         model = ContractorContract
@@ -682,3 +685,70 @@ class FacilityFlagSerializer(serializers.ModelSerializer):
     class Meta:
         model = FacilityFlag
         exclude = ('organization',)
+
+
+class ScorecardKPISerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScorecardKPI
+        exclude = ('organization',)
+
+
+class ScorecardVersionSerializer(serializers.ModelSerializer):
+    kpis = ScorecardKPISerializer(many=True, read_only=True)
+    total_weight = serializers.DecimalField(max_digits=6, decimal_places=2, read_only=True)
+    service_line_name = serializers.CharField(source='service_line.name', read_only=True, default='')
+
+    class Meta:
+        model = ScorecardVersion
+        exclude = ('organization',)
+
+
+class ServiceLineSerializer(serializers.ModelSerializer):
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    responsible_manager_name = serializers.CharField(source='responsible_manager.get_full_name', read_only=True, default='')
+    scorecard_versions = ScorecardVersionSerializer(many=True, read_only=True)
+    active_scorecard = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ServiceLine
+        exclude = ('organization',)
+
+    def get_active_scorecard(self, obj):
+        version = obj.scorecard_versions.filter(status=ScorecardVersion.Status.ACTIVE).first()
+        if not version:
+            version = obj.scorecard_versions.first()
+        if version:
+            return ScorecardVersionSerializer(version).data
+        return None
+
+
+class AppraisalItemResultSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppraisalItemResult
+        exclude = ('organization',)
+
+
+class ImprovementActionSerializer(serializers.ModelSerializer):
+    appraisal_period = serializers.CharField(source='appraisal.period_name', read_only=True, default='')
+    contractor_name = serializers.CharField(source='appraisal.contractor.name', read_only=True, default='')
+    property_name = serializers.CharField(source='appraisal.property.name', read_only=True, default='')
+
+    class Meta:
+        model = ImprovementAction
+        exclude = ('organization',)
+
+
+class ServiceAppraisalSerializer(serializers.ModelSerializer):
+    results = AppraisalItemResultSerializer(many=True, read_only=True)
+    improvement_actions = ImprovementActionSerializer(many=True, read_only=True)
+    contractor_name = serializers.CharField(source='contractor.name', read_only=True)
+    property_name = serializers.CharField(source='property.name', read_only=True)
+    service_line_name = serializers.CharField(source='service_line.name', read_only=True, default='')
+    contract_number = serializers.CharField(source='contract.contract_number', read_only=True, default='')
+    scorecard_version_code = serializers.CharField(source='scorecard_version.version_code', read_only=True, default='')
+    posted_by_name = serializers.CharField(source='posted_by.get_full_name', read_only=True, default='')
+
+    class Meta:
+        model = ServiceAppraisal
+        exclude = ('organization',)
+
