@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+} from "@mui/material";
 import { money } from "@/components/module-ui";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
@@ -149,46 +152,46 @@ export function WorkOrdersView({
               </div>
               <button className="fc-toolbar-btn" onClick={() => exportCsv(displayRows, "work-orders.csv")}>↓ Export</button>
             </div>
-            <div className="table-scroll">
-              <table className="fc-data-table">
-                <thead>
-                  <tr>
-                    <th>Status</th>
-                    <th>Work Order</th>
-                    <th>Title</th>
-                    <th>Property</th>
-                    <th>Priority</th>
-                    <th>Progress</th>
-                    <th>Cost</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
+            <TableContainer>
+              <Table size="small" className="fc-data-table">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Status</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Work Order</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Title</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Property</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Priority</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Progress</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Cost</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {displayRows.map((row) => {
                     const progress = Number(row.progress ?? 0);
                     const priority = String(row.priority ?? "low");
                     return (
-                      <tr key={String(row.id)} onClick={() => setSelectedRow(row)} style={{ cursor: "pointer" }}>
-                        <td><FcStatus value={String(row.status ?? "open").replace("_", " ")} /></td>
-                        <td><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "var(--text-secondary)" }}>{String(row.number ?? "—")}</span></td>
-                        <td><strong style={{ fontSize: 12 }}>{String(row.title ?? "—")}</strong></td>
-                        <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(row.property_name ?? "—")}</td>
-                        <td>
+                      <TableRow key={String(row.id)} hover onClick={() => setSelectedRow(row)} sx={{ cursor: "pointer" }}>
+                        <TableCell><FcStatus value={String(row.status ?? "open").replace("_", " ")} /></TableCell>
+                        <TableCell><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "var(--text-secondary)" }}>{String(row.number ?? "—")}</span></TableCell>
+                        <TableCell><strong style={{ fontSize: 12 }}>{String(row.title ?? "—")}</strong></TableCell>
+                        <TableCell sx={{ fontSize: 12, color: "text.secondary" }}>{String(row.property_name ?? "—")}</TableCell>
+                        <TableCell>
                           <span className="fc-priority-chip">
                             <i style={{ background: priorityColors[priority] ?? "#9ca3af" }} />
                             <span style={{ color: priorityColors[priority] ?? "#9ca3af", textTransform: "capitalize" }}>{priority}</span>
                           </span>
-                        </td>
-                        <td>
+                        </TableCell>
+                        <TableCell>
                           <div style={{ alignItems: "center", display: "flex", gap: 8 }}>
                             <div style={{ background: "var(--color-surface-alt)", borderRadius: 99, flex: 1, height: 6, minWidth: 70, overflow: "hidden" }}>
                               <i style={{ background: "var(--color-blue)", borderRadius: "inherit", display: "block", height: "100%", width: `${progress}%` }} />
                             </div>
                             <span style={{ fontSize: 11, fontWeight: 700 }}>{progress}%</span>
                           </div>
-                        </td>
-                        <td style={{ fontSize: 12 }}>{Number(row.total_cost ?? 0) > 0 ? money.format(Number(row.total_cost)) : "—"}</td>
-                        <td>
+                        </TableCell>
+                        <TableCell sx={{ fontSize: 12 }}>{Number(row.total_cost ?? 0) > 0 ? money.format(Number(row.total_cost)) : "—"}</TableCell>
+                        <TableCell>
                           <div style={{ alignItems: "center", display: "flex", gap: 6, justifyContent: "flex-end" }}>
                             {permissions.canWork && String(row.status) === "open" && (
                               <button
@@ -227,14 +230,20 @@ export function WorkOrdersView({
                             )}
                             {Boolean(row.supervisor_verified) && <span style={{ color: "var(--color-green-text)", fontSize: 11, fontWeight: 800 }}>✓ Verified</span>}
                           </div>
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     );
                   })}
-                  {displayRows.length === 0 && <tr><td colSpan={8}><EmptyState message="No work orders have been recorded for this property." /></td></tr>}
-                </tbody>
-              </table>
-            </div>
+                  {displayRows.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8}>
+                        <EmptyState message="No work orders have been recorded for this property." />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
             <div className="fc-pagination">
               <span className="fc-pager-info">Showing 1 to {displayRows.length} of {String(kpis?.openWorkOrders ?? displayRows.length)} work orders</span>
             </div>

@@ -6,6 +6,9 @@ import { Field, Modal, money } from "@/components/module-ui";
 import { Row } from "../../types/facility.types";
 import { exportCsv } from "../../utils/facility.utils";
 import { FcStatus } from "../FacilityToolbar";
+import {
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
+} from "@mui/material";
 
 function EmptyState({ message = "No data available." }: { message?: string }) {
   return (
@@ -200,29 +203,35 @@ export function WorkOrderDetail({
           </div>
           <div className="data-panel">
             <div style={{ borderBottom: "1px solid var(--line)", padding: "14px 18px" }}>
-              <strong style={{ fontSize: 13 }}>Parts & Materials</strong>
+              <strong style={{ fontSize: 13 }}>Parts &amp; Materials</strong>
             </div>
-            <div className="table-scroll">
-              <table className="fc-data-table">
-                <thead>
-                  <tr><th>Part Code</th><th>Description</th><th>Qty</th><th>Unit Cost</th><th>Total</th></tr>
-                </thead>
-                <tbody>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Part Code</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Description</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Qty</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Unit Cost</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Total</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {costItems.filter((i) => i.kind === "part").length > 0
                     ? costItems.filter((i) => i.kind === "part").map((item, idx) => (
-                        <tr key={idx}>
-                          <td style={{ fontSize: 11, fontFamily: "ui-monospace, monospace" }}>{String(item.reference ?? "—")}</td>
-                          <td style={{ fontSize: 12 }}>{String(item.description ?? "—")}</td>
-                          <td style={{ fontSize: 12 }}>{String(item.quantity ?? "—")}</td>
-                          <td style={{ fontSize: 12 }}>{money.format(Number(item.unit_cost ?? 0))}</td>
-                          <td style={{ fontSize: 12, fontWeight: 700 }}>{money.format(Number(item.total ?? 0))}</td>
-                        </tr>
+                        <TableRow key={idx} hover>
+                          <TableCell sx={{ fontSize: 11, fontFamily: "ui-monospace, monospace" }}>{String(item.reference ?? "—")}</TableCell>
+                          <TableCell>{String(item.description ?? "—")}</TableCell>
+                          <TableCell>{String(item.quantity ?? "—")}</TableCell>
+                          <TableCell>{money.format(Number(item.unit_cost ?? 0))}</TableCell>
+                          <TableCell sx={{ fontWeight: 700 }}>{money.format(Number(item.total ?? 0))}</TableCell>
+                        </TableRow>
                       ))
-                    : <tr><td colSpan={5}><EmptyState message="No parts have been recorded for this work order." /></td></tr>
+                    : <TableRow><TableCell colSpan={5}><EmptyState message="No parts have been recorded for this work order." /></TableCell></TableRow>
                   }
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
+            </TableContainer>
           </div>
           <div className="data-panel" style={{ padding: "16px 18px" }}>
             <strong style={{ display: "block", fontSize: 13, marginBottom: 12 }}>Cost Estimate Summary</strong>
@@ -331,35 +340,44 @@ export function WorkOrderDetail({
       {detailTab === "parts" && (
         <div className="data-panel">
           <div className="fc-table-toolbar">
-            <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 13 }}>Labor & Parts Cost Items</span>
+            <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 13 }}>Labor &amp; Parts Cost Items</span>
             <div className="row" style={{ gap: 8 }}>
               <button className="fc-toolbar-btn" onClick={() => exportCsv(costItems, `work-order-${String(row.number ?? "cost")}-items.csv`)}>↓ Export</button>
               {canWork && <button className="fc-toolbar-btn primary" onClick={() => setShowCostForm(true)}>+ Add Cost Item</button>}
             </div>
           </div>
-          <div className="table-scroll">
-            <table className="fc-data-table">
-              <thead>
-                <tr><th>Type</th><th>Description</th><th>Qty</th><th>Unit Cost</th><th>Total</th><th>Supplier</th><th>Reference</th><th>Added By</th></tr>
-              </thead>
-              <tbody>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "action.hover" }}>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Type</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Description</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Qty</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Unit Cost</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Total</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Supplier</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Reference</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Added By</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {costItems.length > 0 ? costItems.map((item, idx) => (
-                  <tr key={idx}>
-                    <td><FcStatus value={String(item.kind ?? "other")} /></td>
-                    <td style={{ fontSize: 12 }}>{String(item.description ?? "—")}</td>
-                    <td style={{ fontSize: 12 }}>{String(item.quantity ?? "—")}</td>
-                    <td style={{ fontSize: 12 }}>{money.format(Number(item.unit_cost ?? 0))}</td>
-                    <td style={{ fontSize: 12, fontWeight: 700 }}>{money.format(Number(item.total ?? 0))}</td>
-                    <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(item.supplier ?? "—")}</td>
-                    <td style={{ fontSize: 11, fontFamily: "ui-monospace, monospace" }}>{String(item.reference ?? "—")}</td>
-                    <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(item.added_by_name ?? "—")}</td>
-                  </tr>
+                  <TableRow key={idx} hover>
+                    <TableCell><FcStatus value={String(item.kind ?? "other")} /></TableCell>
+                    <TableCell>{String(item.description ?? "—")}</TableCell>
+                    <TableCell>{String(item.quantity ?? "—")}</TableCell>
+                    <TableCell>{money.format(Number(item.unit_cost ?? 0))}</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>{money.format(Number(item.total ?? 0))}</TableCell>
+                    <TableCell sx={{ color: "text.secondary" }}>{String(item.supplier ?? "—")}</TableCell>
+                    <TableCell sx={{ fontSize: 11, fontFamily: "ui-monospace, monospace" }}>{String(item.reference ?? "—")}</TableCell>
+                    <TableCell sx={{ color: "text.secondary" }}>{String(item.added_by_name ?? "—")}</TableCell>
+                  </TableRow>
                 )) : (
-                  <tr><td colSpan={8}><EmptyState message="No cost items recorded for this work order yet." /></td></tr>
+                  <TableRow><TableCell colSpan={8}><EmptyState message="No cost items recorded for this work order yet." /></TableCell></TableRow>
                 )}
-              </tbody>
-            </table>
-          </div>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </div>
       )}
 

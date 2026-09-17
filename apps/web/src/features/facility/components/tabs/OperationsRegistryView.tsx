@@ -3,7 +3,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  MenuItem, Stack, TextField,
+  MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField,
 } from "@mui/material";
 import { AlertTriangle, ClipboardCheck, Plus, ShieldCheck, Wrench } from "lucide-react";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
@@ -107,24 +107,52 @@ export function OperationsRegistryView({ mode, rows, organizationId, propertyId,
       <KpiCard icon={<Wrench size={19} />} label={mode === "service-profiles" ? "Provider-ready" : "High priority"} value={mode === "service-profiles" ? rows.filter((r) => Array.isArray(r.allocations) && r.allocations.length).length : urgent} sub={mode === "service-profiles" ? "Allocated profiles" : "High and critical"} />
     </KpiStrip>
     {filtered.length === 0 ? <EmptyState icon={mode === "service-profiles" ? "🧩" : "🚨"} title={mode === "service-profiles" ? "No service profiles yet" : "No incidents reported"} description={mode === "service-profiles" ? "Create a reusable service definition, then allocate an approved provider without changing the master record." : "Caretakers can save an incident as a draft on mobile and submit it when evidence is ready."} /> :
-      <Box className="data-panel table-scroll">
-        <Box component="table" className="fc-data-table" sx={{ width: "100%" }}>
-          <thead><tr>{(mode === "service-profiles" ? ["Code", "Service", "Category", "Type", "Criticality", "Frequency", "Status", "Provider allocation"] : ["Reference", "Occurred", "Location", "Category", "Severity", "Status", "Reported by", "Actions"]).map((h) => <th key={h}>{h}</th>)}</tr></thead>
-          <tbody>{filtered.map((row) => mode === "service-profiles" ? <tr key={String(row.id)}>
-            <td className="mono">{String(row.code)}</td><td><strong>{String(row.name)}</strong><small className="muted" style={{ display: "block" }}>{String(row.description || "")}</small></td><td>{String(row.category)}</td><td><StatusPill value={String(row.service_type)} /></td><td><StatusPill value={String(row.criticality)} /></td><td>{String(row.default_frequency || "On demand")}</td><td><StatusPill value={String(row.status)} /></td><td>{Array.isArray(row.allocations) ? row.allocations.length : 0}</td>
-          </tr> : <tr key={String(row.id)}>
-            <td className="mono">{String(row.reference)}</td><td>{new Date(String(row.occurred_at)).toLocaleString()}</td><td>{String(row.location)}</td><td>{String(row.category)}</td><td><StatusPill value={String(row.severity)} /></td><td><StatusPill value={String(row.status)} /></td><td>{String(row.reported_by_name || "—")}</td>            <td><Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap" }}>
-              <Button size="small" onClick={() => setSelected(row)}>View</Button>
-              <Button size="small" onClick={() => void downloadMemo(row)}>Memo PDF</Button>
-              {row.status === "draft" && <Button size="small" onClick={() => action(row, "submit")}>Submit</Button>}
-              {row.status === "submitted" && canApprove && <Button size="small" onClick={() => action(row, "review")}>Review</Button>}
-              {row.status === "under_review" && <Button size="small" onClick={() => action(row, "create-work-order")}>Work order</Button>}
-              {(row.status === "under_review" || row.status === "follow_up") && <Button size="small" onClick={() => action(row, "resolve")}>Resolve</Button>}
-              {row.status === "resolved" && canApprove && <Button size="small" onClick={() => action(row, "close")}>Close</Button>}
-            </Stack></td>
-          </tr>)}</tbody>
-        </Box>
-      </Box>}
+      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3, overflow: "hidden" }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ background: "var(--surface-sunken)" }}>
+              {(mode === "service-profiles" ? ["Code", "Service", "Category", "Type", "Criticality", "Frequency", "Status", "Provider allocation"] : ["Reference", "Occurred", "Location", "Category", "Severity", "Status", "Reported by", "Actions"]).map((h, i) => (
+                <TableCell key={h} sx={{ fontWeight: 700, ...(mode === "incidents" && i === 7 ? { textAlign: "right" } : {}) }}>{h}</TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filtered.map((row) => mode === "service-profiles" ? (
+              <TableRow key={String(row.id)} hover>
+                <TableCell className="mono">{String(row.code)}</TableCell>
+                <TableCell><strong>{String(row.name)}</strong><small className="muted" style={{ display: "block" }}>{String(row.description || "")}</small></TableCell>
+                <TableCell>{String(row.category)}</TableCell>
+                <TableCell><StatusPill value={String(row.service_type)} /></TableCell>
+                <TableCell><StatusPill value={String(row.criticality)} /></TableCell>
+                <TableCell>{String(row.default_frequency || "On demand")}</TableCell>
+                <TableCell><StatusPill value={String(row.status)} /></TableCell>
+                <TableCell>{Array.isArray(row.allocations) ? row.allocations.length : 0}</TableCell>
+              </TableRow>
+            ) : (
+              <TableRow key={String(row.id)} hover>
+                <TableCell className="mono">{String(row.reference)}</TableCell>
+                <TableCell>{new Date(String(row.occurred_at)).toLocaleString()}</TableCell>
+                <TableCell>{String(row.location)}</TableCell>
+                <TableCell>{String(row.category)}</TableCell>
+                <TableCell><StatusPill value={String(row.severity)} /></TableCell>
+                <TableCell><StatusPill value={String(row.status)} /></TableCell>
+                <TableCell>{String(row.reported_by_name || "—")}</TableCell>
+                <TableCell sx={{ textAlign: "right" }}>
+                  <Stack direction="row" spacing={0.75} sx={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <Button size="small" onClick={() => setSelected(row)}>View</Button>
+                    <Button size="small" onClick={() => void downloadMemo(row)}>Memo PDF</Button>
+                    {row.status === "draft" && <Button size="small" onClick={() => action(row, "submit")}>Submit</Button>}
+                    {row.status === "submitted" && canApprove && <Button size="small" onClick={() => action(row, "review")}>Review</Button>}
+                    {row.status === "under_review" && <Button size="small" onClick={() => action(row, "create-work-order")}>Work order</Button>}
+                    {(row.status === "under_review" || row.status === "follow_up") && <Button size="small" onClick={() => action(row, "resolve")}>Resolve</Button>}
+                    {row.status === "resolved" && canApprove && <Button size="small" onClick={() => action(row, "close")}>Close</Button>}
+                  </Stack>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>}
 
     <Dialog open={open} onClose={() => !saving && setOpen(false)} fullWidth maxWidth="md">
       <DialogTitle sx={{ fontWeight: 900 }}>{mode === "service-profiles" ? "Create service profile" : "Report an incident"}</DialogTitle>

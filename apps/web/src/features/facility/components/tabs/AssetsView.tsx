@@ -5,6 +5,12 @@ import Link from "next/link";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import { BarChart3, ClipboardCheck, Download, Plus, Printer, QrCode, Upload } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { money } from "@/components/module-ui";
@@ -206,35 +212,21 @@ export function AssetsView({
             </Button>
           </Stack>
         </header>
-
-        <div style={{ overflowX: "auto" }}>
-          <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "10px 14px", width: 36, textAlign: "center" }}>
-                  <input
-                    type="checkbox"
-                    checked={selectedIds.size === displayRows.length && displayRows.length > 0}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedIds(new Set(displayRows.map((r) => String(r.id))));
-                      } else {
-                        setSelectedIds(new Set());
-                      }
-                    }}
-                    style={{ cursor: "pointer" }}
-                  />
-                </th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>ASSET ID & NAME</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>LOCATION</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>MANUFACTURER / MODEL</th>
-                <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>CRITICALITY</th>
-                <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)" }}>CONDITION</th>
-                <th style={{ padding: "10px 14px", textAlign: "right", fontSize: 11, color: "var(--text-secondary)" }}>REPLACEMENT COST</th>
-                <th style={{ padding: "10px 14px", textAlign: "center", fontSize: 11, color: "var(--text-secondary)", minWidth: 280 }}>LIFECYCLE &amp; ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: "action.hover" }}>
+                <TableCell padding="checkbox" />
+                <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>ASSET ID &amp; NAME</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>LOCATION</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>MANUFACTURER / MODEL</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11 }}>CRITICALITY</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11 }}>CONDITION</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11 }}>REPLACEMENT COST</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, minWidth: 280 }}>LIFECYCLE &amp; ACTIONS</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {displayRows.map((asset) => {
                 const isChecked = selectedIds.has(String(asset.id));
                 const critColor: Record<string, string> = {
@@ -244,8 +236,8 @@ export function AssetsView({
                   low: "var(--color-success)",
                 };
                 return (
-                  <tr key={String(asset.id)} style={{ borderBottom: "1px solid var(--border)", background: isChecked ? "rgba(37,99,235,0.06)" : "transparent" }}>
-                    <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                  <TableRow key={String(asset.id)} hover selected={isChecked}>
+                    <TableCell padding="checkbox">
                       <input
                         type="checkbox"
                         checked={isChecked}
@@ -257,8 +249,8 @@ export function AssetsView({
                         }}
                         style={{ cursor: "pointer" }}
                       />
-                    </td>
-                    <td style={{ padding: "12px 14px" }}>
+                    </TableCell>
+                    <TableCell>
                       <strong style={{ display: "block", fontSize: "0.85rem", color: "var(--text-primary)" }}>
                         {String(asset.name)}
                       </strong>
@@ -268,19 +260,16 @@ export function AssetsView({
                         </span>
                         <span style={{ color: "var(--text-secondary)", fontSize: 11 }}>{String(asset.category)}</span>
                       </div>
-                    </td>
-
-                    <td style={{ padding: "12px 14px", fontSize: 12 }}>
+                    </TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>
                       <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>{String(asset.property_name ?? "Main Property")}</div>
                       <small style={{ color: "var(--text-secondary)" }}>{String(asset.building_name ?? "Tower A")} · {String(asset.unit_code ?? "Plant Room")}</small>
-                    </td>
-
-                    <td style={{ padding: "12px 14px", fontSize: 12 }}>
+                    </TableCell>
+                    <TableCell sx={{ fontSize: 12 }}>
                       <div style={{ color: "var(--text-primary)" }}>{String(asset.manufacturer ?? "OEM")}</div>
                       <small style={{ color: "var(--text-secondary)" }}>{String(asset.model_number ?? "—")}</small>
-                    </td>
-
-                    <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                    </TableCell>
+                    <TableCell align="center">
                       <span
                         style={{
                           background: `${critColor[String(asset.criticality)] ?? "var(--color-info)"}15`,
@@ -294,17 +283,14 @@ export function AssetsView({
                       >
                         {String(asset.criticality ?? "Medium")}
                       </span>
-                    </td>
-
-                    <td style={{ padding: "12px 14px", textAlign: "center" }}>
+                    </TableCell>
+                    <TableCell align="center">
                       <FcStatus value={String(asset.condition ?? "good")} />
-                    </td>
-
-                    <td style={{ padding: "12px 14px", textAlign: "right", fontSize: 12, fontWeight: 700 }}>
+                    </TableCell>
+                    <TableCell align="right" sx={{ fontSize: 12, fontWeight: 700 }}>
                       {money.format(Number(asset.replacement_cost ?? asset.purchase_value ?? 0))}
-                    </td>
-
-                    <td style={{ padding: "10px 14px", textAlign: "center" }}>
+                    </TableCell>
+                    <TableCell align="center">
                       <Stack direction="row" spacing={0.75} sx={{ justifyContent: "center", minWidth: 260 }}>
                         <Button
                           component={Link}
@@ -373,13 +359,13 @@ export function AssetsView({
                           Lifecycle &amp; CAPEX
                         </Button>
                       </Stack>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
       </article>
 
       {/* Lifecycle & CAPEX Plan Modal */}
@@ -511,32 +497,34 @@ export function AssetsView({
                     </div>
                   </div>
 
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
-                    <thead>
-                      <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
-                        <th style={{ padding: "8px", textAlign: "left" }}>YEAR</th>
-                        <th style={{ padding: "8px", textAlign: "right" }}>PLANNED CAPEX</th>
-                        <th style={{ padding: "8px", textAlign: "center" }}>CONDITION SCORE</th>
-                        <th style={{ padding: "8px", textAlign: "left" }}>STATUS / ACTION</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lifecycleData.capex_5_year_projections?.map((proj: any) => (
-                        <tr key={proj.year} style={{ borderBottom: "1px solid var(--border)" }}>
-                          <td style={{ padding: "8px", fontWeight: 800 }}>{proj.year}</td>
-                          <td style={{ padding: "8px", textAlign: "right", fontWeight: 700, color: proj.planned_capex > 0 ? "var(--primary)" : "inherit" }}>
-                            {proj.planned_capex > 0 ? money.format(proj.planned_capex) : "KES 0"}
-                          </td>
-                          <td style={{ padding: "8px", textAlign: "center" }}>{proj.projected_condition_score} / 5.0</td>
-                          <td style={{ padding: "8px" }}>
-                            <span style={{ background: proj.planned_capex > 0 ? "var(--color-red-bg)" : "var(--surface-sunken)", color: proj.planned_capex > 0 ? "var(--color-danger-deep)" : "inherit", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
-                              {proj.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <TableContainer>
+                    <Table size="small" style={{ width: "100%" }}>
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: "action.hover" }}>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12, p: 1 }}>YEAR</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, p: 1 }}>PLANNED CAPEX</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 700, fontSize: 12, p: 1 }}>CONDITION SCORE</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: 12, p: 1 }}>STATUS / ACTION</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {lifecycleData.capex_5_year_projections?.map((proj: any) => (
+                          <TableRow key={proj.year} hover>
+                            <TableCell sx={{ p: 1, fontWeight: 800 }}>{proj.year}</TableCell>
+                            <TableCell align="right" sx={{ p: 1, fontWeight: 700, color: proj.planned_capex > 0 ? "primary.main" : "inherit" }}>
+                              {proj.planned_capex > 0 ? money.format(proj.planned_capex) : "KES 0"}
+                            </TableCell>
+                            <TableCell align="center" sx={{ p: 1 }}>{proj.projected_condition_score} / 5.0</TableCell>
+                            <TableCell sx={{ p: 1 }}>
+                              <span style={{ background: proj.planned_capex > 0 ? "var(--color-red-bg)" : "var(--surface-sunken)", color: proj.planned_capex > 0 ? "var(--color-danger-deep)" : "inherit", padding: "2px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700 }}>
+                                {proj.status}
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "flex-end" }}>

@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import {
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+} from "@mui/material";
 import { money } from "@/components/module-ui";
 import { Row } from "../../types/facility.types";
 import { apiFetch } from "@/lib/api";
@@ -213,28 +216,28 @@ export function StrategicFMPlanView({
             Defined Service Standards & SLA Commitments
           </h2>
         </header>
-        <div style={{ overflowX: "auto" }}>
-          <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)" }}>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>SERVICE DOMAIN</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>SCOPE OF WORK</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>FREQUENCY</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>RESPONSE SLA</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>RESOLUTION SLA</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>TARGET KPI</th>
-                <th style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, color: "var(--text-secondary)" }}>SERVICE PROVIDER</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td colSpan={7} style={{ padding: 24, textAlign: "center", color: "var(--text-secondary)" }}>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ bgcolor: "action.hover" }}>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>SERVICE DOMAIN</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>SCOPE OF WORK</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>FREQUENCY</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>RESPONSE SLA</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>RESOLUTION SLA</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>TARGET KPI</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>SERVICE PROVIDER</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              <TableRow>
+                <TableCell colSpan={7} align="center" sx={{ py: 3, color: "text.secondary" }}>
                   Define service profiles and property allocations to populate the live SLA standards register.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
+        </TableContainer>
       </article>
 
       {/* Exception Action List */}

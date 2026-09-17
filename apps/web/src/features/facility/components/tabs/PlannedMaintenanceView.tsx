@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Button, Stack } from "@mui/material";
+import {
+  Button,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+} from "@mui/material";
 import { Plus } from "lucide-react";
 import { Modal } from "@/components/module-ui";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
@@ -456,39 +465,39 @@ export function PlannedMaintenanceView({
                 <button onClick={() => setSubTab("list")} style={{ background: "none", border: 0, color: "var(--color-brand-red)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>View all</button>
               </div>
             </div>
-            <div className="table-scroll">
-              <table className="fc-data-table">
-                <thead>
-                  <tr>
-                    <th>Task ID</th>
-                    <th>Task Name</th>
-                    <th>Asset</th>
-                    <th>Building / Location</th>
-                    <th>Frequency</th>
-                    <th>Due Date</th>
-                    <th>Assigned To</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <TableContainer>
+              <Table size="small" className="fc-data-table">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Task ID</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Task Name</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Asset</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Building / Location</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Frequency</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Due Date</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Assigned To</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Status</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11 }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {displayRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} style={{ textAlign: "center", padding: "32px 16px", color: "var(--text-secondary)" }}>
+                    <TableRow>
+                      <TableCell colSpan={9} align="center" sx={{ py: 4, color: "text.secondary" }}>
                         No planned maintenance schedules found. Click &quot;+ Add Schedule&quot; to configure preventive maintenance.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ) : displayRows.map((row) => (
-                    <tr key={String(row.id)}>
-                      <td><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "var(--text-secondary)" }}>{String(row.code ?? "—")}</span></td>
-                      <td><strong style={{ fontSize: 12 }}>{String(row.name ?? "—")}</strong></td>
-                      <td style={{ fontSize: 12 }}>{String(row.asset_name ?? "—")}</td>
-                      <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{String(row.property_name ?? "—")}</td>
-                      <td style={{ fontSize: 12 }}>{String(row.frequency ?? "Monthly")}</td>
-                      <td style={{ fontSize: 12 }}>{String(row.next_due_on ?? "—")}</td>
-                      <td style={{ fontSize: 12 }}>{String(row.assigned_to_name ?? "—")}</td>
-                      <td><FcStatus value={String(row.last_completed_on ? "completed" : (String(row.next_due_on ?? "") < todayKey ? "overdue" : "scheduled"))} /></td>
-                      <td>
+                    <TableRow key={String(row.id)} hover>
+                      <TableCell><span style={{ fontFamily: "ui-monospace, monospace", fontSize: 11, color: "var(--text-secondary)" }}>{String(row.code ?? "—")}</span></TableCell>
+                      <TableCell><strong style={{ fontSize: 12 }}>{String(row.name ?? "—")}</strong></TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{String(row.asset_name ?? "—")}</TableCell>
+                      <TableCell sx={{ fontSize: 12, color: "text.secondary" }}>{String(row.property_name ?? "—")}</TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{String(row.frequency ?? "Monthly")}</TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{String(row.next_due_on ?? "—")}</TableCell>
+                      <TableCell sx={{ fontSize: 12 }}>{String(row.assigned_to_name ?? "—")}</TableCell>
+                      <TableCell><FcStatus value={String(row.last_completed_on ? "completed" : (String(row.next_due_on ?? "") < todayKey ? "overdue" : "scheduled"))} /></TableCell>
+                      <TableCell>
                         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                           {permissions.canAdminister && Boolean(row.is_active) && (
                             <>
@@ -509,12 +518,12 @@ export function PlannedMaintenanceView({
                             </>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
+            </TableContainer>
           </article>
         </div>
       </div>
@@ -527,38 +536,40 @@ export function PlannedMaintenanceView({
               Select maintenance dates for multiple assets. The complete schedule is validated and saved together.
             </p>
             {bulkMessage && <div style={{ background: "var(--color-green-soft)", border: "1px solid var(--color-green-200)", borderRadius: 8, color: "var(--color-success-strong)", fontSize: 12, padding: "8px 12px" }}>{bulkMessage}</div>}
-            <div className="table-scroll" style={{ maxHeight: 420 }}>
-              <table className="fc-data-table" style={{ minWidth: 1240 }}>
-                <thead>
-                  <tr>
-                    <th style={{ position: "sticky", left: 0, background: "var(--surface-sunken)", zIndex: 2, minWidth: 180 }}>Asset</th>
-                    {bulkMonths.map((m) => <th key={m}>{m}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
+            <TableContainer sx={{ maxHeight: 420 }}>
+              <Table size="small" stickyHeader sx={{ minWidth: 1240 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ position: "sticky", left: 0, zIndex: 3, bgcolor: "action.hover", fontWeight: 700, minWidth: 180 }}>Asset</TableCell>
+                    {bulkMonths.map((m) => <TableCell key={m} sx={{ fontWeight: 700, bgcolor: "action.hover" }}>{m}</TableCell>)}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
                   {bulkAssets.length > 0 ? bulkAssets.map((asset) => (
-                    <tr key={String(asset.id)}>
-                      <td style={{ position: "sticky", left: 0, background: "var(--surface-raised)", fontSize: 12, minWidth: 180 }}>
+                    <TableRow key={String(asset.id)} hover>
+                      <TableCell sx={{ position: "sticky", left: 0, bgcolor: "background.paper", fontSize: 12, minWidth: 180 }}>
                         <strong>{String(asset.name ?? "—")}</strong>
                         <small style={{ color: "var(--text-secondary)", display: "block", fontSize: 10 }}>{String(asset.code ?? "—")}</small>
-                      </td>
+                      </TableCell>
                       {bulkMonths.map((m, mi) => (
-                        <td key={m} style={{ padding: "6px 4px" }}>
+                        <TableCell key={m} sx={{ p: "6px 4px" }}>
                           <input
                             type="date"
                             value={bulkGrid[String(asset.id)]?.[mi] ?? ""}
                             onChange={(e) => setBulkDate(String(asset.id), mi, e.target.value)}
                             style={{ border: "1px solid #d7dce5", borderRadius: 6, fontSize: 11, padding: "4px 6px", width: "100%", minWidth: 120 }}
                           />
-                        </td>
+                        </TableCell>
                       ))}
-                    </tr>
+                    </TableRow>
                   )) : (
-                    <tr><td colSpan={13}><EmptyState message="No assets available to schedule." /></td></tr>
+                    <TableRow>
+                      <TableCell colSpan={13}><EmptyState message="No assets available to schedule." /></TableCell>
+                    </TableRow>
                   )}
-                </tbody>
-              </table>
-            </div>
+                </TableBody>
+              </Table>
+            </TableContainer>
             <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
               <button type="button" className="btn ghost" onClick={() => setShowBulk(false)}>Cancel</button>
               <button type="button" className="btn primary" onClick={() => void saveBulkSchedule()} disabled={bulkSaving}>
