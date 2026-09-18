@@ -171,6 +171,8 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
             <ReportsView
               dashboard={logic.dashboard}
               organizationId={logic.organizationId}
+              activeTab={logic.tab}
+              onSelectTab={logic.selectTab}
               initialCategory={
                 logic.tab === "operations-reports"
                   ? "Work Orders & Maintenance"

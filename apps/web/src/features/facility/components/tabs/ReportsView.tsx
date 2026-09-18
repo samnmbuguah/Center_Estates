@@ -101,20 +101,69 @@ const SECTION_EXPORT_TYPES: Record<number, string> = {
   7: "meters",
 };
 
+const TAB_TO_SECTION_INDEX: Record<string, number> = {
+  "reports": 0,
+  "asset-reports": 1,
+  "operations-reports": 2,
+  "ppm-reports": 3,
+  "compliance-reports": 4,
+  "vendor-reports": 5,
+  "finance-reports": 6,
+  "energy-reports": 7,
+  "catalog": 8,
+};
+
+const SECTION_SUBTITLES: Record<number, string> = {
+  0: "Comprehensive client and landlord dossiers, multi-level executive performance indicators and supporting audits.",
+  1: "Asset depreciation schedules, condition ratings, CAPEX 5-year forecasts and major replacement plans.",
+  2: "Operational ticket registers, reactive maintenance SLA compliance matrices and contractor turn-around times.",
+  3: "Statutory servicing schedules, PPM calendar adherence and preventive maintenance work verification.",
+  4: "Mandatory statutory compliance certificates, EPRA electrical, DOSH lift audits and OSHA fire permits.",
+  5: "Term contractor SLA delivery, 7-pillar vendor performance scorecards, and rate card compliance.",
+  6: "Facility cost center performance, allocated budgets vs actual expenditure, purchase orders and LPO encumbrances.",
+  7: "Bulk and sub-meter consumption ledgers, tenant power & water reconciliations, tariff analytics and anomalies.",
+  8: "Authoritative library of all facilities management audit dossiers, regulatory packs, and scheduled exports.",
+};
+
 export function ReportsView({
   dashboard,
   organizationId,
   initialCategory = "All reports",
+  activeTab,
+  onSelectTab,
 }: {
   dashboard: FacilityDashboard;
   organizationId: string | null;
   initialCategory?: string;
+  activeTab?: string;
+  onSelectTab?: (tab: any) => void;
 }) {
   const { session } = useAuth();
   const { activeProperty } = usePropertyContext();
   const { toast } = useToast();
 
-  const [activeSection, setActiveSection] = useState(0);
+  const [activeSection, setActiveSection] = useState<number>(() => {
+    if (activeTab && TAB_TO_SECTION_INDEX[activeTab] !== undefined) {
+      return TAB_TO_SECTION_INDEX[activeTab];
+    }
+    if (initialCategory) {
+      const cat = initialCategory.toLowerCase();
+      if (cat.includes("asset")) return 1;
+      if (cat.includes("work order") || cat.includes("operation") || cat.includes("maintenance")) return 2;
+      if (cat.includes("ppm") || cat.includes("preventive")) return 3;
+      if (cat.includes("compliance") || cat.includes("statutory")) return 4;
+      if (cat.includes("contractor") || cat.includes("vendor")) return 5;
+      if (cat.includes("finance") || cat.includes("budget") || cat.includes("requisition")) return 6;
+      if (cat.includes("energy") || cat.includes("utilit") || cat.includes("meter")) return 7;
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    if (activeTab && TAB_TO_SECTION_INDEX[activeTab] !== undefined) {
+      setActiveSection(TAB_TO_SECTION_INDEX[activeTab]);
+    }
+  }, [activeTab]);
   const now = useMemo(() => new Date(), []);
   const [start, setStart] = useState(() => `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`);
   const [end, setEnd] = useState(() => now.toISOString().slice(0, 10));
@@ -410,32 +459,7 @@ export function ReportsView({
 
   return (
     <Box sx={{ display: "grid", gap: 2 }}>
-      {/* 1. TOP UNIFIED REPORT TOOLBAR */}
-      <ReportToolbar
-        title="Facilities Management Intelligence & Reports"
-        subtitle="Authoritative operational audit reports, CAPEX lifecycle plans, PPM schedules, statutory compliance matrices and utility analytics."
-        exportFormat={exportFormat}
-        onFormatChange={setExportFormat}
-        onExport={() => void handleExport()}
-        exporting={exporting}
-        exportDisabled={activeSection === 8}
-        scope={`${propertyName} · ${start} to ${end}`}
-      >
-        {activeSection === 0 && (
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<FileCheck2 size={17} />}
-            onClick={() => void handleExport("landlord-report", "pdf")}
-            disabled={exporting}
-            sx={{ minHeight: 40, px: 2, fontWeight: 800, bgcolor: "var(--color-info)", "&:hover": { bgcolor: "var(--color-info-strong)" } }}
-          >
-            ⚡ Executive Landlord Pack (PDF)
-          </Button>
-        )}
-      </ReportToolbar>
-
-      {/* 2. SECTION NAVIGATION TABS */}
+      {/* 1. SECTION NAVIGATION TABS */}
       <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden", p: 0.5, bgcolor: "background.paper" }}>
         <Tabs
           value={activeSection}
@@ -457,7 +481,7 @@ export function ReportsView({
         </Tabs>
       </Paper>
 
-      {/* 3. ALERTS & FEEDBACK */}
+      {/* 2. ALERTS & FEEDBACK */}
       {error && (
         <Alert severity="error" onClose={() => setError("")}>
           {error}
@@ -469,7 +493,7 @@ export function ReportsView({
         </Alert>
       )}
 
-      {/* 4. SECTION 0: EXECUTIVE PACK VIEW */}
+      {/* 3. SECTION 0: EXECUTIVE PACK VIEW */}
       {activeSection === 0 && !showCatalog ? (
         <ExecutivePackView
           organizationId={organizationId}
@@ -477,13 +501,13 @@ export function ReportsView({
         />
       ) : (
         <>
-          {/* TOP UNIFIED REPORT TOOLBAR (FOR CATALOG & SECTIONS 1-8) */}
+          {/* SECTION REPORT TOOLBAR (FOR CATALOG & SECTIONS 1-8) */}
           <ReportToolbar
-            title={activeSection === 0 ? "Facilities Reports Master Catalog" : "Facilities Management Intelligence & Reports"}
+            title={activeSection === 0 ? "Facilities Reports Master Catalog" : SECTIONS[activeSection]}
             subtitle={
               activeSection === 0
                 ? "Authoritative operational audit reports, CAPEX lifecycle plans, PPM schedules, statutory compliance matrices and utility analytics."
-                : "Authoritative operational audit reports, CAPEX lifecycle plans, PPM schedules, statutory compliance matrices and utility analytics."
+                : (SECTION_SUBTITLES[activeSection] || "Authoritative operational audit reports, CAPEX lifecycle plans, PPM schedules, statutory compliance matrices and utility analytics.")
             }
             exportFormat={exportFormat}
             onFormatChange={setExportFormat}

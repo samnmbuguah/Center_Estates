@@ -135,11 +135,7 @@ export const facilityNav: ModuleNavGroup[] = [
   {
     label: "REPORTS & BI",
     items: [
-      { id: "reports",            label: "Executive FM Reports",   icon: "📊" },
-      { id: "operations-reports", label: "Work Orders & SLA",      icon: "🔧" },
-      { id: "asset-reports",      label: "Asset Lifecycle & CAPEX",icon: "📈" },
-      { id: "compliance-reports", label: "Statutory & Compliance", icon: "🛡️" },
-      { id: "energy-reports",     label: "Energy & Utilities",     icon: "⚡" },
+      { id: "reports", label: "Reporting Workspace", icon: "📊" },
     ],
   },
   {
