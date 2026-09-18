@@ -940,32 +940,32 @@ def _column_widths(headers: list[str], rows: list[list[str]], page_width: float)
         is_primary_text = any(k in h_lower for k in ("tenant", "owner", "landlord", "supplier", "contractor", "party", "description", "name", "reason", "comment", "entity", "payee"))
 
         if is_floor:
-            base_min = 9.5 * mm
-            flex = 0.05
+            base_min = max(20.0 * mm, min(max_content_len * 2.3 * mm, 25.0 * mm))
+            flex = 0.12
         elif is_unit:
-            base_min = 14 * mm
-            flex = 0.1
+            base_min = max(25.0 * mm, min(max_content_len * 2.3 * mm, 32.0 * mm))
+            flex = 0.2
         elif is_status:
-            base_min = 12.5 * mm
-            flex = 0.05
+            base_min = 14 * mm
+            flex = 0.08
         elif is_date:
-            base_min = 16.5 * mm
-            flex = 0.05
-        elif is_rate:
-            base_min = 11.5 * mm
-            flex = 0.05
-        elif is_area:
-            base_min = 15 * mm
-            flex = 0.15
-        elif is_money:
             base_min = 18 * mm
-            flex = 0.3
+            flex = 0.08
+        elif is_rate:
+            base_min = 13 * mm
+            flex = 0.08
+        elif is_area:
+            base_min = 16 * mm
+            flex = 0.12
+        elif is_money:
+            base_min = 21 * mm
+            flex = 0.25
         elif is_primary_text:
-            base_min = 45 * mm
-            flex = 5.0
+            base_min = 44 * mm
+            flex = 1.0
         else:
-            base_min = max(max(max_content_len * 1.4 * mm, 13 * mm), 10 * mm)
-            flex = 0.4
+            base_min = max(max(max_content_len * 1.6 * mm, 16 * mm), 12 * mm)
+            flex = 0.3
 
         min_widths.append(base_min)
         flex_weights.append(flex)

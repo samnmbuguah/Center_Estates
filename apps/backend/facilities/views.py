@@ -3692,32 +3692,35 @@ class FacilityAnalyticsViewSet(ViewSet):
         title_style = ParagraphStyle('ExecTitle', parent=styles['Heading1'], fontSize=16, leading=19, textColor=navy, spaceAfter=2)
         right_hdr_style = ParagraphStyle('ExecRightHeader', parent=styles['Normal'], alignment=TA_RIGHT, textColor=navy, leading=13)
         section_style = ParagraphStyle('ExecSection', parent=styles['Heading2'], fontSize=11, leading=14, textColor=navy, spaceBefore=7, spaceAfter=4)
-        sub_style = ParagraphStyle('ExecSub', parent=styles['Normal'], fontSize=7.5, leading=10, textColor=muted_slate)
-        body_style = ParagraphStyle('ExecBody', parent=styles['Normal'], fontSize=8, leading=11, textColor=navy)
-        bold_style = ParagraphStyle('ExecBold', parent=styles['Normal'], fontSize=8, leading=11, textColor=navy, fontName='Helvetica-Bold')
-        badge_green = ParagraphStyle('BadgeG', parent=styles['Normal'], fontSize=7.5, leading=9, textColor=colors.white, alignment=TA_CENTER, fontName='Helvetica-Bold')
-        badge_amber = ParagraphStyle('BadgeA', parent=styles['Normal'], fontSize=7.5, leading=9, textColor=navy, alignment=TA_CENTER, fontName='Helvetica-Bold')
-        badge_red = ParagraphStyle('BadgeR', parent=styles['Normal'], fontSize=7.5, leading=9, textColor=colors.white, alignment=TA_CENTER, fontName='Helvetica-Bold')
+        sub_style = ParagraphStyle('ExecSub', parent=styles['Normal'], fontSize=8, leading=11, textColor=colors.HexColor('#334155'))
+        body_style = ParagraphStyle('ExecBody', parent=styles['Normal'], fontSize=8.5, leading=12, textColor=navy)
+        bold_style = ParagraphStyle('ExecBold', parent=styles['Normal'], fontSize=8.5, leading=12, textColor=navy, fontName='Helvetica-Bold')
+        badge_green = ParagraphStyle('BadgeG', parent=styles['Normal'], fontSize=7.5, leading=8.5, textColor=colors.white, alignment=TA_CENTER, fontName='Helvetica-Bold')
+        badge_amber = ParagraphStyle('BadgeA', parent=styles['Normal'], fontSize=7.5, leading=8.5, textColor=navy, alignment=TA_CENTER, fontName='Helvetica-Bold')
+        badge_red = ParagraphStyle('BadgeR', parent=styles['Normal'], fontSize=7.5, leading=8.5, textColor=colors.white, alignment=TA_CENTER, fontName='Helvetica-Bold')
 
         def make_status_cell(status_str):
             s = str(status_str).upper()
             if 'ACHIEVED' in s or 'TIER 1' in s or 'RESOLVED' in s or 'CLOSED' in s or 'FAVORABLE' in s or 'OPERATIONAL' in s or 'COMPLIANT' in s:
-                return Table([[Paragraph('ACHIEVED', badge_green)]], colWidths=[24 * mm], rowHeights=[5.5 * mm],
-                             style=[('BACKGROUND', (0,0), (-1,-1), accent_green), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')])
+                return Table([[Paragraph('ACHIEVED', badge_green)]], colWidths=[24 * mm], rowHeights=[6.0 * mm],
+                             style=[('BACKGROUND', (0,0), (-1,-1), accent_green), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                                    ('TOPPADDING', (0,0), (-1,-1), 1), ('BOTTOMPADDING', (0,0), (-1,-1), 1), ('LEFTPADDING', (0,0), (-1,-1), 2), ('RIGHTPADDING', (0,0), (-1,-1), 2)])
             elif 'ATTENTION' in s or 'WARNING' in s or 'TIER 2' in s or 'EXPIRING' in s or 'DEFICIT' in s or 'MODERATE' in s:
-                return Table([[Paragraph('ATTENTION', badge_amber)]], colWidths=[24 * mm], rowHeights=[5.5 * mm],
-                             style=[('BACKGROUND', (0,0), (-1,-1), accent_amber), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')])
+                return Table([[Paragraph('ATTENTION', badge_amber)]], colWidths=[24 * mm], rowHeights=[6.0 * mm],
+                             style=[('BACKGROUND', (0,0), (-1,-1), accent_amber), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                                    ('TOPPADDING', (0,0), (-1,-1), 1), ('BOTTOMPADDING', (0,0), (-1,-1), 1), ('LEFTPADDING', (0,0), (-1,-1), 2), ('RIGHTPADDING', (0,0), (-1,-1), 2)])
             else:
-                return Table([[Paragraph('RED FLAG', badge_red)]], colWidths=[24 * mm], rowHeights=[5.5 * mm],
-                             style=[('BACKGROUND', (0,0), (-1,-1), accent_red), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')])
+                return Table([[Paragraph('RED FLAG', badge_red)]], colWidths=[24 * mm], rowHeights=[6.0 * mm],
+                             style=[('BACKGROUND', (0,0), (-1,-1), accent_red), ('ALIGN', (0,0), (-1,-1), 'CENTER'), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                                    ('TOPPADDING', (0,0), (-1,-1), 1), ('BOTTOMPADDING', (0,0), (-1,-1), 1), ('LEFTPADDING', (0,0), (-1,-1), 2), ('RIGHTPADDING', (0,0), (-1,-1), 2)])
 
         # Page 1 Header
         period_str = f"{start} to {end}" if start and end else f"Current Period · As of {today:%d %b %Y}"
         header_table = Table([
-            [Paragraph(f'<b>{company_name}</b><br/><font size="7.5" color="#475569">{address} · {contact}</font>', title_style),
+            [Paragraph(f'<b>{company_name}</b><br/><font size="8" color="#475569">{address} · {contact}</font>', title_style),
              Paragraph(f'<font size="12" color="#1E40AF"><b>FACILITIES MANAGEMENT – EXECUTIVE PACK</b></font><br/>'
                        f'<b>{property_name}</b><br/>'
-                       f'<font size="7.5" color="#475569">Period: <b>{period_str}</b> · Report Date: {today:%d %b %Y}</font>', right_hdr_style)],
+                       f'<font size="8" color="#475569">Period: <b>{period_str}</b> · Report Date: {today:%d %b %Y}</font>', right_hdr_style)],
         ], colWidths=[140 * mm, 129 * mm])
         header_table.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
 
@@ -3725,28 +3728,28 @@ class FacilityAnalyticsViewSet(ViewSet):
 
         # PAGE 1 - SECTION 1: PERFORMANCE KPIS (Developer Brief Section 4)
         kpi_headers = [
-            Paragraph('<b>Work Orders Active</b><br/><font size="6.5">Turnaround Volume</font>', sub_style),
-            Paragraph('<b>SLA Compliance Rate</b><br/><font size="6.5">Resolution Turnaround</font>', sub_style),
-            Paragraph('<b>PPM Compliance Rate</b><br/><font size="6.5">Statutory Plant Care</font>', sub_style),
-            Paragraph('<b>Incident Risk Index</b><br/><font size="6.5">Health & Safety Occurrences</font>', sub_style),
-            Paragraph('<b>Budget Utilization</b><br/><font size="6.5">Expenditure vs Allocation</font>', sub_style),
-            Paragraph('<b>Provider Appraisal</b><br/><font size="6.5">Service Delivery Score</font>', sub_style),
+            Paragraph('<b>Work Orders Active</b><br/><font size="7.5" color="#475569">Turnaround Volume</font>', sub_style),
+            Paragraph('<b>SLA Compliance Rate</b><br/><font size="7.5" color="#475569">Resolution Turnaround</font>', sub_style),
+            Paragraph('<b>PPM Compliance Rate</b><br/><font size="7.5" color="#475569">Statutory Plant Care</font>', sub_style),
+            Paragraph('<b>Incident Risk Index</b><br/><font size="7.5" color="#475569">Health & Safety Occurrences</font>', sub_style),
+            Paragraph('<b>Budget Utilization</b><br/><font size="7.5" color="#475569">Expenditure vs Allocation</font>', sub_style),
+            Paragraph('<b>Provider Appraisal</b><br/><font size="7.5" color="#475569">Service Delivery Score</font>', sub_style),
         ]
         kpi_values = [
-            Paragraph(f'<font size="14"><b>{open_orders.count()}</b></font><br/><font size="7" color="#475569">{completed_orders.count()} resolved</font>', body_style),
-            Paragraph(f'<font size="14"><b>{sla_rate}%</b></font><br/><font size="7" color="#475569">{overdue_orders.count()} overdue</font>', body_style),
-            Paragraph(f'<font size="14"><b>{ppm_rate}%</b></font><br/><font size="7" color="#475569">{completed_schedules}/{due_schedules} done</font>', body_style),
-            Paragraph(f'<font size="14"><b>{open_incidents.count()}</b></font><br/><font size="7" color="#475569">{high_risk_incidents.count()} critical open</font>', body_style),
-            Paragraph(f'<font size="14"><b>{budget_utilization}%</b></font><br/><font size="7" color="#475569">KES {spent:,.0f} spend</font>', body_style),
-            Paragraph(f'<font size="14"><b>{avg_provider_score}%</b></font><br/><font size="7" color="#475569">Tier 1 Rating</font>', body_style),
+            Paragraph(f'<font size="14"><b>{open_orders.count()}</b></font><br/><font size="7.5" color="#475569">{completed_orders.count()} resolved</font>', body_style),
+            Paragraph(f'<font size="14"><b>{sla_rate}%</b></font><br/><font size="7.5" color="#475569">{overdue_orders.count()} overdue</font>', body_style),
+            Paragraph(f'<font size="14"><b>{ppm_rate}%</b></font><br/><font size="7.5" color="#475569">{completed_schedules}/{due_schedules} done</font>', body_style),
+            Paragraph(f'<font size="14"><b>{open_incidents.count()}</b></font><br/><font size="7.5" color="#475569">{high_risk_incidents.count()} critical open</font>', body_style),
+            Paragraph(f'<font size="14"><b>{budget_utilization}%</b></font><br/><font size="7.5" color="#475569">KES {spent:,.0f} spend</font>', body_style),
+            Paragraph(f'<font size="14"><b>{avg_provider_score}%</b></font><br/><font size="7.5" color="#475569">Tier 1 Rating</font>', body_style),
         ]
         kpi_targets = [
-            Paragraph('<font size="7">Target: <b>0 Overdue</b></font>', sub_style),
-            Paragraph('<font size="7">Target: <b>>= 95.0%</b></font>', sub_style),
-            Paragraph('<font size="7">Target: <b>>= 90.0%</b></font>', sub_style),
-            Paragraph('<font size="7">Target: <b>0 Open Risks</b></font>', sub_style),
-            Paragraph('<font size="7">Target: <b><= 100%</b></font>', sub_style),
-            Paragraph('<font size="7">Target: <b>>= 85.0%</b></font>', sub_style),
+            Paragraph('<font size="7.5">Target: <b>0 Overdue</b></font>', sub_style),
+            Paragraph('<font size="7.5">Target: <b>>= 95.0%</b></font>', sub_style),
+            Paragraph('<font size="7.5">Target: <b>>= 90.0%</b></font>', sub_style),
+            Paragraph('<font size="7.5">Target: <b>0 Open Risks</b></font>', sub_style),
+            Paragraph('<font size="7.5">Target: <b><= 100%</b></font>', sub_style),
+            Paragraph('<font size="7.5">Target: <b>>= 85.0%</b></font>', sub_style),
         ]
         kpi_statuses = [
             make_status_cell(work_order_status),
@@ -3807,12 +3810,15 @@ class FacilityAnalyticsViewSet(ViewSet):
             ('BACKGROUND', (0, 0), (-1, 0), navy),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('FONTSIZE', (0, 0), (-1, 0), 8.5),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.35, border_slate),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, bg_light]),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ]))
 
         # PAGE 2 - SECTION 3: OPERATIONAL PERFORMANCE SUMMARIES (Developer Brief Section 4)
@@ -3830,15 +3836,19 @@ class FacilityAnalyticsViewSet(ViewSet):
             [Paragraph('Active / In-Progress Tickets', body_style), Paragraph(str(open_orders.count()), bold_style), Paragraph(f'{((open_orders.count()/total_orders_count)*100):.1f}%' if total_orders_count else '0.0%', bold_style), Paragraph('Controlled', sub_style), Paragraph('Currently allocated to technicians / contractors', sub_style)],
             [Paragraph('SLA Turnaround Overdue', body_style), Paragraph(str(overdue_orders.count()), bold_style), Paragraph(f'{(100.0 - sla_rate):.1f}%', bold_style), Paragraph('0 Tickets', sub_style), Paragraph('Overdue beyond guaranteed resolution SLA window', sub_style)],
         ]
-        wo_perf_table = Table(wo_perf_data, colWidths=[55 * mm, 20 * mm, 24 * mm, 25 * mm, 145 * mm])
+        wo_perf_table = Table(wo_perf_data, colWidths=[58 * mm, 18 * mm, 22 * mm, 24 * mm, 147 * mm])
         wo_perf_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), brand_blue),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8.5),
             ('GRID', (0, 0), (-1, -1), 0.35, border_slate),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, bg_light]),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ]))
 
         # Financial Performance Summary
@@ -3865,11 +3875,15 @@ class FacilityAnalyticsViewSet(ViewSet):
         fin_perf_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), navy),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8.5),
             ('GRID', (0, 0), (-1, -1), 0.35, border_slate),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, bg_light]),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ]))
 
         # Service Provider Performance Summary
@@ -3896,15 +3910,19 @@ class FacilityAnalyticsViewSet(ViewSet):
                 Paragraph(f'{avg_provider_score}% (Tier 1)', bold_style),
                 Paragraph('0 Outstanding Lapses', sub_style),
             ])
-        sp_perf_table = Table(sp_perf_data, colWidths=[45 * mm, 50 * mm, 28 * mm, 22 * mm, 22 * mm, 42 * mm, 60 * mm])
+        sp_perf_table = Table(sp_perf_data, colWidths=[44 * mm, 48 * mm, 26 * mm, 20 * mm, 20 * mm, 44 * mm, 67 * mm])
         sp_perf_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), brand_blue),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 8.5),
             ('GRID', (0, 0), (-1, -1), 0.35, border_slate),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, bg_light]),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ]))
 
         # Sign-off & Audit verification block (Developer Brief Section 4 & Acceptance Criteria)
