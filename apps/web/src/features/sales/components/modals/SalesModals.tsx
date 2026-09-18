@@ -70,7 +70,7 @@ export function RegisterBuyerModal({
       <FormError error={error} />
 
       {step === 1 && (
-        <div>
+        <div style={{ display: "grid", gap: 16 }}>
           <div className="grid-2">
             <TextField fullWidth size="small" label="Buyer reference" value={formData.reference} onChange={(e) => updateField("reference", e.target.value)} required placeholder="BUY-2026-0001" />
             <TextField fullWidth size="small" label="Full legal name" value={formData.full_name} onChange={(e) => updateField("full_name", e.target.value)} required placeholder="e.g. Apex Holdings Ltd" />
@@ -95,7 +95,7 @@ export function RegisterBuyerModal({
       )}
 
       {step === 2 && (
-        <div>
+        <div style={{ display: "grid", gap: 16 }}>
           <div className="grid-2">
             <TextField fullWidth size="small" label="Project" value={formData.sale_project} onChange={(e) => updateField("sale_project", e.target.value)} placeholder="Project name or ID" />
             <TextField fullWidth size="small" label="Unit" value={formData.sale_unit} onChange={(e) => updateField("sale_unit", e.target.value)} placeholder="Unit code" />
@@ -182,26 +182,37 @@ export function NewSaleModal({
   return (
     <Modal title="+ New Sale" onClose={onClose}>
       <FormError error={error} />
-      <form onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(Object.fromEntries(new FormData(e.currentTarget).entries()) as Record<string, string>);
-      }}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(Object.fromEntries(new FormData(e.currentTarget).entries()) as Record<string, string>);
+        }}
+        style={{ display: "grid", gap: 16, marginTop: 4 }}
+      >
         <div className="grid-2">
           <TextField fullWidth size="small" name="reference" label="Sale reference" required placeholder="SALE-2026-0001" />
-          <TextField select fullWidth size="small" name="buyer" label="Buyer" required defaultValue="" slotProps={{ select: { native: true } }}>
-              <option value="" disabled>Select buyer…</option>
-              {buyers.map((b) => <option key={String(b.id)} value={String(b.id)}>{String(b.full_name ?? "—")} · {String(b.reference ?? "—")}</option>)}
+          <TextField select fullWidth size="small" name="buyer" label="Buyer" required defaultValue="">
+            <MenuItem value="" disabled>Select buyer…</MenuItem>
+            {buyers.map((b) => (
+              <MenuItem key={String(b.id)} value={String(b.id)}>
+                {String(b.full_name ?? "—")} · {String(b.reference ?? "—")}
+              </MenuItem>
+            ))}
           </TextField>
         </div>
-        <TextField select fullWidth size="small" name="listing" label="Unit listing" required defaultValue="" slotProps={{ select: { native: true } }} sx={{ mb: 2 }}>
-            <option value="" disabled>Select listing…</option>
-            {listings.map((l) => <option key={String(l.id)} value={String(l.id)}>{String(l.project_name ?? "—")} · {String(l.unit_code ?? "—")} · {fmtMoney(l.list_price)}</option>)}
+        <TextField select fullWidth size="small" name="listing" label="Unit listing" required defaultValue="">
+          <MenuItem value="" disabled>Select listing…</MenuItem>
+          {listings.map((l) => (
+            <MenuItem key={String(l.id)} value={String(l.id)}>
+              {String(l.project_name ?? "—")} · {String(l.unit_code ?? "—")} · {fmtMoney(l.list_price)}
+            </MenuItem>
+          ))}
         </TextField>
         <div className="grid-2">
           <TextField fullWidth size="small" name="agreed_price" label="Agreed price (KES)" type="number" required placeholder="12500000" slotProps={{ htmlInput: { min: 1 } }} />
           <TextField fullWidth size="small" name="reservation_fee" label="Reservation fee (KES)" type="number" defaultValue="0" slotProps={{ htmlInput: { min: 0 } }} />
         </div>
-        <div className="modal-actions">
+        <div className="modal-actions" style={{ marginTop: 8 }}>
           <Button type="button" variant="outlined" onClick={onClose}>Cancel</Button>
           <Button type="submit" variant="contained">Create Sale</Button>
         </div>
@@ -232,32 +243,101 @@ export function RecordVisitModal({
   return (
     <Modal title="📍 Record Site Visit (Clerk)" onClose={onClose}>
       <FormError error={error} />
-      <form onSubmit={(e) => {
-        e.preventDefault();
-        const payload = Object.fromEntries(new FormData(e.currentTarget).entries()) as Record<string, string>;
-        if (payload.visited_at) payload.visited_at = new Date(payload.visited_at).toISOString();
-        onSubmit(payload);
-      }}>
-        <div className="grid-2">
-          <TextField fullWidth size="small" name="reference" label="Visit reference" defaultValue={defaultRef} helperText="Generated automatically; you may adjust it before saving" />
-          <TextField fullWidth size="small" name="visitor_name" label="Visitor name" required placeholder="Client full name" />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const payload = Object.fromEntries(new FormData(e.currentTarget).entries()) as Record<string, string>;
+          if (payload.visited_at) payload.visited_at = new Date(payload.visited_at).toISOString();
+          onSubmit(payload);
+        }}
+        style={{ display: "grid", gap: 16, marginTop: 4 }}
+      >
+        <div className="grid-2" style={{ alignItems: "start" }}>
+          <TextField
+            fullWidth
+            size="small"
+            name="reference"
+            label="Visit reference"
+            defaultValue={defaultRef}
+            helperText="Auto-generated; adjust before saving if needed"
+          />
+          <TextField
+            fullWidth
+            size="small"
+            name="visitor_name"
+            label="Visitor name *"
+            required
+            placeholder="Client full name"
+          />
         </div>
         <div className="grid-2">
-          <TextField fullWidth size="small" name="phone" label="Phone" placeholder="+254 700 000 000" />
-          <TextField fullWidth size="small" name="email" label="Email" type="email" placeholder="visitor@domain.co.ke" />
+          <TextField
+            fullWidth
+            size="small"
+            name="phone"
+            label="Phone"
+            placeholder="+254 700 000 000"
+          />
+          <TextField
+            fullWidth
+            size="small"
+            name="email"
+            label="Email"
+            type="email"
+            placeholder="visitor@domain.co.ke"
+          />
         </div>
         <div className="grid-2">
-          <TextField select fullWidth size="small" name="project" label="Project" required defaultValue="" slotProps={{ select: { native: true } }}>
-              <option value="" disabled>Select project…</option>
-              {projects.map((p) => <option key={String(p.id)} value={String(p.id)}>{String(p.name ?? "—")}</option>)}
+          <TextField
+            select
+            fullWidth
+            size="small"
+            name="project"
+            label="Project *"
+            required
+            defaultValue=""
+          >
+            <MenuItem value="" disabled>Select project…</MenuItem>
+            {projects.map((p) => (
+              <MenuItem key={String(p.id)} value={String(p.id)}>
+                {String(p.name ?? "—")}
+              </MenuItem>
+            ))}
           </TextField>
-          <TextField fullWidth size="small" name="interested_unit_type" label="Interested unit type" placeholder="e.g. 3-Bedroom Apartment" />
+          <TextField
+            fullWidth
+            size="small"
+            name="interested_unit_type"
+            label="Interested unit type"
+            placeholder="e.g. 3-Bedroom Apartment"
+          />
         </div>
-        <TextField fullWidth size="small" name="visited_at" label="Visit date and time" type="datetime-local" required defaultValue={defaultVisitDate} slotProps={{ inputLabel: { shrink: true } }} sx={{ mb: 2 }} />
-        <TextField fullWidth size="small" name="notes" label="Notes" multiline minRows={3} placeholder="Presentation summary, financing interest, next steps…" />
-        <div className="modal-actions">
-          <Button type="button" variant="outlined" onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="contained">Record Visit</Button>
+        <TextField
+          fullWidth
+          size="small"
+          name="visited_at"
+          label="Visit date and time *"
+          type="datetime-local"
+          required
+          defaultValue={defaultVisitDate}
+          slotProps={{ inputLabel: { shrink: true } }}
+        />
+        <TextField
+          fullWidth
+          size="small"
+          name="notes"
+          label="Notes"
+          multiline
+          minRows={3}
+          placeholder="Presentation summary, financing interest, next steps…"
+        />
+        <div className="modal-actions" style={{ marginTop: 8 }}>
+          <Button type="button" variant="outlined" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="contained">
+            Record Visit
+          </Button>
         </div>
       </form>
     </Modal>
