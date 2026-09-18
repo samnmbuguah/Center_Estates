@@ -24,7 +24,7 @@ type ReportData = {
 };
 
 const sections = ["Overview", "Tenancy schedule", "Vacancy", "Move ins / move outs", "Income analysis", "Lease expiry", "Ownership schedule", "Custom reports"];
-const exportKinds = ["occupancy", "tenancy-schedule", "vacancy", "movements", "income-analysis", "lease-expiry", "ownership-schedule"];
+const exportKinds = ["tenancy-schedule", "tenancy-schedule", "vacancy", "movements", "income-analysis", "lease-expiry", "ownership-schedule"];
 
 export function PropertyTenancyReports() {
   const { session } = useAuth();

@@ -275,7 +275,13 @@ export function PropertyFeaturePage({
                 logic.setEditTenant(r as TenantRow);
                 logic.setShowEditTenant(true);
               }}
-              onDelete={logic.handleDeleteTenant}
+              onDelete={(r) => {
+                if (logic.tab === "leases") {
+                  logic.handleDeleteLease(r as any);
+                } else {
+                  logic.handleDeleteTenant(r as any);
+                }
+              }}
               onOpenPortal={(r) => logic.setPortalTenant(r as TenantRow)}
             />
           </DetailDrawer>

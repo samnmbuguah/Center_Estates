@@ -157,10 +157,12 @@ export function RowDetailPanel({
           }}
         >
           <strong style={{ color: "var(--color-danger-deep)", fontSize: 13 }}>
-            Are you sure you want to delete this tenant?
+            {tab === "leases" ? "Are you sure you want to delete this lease agreement?" : "Are you sure you want to delete this tenant?"}
           </strong>
           <p style={{ margin: 0, fontSize: 11, color: "#7f1d1d" }}>
-            This will permanently remove the record if no active invoices/receipts exist.
+            {tab === "leases"
+              ? "The unit will be freed up and reset to Available so you can recreate a new lease. (Leases with posted invoices must be Terminated instead)."
+              : "This will permanently remove the record if no active invoices/receipts exist."}
           </p>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button

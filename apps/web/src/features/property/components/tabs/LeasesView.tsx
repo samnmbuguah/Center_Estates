@@ -530,9 +530,9 @@ export function LeasesView({
                             <Button
                               size="small"
                               variant="outlined"
-                              color="error"
+                              color="warning"
                               onClick={(e) => { e.stopPropagation(); onLeaseAction(l, "terminate"); }}
-                              title="Terminate lease"
+                              title="Terminate lease agreement (for tenancies with posted invoices)"
                               sx={{ minWidth: 0, px: 0.75, py: 0.25, fontSize: 11 }}
                             >
                               Terminate
@@ -540,20 +540,20 @@ export function LeasesView({
                           )}
                           <Button
                             size="small"
-                            variant="outlined"
+                            variant="contained"
                             color="error"
                             onClick={(e) => { e.stopPropagation(); void handleDeleteOne(l); }}
-                            title={l.status === "draft" ? "Delete draft lease and free unit" : "Delete lease (only if no invoices exist)"}
+                            title={l.status === "draft" ? "Delete draft lease and free unit" : "Delete lease completely and free unit (if unbilled)"}
                             sx={{
                               minWidth: 0,
-                              px: 0.75,
+                              px: 1,
                               py: 0.25,
                               fontSize: 11,
-                              fontWeight: l.status === "draft" ? 700 : 500,
-                              borderColor: l.status === "draft" ? "error.main" : undefined,
+                              fontWeight: 700,
+                              boxShadow: "none",
                             }}
                           >
-                            Delete
+                            🗑️ Delete
                           </Button>
                           <Button
                             size="small"

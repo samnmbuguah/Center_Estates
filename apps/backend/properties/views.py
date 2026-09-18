@@ -6839,15 +6839,28 @@ class PropertyAnalyticsViewSet(ViewSet):
                 writer.writerow(('Input VAT', expense.incurred_on, expense.invoice_number, expense.supplier,
                                  expense.property.name, expense.taxable_amount, expense.tax_amount))
         elif report_kind == 'occupancy':
-            writer.writerow(('Property', 'Unit', 'Type', 'Area', 'Status'))
-            for unit in scope_model_queryset(Unit, request, organization).select_related('property'):
-                writer.writerow((unit.property.name, unit.code, unit.unit_type, unit.area or '', unit.status))
+            writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Type', 'Area', 'Rent', 'Status'))
+            units = scope_model_queryset(Unit, request, organization).select_related('property').prefetch_related('leases__tenant').order_by('code')
+            for unit in units:
+                active_lease = unit.leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING, Lease.Status.DRAFT)).order_by('-starts_on').first()
+                tenant_name = active_lease.tenant.name if active_lease else ('Vacant' if unit.status == Unit.Status.AVAILABLE else '—')
+                rent = active_lease.effective_rent(end) if active_lease else Decimal('0')
+                writer.writerow((unit.floor or '—', unit.code, tenant_name, unit.property.name, unit.unit_type, unit.area or '—', rent, unit.status.title()))
         elif report_kind == 'tenancy-schedule':
             writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Lease Start', 'Lease End', 'Rent', 'Service Charge', 'Escalation %', 'Escalation Interval (Months)', 'Status', 'Next Effective Rent'))
-            rows = scope_model_queryset(Lease, request, organization).filter(
-                Q(starts_on__lte=end, ends_on__gte=start) | Q(status=Lease.Status.DRAFT)
-            ).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
-            for lease in rows:
+            leases = scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
+            include_drafts = request.query_params.get('include_drafts', '').lower() in ('1', 'true', 'yes')
+            has_active = leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).exists()
+            if include_drafts or not has_active:
+                allowed_statuses = (Lease.Status.ACTIVE, Lease.Status.EXPIRING, Lease.Status.DRAFT)
+            else:
+                allowed_statuses = (Lease.Status.ACTIVE, Lease.Status.EXPIRING)
+            rows = leases.filter(status__in=allowed_statuses)
+            # If date filter covers records, apply it; otherwise preserve active property tenancies so report is never blank
+            date_filtered = rows.filter(Q(starts_on__lte=end, ends_on__gte=start) | Q(status=Lease.Status.DRAFT))
+            if date_filtered.exists():
+                rows = date_filtered
+            for lease in rows.order_by('unit__code'):
                 service_charge = self._service_charge_for_lease(lease)
                 writer.writerow((lease.unit.floor or '—', lease.unit.code, lease.tenant.name, lease.unit.property.name,
                                  lease.unit.area or '—', lease.starts_on,
