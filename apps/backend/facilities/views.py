@@ -1904,7 +1904,8 @@ class WorkOrderViewSet(FacilityModelViewSet):
     @transaction.atomic
     def verify(self, request, pk=None):
         """Manager quality gate: completed work is not payment-ready until verified."""
-        work_order = self.get_queryset().select_for_update().filter(pk=pk).first()
+        scoped_pk = self.get_queryset().filter(pk=pk).values_list('pk', flat=True).first()
+        work_order = WorkOrder.objects.select_for_update().filter(pk=scoped_pk).first() if scoped_pk else None
         if not work_order:
             return Response({'detail': 'Work order not found.'}, status=404)
         if work_order.status != WorkOrder.Status.COMPLETED:
