@@ -9,7 +9,7 @@ import uuid
 
 from django.db import transaction
 from django.core.files.base import ContentFile
-from django.db.models import Count, Sum
+from django.db.models import Avg, Count, Q, Sum
 from django.db.models.functions import TruncMonth
 from django.http import HttpResponse
 from django.utils import timezone
