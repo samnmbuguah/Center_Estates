@@ -230,7 +230,7 @@ export function ProjectWorkspace() {
             <button className="btn" style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text)", fontWeight: 700, minWidth: 142, justifyContent: "center", whiteSpace: "nowrap" }} onClick={() => navigate("/app/reports")}>
               <Share2 size={15} style={{ marginRight: 4 }} /> Share / Reports
             </button>
-            <button className="btn btn-primary" style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }} onClick={() => navigate("/app/daily-logs")}>
+            <button className="btn btn-primary" onClick={() => navigate("/app/daily-logs")}>
               <Plus size={15} style={{ marginRight: 4 }} /> New Log
             </button>
           </div>

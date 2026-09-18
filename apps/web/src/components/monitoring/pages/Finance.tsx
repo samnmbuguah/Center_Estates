@@ -169,7 +169,6 @@ export function Finance() {
           </button>
           <button
             className="btn btn-primary"
-            style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }}
             onClick={() => projectFilter && navigate(`/app/projects/${projectFilter}/generate-ipc`)}
             disabled={!projectFilter}
           >

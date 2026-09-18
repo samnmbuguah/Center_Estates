@@ -233,7 +233,6 @@ export function ProjectDocuments() {
         </div>
         <button
           className="btn btn-primary"
-          style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }}
           onClick={() => setShowForm((v) => !v)}
         >
           {showForm ? <X size={15} style={{ marginRight: 4 }} /> : <Upload size={15} style={{ marginRight: 4 }} />}

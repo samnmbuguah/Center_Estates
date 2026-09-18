@@ -287,7 +287,6 @@ export function DailyLogs() {
         <button
           type="button"
           className="btn btn-primary"
-          style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }}
           onClick={() => {
             setFormError(null);
             setShowForm((s) => !s);
@@ -417,7 +416,7 @@ export function DailyLogs() {
             <button type="button" className="btn ghost" disabled={saving} onClick={() => setShowForm(false)}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={saving} style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }}>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? "Saving…" : "Save daily log"}
             </button>
           </div>

@@ -83,7 +83,7 @@ export function Projects() {
         </div>
 
         <div style={{ display: "flex", gap: "10px" }}>
-          <button className="btn btn-primary" style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }} onClick={() => navigate("/app/onboarding")}>
+          <button className="btn btn-primary" onClick={() => navigate("/app/onboarding")}>
             <Plus size={15} style={{ marginRight: "4px" }} /> + Onboard Project
           </button>
         </div>

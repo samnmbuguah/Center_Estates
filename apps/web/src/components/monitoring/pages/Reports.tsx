@@ -132,7 +132,7 @@ export function Reports() {
         </div>
 
         <div style={{ display: "flex", gap: "10px" }}>
-          <button className="btn btn-primary" style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }} onClick={() => setShowGenerateModal(true)}>
+          <button className="btn btn-primary" onClick={() => setShowGenerateModal(true)}>
             <Plus size={15} style={{ marginRight: "4px" }} /> + Generate New Report
           </button>
         </div>

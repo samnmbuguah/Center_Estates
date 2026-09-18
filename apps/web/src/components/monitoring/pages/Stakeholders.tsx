@@ -171,7 +171,6 @@ export function Stakeholders() {
         </div>
         <button
           className="btn btn-primary"
-          style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)" }}
           onClick={() => navigate("/app/users")}
         >
           <Plus size={15} style={{ marginRight: 4 }} /> Manage Users
