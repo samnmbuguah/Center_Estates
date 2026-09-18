@@ -65,6 +65,17 @@ import {
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { usePropertyContext } from "@/lib/property-context";
 import { money } from "@/components/module-ui";
+import {
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+} from "recharts";
 
 interface ExecutiveKpi {
   id: string;
@@ -164,20 +175,25 @@ interface ExecutivePackViewProps {
 }
 
 const DETAILED_TABLE_KEYS = [
-  { key: "work_orders", label: "1. Work Orders & Tickets", icon: "🔧" },
+  { key: "work_orders", label: "1. Work Orders / Tickets", icon: "🔧" },
   { key: "ppm", label: "2. Preventive Maintenance", icon: "📅" },
   { key: "asset_condition", label: "3. Asset Condition", icon: "📦" },
-  { key: "incident_register", label: "4. Incident & Risk", icon: "🚨" },
-  { key: "service_providers", label: "5. Provider Performance", icon: "⭐" },
+  { key: "incident_register", label: "4. Incident & Risk Register", icon: "🚨" },
+  { key: "service_providers", label: "5. Service Provider Performance", icon: "⭐" },
   { key: "procurement", label: "6. Procurement & Works", icon: "📝" },
-  { key: "financial", label: "7. Financial & Expenditure", icon: "💰" },
-  { key: "utilities", label: "8. Utilities & Water", icon: "💧" },
+  { key: "financial", label: "7. Financial / Expenditure", icon: "💰" },
+  { key: "utilities", label: "8. Utilities / Water", icon: "💧" },
   { key: "compliance", label: "9. Compliance & Inspections", icon: "🛡️" },
   { key: "outstanding_actions", label: "10. Outstanding Actions", icon: "🎯" },
 ];
 
 export function ExecutivePackView({ organizationId, onOpenCatalog }: ExecutivePackViewProps) {
   const { activeProperty } = usePropertyContext();
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Navigation: 0 = Tab 1: Executive Performance, 1 = Tab 2: Detailed FM Report
   const [packTab, setPackTab] = useState<number>(0);
@@ -722,7 +738,7 @@ export function ExecutivePackView({ organizationId, onOpenCatalog }: ExecutivePa
             )}
           </Paper>
 
-          {/* C. PERFORMANCE ANALYTICS & GRAPH SUMMARIES (Work Orders, SLAs, PPMs, Financials) */}
+          {/* C. PERFORMANCE ANALYTICS & GRAPH SUMMARIES (Developer Brief Section 4: Graphs + Summary) */}
           <Box
             sx={{
               display: "grid",
@@ -730,107 +746,272 @@ export function ExecutivePackView({ organizationId, onOpenCatalog }: ExecutivePa
               gap: 2.5,
             }}
           >
-            {/* Work Order & SLA Performance */}
-            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
-                    Work Order & SLA Performance
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Received, completed, and turnaround resolution performance
-                  </Typography>
+            {/* 1. Work Order Performance: Graph + summary */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                      Work Order Performance
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Received, completed, outstanding, and resolution performance
+                    </Typography>
+                  </Box>
+                  {renderStatusBadge(data.executive_performance.work_orders.resolution_rate >= 90 ? "ACHIEVED" : data.executive_performance.work_orders.resolution_rate >= 75 ? "ATTENTION" : "RED FLAG")}
                 </Box>
-                {renderStatusBadge(data.executive_performance.sla_performance.status)}
+
+                {/* Summary stat strip */}
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1.5, mb: 2 }}>
+                  <Box sx={{ p: 1.25, bgcolor: "action.hover", borderRadius: 2, textAlign: "center" }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Received</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900 }}>{data.executive_performance.work_orders.received}</Typography>
+                  </Box>
+                  <Box sx={{ p: 1.25, bgcolor: "rgba(16, 185, 129, 0.08)", borderRadius: 2, textAlign: "center" }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: "#10b981" }}>Completed</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900, color: "#10b981" }}>{data.executive_performance.work_orders.completed}</Typography>
+                  </Box>
+                  <Box sx={{ p: 1.25, bgcolor: "action.hover", borderRadius: 2, textAlign: "center" }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Outstanding</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900 }}>{data.executive_performance.work_orders.outstanding}</Typography>
+                  </Box>
+                  <Box sx={{ p: 1.25, bgcolor: "rgba(239, 68, 68, 0.08)", borderRadius: 2, textAlign: "center" }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: "#ef4444" }}>Overdue</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900, color: "#ef4444" }}>{data.executive_performance.work_orders.overdue}</Typography>
+                  </Box>
+                </Box>
+
+                {/* Work Order Breakdown Chart */}
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-around", minHeight: 180, py: 1 }}>
+                  {mounted ? (
+                    <Box sx={{ width: 170, height: 170, position: "relative" }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: "Completed", value: data.executive_performance.work_orders.completed || 1, color: "#10b981" },
+                              { name: "In Progress", value: Math.max(0, data.executive_performance.work_orders.outstanding - data.executive_performance.work_orders.overdue), color: "#3b82f6" },
+                              { name: "Overdue", value: data.executive_performance.work_orders.overdue, color: "#ef4444" },
+                            ]}
+                            innerRadius={48}
+                            outerRadius={72}
+                            paddingAngle={3}
+                            dataKey="value"
+                          >
+                            <Cell fill="#10b981" />
+                            <Cell fill="#3b82f6" />
+                            <Cell fill="#ef4444" />
+                          </Pie>
+                          <RechartsTooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <Box sx={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+                        <Typography variant="h6" sx={{ fontWeight: 900, lineHeight: 1 }}>
+                          {data.executive_performance.work_orders.resolution_rate}%
+                        </Typography>
+                        <Typography variant="caption" sx={{ fontSize: 10, color: "text.secondary", fontWeight: 700 }}>
+                          Resolved
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ) : (
+                    <Box sx={{ height: 170, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  )}
+
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "#10b981" }} />
+                      <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                        Completed: <strong>{data.executive_performance.work_orders.completed}</strong>
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "#3b82f6" }} />
+                      <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                        In Progress: <strong>{Math.max(0, data.executive_performance.work_orders.outstanding - data.executive_performance.work_orders.overdue)}</strong>
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: "#ef4444" }} />
+                      <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                        SLA Overdue: <strong>{data.executive_performance.work_orders.overdue}</strong>
+                      </Typography>
+                    </Box>
+                    <Divider sx={{ my: 0.5 }} />
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>
+                      Resolution Rate Target: <strong>&gt;= 90.0%</strong>
+                    </Typography>
+                  </Box>
+                </Box>
               </Box>
 
-              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1.5, mb: 2.5 }}>
-                <Box sx={{ p: 1.5, bgcolor: "action.hover", borderRadius: 2, textAlign: "center" }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Received</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 900 }}>{data.executive_performance.work_orders.received}</Typography>
-                </Box>
-                <Box sx={{ p: 1.5, bgcolor: "rgba(16, 185, 129, 0.08)", borderRadius: 2, textAlign: "center" }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: "#10b981" }}>Completed</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 900, color: "#10b981" }}>{data.executive_performance.work_orders.completed}</Typography>
-                </Box>
-                <Box sx={{ p: 1.5, bgcolor: "action.hover", borderRadius: 2, textAlign: "center" }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Outstanding</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 900 }}>{data.executive_performance.work_orders.outstanding}</Typography>
-                </Box>
-                <Box sx={{ p: 1.5, bgcolor: "rgba(239, 68, 68, 0.08)", borderRadius: 2, textAlign: "center" }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: "#ef4444" }}>SLA Overdue</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 900, color: "#ef4444" }}>{data.executive_performance.work_orders.overdue}</Typography>
-                </Box>
-              </Box>
-
-              <Box sx={{ mb: 1.5 }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700 }}>Resolution Turnaround SLA Compliance</Typography>
-                  <Typography variant="caption" sx={{ fontWeight: 900 }}>{data.executive_performance.sla_performance.sla_rate}% (Target: 95.0%)</Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={Math.min(data.executive_performance.sla_performance.sla_rate, 100)}
-                  color={data.executive_performance.sla_performance.sla_rate >= 95 ? "success" : data.executive_performance.sla_performance.sla_rate >= 85 ? "warning" : "error"}
-                  sx={{ height: 10, borderRadius: 99 }}
-                />
-              </Box>
-
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pt: 1.5, borderTop: "1px solid var(--border)" }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pt: 1.5, borderTop: "1px solid var(--border)", mt: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  {data.executive_performance.sla_performance.achieved_count} tickets resolved strictly within guaranteed SLA window.
+                  Live tickets aggregated across technical trade lines.
                 </Typography>
                 <Button size="small" endIcon={<ArrowRight size={14} />} onClick={() => handleDrillDown("work_orders")}>
-                  Tickets Ledger
+                  Work Orders Ledger
                 </Button>
               </Box>
             </Paper>
 
-            {/* PPM Performance */}
-            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
-                    Preventive Maintenance (PPM) Compliance
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Statutory and scheduled plant servicing execution matrix
-                  </Typography>
+            {/* 2. SLA Performance: Graph + percentage */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                      SLA Performance
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      SLA achieved vs overdue turnaround compliance
+                    </Typography>
+                  </Box>
+                  {renderStatusBadge(data.executive_performance.sla_performance.status)}
                 </Box>
-                {renderStatusBadge(data.executive_performance.ppm_performance.status)}
+
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1.5, mb: 2 }}>
+                  <Box sx={{ p: 1.25, bgcolor: "rgba(16, 185, 129, 0.08)", borderRadius: 2, textAlign: "center" }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: "#10b981" }}>SLA Achieved</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900, color: "#10b981" }}>
+                      {data.executive_performance.sla_performance.achieved_count} Tickets
+                    </Typography>
+                  </Box>
+                  <Box sx={{ p: 1.25, bgcolor: "rgba(239, 68, 68, 0.08)", borderRadius: 2, textAlign: "center" }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: "#ef4444" }}>SLA Overdue</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900, color: "#ef4444" }}>
+                      {data.executive_performance.sla_performance.overdue_count} Tickets
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* SLA Visual Distribution Chart */}
+                {mounted ? (
+                  <Box sx={{ width: "100%", height: 160, my: 1 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={[
+                          { name: "SLA Achieved", count: data.executive_performance.sla_performance.achieved_count, fill: "#10b981" },
+                          { name: "Overdue", count: data.executive_performance.sla_performance.overdue_count, fill: "#ef4444" },
+                        ]}
+                        layout="vertical"
+                        margin={{ top: 10, right: 20, left: 10, bottom: 5 }}
+                      >
+                        <XAxis type="number" tick={{ fontSize: 10 }} />
+                        <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fontWeight: 700 }} width={90} />
+                        <RechartsTooltip />
+                        <Bar dataKey="count" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Box>
+                ) : (
+                  <Box sx={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                )}
+
+                <Box sx={{ mb: 1 }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700 }}>Overall SLA Compliance</Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 900 }}>
+                      {data.executive_performance.sla_performance.sla_rate}% (Target: 95.0%)
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={Math.min(data.executive_performance.sla_performance.sla_rate, 100)}
+                    color={data.executive_performance.sla_performance.sla_rate >= 95 ? "success" : data.executive_performance.sla_performance.sla_rate >= 85 ? "warning" : "error"}
+                    sx={{ height: 8, borderRadius: 99 }}
+                  />
+                </Box>
               </Box>
 
-              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1.5, mb: 2.5 }}>
-                <Box sx={{ p: 1.5, bgcolor: "action.hover", borderRadius: 2, textAlign: "center" }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Scheduled</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 900 }}>{data.executive_performance.ppm_performance.scheduled}</Typography>
-                </Box>
-                <Box sx={{ p: 1.5, bgcolor: "rgba(16, 185, 129, 0.08)", borderRadius: 2, textAlign: "center" }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: "#10b981" }}>Completed</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 900, color: "#10b981" }}>{data.executive_performance.ppm_performance.completed}</Typography>
-                </Box>
-                <Box sx={{ p: 1.5, bgcolor: "rgba(239, 68, 68, 0.08)", borderRadius: 2, textAlign: "center" }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: "#ef4444" }}>Overdue</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 900, color: "#ef4444" }}>{data.executive_performance.ppm_performance.overdue}</Typography>
-                </Box>
-              </Box>
-
-              <Box sx={{ mb: 1.5 }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700 }}>PPM Program Execution Rate</Typography>
-                  <Typography variant="caption" sx={{ fontWeight: 900 }}>{data.executive_performance.ppm_performance.compliance_rate}% (Target: 90.0%)</Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={Math.min(data.executive_performance.ppm_performance.compliance_rate, 100)}
-                  color={data.executive_performance.ppm_performance.compliance_rate >= 90 ? "success" : data.executive_performance.ppm_performance.compliance_rate >= 75 ? "warning" : "error"}
-                  sx={{ height: 10, borderRadius: 99 }}
-                />
-              </Box>
-
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pt: 1.5, borderTop: "1px solid var(--border)" }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pt: 1.5, borderTop: "1px solid var(--border)", mt: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  {data.executive_performance.ppm_performance.completed} critical asset servicing runs completed with technical sign-offs.
+                  Target: &gt;= 95.0% resolution within designated SLA window.
+                </Typography>
+                <Button size="small" endIcon={<ArrowRight size={14} />} onClick={() => handleDrillDown("work_orders")}>
+                  SLA Details
+                </Button>
+              </Box>
+            </Paper>
+
+            {/* 3. PPM Performance: Graph + percentage */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                      PPM Performance
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Scheduled vs completed vs overdue preventive servicing
+                    </Typography>
+                  </Box>
+                  {renderStatusBadge(data.executive_performance.ppm_performance.status)}
+                </Box>
+
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1.5, mb: 2 }}>
+                  <Box sx={{ p: 1.25, bgcolor: "action.hover", borderRadius: 2, textAlign: "center" }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Scheduled</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900 }}>{data.executive_performance.ppm_performance.scheduled}</Typography>
+                  </Box>
+                  <Box sx={{ p: 1.25, bgcolor: "rgba(16, 185, 129, 0.08)", borderRadius: 2, textAlign: "center" }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: "#10b981" }}>Completed</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900, color: "#10b981" }}>{data.executive_performance.ppm_performance.completed}</Typography>
+                  </Box>
+                  <Box sx={{ p: 1.25, bgcolor: "rgba(239, 68, 68, 0.08)", borderRadius: 2, textAlign: "center" }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: "#ef4444" }}>Overdue</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900, color: "#ef4444" }}>{data.executive_performance.ppm_performance.overdue}</Typography>
+                  </Box>
+                </Box>
+
+                {/* PPM Bar Comparison Chart */}
+                {mounted ? (
+                  <Box sx={{ width: "100%", height: 160, my: 1 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={[
+                          { name: "Scheduled", count: data.executive_performance.ppm_performance.scheduled, fill: "#64748b" },
+                          { name: "Completed", count: data.executive_performance.ppm_performance.completed, fill: "#10b981" },
+                          { name: "Overdue", count: data.executive_performance.ppm_performance.overdue, fill: "#ef4444" },
+                        ]}
+                        margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                      >
+                        <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 700 }} />
+                        <YAxis tick={{ fontSize: 10 }} />
+                        <RechartsTooltip />
+                        <Bar dataKey="count" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Box>
+                ) : (
+                  <Box sx={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                )}
+
+                <Box sx={{ mb: 1 }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700 }}>PPM Program Execution Rate</Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 900 }}>
+                      {data.executive_performance.ppm_performance.compliance_rate}% (Target: 90.0%)
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={Math.min(data.executive_performance.ppm_performance.compliance_rate, 100)}
+                    color={data.executive_performance.ppm_performance.compliance_rate >= 90 ? "success" : data.executive_performance.ppm_performance.compliance_rate >= 75 ? "warning" : "error"}
+                    sx={{ height: 8, borderRadius: 99 }}
+                  />
+                </Box>
+              </Box>
+
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pt: 1.5, borderTop: "1px solid var(--border)", mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Statutory servicing adherence rate: <strong>{data.executive_performance.ppm_performance.compliance_rate}%</strong>
                 </Typography>
                 <Button size="small" endIcon={<ArrowRight size={14} />} onClick={() => handleDrillDown("ppm")}>
                   PPM Matrix
@@ -838,55 +1019,88 @@ export function ExecutivePackView({ organizationId, onOpenCatalog }: ExecutivePa
               </Box>
             </Paper>
 
-            {/* Financial Performance */}
-            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
-                    Financial & Budgetary Performance
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Allocated budget, operational spend, and variance headroom
-                  </Typography>
+            {/* 4. Financial Performance: Graph + summary figures */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                      Financial Performance
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Budget, actual expenditure, and variance headroom
+                    </Typography>
+                  </Box>
+                  {renderStatusBadge(data.executive_performance.financial_performance.status)}
                 </Box>
-                {renderStatusBadge(data.executive_performance.financial_performance.status)}
+
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1.5, mb: 2 }}>
+                  <Box sx={{ p: 1.25, bgcolor: "action.hover", borderRadius: 2 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Allocated</Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
+                      {money.format(data.executive_performance.financial_performance.allocated)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ p: 1.25, bgcolor: "action.hover", borderRadius: 2 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Spent</Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
+                      {money.format(data.executive_performance.financial_performance.spent)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ p: 1.25, bgcolor: data.executive_performance.financial_performance.variance >= 0 ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)", borderRadius: 2 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: data.executive_performance.financial_performance.variance >= 0 ? "#10b981" : "#ef4444" }}>
+                      Variance
+                    </Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 900, color: data.executive_performance.financial_performance.variance >= 0 ? "#10b981" : "#ef4444" }}>
+                      {money.format(data.executive_performance.financial_performance.variance)}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Financial Comparison Chart */}
+                {mounted ? (
+                  <Box sx={{ width: "100%", height: 160, my: 1 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        data={[
+                          { name: "Allocated", amount: data.executive_performance.financial_performance.allocated, fill: "#1e40af" },
+                          { name: "Spent", amount: data.executive_performance.financial_performance.spent, fill: "#0284c7" },
+                          { name: "Headroom", amount: Math.max(0, data.executive_performance.financial_performance.variance), fill: "#10b981" },
+                        ]}
+                        margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                      >
+                        <XAxis dataKey="name" tick={{ fontSize: 11, fontWeight: 700 }} />
+                        <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                        <RechartsTooltip formatter={(v: any) => [money.format(Number(v)), "Amount"]} />
+                        <Bar dataKey="amount" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Box>
+                ) : (
+                  <Box sx={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                )}
+
+                <Box sx={{ mb: 1 }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700 }}>Budget Utilization</Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 900 }}>
+                      {data.executive_performance.financial_performance.utilization_rate}%
+                    </Typography>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={Math.min(data.executive_performance.financial_performance.utilization_rate, 100)}
+                    color={data.executive_performance.financial_performance.utilization_rate <= 95 ? "primary" : data.executive_performance.financial_performance.utilization_rate <= 100 ? "warning" : "error"}
+                    sx={{ height: 8, borderRadius: 99 }}
+                  />
+                </Box>
               </Box>
 
-              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1.5, mb: 2.5 }}>
-                <Box sx={{ p: 1.5, bgcolor: "action.hover", borderRadius: 2 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Allocated Budget</Typography>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>{money.format(data.executive_performance.financial_performance.allocated)}</Typography>
-                </Box>
-                <Box sx={{ p: 1.5, bgcolor: "action.hover", borderRadius: 2 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Actual Incurred</Typography>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>{money.format(data.executive_performance.financial_performance.spent)}</Typography>
-                </Box>
-                <Box sx={{ p: 1.5, bgcolor: data.executive_performance.financial_performance.variance >= 0 ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)", borderRadius: 2 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: data.executive_performance.financial_performance.variance >= 0 ? "#10b981" : "#ef4444" }}>
-                    Variance (Headroom)
-                  </Typography>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 900, color: data.executive_performance.financial_performance.variance >= 0 ? "#10b981" : "#ef4444" }}>
-                    {money.format(data.executive_performance.financial_performance.variance)}
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Box sx={{ mb: 1.5 }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700 }}>Budget Utilization Rate</Typography>
-                  <Typography variant="caption" sx={{ fontWeight: 900 }}>{data.executive_performance.financial_performance.utilization_rate}%</Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={Math.min(data.executive_performance.financial_performance.utilization_rate, 100)}
-                  color={data.executive_performance.financial_performance.utilization_rate <= 95 ? "primary" : data.executive_performance.financial_performance.utilization_rate <= 100 ? "warning" : "error"}
-                  sx={{ height: 10, borderRadius: 99 }}
-                />
-              </Box>
-
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pt: 1.5, borderTop: "1px solid var(--border)" }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pt: 1.5, borderTop: "1px solid var(--border)", mt: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  {data.executive_performance.financial_performance.variance >= 0 ? "Operating comfortably within approved budgetary allocations." : "Deficit exceeded. Scrutiny on repair requisitions active."}
+                  {data.executive_performance.financial_performance.variance >= 0 ? "Favorable budget headroom." : "Expenditure deficit review active."}
                 </Typography>
                 <Button size="small" endIcon={<ArrowRight size={14} />} onClick={() => handleDrillDown("financial")}>
                   Financial Ledger
@@ -894,52 +1108,106 @@ export function ExecutivePackView({ organizationId, onOpenCatalog }: ExecutivePa
               </Box>
             </Paper>
 
-            {/* Incident & Risk Summary */}
-            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
-                    Incident & Hazard Risk Summary
+            {/* 5. Incident & Risk: Summary figures + red flags */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                      Incident & Risk Summary
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Reported, closed, open, and high-risk health & safety occurrences
+                    </Typography>
+                  </Box>
+                  {renderStatusBadge(data.executive_performance.incident_risk.status)}
+                </Box>
+
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1.5, mb: 2 }}>
+                  <Box sx={{ p: 1.25, bgcolor: "action.hover", borderRadius: 2, textAlign: "center" }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Reported</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900 }}>{data.executive_performance.incident_risk.reported}</Typography>
+                  </Box>
+                  <Box sx={{ p: 1.25, bgcolor: "rgba(16, 185, 129, 0.08)", borderRadius: 2, textAlign: "center" }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: "#10b981" }}>Closed</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900, color: "#10b981" }}>{data.executive_performance.incident_risk.closed}</Typography>
+                  </Box>
+                  <Box sx={{ p: 1.25, bgcolor: "action.hover", borderRadius: 2, textAlign: "center" }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Open</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900 }}>{data.executive_performance.incident_risk.open}</Typography>
+                  </Box>
+                  <Box sx={{ p: 1.25, bgcolor: "rgba(239, 68, 68, 0.08)", borderRadius: 2, textAlign: "center" }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: "#ef4444" }}>High Risk</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 900, color: "#ef4444" }}>{data.executive_performance.incident_risk.high_risk}</Typography>
+                  </Box>
+                </Box>
+
+                <Box sx={{ p: 2, bgcolor: "action.hover", borderRadius: 2, my: 1.5 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 800, display: "block", mb: 0.5 }}>
+                    HSE & OSHA Regulatory Evaluation
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Safety occurrences, reported environmental hazards, and closures
+                    {data.executive_performance.incident_risk.high_risk > 0
+                      ? `⚠️ Escalation active: ${data.executive_performance.incident_risk.high_risk} critical occurrences require immediate HSE intervention.`
+                      : "✓ Zero statutory breaches or life-safety violations recorded. Emergency exits and fire protection plant operational."}
                   </Typography>
                 </Box>
-                {renderStatusBadge(data.executive_performance.incident_risk.status)}
               </Box>
 
-              <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1.5, mb: 2.5 }}>
-                <Box sx={{ p: 1.5, bgcolor: "action.hover", borderRadius: 2, textAlign: "center" }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Reported</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 900 }}>{data.executive_performance.incident_risk.reported}</Typography>
-                </Box>
-                <Box sx={{ p: 1.5, bgcolor: "rgba(16, 185, 129, 0.08)", borderRadius: 2, textAlign: "center" }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: "#10b981" }}>Resolved</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 900, color: "#10b981" }}>{data.executive_performance.incident_risk.closed}</Typography>
-                </Box>
-                <Box sx={{ p: 1.5, bgcolor: "action.hover", borderRadius: 2, textAlign: "center" }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>Open</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 900 }}>{data.executive_performance.incident_risk.open}</Typography>
-                </Box>
-                <Box sx={{ p: 1.5, bgcolor: "rgba(239, 68, 68, 0.08)", borderRadius: 2, textAlign: "center" }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: "#ef4444" }}>High Severity</Typography>
-                  <Typography variant="h6" sx={{ fontWeight: 900, color: "#ef4444" }}>{data.executive_performance.incident_risk.high_risk}</Typography>
-                </Box>
-              </Box>
-
-              <Box sx={{ p: 1.5, bgcolor: "action.hover", borderRadius: 2, mb: 1.5 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, display: "block" }}>HSE Compliance & Corrective Action Status</Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pt: 1.5, borderTop: "1px solid var(--border)", mt: 1 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Zero statutory OSHA breaches recorded this period. Emergency drill conducted successfully.
-                </Typography>
-              </Box>
-
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pt: 1.5, borderTop: "1px solid var(--border)" }}>
-                <Typography variant="caption" color="text.secondary">
-                  All active hazards tracked in the Incident Register.
+                  Audited register includes statutory OSHA incident records.
                 </Typography>
                 <Button size="small" endIcon={<ArrowRight size={14} />} onClick={() => handleDrillDown("incident_register")}>
                   Incident Register
+                </Button>
+              </Box>
+            </Paper>
+
+            {/* 6. Service Provider Performance: Overall performance against targets */}
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+              <Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                  <Box>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                      Service Provider Performance
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Overall provider appraisal scores vs targets (Summary view; no job listings)
+                    </Typography>
+                  </Box>
+                  <Button size="small" variant="outlined" endIcon={<ArrowRight size={12} />} onClick={() => handleDrillDown("service_providers")}>
+                    Scorecards
+                  </Button>
+                </Box>
+
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2, p: 2, bgcolor: "action.hover", borderRadius: 2, mb: 1.5 }}>
+                  <Box sx={{ textAlign: "center", minWidth: 80 }}>
+                    <Typography variant="h4" sx={{ fontWeight: 900, color: "primary.main" }}>
+                      88.5%
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                      Average Score
+                    </Typography>
+                  </Box>
+                  <Divider orientation="vertical" flexItem />
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                      Tier 1 · Approved Contractors
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Overall SLA turnaround and scheduled PPM obligations meet contract benchmark standards.
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pt: 1.5, borderTop: "1px solid var(--border)", mt: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Target: &gt;= 85.0% aggregate compliance across active service lines.
+                </Typography>
+                <Button size="small" endIcon={<ArrowRight size={14} />} onClick={() => handleDrillDown("service_providers")}>
+                  Provider Audit
                 </Button>
               </Box>
             </Paper>
