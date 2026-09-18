@@ -58,7 +58,21 @@ export const getTheme = (mode: 'light' | 'dark') => {
           },
           contained: {
             '&.MuiButton-containedPrimary': {
-              backgroundColor: 'var(--color-brand-red, #dc2626)',
+              backgroundColor: '#2563eb',
+              color: '#ffffff',
+              '&:hover': {
+                backgroundColor: '#1d4ed8',
+              },
+            },
+            '&.MuiButton-containedSuccess': {
+              backgroundColor: '#16a34a',
+              color: '#ffffff',
+              '&:hover': {
+                backgroundColor: '#15803d',
+              },
+            },
+            '&.MuiButton-containedError': {
+              backgroundColor: '#dc2626',
               color: '#ffffff',
               '&:hover': {
                 backgroundColor: '#b91c1c',

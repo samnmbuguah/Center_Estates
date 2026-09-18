@@ -473,8 +473,8 @@ export function TenantApplicationCard({
               disabled={saving}
               onClick={submit}
               sx={{
-                bgcolor: "var(--color-brand-red)",
-                "&:hover": { bgcolor: "#cc2b2b" },
+                bgcolor: "var(--primary)",
+                "&:hover": { bgcolor: "var(--primary-2)" },
                 fontWeight: 800,
                 px: 3,
               }}
@@ -970,12 +970,12 @@ export function TenantApplicationCard({
               disabled={saving}
               onClick={submit}
               sx={{
-                bgcolor: "var(--color-brand-red)",
-                "&:hover": { bgcolor: "#cc2b2b" },
+                bgcolor: "var(--primary)",
+                "&:hover": { bgcolor: "var(--primary-2)" },
                 fontWeight: 800,
                 py: 1.5,
                 borderRadius: 2,
-                boxShadow: "0 4px 14px rgba(226, 59, 59, 0.35)",
+                boxShadow: "0 4px 14px rgba(37, 99, 235, 0.35)",
               }}
             >
               {saving ? "Saving Application…" : "Save Tenant Application"}

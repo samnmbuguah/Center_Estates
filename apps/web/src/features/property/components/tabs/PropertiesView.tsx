@@ -114,13 +114,6 @@ export function PropertiesView({
                 size="small"
                 startIcon={<Building2 size={14} />}
                 onClick={onAddSectionalTitle}
-                sx={{
-                  fontWeight: 700,
-                  fontSize: 12,
-                  borderColor: "var(--color-indigo-strong)",
-                  color: "var(--color-indigo-300)",
-                  "&:hover": { borderColor: "var(--color-indigo)", background: "rgba(99, 102, 241, 0.08)" },
-                }}
               >
                 Onboard Sectional Scheme
               </Button>

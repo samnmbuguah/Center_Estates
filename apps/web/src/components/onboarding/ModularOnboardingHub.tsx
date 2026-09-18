@@ -111,7 +111,7 @@ export function ModularOnboardingHub() {
                   "&:hover": {
                     transform: "translateY(-4px)",
                     boxShadow: "0 12px 24px -10px rgba(0, 0, 0, 0.12)",
-                    borderColor: "var(--color-brand-red, #dc2626)",
+                    borderColor: "#2563eb",
                   },
                 }}
               >
@@ -121,7 +121,7 @@ export function ModularOnboardingHub() {
                 >
                   <Box sx={{ width: "100%" }}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                      <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(220, 38, 38, 0.1)", color: "var(--color-brand-red, #dc2626)" }}>
+                      <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(37, 99, 235, 0.1)", color: "#2563eb" }}>
                         <Building2 size={28} />
                       </Box>
                       <Chip size="small" label="Leasing & Rentals" sx={{ fontWeight: 700, fontSize: 11 }} />
@@ -152,7 +152,7 @@ export function ModularOnboardingHub() {
                   <Button
                     variant="contained"
                     fullWidth
-                    sx={{ mt: 2, bgcolor: "var(--color-brand-red, #dc2626)", "&:hover": { bgcolor: "#b91c1c" } }}
+                    sx={{ mt: 2, bgcolor: "#2563eb", "&:hover": { bgcolor: "#1d4ed8" } }}
                     endIcon={<ChevronRight size={16} />}
                   >
                     Onboard Property
