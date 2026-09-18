@@ -3809,6 +3809,15 @@ a.profile-dropdown-item { text-decoration: none; }
   .caretaker-quick-guide { width: 100%; }
   .caretaker-portal-page .companion-workspace { padding: 12px !important; }
 }
+.caretaker-portal-page .tenant-portal-hero::before {
+  background: linear-gradient(180deg, #0d9488, #0f766e);
+}
+.caretaker-portal-page .kpi-card::before {
+  background: linear-gradient(90deg, #0d9488, #14b8a6);
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
 .tenant-preview-banner {
   align-items: center; background: linear-gradient(112deg, #123b78 0%, #1d4ed8 62%, #2563eb 100%);
   border: 1px solid rgba(255,255,255,.18); border-radius: 14px; box-shadow: 0 10px 26px rgba(29,78,216,.18);

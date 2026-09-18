@@ -1,5 +1,6 @@
-import { CompanionWorkspace } from "@/components/companion-workspace";
+import { CaretakerPortalPage } from "@/features/caretaker/CaretakerPortalPage";
 
-export default function CaretakerPortalPage() {
-  return <CompanionWorkspace initialTab="meter-readings" caretakerMode />;
+export default function Page() {
+  return <CaretakerPortalPage />;
 }
+
