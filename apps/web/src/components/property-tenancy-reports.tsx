@@ -36,6 +36,7 @@ export function PropertyTenancyReports() {
   const [unitType, setUnitType] = useState("");
   const [unitStatus, setUnitStatus] = useState("");
   const [leaseStatus, setLeaseStatus] = useState("");
+  const [includeDrafts, setIncludeDrafts] = useState(true);
   const [exportFormat, setExportFormat] = useState<ExportFormat>("pdf");
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,10 +46,11 @@ export function PropertyTenancyReports() {
 
   const query = useMemo(() => new URLSearchParams({
     start, end,
+    ...(includeDrafts && { include_drafts: "true" }),
     ...(unitType && { unit_type: unitType }),
     ...(unitStatus && { unit_status: unitStatus }),
     ...(leaseStatus && { lease_status: leaseStatus }),
-  }).toString(), [end, leaseStatus, start, unitStatus, unitType]);
+  }).toString(), [end, includeDrafts, leaseStatus, start, unitStatus, unitType]);
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -113,13 +115,27 @@ export function PropertyTenancyReports() {
       </Paper>
       {error && <Alert severity="error" action={<Button color="inherit" onClick={() => void load()}>Retry</Button>}>{error}</Alert>}
       {notice && <Alert severity="success" onClose={() => setNotice("")}>{notice}</Alert>}
-      <PeriodFilterBar
-        start={start}
-        end={end}
-        onStart={setStart}
-        onEnd={setEnd}
-        onApply={() => void load()}
-      />
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+        <PeriodFilterBar
+          start={start}
+          end={end}
+          onStart={setStart}
+          onEnd={setEnd}
+          onApply={() => void load()}
+        />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, px: 1, py: 0.5, bgcolor: "background.paper", borderRadius: 2, border: "1px solid var(--border)" }}>
+          <input
+            type="checkbox"
+            id="report-include-drafts"
+            checked={includeDrafts}
+            onChange={(e) => setIncludeDrafts(e.target.checked)}
+            style={{ width: 16, height: 16, accentColor: "var(--brand-primary, #1e40af)", cursor: "pointer" }}
+          />
+          <label htmlFor="report-include-drafts" style={{ fontSize: 12, fontWeight: 700, cursor: "pointer", color: "var(--text-primary)" }}>
+            Include Draft Tenancies / Pending Onboarding
+          </label>
+        </Box>
+      </Box>
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "repeat(2,minmax(0,1fr))", md: "repeat(3,minmax(0,1fr))", xl: "repeat(6,minmax(0,1fr))" }, gap: 1.25 }}>
         <ReportKpiCard icon={Building2} label="Total units" value={String(kpi.total_units ?? 0)} helper="Units in this property" />
         <ReportKpiCard icon={UsersRound} label="Occupied units" value={String(kpi.occupied_units ?? 0)} helper="Active tenancies" tone="success" />

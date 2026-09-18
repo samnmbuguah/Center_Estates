@@ -1210,6 +1210,60 @@ export function usePropertyLogic({
     }
   }, [organizationId, selectedRow, loadData, setError]);
 
+  const handleDeleteLease = useCallback(async (lease: LeaseRow) => {
+    if (!organizationId) return;
+    const isDraft = lease.status === "draft";
+    const promptMsg = isDraft
+      ? `Are you sure you want to permanently delete draft lease "${lease.reference}"? This will free unit "${lease.unit_code}" so you can create a new lease.`
+      : `Are you sure you want to delete lease "${lease.reference}"? Leases with active invoices or move records cannot be deleted and must be Terminated instead.`;
+    if (!window.confirm(promptMsg)) {
+      return;
+    }
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(`/property/leases/${lease.id}/`, {
+        method: "DELETE",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+      }, organizationId);
+      if (res.ok) {
+        setError("");
+        if (selectedRow && String(selectedRow.id) === String(lease.id)) {
+          setSelectedRow(null);
+        }
+        await loadData();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setError(err.detail || "Cannot delete lease. Active invoices or tenant movements exist.");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to delete lease");
+    }
+  }, [organizationId, selectedRow, loadData, setError]);
+
+  const handleBulkDeleteLeases = useCallback(async (leaseIds: string[]) => {
+    if (!organizationId || !leaseIds.length) return;
+    if (!window.confirm(`Are you sure you want to delete ${leaseIds.length} selected lease(s)? Leases with posted invoices will be skipped.`)) {
+      return;
+    }
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(`/property/leases/bulk-delete/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ lease_ids: leaseIds }),
+      }, organizationId);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setError("");
+        await loadData();
+      } else {
+        setError(data.detail || "Bulk delete leases failed.");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to bulk delete leases");
+    }
+  }, [organizationId, loadData, setError]);
+
   const handleActivateTenant = useCallback(async (tenant: TenantRow) => {
     if (!organizationId) return;
     try {
@@ -1637,6 +1691,8 @@ export function usePropertyLogic({
     downloadReceiptPdf,
     downloadTenantStatement,
     handleDeleteTenant,
+    handleDeleteLease,
+    handleBulkDeleteLeases,
     handleActivateTenant,
     handleBulkActivateTenants,
     handleBulkActivateLeases,

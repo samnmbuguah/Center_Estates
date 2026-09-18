@@ -82,7 +82,7 @@ export function RentSchedulesView({ rows, loading, search, setSearch, onGenerate
                     <TableCell padding="checkbox">
                       <Checkbox
                         size="small"
-                        inputProps={{ "aria-label": "Select all available schedules" } as any}
+                        slotProps={{ input: { "aria-label": "Select all available schedules" } }}
                         checked={available.length > 0 && selected.length === available.length}
                         onChange={(event) => setSelected(event.target.checked ? available.map((row) => String(row.id)) : [])}
                       />
@@ -107,7 +107,7 @@ export function RentSchedulesView({ rows, loading, search, setSearch, onGenerate
                       <TableCell padding="checkbox">
                         <Checkbox
                           size="small"
-                          inputProps={{ "aria-label": `Select schedule ${String(s.lease_reference ?? s.id)}` } as any}
+                          slotProps={{ input: { "aria-label": `Select schedule ${String(s.lease_reference ?? s.id)}` } }}
                           disabled={Boolean(s.invoice) || s.status === "waived"}
                           checked={selected.includes(String(s.id))}
                           onChange={() => toggleSelected(String(s.id))}

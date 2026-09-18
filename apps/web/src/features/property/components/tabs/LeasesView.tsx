@@ -39,6 +39,8 @@ export function LeasesView({
   canLease = true,
   onRenew = () => {},
   onTerminate = () => {},
+  onDelete = () => {},
+  onBulkDelete = () => {},
   onRefresh = () => {},
 }: {
   rows: Row[];
@@ -54,6 +56,8 @@ export function LeasesView({
   canLease?: boolean;
   onRenew?: (r: LeaseRow) => void;
   onTerminate?: (r: LeaseRow) => void;
+  onDelete?: (r: LeaseRow) => void;
+  onBulkDelete?: (ids: string[]) => void;
   onRefresh?: () => void;
 }) {
   const { session } = useAuth();
@@ -250,6 +254,65 @@ export function LeasesView({
     }
   }
 
+  const handleDeleteOne = async (l: LeaseRow) => {
+    if (onDelete && onDelete !== (() => {})) {
+      onDelete(l);
+      return;
+    }
+    const isDraft = l.status === "draft";
+    const msg = isDraft
+      ? `Are you sure you want to permanently delete draft lease "${l.reference}"? Unit "${l.unit_code}" will be freed so you can recreate the agreement.`
+      : `Are you sure you want to delete lease "${l.reference}"? Leases with active invoices or move records cannot be deleted and must be Terminated instead.`;
+    if (!window.confirm(msg)) return;
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(`/property/leases/${l.id}/`, {
+        method: "DELETE",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+      }, org);
+      if (res.ok) {
+        onRefresh();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Cannot delete lease. Posted invoices or tenant movement records exist.");
+      }
+    } catch {
+      alert("Failed to delete lease.");
+    }
+  };
+
+  const handleBulkDeleteSelected = async () => {
+    if (!selectedIds.length) return;
+    if (onBulkDelete && onBulkDelete !== (() => {})) {
+      onBulkDelete(selectedIds);
+      setSelectedIds([]);
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} selected lease(s)? Leases with posted invoices will be skipped.`)) {
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(`/property/leases/bulk-delete/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({ lease_ids: selectedIds }),
+      }, org);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setSelectedIds([]);
+        onRefresh();
+      } else {
+        alert(data.detail || "Bulk delete failed.");
+      }
+    } catch {
+      alert("Network error during bulk delete.");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   return (
     <>
       <KpiStrip>
@@ -288,19 +351,36 @@ export function LeasesView({
         </div>
         <div className="row" style={{ gap: 8, alignItems: "center" }}>
           {selectedIds.length > 0 && canLease && (
-            <button
-              className="btn primary sm"
-              style={{
-                background: "var(--color-sky)",
-                color: "#ffffff",
-                fontWeight: 800,
-                padding: "6px 14px",
-                boxShadow: "0 2px 8px rgba(2, 132, 199, 0.3)",
-              }}
-              onClick={() => setShowBulkModal(true)}
-            >
-              ⚡ Bulk Edit ({selectedIds.length} Selected)
-            </button>
+            <>
+              <button
+                className="btn primary sm"
+                style={{
+                  background: "var(--color-sky)",
+                  color: "#ffffff",
+                  fontWeight: 800,
+                  padding: "6px 14px",
+                  boxShadow: "0 2px 8px rgba(2, 132, 199, 0.3)",
+                }}
+                onClick={() => setShowBulkModal(true)}
+              >
+                ⚡ Bulk Edit ({selectedIds.length} Selected)
+              </button>
+              <button
+                className="btn sm"
+                style={{
+                  background: "var(--color-danger, #ef4444)",
+                  color: "#ffffff",
+                  fontWeight: 800,
+                  padding: "6px 14px",
+                  border: "none",
+                  boxShadow: "0 2px 8px rgba(239, 68, 68, 0.3)",
+                }}
+                onClick={() => void handleBulkDeleteSelected()}
+                disabled={bulkBusy}
+              >
+                🗑️ Delete Selected ({selectedIds.length})
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -458,6 +538,23 @@ export function LeasesView({
                               Terminate
                             </Button>
                           )}
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            onClick={(e) => { e.stopPropagation(); void handleDeleteOne(l); }}
+                            title={l.status === "draft" ? "Delete draft lease and free unit" : "Delete lease (only if no invoices exist)"}
+                            sx={{
+                              minWidth: 0,
+                              px: 0.75,
+                              py: 0.25,
+                              fontSize: 11,
+                              fontWeight: l.status === "draft" ? 700 : 500,
+                              borderColor: l.status === "draft" ? "error.main" : undefined,
+                            }}
+                          >
+                            Delete
+                          </Button>
                           <Button
                             size="small"
                             variant="text"

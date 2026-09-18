@@ -58,6 +58,8 @@ export function TenancyView({
   onBulkActivateTenants = () => {},
   onRenewLease = () => {},
   onTerminateLease = () => {},
+  onDeleteLease = () => {},
+  onBulkDeleteLeases = () => {},
   onRefresh = () => {},
   canLease = true,
   activeSection = "tenants",
@@ -95,6 +97,8 @@ export function TenancyView({
   onBulkActivateTenants?: (ids: string[]) => void;
   onRenewLease?: (r: LeaseRow) => void;
   onTerminateLease?: (r: LeaseRow) => void;
+  onDeleteLease?: (r: LeaseRow) => void;
+  onBulkDeleteLeases?: (ids: string[]) => void;
   onRefresh?: () => void;
   canLease?: boolean;
   activeSection?: TenancySection;
@@ -113,7 +117,23 @@ export function TenancyView({
         <TenantsView rows={tenantsRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAdd={onAddTenant} onBulkUpload={onBulkUploadTenant} onUploadDoc={onUploadDoc} onSelectRow={onSelectTenantRow} onOpenPortal={onOpenPortal} onDownloadStatement={onDownloadStatement} onDelete={onDeleteTenant} onEdit={onEditTenant} onActivate={onActivateTenant} onBulkActivate={onBulkActivateTenants} canLease={canLease} onRefresh={onRefresh} />
       )}
       {section === "leases" && (
-        <LeasesView rows={leasesRows} loading={loading} search={search} setSearch={setSearch} setTab={setTab} onAddLease={onAddLease} onDownloadTemplate={onDownloadTemplate} onLeaseAction={onLeaseAction} onSelectRow={onSelectLeaseRow} />
+        <LeasesView
+          rows={leasesRows}
+          loading={loading}
+          search={search}
+          setSearch={setSearch}
+          setTab={setTab}
+          onAddLease={onAddLease}
+          onDownloadTemplate={onDownloadTemplate}
+          onLeaseAction={onLeaseAction}
+          onSelectRow={onSelectLeaseRow}
+          onDelete={onDeleteLease}
+          onBulkDelete={onBulkDeleteLeases}
+          onRenew={onRenewLease}
+          onTerminate={onTerminateLease}
+          onRefresh={onRefresh}
+          canLease={canLease}
+        />
       )}
       {section === "documents" && (
         <TenantDocumentsView rows={docs} loading={loading} search={search} setSearch={setSearch} onUpload={onUploadDoc} onDownload={onDownloadDoc || onDownloadDocument} onVerify={onVerifyDoc || onVerifyDocument} onReject={onRejectDoc || onRejectDocument} />

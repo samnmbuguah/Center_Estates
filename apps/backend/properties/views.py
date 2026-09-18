@@ -578,7 +578,12 @@ def _sync_property_service_providers(property_record, user=None):
     providers_payload = property_record.metadata.get('service_providers') or []
     if not isinstance(providers_payload, list):
         return
-    from facilities.models import Contractor, ServiceProfile, ServiceProfileAllocation
+    from facilities.models import (
+        Contractor, ServiceProfile, ServiceProfileAllocation,
+        ServiceLine, ScorecardVersion, ScorecardKPI, ContractorContract,
+    )
+    from facilities.rubric_templates import STANDARD_RUBRIC_TEMPLATES
+    from decimal import Decimal
     import uuid
     organization = property_record.organization
     for prov in providers_payload:
@@ -630,7 +635,6 @@ def _sync_property_service_providers(property_record, user=None):
             if contractor:
                 contractor.assigned_properties.add(property_record)
 
-
         service_profile = ServiceProfile.objects.filter(
             organization=organization,
             name__iexact=service_name,
@@ -679,6 +683,134 @@ def _sync_property_service_providers(property_record, user=None):
                 provider=contractor,
                 defaults={'starts_on': timezone.localdate()},
             )
+
+        # Synchronize ServiceLine and active ScorecardVersion
+        template_key = prov.get('rubric_template')
+        if not template_key or template_key not in STANDARD_RUBRIC_TEMPLATES:
+            combined = f"{category} {service_name}".lower()
+            if any(k in combined for k in ('clean', 'janitor', 'housekeep')):
+                template_key = 'cleaning'
+            elif any(k in combined for k in ('secur', 'guard', 'access')):
+                template_key = 'security'
+            elif any(k in combined for k in ('lift', 'elevator', 'escalator')):
+                template_key = 'lift'
+            elif any(k in combined for k in ('gen', 'power', 'fuel')):
+                template_key = 'generator'
+            elif any(k in combined for k in ('hvac', 'air cond', 'ac ', 'chiller')):
+                template_key = 'hvac'
+            elif any(k in combined for k in ('fire', 'extinguish')):
+                template_key = 'fire_safety'
+            elif any(k in combined for k in ('pest', 'fumigat')):
+                template_key = 'pest_control'
+            elif any(k in combined for k in ('landscap', 'garden', 'ground')):
+                template_key = 'landscaping'
+            elif any(k in combined for k in ('plumb', 'water')):
+                template_key = 'plumbing'
+            elif any(k in combined for k in ('electr', 'light', 'cctv')):
+                template_key = 'electrical'
+            elif any(k in combined for k in ('waste', 'refuse', 'garbag')):
+                template_key = 'waste_mgmt'
+            else:
+                template_key = 'cleaning'
+
+        tpl_data = STANDARD_RUBRIC_TEMPLATES.get(template_key, {})
+        appraisal_freq = frequency if frequency in ('monthly', 'quarterly', 'semi_annual', 'annual') else 'monthly'
+        if frequency == 'bi_annual':
+            appraisal_freq = 'semi_annual'
+
+        service_line = ServiceLine.objects.filter(
+            organization=organization,
+            property=property_record,
+            name__iexact=service_name,
+        ).first()
+
+        if not service_line:
+            code_prefix = tpl_data.get('code', 'SL')
+            prop_suffix = str(property_record.id)[:4].upper() if property_record.id else uuid.uuid4().hex[:4].upper()
+            sl_code = f"{code_prefix}-{prop_suffix}"
+            counter = 1
+            test_code = sl_code
+            while ServiceLine.objects.filter(property=property_record, code=test_code).exists():
+                test_code = f"{sl_code}-{counter}"
+                counter += 1
+            sl_code = test_code
+
+            scope_desc = str(prov.get('scope') or tpl_data.get('scope') or f"{category} service line for {property_record.name}").strip()
+            sla_std = str(prov.get('sla_standard') or tpl_data.get('sla_standard') or "Service delivery conforming to industry standard SLAs.").strip()
+
+            service_line = ServiceLine.objects.create(
+                organization=organization,
+                property=property_record,
+                name=service_name,
+                code=sl_code,
+                scope=scope_desc,
+                sla_standard=sla_std,
+                appraisal_frequency=appraisal_freq,
+                is_active=True,
+            )
+
+        scorecard = ScorecardVersion.objects.filter(
+            service_line=service_line,
+            status=ScorecardVersion.Status.ACTIVE,
+        ).first()
+
+        if not scorecard:
+            scorecard = ScorecardVersion.objects.create(
+                organization=organization,
+                service_line=service_line,
+                version_code='V1.0',
+                status=ScorecardVersion.Status.ACTIVE,
+                effective_date=timezone.localdate(),
+                notes=f"Configured scorecard from {template_key} rubric template on property onboarding"
+            )
+
+            kpis_data = prov.get('custom_kpis')
+            if not kpis_data or not isinstance(kpis_data, list) or len(kpis_data) == 0:
+                kpis_data = tpl_data.get('kpis', [])
+
+            for idx, kpi in enumerate(kpis_data):
+                ScorecardKPI.objects.create(
+                    organization=organization,
+                    scorecard_version=scorecard,
+                    order=kpi.get('order') or (idx + 1),
+                    area=str(kpi.get('area', 'General Delivery')),
+                    measure=str(kpi.get('measure', '')),
+                    target_standard=str(kpi.get('target_standard', '')),
+                    evidence_method=str(kpi.get('evidence_method', 'Inspection report')),
+                    max_weight=Decimal(str(kpi.get('max_weight', 5))),
+                    is_active=bool(kpi.get('is_active', True)),
+                )
+
+        if contractor:
+            contract = ContractorContract.objects.filter(
+                organization=organization,
+                contractor=contractor,
+                property=property_record,
+                service_line=service_line,
+            ).first()
+            if not contract:
+                contract_num = f"CNT-{uuid.uuid4().hex[:6].upper()}"
+                while ContractorContract.objects.filter(organization=organization, contract_number=contract_num).exists():
+                    contract_num = f"CNT-{uuid.uuid4().hex[:6].upper()}"
+                try:
+                    today = timezone.localdate()
+                    ContractorContract.objects.create(
+                        organization=organization,
+                        contractor=contractor,
+                        property=property_record,
+                        service_line=service_line,
+                        scorecard_version=scorecard,
+                        contract_number=contract_num,
+                        scope_of_work=service_line.scope or f"Provision of {service_name}",
+                        contract_value=Decimal(str(prov.get('monthly_cost') or 0)),
+                        start_date=today,
+                        end_date=today.replace(year=today.year + 1),
+                        status='active',
+                        acceptance_status=ContractorContract.AcceptanceStatus.ACCEPTED,
+                        accepted_at=timezone.now(),
+                    )
+                except Exception:
+                    pass
 
 
 class PropertyViewSet(OrganizationModelViewSet):
@@ -3175,6 +3307,113 @@ class LeaseViewSet(OrganizationModelViewSet):
                 updated_count += 1
 
         return Response({'updated_count': updated_count, 'message': f'Successfully updated {updated_count} leases.'})
+
+    @transaction.atomic
+    def destroy(self, request, *args, **kwargs):
+        lease = self.get_object()
+        organization = get_active_organization(request)
+
+        # Check for financial records or movements that must be protected
+        invoices = lease.invoices.exclude(status=Invoice.Status.VOID)
+        if invoices.exists():
+            return Response({
+                'detail': f"Cannot delete lease '{lease.reference}' because {invoices.count()} active invoice(s) exist. Please Terminate the lease instead to preserve the accounting audit trail."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        movements = lease.movements.all()
+        if movements.exists():
+            return Response({
+                'detail': f"Cannot delete lease '{lease.reference}' because {movements.count()} tenant move-in/out record(s) exist. Please Terminate the lease instead."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        handovers = lease.handovers.all()
+        if handovers.exists():
+            return Response({
+                'detail': f"Cannot delete lease '{lease.reference}' because handover records exist. Please Terminate the lease instead."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        exit_clearances = lease.exit_clearances.all()
+        if exit_clearances.exists():
+            return Response({
+                'detail': f"Cannot delete lease '{lease.reference}' because exit clearance records exist."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        unit = lease.unit
+
+        # Safely clean up dependent draft/calculation records
+        lease.billing_candidates.all().delete()
+        lease.billing_issues.all().delete()
+        lease.rent_schedule.all().delete()
+        lease.billing_profiles.all().delete()
+        lease.escalations.all().delete()
+        lease.parking_assignments.all().delete()
+        lease.invoices.filter(status=Invoice.Status.VOID).delete()
+
+        ref = lease.reference
+        lease.delete()
+
+        # If no other active lease occupies this unit, reset its status to available
+        other_active_leases = Lease.objects.filter(
+            organization=organization,
+            unit=unit,
+            status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING),
+        ).exists()
+        if not other_active_leases and unit.status == Unit.Status.OCCUPIED:
+            unit.status = Unit.Status.AVAILABLE
+            unit.save(update_fields=('status', 'updated_at'))
+
+        return Response({
+            'message': f"Lease '{ref}' was deleted successfully and unit '{unit.code}' is now available for new leases.",
+            'deleted_reference': ref,
+        }, status=status.HTTP_200_OK)
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='bulk-delete')
+    def bulk_delete(self, request):
+        organization = get_active_organization(request)
+        lease_ids = request.data.get('lease_ids') or []
+        if not lease_ids or not isinstance(lease_ids, list):
+            raise ValidationError({'lease_ids': 'Select at least one lease to delete.'})
+
+        leases = Lease.objects.filter(organization=organization, id__in=lease_ids).select_related('unit')
+        deleted_refs = []
+        blocked_refs = []
+
+        for lease in leases:
+            invoices = lease.invoices.exclude(status=Invoice.Status.VOID)
+            if invoices.exists() or lease.movements.exists() or lease.handovers.exists():
+                blocked_refs.append(f"{lease.reference} (has active financial/movement records)")
+                continue
+
+            unit = lease.unit
+            lease.billing_candidates.all().delete()
+            lease.billing_issues.all().delete()
+            lease.rent_schedule.all().delete()
+            lease.billing_profiles.all().delete()
+            lease.escalations.all().delete()
+            lease.parking_assignments.all().delete()
+            lease.invoices.filter(status=Invoice.Status.VOID).delete()
+
+            ref = lease.reference
+            lease.delete()
+            deleted_refs.append(ref)
+
+            has_other_leases = Lease.objects.filter(
+                organization=organization,
+                unit=unit,
+                status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING),
+            ).exists()
+            if not has_other_leases and unit.status == Unit.Status.OCCUPIED:
+                unit.status = Unit.Status.AVAILABLE
+                unit.save(update_fields=('status', 'updated_at'))
+
+        return Response({
+            'deleted_count': len(deleted_refs),
+            'deleted_refs': deleted_refs,
+            'blocked_count': len(blocked_refs),
+            'blocked_refs': blocked_refs,
+            'message': f"Deleted {len(deleted_refs)} lease(s)." + (f" Blocked {len(blocked_refs)} lease(s) with active financial records." if blocked_refs else ""),
+        })
 
     @action(detail=False, methods=('post',), url_path='extract-document')
     def extract_document(self, request):
@@ -6152,12 +6391,23 @@ class PropertyAnalyticsViewSet(ViewSet):
         if lease_status:
             leases = leases.filter(status=lease_status)
 
-        # Draft leases are prospects, not occupied tenancies. Include them only
-        # when the caller explicitly filters for draft status.
-        active_statuses = (lease_status,) if lease_status else (Lease.Status.ACTIVE, Lease.Status.EXPIRING)
+        # Include draft leases if explicitly filtered, requested via include_drafts, or if no active leases exist yet
+        include_drafts = request.query_params.get('include_drafts', '').lower() in ('1', 'true', 'yes')
+        has_active = leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).exists()
+
+        if lease_status:
+            active_statuses = (lease_status,)
+        elif include_drafts or not has_active:
+            active_statuses = (Lease.Status.ACTIVE, Lease.Status.EXPIRING, Lease.Status.DRAFT)
+        else:
+            active_statuses = (Lease.Status.ACTIVE, Lease.Status.EXPIRING)
+
         active_leases = leases.filter(
-            status__in=active_statuses, starts_on__lte=end, ends_on__gte=start,
+            status__in=active_statuses,
+        ).filter(
+            Q(starts_on__lte=end, ends_on__gte=start) | Q(status=Lease.Status.DRAFT)
         ).prefetch_related('billing_profiles__billing_item', 'escalations')
+
         occupied = units.filter(status=Unit.Status.OCCUPIED).count()
         total_units = units.count(); vacant = units.filter(status=Unit.Status.AVAILABLE).count()
         current_income = sum((lease.effective_rent(today) for lease in active_leases), Decimal('0'))
@@ -6170,11 +6420,12 @@ class PropertyAnalyticsViewSet(ViewSet):
         active_lease_by_unit = {lease.unit_id: lease for lease in active_lease_rows}
         schedule = [{
             'lease': lease.reference, 'tenant': lease.tenant.name, 'property': lease.unit.property.name,
-            'floor': lease.unit.floor, 'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
-            'area': lease.unit.area, 'monthly_rent': lease.effective_rent(today),
+            'floor': lease.unit.floor or '—', 'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
+            'area': lease.unit.area or '—', 'monthly_rent': lease.effective_rent(today),
             'service_charge': self._service_charge_for_lease(lease),
             'escalation_percent': lease.escalation_percent,
             'escalation_interval_months': lease.escalation_interval_months,
+            'status': lease.status.title(),
             'next_effective_rent': lease.effective_rent(min(lease.ends_on - timedelta(days=1), today + timedelta(days=365))),
             'lease_start': lease.starts_on, 'lease_end': lease.ends_on,
         } for lease in active_lease_rows]
@@ -6592,14 +6843,17 @@ class PropertyAnalyticsViewSet(ViewSet):
             for unit in scope_model_queryset(Unit, request, organization).select_related('property'):
                 writer.writerow((unit.property.name, unit.code, unit.unit_type, unit.area or '', unit.status))
         elif report_kind == 'tenancy-schedule':
-            writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Lease Start', 'Lease End', 'Rent', 'Service Charge', 'Escalation %', 'Escalation Interval (Months)', 'Next Effective Rent'))
-            rows = scope_model_queryset(Lease, request, organization).filter(starts_on__lte=end, ends_on__gte=start).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
+            writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Lease Start', 'Lease End', 'Rent', 'Service Charge', 'Escalation %', 'Escalation Interval (Months)', 'Status', 'Next Effective Rent'))
+            rows = scope_model_queryset(Lease, request, organization).filter(
+                Q(starts_on__lte=end, ends_on__gte=start) | Q(status=Lease.Status.DRAFT)
+            ).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
             for lease in rows:
                 service_charge = self._service_charge_for_lease(lease)
-                writer.writerow((lease.unit.floor, lease.unit.code, lease.tenant.name, lease.unit.property.name,
-                                 lease.unit.area or '', lease.starts_on,
+                writer.writerow((lease.unit.floor or '—', lease.unit.code, lease.tenant.name, lease.unit.property.name,
+                                 lease.unit.area or '—', lease.starts_on,
                                  lease.ends_on, lease.effective_rent(end), service_charge, lease.escalation_percent,
-                                 lease.escalation_interval_months, lease.effective_rent(min(lease.ends_on - timedelta(days=1), end + timedelta(days=365)))))
+                                 lease.escalation_interval_months, lease.status.title(),
+                                 lease.effective_rent(min(lease.ends_on - timedelta(days=1), end + timedelta(days=365)))))
         elif report_kind == 'ownership-schedule':
             writer.writerow(('Floor', 'Unit', 'Type', 'Owner / Landlord', 'Owner Code', 'Tenant / Occupant', 'Management Mandate', 'Estate Rent Billing', 'Monthly Service Charge', 'Billing Readiness'))
             units = scope_model_queryset(Unit, request, organization).select_related('owner').prefetch_related('charge_rules__billing_item', 'leases__tenant').order_by('code')

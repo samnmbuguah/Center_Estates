@@ -380,7 +380,7 @@ export function OwnersView({
                       <Chip size="small" color="secondary" variant="outlined" label={`${o.units_count ?? (o.units_list?.length ?? 0)} Units`} sx={{ fontWeight: 700 }} />
                     </TableCell>
                     <TableCell>
-                      <Stack direction="row" spacing={0.75} alignItems="center">
+                      <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
                         <Landmark size={14} color="var(--color-info)" />
                         <Typography variant="caption" sx={{ fontSize: 12, fontWeight: 700, color: "text.primary" }}>{o.settlement_bank_name || "NCBA Bank"}</Typography>
                       </Stack>

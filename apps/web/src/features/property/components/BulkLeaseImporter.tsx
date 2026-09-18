@@ -45,6 +45,7 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [autoActivate, setAutoActivate] = useState(true);
   const validCount = preview.filter((row) => Object.keys(row.errors).length === 0).length;
 
   async function submit(mode: "preview" | "commit") {
@@ -59,7 +60,20 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
       if (!response.ok) throw new Error(await apiErrorMessage(response, "Lease import could not be processed."));
       const payload = await response.json();
       setPreview(payload.rows ?? []);
-      if (mode === "commit") { onDone(); onClose(); setSourceRows([]); setPreview([]); }
+      if (mode === "commit") {
+        if (autoActivate && payload.created_ids && payload.created_ids.length > 0) {
+          try {
+            await apiFetch("/property/leases/bulk-activate/", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+              body: JSON.stringify({ lease_ids: payload.created_ids }),
+            }, session.activeOrganizationId);
+          } catch {
+            // non-fatal, fallback to draft
+          }
+        }
+        onDone(); onClose(); setSourceRows([]); setPreview([]);
+      }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Lease import could not be processed.");
     } finally { setBusy(false); }
@@ -98,6 +112,25 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
         </Table>
       </Paper>}
     </DialogContent>
-    <DialogActions><Button onClick={onClose} disabled={busy}>Cancel</Button><Button variant="contained" onClick={() => submit("commit")} disabled={busy || !preview.length || validCount === 0}>Import {validCount} draft leases</Button></DialogActions>
+    <DialogActions sx={{ px: 3, py: 2, justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
+      <Box sx={{ display: "flex", alignItems: "center" }}>
+        <input
+          type="checkbox"
+          id="bulk-import-auto-activate"
+          checked={autoActivate}
+          onChange={(e) => setAutoActivate(e.target.checked)}
+          style={{ marginRight: 8, width: 16, height: 16, accentColor: "var(--brand-primary, #1e40af)", cursor: "pointer" }}
+        />
+        <label htmlFor="bulk-import-auto-activate" style={{ fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+          ⚡ Activate leases immediately upon import (populates live Tenancy Schedule & rent ledger)
+        </label>
+      </Box>
+      <Box sx={{ display: "flex", gap: 1 }}>
+        <Button onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button variant="contained" onClick={() => submit("commit")} disabled={busy || !preview.length || validCount === 0} sx={{ fontWeight: 800 }}>
+          Import {validCount} {autoActivate ? "Active" : "Draft"} Leases
+        </Button>
+      </Box>
+    </DialogActions>
   </Dialog>;
 }
