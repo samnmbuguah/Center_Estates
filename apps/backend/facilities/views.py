@@ -3364,7 +3364,7 @@ class FacilityAnalyticsViewSet(ViewSet):
         today = timezone.localdate()
         open_orders = work_orders.exclude(status__in=(WorkOrder.Status.COMPLETED, WorkOrder.Status.CANCELLED))
         overdue_orders = open_orders.filter(resolution_due_at__lt=timezone.now())
-        completed_orders = work_orders.filter(status__in=(WorkOrder.Status.COMPLETED, WorkOrder.Status.RESOLVED))
+        completed_orders = work_orders.filter(status=WorkOrder.Status.COMPLETED)
         total_orders_count = work_orders.count()
         sla_rate = round(((total_orders_count - overdue_orders.count()) / total_orders_count) * 100, 1) if total_orders_count else 100.0
 
@@ -3453,7 +3453,7 @@ class FacilityAnalyticsViewSet(ViewSet):
                 getattr(o.assigned_to, 'username', 'Unassigned'),
                 timezone.localtime(o.resolution_due_at).strftime('%d %b %Y') if o.resolution_due_at else 'Standard SLA',
                 o.get_status_display(),
-                timezone.localtime(o.resolved_at).strftime('%d %b %Y %H:%M') if getattr(o, 'resolved_at', None) else '—',
+                timezone.localtime(o.completed_at).strftime('%d %b %Y %H:%M') if getattr(o, 'completed_at', None) else '—',
             ])
 
         # Table 2: Preventive Maintenance
