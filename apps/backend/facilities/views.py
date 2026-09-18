@@ -3448,7 +3448,7 @@ class FacilityAnalyticsViewSet(ViewSet):
                 o.number,
                 timezone.localtime(o.reported_at).strftime('%d %b %Y') if o.reported_at else '—',
                 o.title,
-                o.location or (getattr(o.property, 'name', None) or '—'),
+                getattr(getattr(o, 'asset', None), 'location', None) or (getattr(o.property, 'name', None) or 'Site Compound'),
                 o.get_priority_display(),
                 getattr(o.assigned_to, 'username', 'Unassigned'),
                 timezone.localtime(o.resolution_due_at).strftime('%d %b %Y') if o.resolution_due_at else 'Standard SLA',
@@ -3473,15 +3473,16 @@ class FacilityAnalyticsViewSet(ViewSet):
         # Table 3: Asset Condition
         asset_rows = []
         for a in assets.order_by('name')[:50]:
+            a_loc = getattr(a, 'location', None) or (getattr(getattr(a, 'building', None), 'name', None) or (getattr(getattr(a, 'property', None), 'name', None) or 'Main Plant'))
             asset_rows.append([
-                a.code,
-                a.name,
-                a.category,
-                a.location or 'Main Plant',
-                f"{a.condition} / 5",
-                getattr(a, 'notes', 'Operational'),
+                getattr(a, 'code', f"AST-{a.id}"),
+                getattr(a, 'name', 'Asset Equipment'),
+                getattr(a, 'category', 'General Plant'),
+                a_loc,
+                f"{getattr(a, 'condition', 'Good')}",
+                getattr(a, 'maintenance_procedure', 'Operational'),
                 'Inspected & Calibrated',
-                'Operational' if a.is_active else 'Decommissioned',
+                'Operational' if getattr(a, 'is_active', True) else 'Decommissioned',
             ])
 
         # Table 4: Incident & Risk Register
@@ -3491,13 +3492,13 @@ class FacilityAnalyticsViewSet(ViewSet):
                 inc.reference,
                 timezone.localtime(inc.occurred_at).strftime('%d %b %Y %H:%M') if inc.occurred_at else '—',
                 inc.category,
-                inc.location or 'Site Compound',
+                getattr(inc, 'location', None) or 'Site Compound',
                 getattr(getattr(inc, 'reported_by', None), 'username', 'Site Officer'),
-                inc.get_severity_display(),
-                inc.impact or 'Moderate Operational Impact',
-                inc.immediate_action or 'Immediate containment initiated',
-                inc.corrective_action or 'Pending review',
-                inc.get_status_display(),
+                inc.get_severity_display() if hasattr(inc, 'get_severity_display') else getattr(inc, 'severity', 'Medium'),
+                getattr(inc, 'impact', None) or 'Moderate Operational Impact',
+                getattr(inc, 'immediate_action', None) or 'Immediate containment initiated',
+                getattr(inc, 'corrective_action', None) or 'Pending review',
+                inc.get_status_display() if hasattr(inc, 'get_status_display') else getattr(inc, 'status', 'Open'),
             ])
 
         # Table 5: Service Provider Performance
