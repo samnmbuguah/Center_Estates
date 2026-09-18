@@ -37,9 +37,37 @@ type UtilityDraft = {
 };
 type AssetDraft = { name: string; category: string; location: string; quantity: string; status: string };
 type ContactDraft = { name: string; role: string; email: string; phone: string };
-type ProviderDraft = { name?: string; category: string; service: string; frequency: string; criticality: string; scope?: string; monthly_cost?: string; contact?: string; email?: string; phone?: string };
+type ProviderDraft = {
+  name?: string;
+  category: string;
+  service: string;
+  frequency: string;
+  criticality: string;
+  scope?: string;
+  monthly_cost?: string;
+  contact?: string;
+  email?: string;
+  phone?: string;
+  rubric_template?: string;
+  rubric_label?: string;
+};
 type DocumentDraft = { name: string; type: string; reference: string; expires_on: string; file: File | null };
 type BuildingDraft = { id?: string; name: string; floors: string; floor_numbers: string; use: string; access_points: string; parking_spaces: string; amenities: string };
+
+const STANDARD_RUBRIC_MAP: Record<string, { key: string; label: string }> = {
+  "Security & Guarding": { key: "security", label: "Guarding & Physical Security (12 KRAs · 100%)" },
+  "Cleaning & Janitorial": { key: "cleaning", label: "Cleaning & Housekeeping (14 KPIs · 100%)" },
+  "Lift / Elevator Maintenance": { key: "lift", label: "Lift & Escalator Maintenance (10 metrics · 100%)" },
+  "Landscaping & Gardening": { key: "landscaping", label: "Landscaping & Grounds Maintenance (8 KPIs · 100%)" },
+  "Waste & Refuse Disposal": { key: "waste_mgmt", label: "Waste Management & Recycling (8 KPIs · 100%)" },
+  "Pest Control & Fumigation": { key: "pest_control", label: "Pest Control & Fumigation (8 KPIs · 100%)" },
+  "Backup Generator & Fuel": { key: "generator", label: "Backup Generator & Power Systems (10 KPIs · 100%)" },
+  "HVAC & Air Conditioning": { key: "hvac", label: "HVAC & Air Conditioning Systems (10 KPIs · 100%)" },
+  "Fire Safety & Extinguishers": { key: "fire_safety", label: "Fire Safety & Life Protection (10 KPIs · 100%)" },
+  "Plumbing & Water Systems": { key: "plumbing", label: "Plumbing & Water Supply Systems (8 KPIs · 100%)" },
+  "CCTV & Access Control": { key: "electrical", label: "Electrical, CCTV & Lighting (8 KPIs · 100%)" },
+  "General Maintenance": { key: "cleaning", label: "General Maintenance & Upkeep (100%)" },
+};
 
 const blankUnit: UnitDraft = { unit_no: "", unit_type: "", floor: "", use: "", area: "", rateable_area: "", service_charge_rate: "0", service_charge_calculation: "fixed", description: "", building_index: "" };
 const blankUtility: UtilityDraft = {
@@ -60,7 +88,20 @@ const blankUtility: UtilityDraft = {
 
 const blankAsset: AssetDraft = { name: "", category: "", location: "", quantity: "1", status: "active" };
 const blankContact: ContactDraft = { name: "", role: "", email: "", phone: "" };
-const blankProvider: ProviderDraft = { name: "", category: "Security & Guarding", service: "", frequency: "monthly", criticality: "medium", scope: "", monthly_cost: "0", contact: "", email: "", phone: "" };
+const blankProvider: ProviderDraft = {
+  name: "",
+  category: "Security & Guarding",
+  service: "",
+  frequency: "monthly",
+  criticality: "medium",
+  scope: "",
+  monthly_cost: "0",
+  contact: "",
+  email: "",
+  phone: "",
+  rubric_template: "security",
+  rubric_label: "Guarding & Physical Security (12 KRAs · 100%)",
+};
 const blankDocument: DocumentDraft = { name: "", type: "title", reference: "", expires_on: "", file: null };
 const blankBuilding: BuildingDraft = { name: "", floors: "1", floor_numbers: "", use: "", access_points: "", parking_spaces: "0", amenities: "" };
 const initialValues: Values = { status: "draft", property_type: "commercial", landlord_type: "individual", country: "KE", currency: "KES", building_count: "1", floors: "1", parking_spaces: "0", tax_status: "resident", title_type: "freehold", engagement_type: "management", management_fee_basis: "percent_collections" };
@@ -1289,7 +1330,17 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
             select
             label="Service Category"
             value={providerDraft.category}
-            onChange={e => setProviderDraft({ ...providerDraft, category: e.target.value, service: providerDraft.service || e.target.value })}
+            onChange={e => {
+              const cat = e.target.value;
+              const rubric = STANDARD_RUBRIC_MAP[cat] || { key: "cleaning", label: "Standard FM Rubric (100%)" };
+              setProviderDraft({
+                ...providerDraft,
+                category: cat,
+                service: providerDraft.service || cat,
+                rubric_template: rubric.key,
+                rubric_label: rubric.label,
+              });
+            }}
           >
             {[
               "Security & Guarding", "Cleaning & Janitorial", "Lift / Elevator Maintenance",
@@ -1314,6 +1365,45 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
           </TextField>
           <TextField label="Scope / Coverage Area (Optional)" placeholder="e.g. Main Gate, Blocks A & B" value={providerDraft.scope || ""} onChange={e => setProviderDraft({ ...providerDraft, scope: e.target.value })} />
         </Grid>
+
+        {/* Dedicated Scorecard Creation Bar */}
+        <Box sx={{ mt: 1.5, p: 1.5, bgcolor: "rgba(16, 185, 129, 0.05)", border: "1px solid rgba(16, 185, 129, 0.25)", borderRadius: 1.5, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flex: 1, minWidth: 260, flexWrap: "wrap" }}>
+            <TextField
+              select
+              size="small"
+              label="Appraisal Scorecard Rubric (Created with Service Line)"
+              value={providerDraft.rubric_template || "security"}
+              onChange={e => {
+                const selectedKey = e.target.value;
+                const found = Object.values(STANDARD_RUBRIC_MAP).find(r => r.key === selectedKey);
+                setProviderDraft({
+                  ...providerDraft,
+                  rubric_template: selectedKey,
+                  rubric_label: found?.label || "Standard FM Rubric (100%)",
+                });
+              }}
+              sx={{ minWidth: 320, bgcolor: "background.paper" }}
+            >
+              {Object.entries(STANDARD_RUBRIC_MAP).map(([cat, rubric]) => (
+                <MenuItem key={`${cat}-${rubric.key}`} value={rubric.key}>
+                  {rubric.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <Chip
+              size="small"
+              color="success"
+              variant="filled"
+              label="✓ 100% Scorecard V1.0 Ready"
+              sx={{ fontWeight: 700, fontSize: 11 }}
+            />
+          </Box>
+          <Typography variant="caption" sx={{ color: "text.secondary", maxWidth: 450 }}>
+            ⚡ <strong>Scorecard Created Automatically</strong>: Creating this service line automatically provisions and publishes an active 100% weighted scorecard with statutory SLAs and KPI standards for supplier appraisals.
+          </Typography>
+        </Box>
+
         <Box sx={{ mt: 1.5, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
           <Typography variant="caption" color="text.secondary">
             💡 Service lines create the facility requirement slots. Contractors & costs are assigned when allocating in <strong>Facilities</strong>.
@@ -1330,13 +1420,14 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
         <Box sx={{ mt: 2 }}>
           <RowList
             rows={providers}
-            columns={["Service Line", "Category", "Billing Frequency", "Criticality", "Coverage / Scope", "Provider Status"]}
+            columns={["Service Line", "Category", "Billing Frequency", "Criticality", "Coverage / Scope", "Scorecard Rubric", "Provider Status"]}
             render={p => [
               p.service || p.name,
               p.category || "General Maintenance",
               p.frequency === "monthly" ? "Monthly" : p.frequency === "quarterly" ? "Quarterly" : p.frequency === "annual" ? "Annual" : p.frequency || "Monthly",
               p.criticality === "critical" ? "Critical (24/7)" : p.criticality === "high" ? "High Priority" : p.criticality || "Medium",
               p.scope || "Whole property",
+              <Chip key={p.service || p.name} size="small" variant="outlined" color="success" label={`📋 ${p.rubric_label || "100% Active Scorecard"}`} sx={{ fontWeight: 600, fontSize: 11 }} />,
               p.name ? `Assigned: ${p.name}` : "Unallocated (Assign in Facilities)",
             ]}
             onRemove={i => setProviders(rows => rows.filter((_, index) => index !== i))}

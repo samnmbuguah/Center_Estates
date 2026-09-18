@@ -45,8 +45,10 @@ import {
   Users,
   Wrench,
   Zap,
+  ArrowLeft,
 } from "lucide-react";
 
+import { ExecutivePackView } from "./ExecutivePackView";
 import { FacilityDashboard } from "../../types/facility.types";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { EmptyState, LoadingState, money } from "@/components/module-ui";
@@ -121,6 +123,7 @@ export function ReportsView({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showCatalog, setShowCatalog] = useState(false);
 
   // Live in-browser preview data state
   const [previewData, setPreviewData] = useState<{
@@ -436,7 +439,10 @@ export function ReportsView({
       <Paper variant="outlined" sx={{ borderRadius: 3, overflow: "hidden", p: 0.5, bgcolor: "background.paper" }}>
         <Tabs
           value={activeSection}
-          onChange={(_, val) => setActiveSection(val)}
+          onChange={(_, val) => {
+            setActiveSection(val);
+            setShowCatalog(false);
+          }}
           variant="scrollable"
           scrollButtons="auto"
           sx={{
@@ -463,230 +469,230 @@ export function ReportsView({
         </Alert>
       )}
 
-      {/* 4. PERIOD FILTER BAR */}
-      <PeriodFilterBar
-        start={start}
-        end={end}
-        onStart={setStart}
-        onEnd={setEnd}
-        onApply={() => void loadPreviewData(activeSection)}
-      />
-
-      {/* 5. TOP PERFORMANCE KPIS */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: {
-            xs: "repeat(2, minmax(0, 1fr))",
-            md: "repeat(3, minmax(0, 1fr))",
-            xl: "repeat(6, minmax(0, 1fr))",
-          },
-          gap: 1.25,
-        }}
-      >
-        <ReportKpiCard
-          icon={TrendingUp}
-          label="Weighted FM Index"
-          value={`${weightedIndex} / 100`}
-          helper="Grade A performance standard"
-          tone={weightedIndex >= 85 ? "success" : "info"}
+      {/* 4. SECTION 0: EXECUTIVE PACK VIEW */}
+      {activeSection === 0 && !showCatalog ? (
+        <ExecutivePackView
+          organizationId={organizationId}
+          onOpenCatalog={() => setShowCatalog(true)}
         />
-        <ReportKpiCard
-          icon={ShieldCheck}
-          label="PPM Compliance"
-          value={`${compliance}%`}
-          helper="Target: 95.0% on-time"
-          tone={compliance >= 90 ? "success" : "warning"}
-        />
-        <ReportKpiCard
-          icon={Wrench}
-          label="Active Work Orders"
-          value={openWO}
-          helper={overdueWO > 0 ? `${overdueWO} SLA breached` : "All within SLA"}
-          tone={overdueWO > 0 ? "error" : "info"}
-        />
-        <ReportKpiCard
-          icon={CircleGauge}
-          label="Asset Health Score"
-          value="4.2 / 5.0"
-          helper="Plant & machinery condition"
-          tone="success"
-        />
-        <ReportKpiCard
-          icon={Zap}
-          label="Utility Spend YTD"
-          value={money.format(1450000)}
-          helper="Power & water consumption"
-          tone="info"
-        />
-        <ReportKpiCard
-          icon={Receipt}
-          label="FM Budget Spent"
-          value={money.format(budgetSpent)}
-          helper={budgetAllocated > 0 ? `${Math.round((budgetSpent / budgetAllocated) * 100)}% of annual allocated` : "Allocated budget"}
-          tone="warning"
-        />
-      </Box>
-
-      {/* 6. TAB CONTENT: OVERVIEW (TAB 0) */}
-      {activeSection === 0 && (
-        <Box sx={{ display: "grid", gap: 2.5 }}>
-          {/* Executive Dossier Banner */}
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 3,
-              borderRadius: 3,
-              background: "linear-gradient(135deg, rgba(37, 99, 235, 0.08), var(--surface) 60%)",
-              borderColor: "var(--border)",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 2,
-            }}
+      ) : (
+        <>
+          {/* TOP UNIFIED REPORT TOOLBAR (FOR CATALOG & SECTIONS 1-8) */}
+          <ReportToolbar
+            title={activeSection === 0 ? "Facilities Reports Master Catalog" : "Facilities Management Intelligence & Reports"}
+            subtitle={
+              activeSection === 0
+                ? "Authoritative operational audit reports, CAPEX lifecycle plans, PPM schedules, statutory compliance matrices and utility analytics."
+                : "Authoritative operational audit reports, CAPEX lifecycle plans, PPM schedules, statutory compliance matrices and utility analytics."
+            }
+            exportFormat={exportFormat}
+            onFormatChange={setExportFormat}
+            onExport={() => void handleExport()}
+            exporting={exporting}
+            exportDisabled={activeSection === 8 || activeSection === 0}
+            scope={`${propertyName} · ${start} to ${end}`}
           >
-            <Box sx={{ maxWidth: 700 }}>
-              <Box sx={{ display: "flex", gap: 1, alignItems: "center", mb: 0.5 }}>
-                <Chip size="small" color="primary" label="Audited Landlord Pack" sx={{ fontWeight: 800 }} />
-                <Chip size="small" variant="outlined" label="ReportLab PDF Engine" />
-              </Box>
-              <Typography variant="h6" sx={{ fontWeight: 900, mt: 0.5 }}>
-                Executive Facilities Management Performance Report
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                Consolidated audit report combining live work orders, technician SLA turnarounds, contractor 7-pillar scorecards, preventive maintenance compliance, statutory obligations, and energy indices.
-              </Typography>
-            </Box>
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<Download size={18} />}
-              onClick={() => void handleExport("landlord-report", "pdf")}
-              disabled={exporting}
-              sx={{ bgcolor: "var(--color-info)", "&:hover": { bgcolor: "var(--color-info-strong)" }, fontWeight: 800, px: 3, py: 1.25 }}
-            >
-              Download Executive Pack (PDF)
-            </Button>
-          </Paper>
-
-          {/* Master Catalog Search & Filter */}
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
-              Complete Facilities Reports Catalog ({visibleReports.length})
-            </Typography>
-            <TextField
-              size="small"
-              placeholder="Search reports by keyword, category, or tag…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              sx={{ minWidth: { xs: "100%", sm: 320 } }}
-              slotProps={{
-                input: {
-                  startAdornment: <Search size={16} style={{ marginRight: 8, opacity: 0.6 }} />,
-                },
-              }}
-            />
-          </Box>
-
-          {/* Report Cards Grid */}
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" },
-              gap: 2,
-            }}
-          >
-            {visibleReports.map((report) => (
-              <Paper
-                key={report.key}
+            {activeSection === 0 && (
+              <Button
                 variant="outlined"
+                startIcon={<ArrowLeft size={16} />}
+                onClick={() => setShowCatalog(false)}
+                sx={{ fontWeight: 800 }}
+              >
+                ← Back to Executive Pack
+              </Button>
+            )}
+          </ReportToolbar>
+
+          {/* PERIOD FILTER BAR & KPIS FOR NON-EXEC PACK VIEWS */}
+          {activeSection > 0 && (
+            <>
+              <PeriodFilterBar
+                start={start}
+                end={end}
+                onStart={setStart}
+                onEnd={setEnd}
+                onApply={() => void loadPreviewData(activeSection)}
+              />
+
+              <Box
                 sx={{
-                  p: 2.25,
-                  borderRadius: 3,
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    borderColor: report.color || "primary.main",
-                    boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
-                    transform: "translateY(-2px)",
+                  display: "grid",
+                  gridTemplateColumns: {
+                    xs: "repeat(2, minmax(0, 1fr))",
+                    md: "repeat(3, minmax(0, 1fr))",
+                    xl: "repeat(6, minmax(0, 1fr))",
                   },
+                  gap: 1.25,
                 }}
               >
-                <Box>
-                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1, mb: 1.5 }}>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 2.5,
-                        display: "grid",
-                        placeItems: "center",
-                        fontSize: 20,
-                        bgcolor: report.color ? `color-mix(in srgb, ${report.color} 8%, transparent)` : "rgba(99, 102, 241, 0.12)",
-                      }}
-                    >
-                      {report.icon}
+                <ReportKpiCard
+                  icon={TrendingUp}
+                  label="Weighted FM Index"
+                  value={`${weightedIndex} / 100`}
+                  helper="Grade A performance standard"
+                  tone={weightedIndex >= 85 ? "success" : "info"}
+                />
+                <ReportKpiCard
+                  icon={ShieldCheck}
+                  label="PPM Compliance"
+                  value={`${compliance}%`}
+                  helper="Target: 95.0% on-time"
+                  tone={compliance >= 90 ? "success" : "warning"}
+                />
+                <ReportKpiCard
+                  icon={Wrench}
+                  label="Active Work Orders"
+                  value={openWO}
+                  helper={overdueWO > 0 ? `${overdueWO} SLA breached` : "All within SLA"}
+                  tone={overdueWO > 0 ? "error" : "info"}
+                />
+                <ReportKpiCard
+                  icon={CircleGauge}
+                  label="Asset Health Score"
+                  value="4.2 / 5.0"
+                  helper="Plant & machinery condition"
+                  tone="success"
+                />
+                <ReportKpiCard
+                  icon={Zap}
+                  label="Utility Spend YTD"
+                  value={money.format(1450000)}
+                  helper="Power & water consumption"
+                  tone="info"
+                />
+                <ReportKpiCard
+                  icon={Receipt}
+                  label="FM Budget Spent"
+                  value={money.format(budgetSpent)}
+                  helper={budgetAllocated > 0 ? `${Math.round((budgetSpent / budgetAllocated) * 100)}% of annual allocated` : "Allocated budget"}
+                  tone="warning"
+                />
+              </Box>
+            </>
+          )}
+
+          {/* MASTER CATALOG IN SECTION 0 */}
+          {activeSection === 0 && showCatalog && (
+            <Box sx={{ display: "grid", gap: 2.5 }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>
+                  Complete Facilities Reports Catalog ({visibleReports.length})
+                </Typography>
+                <TextField
+                  size="small"
+                  placeholder="Search reports by keyword, category, or tag…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  sx={{ minWidth: { xs: "100%", sm: 320 } }}
+                  slotProps={{
+                    input: {
+                      startAdornment: <Search size={16} style={{ marginRight: 8, opacity: 0.6 }} />,
+                    },
+                  }}
+                />
+              </Box>
+
+              {/* Report Cards Grid */}
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" },
+                  gap: 2,
+                }}
+              >
+                {visibleReports.map((report) => (
+                  <Paper
+                    key={report.key}
+                    variant="outlined"
+                    sx={{
+                      p: 2.25,
+                      borderRadius: 3,
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      transition: "all 0.2s ease",
+                      "&:hover": {
+                        borderColor: report.color || "primary.main",
+                        boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
+                        transform: "translateY(-2px)",
+                      },
+                    }}
+                  >
+                    <Box>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1, mb: 1.5 }}>
+                        <Box
+                          sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 2.5,
+                            display: "grid",
+                            placeItems: "center",
+                            fontSize: 20,
+                            bgcolor: report.color ? `color-mix(in srgb, ${report.color} 8%, transparent)` : "rgba(99, 102, 241, 0.12)",
+                          }}
+                        >
+                          {report.icon}
+                        </Box>
+                        <Chip
+                          size="small"
+                          label={report.badge || report.category}
+                          sx={{
+                            fontWeight: 800,
+                            fontSize: 11,
+                            bgcolor: report.color ? `color-mix(in srgb, ${report.color} 8%, transparent)` : "action.hover",
+                            color: report.color || "text.primary",
+                          }}
+                        />
+                      </Box>
+
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.3, mb: 0.75 }}>
+                        {report.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.5, mb: 1.5 }}>
+                        {report.description}
+                      </Typography>
                     </Box>
-                    <Chip
-                      size="small"
-                      label={report.badge || report.category}
-                      sx={{
-                        fontWeight: 800,
-                        fontSize: 11,
-                        bgcolor: report.color ? `color-mix(in srgb, ${report.color} 8%, transparent)` : "action.hover",
-                        color: report.color || "text.primary",
-                      }}
-                    />
-                  </Box>
 
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.3, mb: 0.75 }}>
-                    {report.name}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.5, mb: 1.5 }}>
-                    {report.description}
-                  </Typography>
-                </Box>
-
-                <Box sx={{ pt: 1.5, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                    {(report.tags || []).slice(0, 2).map((tag) => (
-                      <Chip key={tag} size="small" variant="outlined" label={tag} sx={{ fontSize: 10, height: 20 }} />
-                    ))}
-                  </Box>
-                  <Box sx={{ display: "flex", gap: 0.75 }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => void handleExport(report.exportType, "csv")}
-                      sx={{ minWidth: 42, px: 1, py: 0.25, fontSize: 11 }}
-                    >
-                      CSV
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      startIcon={<Download size={13} />}
-                      onClick={() => void handleExport(report.exportType, "pdf")}
-                      sx={{
-                        fontSize: 11,
-                        py: 0.25,
-                        px: 1.25,
-                        bgcolor: report.color || "var(--color-info)",
-                        "&:hover": { bgcolor: report.color || "var(--color-info-strong)" },
-                        fontWeight: 800,
-                      }}
-                    >
-                      PDF
-                    </Button>
-                  </Box>
-                </Box>
-              </Paper>
-            ))}
-          </Box>
-        </Box>
+                    <Box sx={{ pt: 1.5, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                        {(report.tags || []).slice(0, 2).map((tag) => (
+                          <Chip key={tag} size="small" variant="outlined" label={tag} sx={{ fontSize: 10, height: 20 }} />
+                        ))}
+                      </Box>
+                      <Box sx={{ display: "flex", gap: 0.75 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => void handleExport(report.exportType, "csv")}
+                          sx={{ minWidth: 42, px: 1, py: 0.25, fontSize: 11 }}
+                        >
+                          CSV
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          startIcon={<Download size={13} />}
+                          onClick={() => void handleExport(report.exportType, "pdf")}
+                          sx={{
+                            fontSize: 11,
+                            py: 0.25,
+                            px: 1.25,
+                            bgcolor: report.color || "var(--color-info)",
+                            "&:hover": { bgcolor: report.color || "var(--color-info-strong)" },
+                            fontWeight: 800,
+                          }}
+                        >
+                          PDF
+                        </Button>
+                      </Box>
+                    </Box>
+                  </Paper>
+                ))}
+              </Box>
+            </Box>
+          )}
+        </>
       )}
 
       {/* 7. TAB CONTENT: IN-BROWSER INTERACTIVE REPORT PREVIEW (TABS 1 TO 7) */}
