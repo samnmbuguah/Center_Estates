@@ -3335,7 +3335,7 @@ class FacilityAnalyticsViewSet(ViewSet):
             requisitions = requisitions.filter(property_id=prop_id)
             meters = meters.filter(meter__property_id=prop_id)
             obligations = obligations.filter(property_id=prop_id)
-            actions = actions.filter(property_id=prop_id)
+            actions = actions.filter(appraisal__property_id=prop_id)
 
         # Date range filter
         start = request.query_params.get('start', '')
@@ -3343,12 +3343,12 @@ class FacilityAnalyticsViewSet(ViewSet):
         if start:
             work_orders = work_orders.filter(reported_at__date__gte=start)
             incidents = incidents.filter(occurred_at__date__gte=start)
-            expenses = expenses.filter(incurred_on__gte=start)
+            expenses = expenses.filter(spent_on__gte=start)
             appraisals = appraisals.filter(period_start__gte=start)
         if end:
             work_orders = work_orders.filter(reported_at__date__lte=end)
             incidents = incidents.filter(occurred_at__date__lte=end)
-            expenses = expenses.filter(incurred_on__lte=end)
+            expenses = expenses.filter(spent_on__lte=end)
             appraisals = appraisals.filter(period_end__lte=end)
 
         property_record = None
@@ -3382,7 +3382,7 @@ class FacilityAnalyticsViewSet(ViewSet):
         high_risk_incidents = open_incidents.filter(severity__in=('high', 'critical'))
 
         posted_appraisals = appraisals.filter(status='posted')
-        avg_provider_score_val = posted_appraisals.aggregate(avg=Avg('final_score'))['avg']
+        avg_provider_score_val = posted_appraisals.aggregate(avg=Avg('total_score'))['avg']
         avg_provider_score = round(float(avg_provider_score_val), 1) if avg_provider_score_val is not None else 88.5
 
         # Executive Status Logic
@@ -3506,7 +3506,7 @@ class FacilityAnalyticsViewSet(ViewSet):
             appr = appraisals.filter(service_line=sl).order_by('-period_end').first()
             contract = contracts.filter(service_line=sl).first()
             c_name = getattr(getattr(contract, 'contractor', None), 'name', 'Contractor Unassigned')
-            score = f"{appr.final_score}%" if appr and appr.final_score is not None else "Pending Audit"
+            score = f"{appr.total_score}%" if appr and appr.total_score is not None else "Pending Audit"
             tier = appr.get_tier_rating_display() if appr and hasattr(appr, 'get_tier_rating_display') else (appr.tier_rating if appr else "Tier 1 · Approved")
             sp_rows.append([
                 sl.name,
@@ -3516,7 +3516,7 @@ class FacilityAnalyticsViewSet(ViewSet):
                 f"{sla_rate}%",
                 f"{ppm_rate}%",
                 f"{score} ({tier})",
-                '0 Outstanding Lapses' if not appr or (appr and (appr.final_score or 0) >= 85) else 'Action Plan Required',
+                '0 Outstanding Lapses' if not appr or (appr and (appr.total_score or 0) >= 85) else 'Action Plan Required',
             ])
 
         # Table 6: Procurement & Works
@@ -3537,14 +3537,14 @@ class FacilityAnalyticsViewSet(ViewSet):
         fin_rows = []
         for b in budgets.select_related('property')[:30]:
             b_alloc = float(b.allocated_amount or 0)
-            b_exp = float(expenses.filter(budget=b).aggregate(t=Sum('amount'))['t'] or 0)
+            b_exp = float(expenses.filter(category=b.category).aggregate(t=Sum('amount'))['t'] or 0)
             b_var = b_alloc - b_exp
             fin_rows.append([
-                b.name or b.get_category_display(),
+                getattr(b, 'name', None) or (b.get_category_display() if hasattr(b, 'get_category_display') else b.category),
                 f"KES {b_alloc:,.0f}",
                 f"KES {b_exp:,.0f}",
                 f"KES {b_var:,.0f}",
-                str(expenses.filter(budget=b).count()),
+                str(expenses.filter(category=b.category).count()),
                 'Favorable' if b_var >= 0 else 'Deficit Exceeded',
             ])
 
@@ -3567,13 +3567,13 @@ class FacilityAnalyticsViewSet(ViewSet):
 
         # Table 9: Compliance & Inspections
         comp_rows = []
-        for ob in obligations.order_by('valid_until')[:50]:
+        for ob in obligations.order_by('expiry_date')[:50]:
             comp_rows.append([
                 ob.title,
                 getattr(ob.property, 'name', 'Site Compound'),
-                str(ob.valid_until or '—'),
-                ob.authority or 'County / Statutory Body',
-                ob.reference or f"CERT-{ob.id}",
+                str(ob.expiry_date or '—'),
+                getattr(ob, 'issuing_authority', None) or 'County / Statutory Body',
+                getattr(ob, 'certificate_number', None) or f"CERT-{ob.id}",
                 ob.status.capitalize(),
                 'Renewal in progress' if ob.status == 'expiring' else 'Fully Compliant',
             ])
@@ -3582,12 +3582,12 @@ class FacilityAnalyticsViewSet(ViewSet):
         act_rows = []
         for act in actions.order_by('-created_at')[:50]:
             act_rows.append([
-                act.code or f"ACT-{act.id}",
-                act.title or act.finding,
+                f"ACT-{act.id}",
+                act.issue,
                 str(act.created_at.date() if hasattr(act, 'created_at') and act.created_at else today),
-                getattr(act.responsible_person, 'username', 'Facilities Officer'),
-                act.corrective_measure or 'Implement audit recommendation',
-                str(act.target_completion_date or 'Next Audit'),
+                getattr(act, 'responsible_party', 'Facilities Officer') or 'Facilities Officer',
+                getattr(act, 'required_action', 'Implement audit recommendation') or 'Implement audit recommendation',
+                str(getattr(act, 'target_date', 'Next Audit') or 'Next Audit'),
                 act.status.capitalize(),
             ])
 
@@ -3715,31 +3715,38 @@ class FacilityAnalyticsViewSet(ViewSet):
         order_rows_pdf = [['Work order', 'Description', 'Priority', 'Status', 'Reported', 'Resolution due']]
         for order in work_orders.order_by('-reported_at')[:12]:
             order_rows_pdf.append([
-                order.number, order.title, order.get_priority_display(), order.get_status_display(),
-                timezone.localtime(order.reported_at).strftime('%d %b %Y'),
+                order.number,
+                Paragraph(order.title or '—', small_style),
+                order.get_priority_display(),
+                order.get_status_display(),
+                timezone.localtime(order.reported_at).strftime('%d %b %Y') if order.reported_at else '—',
                 timezone.localtime(order.resolution_due_at).strftime('%d %b %Y %H:%M') if order.resolution_due_at else 'Not set',
             ])
         if len(order_rows_pdf) == 1:
-            order_rows_pdf.append(['—', 'No work orders recorded for this scope.', '—', '—', '—', '—'])
+            order_rows_pdf.append(['—', Paragraph('No work orders recorded for this scope.', small_style), '—', '—', '—', '—'])
 
         incident_rows_pdf = [['Reference', 'Category', 'Severity', 'Status', 'Location', 'Occurred']]
         for incident in incidents.order_by('-occurred_at')[:10]:
             incident_rows_pdf.append([
-                incident.reference, incident.category, incident.get_severity_display(), incident.get_status_display(),
-                incident.location, timezone.localtime(incident.occurred_at).strftime('%d %b %Y %H:%M'),
+                incident.reference,
+                incident.category,
+                incident.get_severity_display(),
+                incident.get_status_display(),
+                Paragraph(incident.location or '—', small_style),
+                timezone.localtime(incident.occurred_at).strftime('%d %b %Y %H:%M') if incident.occurred_at else '—',
             ])
         if len(incident_rows_pdf) == 1:
-            incident_rows_pdf.append(['—', 'No incidents recorded for this scope.', '—', '—', '—', '—'])
+            incident_rows_pdf.append(['—', 'No incidents recorded for this scope.', '—', '—', Paragraph('—', small_style), '—'])
 
         story = [
             header, Spacer(1, 4 * mm), Table([['']], colWidths=[260 * mm], rowHeights=[1.5 * mm], style=[('BACKGROUND', (0, 0), (-1, -1), red)]),
-            Spacer(1, 5 * mm), styled_table(kpis),
-            Paragraph('Work order performance', section_style), styled_table(order_rows_pdf),
-            Paragraph('Incident and risk register', section_style), styled_table(incident_rows_pdf),
+            Spacer(1, 5 * mm), styled_table(kpis, widths=[43 * mm, 43 * mm, 43 * mm, 43 * mm, 44 * mm, 44 * mm]),
+            Paragraph('Work order performance', section_style), styled_table(order_rows_pdf, widths=[30 * mm, 95 * mm, 25 * mm, 30 * mm, 38 * mm, 42 * mm]),
+            Paragraph('Incident and risk register', section_style), styled_table(incident_rows_pdf, widths=[30 * mm, 40 * mm, 25 * mm, 30 * mm, 85 * mm, 50 * mm]),
             Spacer(1, 5 * mm),
             Paragraph(f'Record basis: {assets.count()} assets, {work_orders.count()} work orders, {inspections.count()} inspections, '
                       f'{schedules.count()} preventive schedules and {incidents.count()} incidents. Values reflect the selected organization and property access scope.', small_style),
-            Spacer(1, 7 * mm), styled_table([['Prepared by', 'Reviewed by', 'Approved by'], ['____________________________', '____________________________', '____________________________'], ['Name / Date', 'Name / Date', 'Name / Date']])
+            Spacer(1, 7 * mm), styled_table([['Prepared by', 'Reviewed by', 'Approved by'], ['____________________________', '____________________________', '____________________________'], ['Name / Date', 'Name / Date', 'Name / Date']], widths=[86 * mm, 87 * mm, 87 * mm])
         ]
         document.build(story)
         response = HttpResponse(stream.getvalue(), content_type='application/pdf')
