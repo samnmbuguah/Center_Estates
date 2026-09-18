@@ -107,6 +107,7 @@ def _styles():
     styles.add(ParagraphStyle(name="Small", parent=styles["BodyText"], fontSize=8.5, leading=11, textColor=NAVY))
     styles.add(ParagraphStyle(name="HeaderSmall", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.white, fontName="Helvetica-Bold"))
     styles.add(ParagraphStyle(name="HeaderRight", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.white, fontName="Helvetica-Bold", alignment=TA_RIGHT))
+    styles.add(ParagraphStyle(name="HeaderCenter", parent=styles["BodyText"], fontSize=8, leading=10, textColor=colors.white, fontName="Helvetica-Bold", alignment=TA_CENTER))
     styles.add(ParagraphStyle(name="Tiny", parent=styles["BodyText"], fontSize=8, leading=10.5, textColor=NAVY))
     styles.add(ParagraphStyle(name="Right", parent=styles["Small"], alignment=TA_RIGHT))
     styles.add(ParagraphStyle(name="CenterSmall", parent=styles["Small"], alignment=TA_CENTER))
@@ -841,10 +842,27 @@ def _looks_numeric(value: str) -> bool:
 
 def _format_report_cell(value: str, *, header: str = "") -> str:
     raw = str(value or "").strip()
-    if not raw: return "—"
-    if _looks_numeric(raw) and not any(k in header.lower() for k in ("code", "no", "number", "id", "phone", "pin", "unit", "lease")):
+    if not raw or raw in ("—", "-", "None", "nan"):
+        return "—"
+    h_lower = header.lower()
+    # Integer-like fields should not have decimal places (e.g. Floor 10.00 -> 10, Interval 12.00 -> 12)
+    if any(k in h_lower for k in ("floor", "interval", "month", "mos", "year", "days", "count", "code", "no", "number", "id", "phone", "pin", "unit", "lease")):
         try:
-            val = float(raw.replace(",", "").replace("%", "").replace("KES", "").strip())
+            val = float(raw.replace(",", "").replace("%", "").strip())
+            if val.is_integer():
+                return str(int(val))
+        except ValueError:
+            pass
+        return raw
+
+    # Financial and decimal numbers
+    if _looks_numeric(raw):
+        try:
+            cleaned = raw.replace(",", "").replace("KES", "").replace("$", "").strip()
+            is_pct = "%" in cleaned
+            val = float(cleaned.replace("%", "").strip())
+            if is_pct:
+                return f"{val:.2f}%" if not val.is_integer() else f"{int(val)}%"
             return f"{val:,.2f}"
         except ValueError:
             pass
@@ -854,13 +872,14 @@ def _format_report_cell(value: str, *, header: str = "") -> str:
 def _clean_header_label(header: str) -> str:
     h = str(header or "").strip()
     cleanups = {
-        "Escalation Interval (Months)": "Escalation<br/>Interval (Mos)",
-        "Escalation Interval Months": "Escalation<br/>Interval (Mos)",
-        "Escalation %": "Escalation<br/>%",
-        "Next Effective Rent": "Next Effective<br/>Rent",
+        "Escalation Interval (Months)": "Esc.<br/>(Mos)",
+        "Escalation Interval Months": "Esc.<br/>(Mos)",
+        "Escalation %": "Esc.<br/>%",
+        "Next Effective Rent": "Next<br/>Rent",
         "Service Charge": "Service<br/>Charge",
-        "Lease Start": "Lease<br/>Start",
-        "Lease End": "Lease<br/>End",
+        "Lease Start": "Start<br/>Date",
+        "Lease End": "End<br/>Date",
+        "Area": "Area<br/>(sqft)",
         "Payment Mode": "Payment<br/>Mode",
         "Billings Up To": "Billings<br/>Up To",
         "Total Current Billings": "Total Current<br/>Billings",
@@ -881,7 +900,7 @@ def _clean_header_label(header: str) -> str:
         "Input VAT": "Input<br/>VAT",
         "Annualized Income": "Annualized<br/>Income",
         "Projected Rent": "Projected<br/>Rent",
-        "Lease Status": "Lease<br/>Status",
+        "Lease Status": "Status",
         "Budget Code": "Budget<br/>Code",
         "Cost Centre": "Cost<br/>Centre",
         "Document Type": "Document<br/>Type",
@@ -894,7 +913,11 @@ def _clean_header_label(header: str) -> str:
 
 
 def _column_widths(headers: list[str], rows: list[list[str]], page_width: float) -> list[float]:
-    """Calculate balanced column widths ensuring numeric/date values never clip or wrap digits."""
+    """Calculate balanced column widths following real estate and accounting report standards:
+    - Tight fit for compact codes (Floor, Unit, Status, Dates, Interval, %)
+    - Snug fit for numeric amounts (Area, Rent, Service Charge)
+    - Greedy flex allocation (60-80% of remaining width) for primary descriptive text (Tenant, Owner, Description, Supplier)
+    """
     num_cols = len(headers)
     if num_cols == 0:
         return [page_width]
@@ -907,46 +930,51 @@ def _column_widths(headers: list[str], rows: list[list[str]], page_width: float)
         samples = [row[index] for row in rows[:50] if index < len(row)]
         max_content_len = max((len(str(s or "")) for s in samples), default=len(header))
 
-        is_money = any(k in h_lower for k in ("rent", "amount", "charge", "balance", "total", "subtotal", "paid", "billed", "vat", "net", "tax", "fee", "cost", "spend"))
-        is_date = any(k in h_lower for k in ("date", "start", "end", "due", "issued", "expires", "completed"))
-        is_rate = any(k in h_lower for k in ("%", "rate", "ratio", "interval", "days", "count", "score"))
-        is_use = any(k in h_lower for k in ("use", "category", "specialty", "status", "party", "action"))
-        is_code = any(k in h_lower for k in ("unit", "floor", "code", "no", "number", "ref", "area", "type"))
-        is_long_text = any(k in h_lower for k in ("tenant", "supplier", "description", "name", "contractor", "party", "reason", "comment"))
+        is_floor = "floor" in h_lower
+        is_unit = any(k in h_lower for k in ("unit", "unit_code"))
+        is_status = any(k in h_lower for k in ("status", "marketing"))
+        is_date = any(k in h_lower for k in ("date", "start", "end", "due", "issued", "expires", "completed", "since"))
+        is_rate = any(k in h_lower for k in ("%", "rate", "ratio", "interval", "days", "count", "mos", "month"))
+        is_money = any(k in h_lower for k in ("rent", "amount", "charge", "balance", "total", "subtotal", "paid", "billed", "vat", "net", "tax", "fee", "cost", "spend", "income"))
+        is_area = "area" in h_lower
+        is_primary_text = any(k in h_lower for k in ("tenant", "owner", "landlord", "supplier", "contractor", "party", "description", "name", "reason", "comment", "entity", "payee"))
 
-        if is_money:
-            base_min = 25 * mm
-            flex = 1.0
+        if is_floor:
+            base_min = 9.5 * mm
+            flex = 0.05
+        elif is_unit:
+            base_min = 14 * mm
+            flex = 0.1
+        elif is_status:
+            base_min = 12.5 * mm
+            flex = 0.05
         elif is_date:
-            base_min = 22 * mm
-            flex = 0.8
-        elif is_use:
-            base_min = 27 * mm
-            flex = 1.3
+            base_min = 16.5 * mm
+            flex = 0.05
         elif is_rate:
+            base_min = 11.5 * mm
+            flex = 0.05
+        elif is_area:
+            base_min = 15 * mm
+            flex = 0.15
+        elif is_money:
             base_min = 18 * mm
-            flex = 0.6
-        elif is_code:
-            base_min = 20 * mm
-            flex = 0.9
-        elif is_long_text:
-            base_min = 34 * mm
-            flex = 2.4
+            flex = 0.3
+        elif is_primary_text:
+            base_min = 45 * mm
+            flex = 5.0
         else:
-            base_min = max(max_content_len * 1.8 * mm, 18 * mm)
-            flex = 1.2
+            base_min = max(max(max_content_len * 1.4 * mm, 13 * mm), 10 * mm)
+            flex = 0.4
 
         min_widths.append(base_min)
         flex_weights.append(flex)
 
     total_min = sum(min_widths)
-
-    # If total minimum widths exceed printable page width, proportionally scale down
     if total_min >= page_width:
         scale = page_width / total_min
         return [w * scale for w in min_widths]
 
-    # Distribute excess remaining width proportionally according to flex weight
     remaining_space = page_width - total_min
     total_flex = sum(flex_weights) or 1.0
 
@@ -993,27 +1021,55 @@ def tabular_report_pdf(
     body = [row + [""] * (column_count - len(row)) for row in body]
     page_width = landscape(A4)[0] - 28 * mm
     widths = _column_widths(headers, body, page_width)
-    numeric_cols = {
-        index for index, header in enumerate(headers)
-        if body and sum(1 for row in body if _looks_numeric(row[index])) >= max(1, len(body) // 2)
-    }
-    data = [[
-        Paragraph(f"<b>{_clean_header_label(headers[index])}</b>", s["HeaderSmall"])
-        for index in range(column_count)
-    ]]
+
+    def _is_numeric_col(h: str) -> bool:
+        hl = h.lower()
+        if any(k in hl for k in ("code", "no", "number", "id", "phone", "pin", "unit", "lease", "floor", "interval", "month", "mos", "year", "days", "count")):
+            return False
+        return any(k in hl for k in ("rent", "amount", "charge", "balance", "total", "subtotal", "paid", "billed", "vat", "net", "tax", "fee", "cost", "spend", "income", "area", "price", "%", "rate"))
+
+    def _is_centered_col(h: str) -> bool:
+        hl = h.lower()
+        return any(k in hl for k in ("floor", "unit", "status", "date", "start", "end", "due", "expires", "interval", "type", "ref", "mos", "days"))
+
+    data = []
+    # Header row
+    header_row = []
+    for index in range(column_count):
+        h = headers[index]
+        clean_h = _clean_header_label(h)
+        if _is_numeric_col(h):
+            style = s["HeaderRight"]
+        elif _is_centered_col(h):
+            style = s["HeaderCenter"]
+        else:
+            style = s["HeaderSmall"]
+        header_row.append(Paragraph(f"<b>{clean_h}</b>", style))
+    data.append(header_row)
+
+    # Body rows
     for row in body:
-        data.append([
-            Paragraph(_format_report_cell(row[index], header=headers[index]), s["Small"])
-            for index in range(column_count)
-        ])
+        row_cells = []
+        for index in range(column_count):
+            h = headers[index]
+            formatted = _format_report_cell(row[index], header=h)
+            if _is_numeric_col(h) and formatted != "—":
+                style = s["Right"]
+            elif _is_centered_col(h) or formatted == "—":
+                style = s["CenterSmall"]
+            else:
+                style = s["Small"]
+            row_cells.append(Paragraph(formatted, style))
+        data.append(row_cells)
+
     table = Table(data, colWidths=widths, repeatRows=1)
     style_commands = [
         ("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("GRID", (0, 0), (-1, -1), .3, LINE),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)), ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
-        ("LEFTPADDING", (0, 0), (-1, -1), 2.5), ("RIGHTPADDING", (0, 0), (-1, -1), 2.5),
+        ("TOPPADDING", (0, 0), (-1, -1), 3.5), ("BOTTOMPADDING", (0, 0), (-1, -1), 3.5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 2), ("RIGHTPADDING", (0, 0), (-1, -1), 2),
     ]
     if body and str(body[-1][0]).strip().upper() in {"TOTAL", "TOTALS", "GRAND TOTAL", "SURPLUS / (DEFICIT)"}:
         style_commands.extend([
