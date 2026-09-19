@@ -19,6 +19,15 @@ from .report_views import (
     export_boq_csv, export_cost_csv, export_milestones_csv, monthly_report,
     project_report, project_scurve, project_workspace, weekly_report,
 )
+from .ingest import (
+    convert_project_pdf,
+    download_boq_template,
+    download_workplan_template,
+    generate_milestones_endpoint,
+    ingest_commit_json,
+    ingestion_preview,
+    ingestion_status,
+)
 
 router = DefaultRouter()
 router.register("dashboard", DashboardViewSet, basename="construction-dashboard")
@@ -86,4 +95,16 @@ urlpatterns += [
     path("exports/boq/<str:project_id>.csv", export_boq_csv, name="construction-boq-csv"),
     path("exports/cost/<str:project_id>.csv", export_cost_csv, name="construction-cost-csv"),
     path("exports/milestones/<str:project_id>.csv", export_milestones_csv, name="construction-milestones-csv"),
+
+    # Ingestion & Templates
+    path("templates/workplan", download_workplan_template, name="construction-template-workplan"),
+    path("templates/workplan/", download_workplan_template, name="construction-template-workplan-slash"),
+    path("templates/boq", download_boq_template, name="construction-template-boq"),
+    path("templates/boq/", download_boq_template, name="construction-template-boq-slash"),
+    path("projects/<str:project_id>/ingest/preview", ingestion_preview, name="construction-project-ingest-preview"),
+    path("projects/<str:project_id>/ingest/commit", ingest_commit_json, name="construction-project-ingest-commit"),
+    path("projects/<str:project_id>/ingest/status", ingestion_status, name="construction-project-ingest-status"),
+    path("projects/<str:project_id>/ingest/generate", generate_milestones_endpoint, name="construction-project-ingest-generate"),
+    path("ai/convert-project-pdf", convert_project_pdf, name="construction-ai-convert-project-pdf"),
 ]
+
