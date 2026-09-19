@@ -6,7 +6,13 @@ import {
   Alert,
   Box,
   Button,
+  Card,
+  CardContent,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControlLabel,
   IconButton,
@@ -19,7 +25,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, FileSpreadsheet, Plus, Save, Trash2, Upload } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/monitoring/hooks/useToast";
@@ -118,6 +124,7 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
   const [plannedStartDate, setPlannedStartDate] = useState("");
   const [plannedCompletionDate, setPlannedCompletionDate] = useState("");
   const [milestoneStructure, setMilestoneStructure] = useState("standard_civil");
+  const [workplanFile, setWorkplanFile] = useState<File | null>(null);
 
   // Step 4: Budget & BOQ
   const [budget, setBudget] = useState("");
@@ -125,6 +132,11 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
   const [baselineBoqRef, setBaselineBoqRef] = useState("");
   const [procurementMethod, setProcurementMethod] = useState("open_national");
   const [financialApproval, setFinancialApproval] = useState("");
+  const [boqFile, setBoqFile] = useState<File | null>(null);
+
+  // Post-Creation Guidance
+  const [createdProject, setCreatedProject] = useState<{ id: string; name?: string } | null>(null);
+  const [showNextStepsDialog, setShowNextStepsDialog] = useState(false);
 
   // Step 5: Team Members & Stakeholders
   const [members, setMembers] = useState<TeamMemberDraft[]>([]);
@@ -240,6 +252,8 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
         modules: ["full_package"],
         metadata: {
           milestone_structure: milestoneStructure,
+          baseline_boq_filename: boqFile?.name,
+          workplan_filename: workplanFile?.name,
           permit_number: permitNumber.trim() || undefined,
           team_directory: members,
           notes: notes.trim() || undefined,
@@ -269,11 +283,8 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
       const saved = await res.json();
       toast.success(`${saved.name || name} construction project registered successfully!`);
 
-      if (onBack) {
-        onBack();
-      } else {
-        router.push("/monitoring/dashboard");
-      }
+      setCreatedProject(saved);
+      setShowNextStepsDialog(true);
     } catch (e: any) {
       setError(e?.message || "An unexpected error occurred while saving.");
     } finally {
@@ -567,6 +578,81 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
               <MenuItem value="custom_wbs">Custom Work Breakdown Schedule (WBS)</MenuItem>
             </TextField>
           </Grid>
+
+          {/* Master Work Programme File Dropzone */}
+          <Box
+            sx={{
+              mt: 2.5,
+              p: 2,
+              borderRadius: 2,
+              border: "1px dashed",
+              borderColor: workplanFile ? "primary.main" : "divider",
+              bgcolor: workplanFile ? "action.hover" : "background.paper",
+              display: "flex",
+              flexDirection: { xs: "column", sm: "row" },
+              alignItems: { xs: "flex-start", sm: "center" },
+              justifyContent: "space-between",
+              gap: 2,
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 2,
+                  bgcolor: "primary.light",
+                  color: "primary.main",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 22,
+                }}
+              >
+                ⏱️
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  Master Work Programme Schedule (Optional)
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                  Attach your project work plan (.xlsx, .mpp, .csv). You can review and commit milestones during onboarding or in the Ingestion hub.
+                </Typography>
+                {workplanFile && (
+                  <Box sx={{ mt: 0.75, display: "flex", alignItems: "center", gap: 1 }}>
+                    <Chip
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      label={workplanFile.name}
+                      onDelete={() => setWorkplanFile(null)}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      ({(workplanFile.size / 1024).toFixed(1)} KB)
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+            <Button
+              component="label"
+              variant={workplanFile ? "outlined" : "contained"}
+              size="small"
+              startIcon={<Upload size={16} />}
+              sx={{ whiteSpace: "nowrap", alignSelf: { xs: "flex-start", sm: "center" } }}
+            >
+              {workplanFile ? "Change File" : "Select Schedule (.xlsx)"}
+              <input
+                type="file"
+                hidden
+                accept=".xlsx,.xls,.csv,.mpp"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) setWorkplanFile(f);
+                }}
+              />
+            </Button>
+          </Box>
         </Section>
 
         {/* Section 4: Budget & BOQ Baseline */}
@@ -611,6 +697,82 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
               onChange={(e) => setFinancialApproval(e.target.value)}
             />
           </Grid>
+
+          {/* BoQ File Attachment Dropzone */}
+          <Box
+            sx={{
+              mt: 2.5,
+              p: 2,
+              borderRadius: 2,
+              border: "1px dashed",
+              borderColor: boqFile ? "secondary.main" : "divider",
+              bgcolor: boqFile ? "action.hover" : "background.paper",
+              display: "flex",
+              flexDirection: { xs: "column", sm: "row" },
+              alignItems: { xs: "flex-start", sm: "center" },
+              justifyContent: "space-between",
+              gap: 2,
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: 2,
+                  bgcolor: "secondary.light",
+                  color: "secondary.main",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 22,
+                }}
+              >
+                📐
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  Priced Bill of Quantities (BoQ) (Optional)
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                  Attach your tender BoQ spreadsheet (.xlsx) or tender PDF. Line items, rates, and totals will be processed into cost baseline states.
+                </Typography>
+                {boqFile && (
+                  <Box sx={{ mt: 0.75, display: "flex", alignItems: "center", gap: 1 }}>
+                    <Chip
+                      size="small"
+                      color="secondary"
+                      variant="outlined"
+                      label={boqFile.name}
+                      onDelete={() => setBoqFile(null)}
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      ({(boqFile.size / 1024).toFixed(1)} KB)
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+            <Button
+              component="label"
+              variant={boqFile ? "outlined" : "contained"}
+              size="small"
+              color="secondary"
+              startIcon={<Upload size={16} />}
+              sx={{ whiteSpace: "nowrap", alignSelf: { xs: "flex-start", sm: "center" } }}
+            >
+              {boqFile ? "Change File" : "Select BoQ (.xlsx / .pdf)"}
+              <input
+                type="file"
+                hidden
+                accept=".xlsx,.xls,.pdf,.csv"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) setBoqFile(f);
+                }}
+              />
+            </Button>
+          </Box>
         </Section>
 
         {/* Section 5: Team Members & Contractors */}
@@ -764,6 +926,111 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
           />
         </Section>
       </Box>
+
+      {/* Post-Registration Next Steps Dialog */}
+      <Dialog
+        open={showNextStepsDialog}
+        maxWidth="sm"
+        fullWidth
+        onClose={() => {
+          setShowNextStepsDialog(false);
+          if (onBack) onBack();
+          else router.push(`/monitoring?tab=overview&id=${createdProject?.id}`);
+        }}
+      >
+        <DialogTitle sx={{ pb: 1, display: "flex", alignItems: "center", gap: 1.5 }}>
+          <CheckCircle2 color="var(--color-emerald, #10b981)" size={26} />
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            Project Successfully Registered!
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+            <strong>{createdProject?.name || name}</strong> has been initialized. Complete your project baseline by importing your technical documentation into the ingestion engine:
+          </Typography>
+
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+            {/* BoQ Ingestion Card */}
+            <Card
+              variant="outlined"
+              sx={{
+                p: 2,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
+              }}
+              onClick={() => {
+                setShowNextStepsDialog(false);
+                router.push(`/monitoring?tab=ingestion&type=boq&id=${createdProject?.id}`);
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+                <Box sx={{ display: "flex", gap: 1.5 }}>
+                  <Box sx={{ fontSize: 24 }}>📐</Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      Import Bill of Quantities (BoQ)
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {boqFile ? `Parse line items from attached "${boqFile.name}" or upload new tender sheet.` : "Upload Excel BoQ or extract from PDF tender bill."}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Button size="small" variant="contained" color="secondary" endIcon={<ArrowRight size={14} />}>
+                  Ingest BoQ
+                </Button>
+              </Box>
+            </Card>
+
+            {/* Workplan Ingestion Card */}
+            <Card
+              variant="outlined"
+              sx={{
+                p: 2,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+                "&:hover": { borderColor: "primary.main", bgcolor: "action.hover" },
+              }}
+              onClick={() => {
+                setShowNextStepsDialog(false);
+                router.push(`/monitoring?tab=ingestion&type=workplan&id=${createdProject?.id}`);
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+                <Box sx={{ display: "flex", gap: 1.5 }}>
+                  <Box sx={{ fontSize: 24 }}>⏱️</Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      Import Master Work Programme
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {workplanFile ? `Establish milestones from attached "${workplanFile.name}".` : "Upload Excel schedule to generate WBS milestones & Gantt."}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Button size="small" variant="contained" endIcon={<ArrowRight size={14} />}>
+                  Ingest Plan
+                </Button>
+              </Box>
+            </Card>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, justifyContent: "space-between" }}>
+          <Typography variant="caption" color="text.secondary">
+            You can always import or update baseline data later from the navigation menu.
+          </Typography>
+          <Button
+            variant="text"
+            onClick={() => {
+              setShowNextStepsDialog(false);
+              if (onBack) onBack();
+              else router.push(`/monitoring?tab=overview&id=${createdProject?.id}`);
+            }}
+          >
+            Go to Project Overview
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

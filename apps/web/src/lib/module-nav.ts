@@ -299,6 +299,7 @@ export const constructionNav: ModuleNavGroup[] = [
     icon: "◷",
     items: [
       { id: "work-plan", label: "Work Programme", icon: "⏱️" },
+      { id: "ingestion", label: "Import BoQ & Programme", icon: "📥" },
       { id: "milestone-verifications", label: "Progress Verification", icon: "✅" },
       { id: "requirement-waivers", label: "Requirement Waivers", icon: "📝" },
       { id: "approvals", label: "Approvals", icon: "✍️" },
@@ -323,7 +324,7 @@ export const constructionNav: ModuleNavGroup[] = [
     label: "PROCUREMENT & STORES",
     icon: "▣",
     items: [
-      { id: "materials", label: "Deliveries", icon: "🚚" },
+      { id: "materials", label: "Site Deliveries", icon: "🚚" },
       { id: "store-items", label: "Inventory", icon: "📦" },
       { id: "store-suppliers", label: "Suppliers", icon: "🏢" },
       { id: "material-requisitions", label: "Material Requests", icon: "📝" },

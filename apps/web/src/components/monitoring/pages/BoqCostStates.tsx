@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "@/components/monitoring/react-router-shim";
-import { ArrowLeft, CheckCircle, Filter } from "lucide-react";
-import { fetchBoqItems, fetchProjects, transitionCostState, bulkTransitionCostState } from "../api";
+import { ArrowLeft, CheckCircle, Filter, Upload, Download } from "lucide-react";
+import { fetchBoqItems, fetchProjects, transitionCostState, bulkTransitionCostState, boqTemplateUrl } from "../api";
 import { useAuth } from "../auth";
 import { ErrorBanner } from "../components";
 
@@ -124,6 +124,11 @@ export function BoqCostStates() {
         <div>
           <h2 style={{ margin: 0 }}>BoQ Cost States</h2>
           <div className="muted" style={{ fontSize: 13 }}>{projectName} — {items.length} items</div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <Link to={`/monitoring?tab=ingestion&type=boq&id=${id}`} className="btn primary sm" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Upload size={14} /> Import BoQ
+          </Link>
         </div>
       </div>
       <ErrorBanner message={error} />
@@ -255,9 +260,20 @@ export function BoqCostStates() {
       ))}
 
       {items.length === 0 && (
-        <div className="card">
-          <p className="muted">No BoQ items found. Upload a BoQ via the Ingestion page first.</p>
-          <Link to={`/app/projects/${id}/ingestion`} className="btn">Go to Ingestion</Link>
+        <div className="card" style={{ textAlign: "center", padding: "48px 24px" }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📐</div>
+          <h3 style={{ margin: "0 0 8px 0", fontSize: 18, fontWeight: 700 }}>No BoQ Line Items Found</h3>
+          <p className="muted" style={{ maxWidth: 520, margin: "0 auto 24px", fontSize: 14, lineHeight: 1.6 }}>
+            This project does not have a Bill of Quantities baseline yet. Upload your priced BoQ spreadsheet (.xlsx) to automatically generate line items and cost tracking states, or download the standard template to get started.
+          </p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <Link to={`/monitoring?tab=ingestion&type=boq&id=${id}`} className="btn primary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Upload size={16} /> Upload & Ingest BoQ
+            </Link>
+            <a href={boqTemplateUrl} target="_blank" rel="noreferrer" className="btn ghost" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Download size={16} /> Download BoQ Template
+            </a>
+          </div>
         </div>
       )}
       </>

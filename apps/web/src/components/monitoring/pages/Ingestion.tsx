@@ -10,7 +10,9 @@ import { useWorkspace } from "../context/WorkspaceContext";
 export function Ingestion() {
   const { id: paramId = "" } = useParams();
   const { activeProjectId } = useWorkspace();
-  const queryId = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("id") || "" : "";
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const queryId = searchParams?.get("id") || "";
+  const queryType = searchParams?.get("type") || "";
   const id = paramId || activeProjectId || queryId || (typeof window !== "undefined" ? sessionStorage.getItem("activeProject") || "" : "");
 
   const [status, setStatus] = useState<any>(null);
@@ -146,6 +148,25 @@ export function Ingestion() {
       </div>
       <ErrorBanner message={error} />
 
+      {queryType && (
+        <div
+          className="card mb-md"
+          style={{
+            background: "var(--accent-subtle, rgba(59,130,246,0.08))",
+            border: "1px solid var(--accent, #3b82f6)",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "12px 16px",
+          }}
+        >
+          <span style={{ fontSize: 20 }}>{queryType === "boq" ? "📐" : "⏱️"}</span>
+          <span style={{ fontSize: 13 }}>
+            Direct setup active for <strong>{queryType === "boq" ? "Bill of Quantities (BoQ)" : "Work Programme Schedule"}</strong>. Upload your spreadsheet below or convert from a tender PDF document.
+          </span>
+        </div>
+      )}
+
       <div className="card ai-conversion-card">
         <div><Bot /><span><strong>Convert an existing PDF with AI</strong><small>Upload a text-bearing BoQ or work plan PDF. The result opens below as an editable draft and is never saved until you review and commit it.</small></span></div>
         <label className="btn" style={{ cursor: "pointer" }}><Upload size={14} /> Convert PDF<input hidden type="file" accept=".pdf,application/pdf" onChange={handlePdfConversion} disabled={uploading} /></label>
@@ -153,10 +174,21 @@ export function Ingestion() {
 
       <div className="grid-2 mb-md">
         {/* Work Plan */}
-        <div className="card">
+        <div
+          className="card"
+          style={{
+            border: queryType === "workplan" ? "2px solid var(--accent, #3b82f6)" : undefined,
+            boxShadow: queryType === "workplan" ? "0 0 0 3px rgba(59,130,246,0.15)" : undefined,
+          }}
+        >
           <div className="row flex-center mb-sm">
             <ClipboardList size={18} style={{ color: "var(--steel)" }} />
             <h3 className="fs-md" style={{ margin: 0 }}>Work Plan</h3>
+            {queryType === "workplan" && (
+              <span className="badge" style={{ background: "var(--accent, #3b82f6)", color: "#fff", marginLeft: "auto", fontSize: 11 }}>
+                Selected Target
+              </span>
+            )}
           </div>
           <p className="muted fs-sm mb-sm">
             Upload your Work Plan Excel file. Tasks are parsed and weekly milestones are generated.
@@ -187,10 +219,21 @@ export function Ingestion() {
         </div>
 
         {/* BoQ */}
-        <div className="card">
+        <div
+          className="card"
+          style={{
+            border: queryType === "boq" ? "2px solid var(--color-violet-strong, #8b5cf6)" : undefined,
+            boxShadow: queryType === "boq" ? "0 0 0 3px rgba(139,92,246,0.15)" : undefined,
+          }}
+        >
           <div className="row flex-center mb-sm">
             <Scale size={18} style={{ color: "var(--primary)" }} />
             <h3 className="fs-md" style={{ margin: 0 }}>Bill of Quantities</h3>
+            {queryType === "boq" && (
+              <span className="badge" style={{ background: "var(--color-violet-strong, #8b5cf6)", color: "#fff", marginLeft: "auto", fontSize: 11 }}>
+                Selected Target
+              </span>
+            )}
           </div>
           <p className="muted fs-sm mb-sm">
             Upload your Bill of Quantities Excel file with sectioned items.

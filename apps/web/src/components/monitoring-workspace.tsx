@@ -96,6 +96,7 @@ type Tab =
   | "consultant-payments"
   | "work-orders"
   | "subcontractors"
+  | "ingestion"
   | "materials"
   | "store-items"
   | "store-suppliers"
@@ -156,7 +157,8 @@ const tabLabels: Record<Tab, string> = {
   "consultant-payments": "Consultant Fee Certificates",
   "work-orders": "Subcontract Work Orders",
   subcontractors: "Subcontractor Register",
-  materials: "Material Deliveries & Ingestion",
+  ingestion: "BoQ & Programme Import",
+  materials: "Site Deliveries & Ingestion",
   "store-items": "Store & Inventory Ledger",
   "store-suppliers": "Material Suppliers",
   "material-requisitions": "Material Requisitions",
@@ -1105,7 +1107,7 @@ function WorkspaceContent() {
         {tab === "consultant-payments" && <ConsultantPayments />}
         {tab === "work-orders" && <WorkOrderSummary />}
         {tab === "subcontractors" && <Subcontractors />}
-        {tab === "materials" && <Ingestion />}
+        {(tab === "ingestion" || tab === "materials") && <Ingestion />}
         {tab === "store-items" && <Store />}
         {tab === "store-suppliers" && <Suppliers />}
         {tab === "material-requisitions" && <MaterialRequisitions />}
