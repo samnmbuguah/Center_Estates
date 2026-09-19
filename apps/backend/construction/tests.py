@@ -418,8 +418,12 @@ class ConstructionApiTests(TestCase):
         self.assertEqual(created.status_code, 201, created.data)
         verification = MilestoneVerification.objects.get(milestone_entry=self.milestone)
         self.assertEqual(verification.verifier, self.user)
-        self.assertEqual(self.client.patch(f"{url}{verification.id}/", {"note": "Changed"}, format="json", **self.headers).status_code, 400)
-        self.assertEqual(self.client.delete(f"{url}{verification.id}/", **self.headers).status_code, 400)
+        # PATCH and DELETE return 405 (Method Not Allowed) because MilestoneVerificationViewSet
+        # now correctly restricts http_method_names to GET/POST only (ISP fix from views refactor).
+        # Previously these raised ValidationError(400) inside perform_update/perform_destroy;
+        # returning 405 at the routing layer is the correct HTTP semantic.
+        self.assertEqual(self.client.patch(f"{url}{verification.id}/", {"note": "Changed"}, format="json", **self.headers).status_code, 405)
+        self.assertEqual(self.client.delete(f"{url}{verification.id}/", **self.headers).status_code, 405)
 
     def test_project_membership_requires_active_organization_member_and_role(self):
         candidate = get_user_model().objects.create_user(username="site-engineer")
