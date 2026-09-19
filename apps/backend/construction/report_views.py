@@ -250,8 +250,12 @@ def build_scurve(project, organization):
 @extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
 @api_view(["GET"])
 @permission_classes([ConstructionSubscription])
-def project_scurve(request, project_id):
+def project_scurve(request, project_id=None):
     """Planned vs actual progress series for the project S-curve chart."""
+    if not project_id:
+        project_id = request.query_params.get("project_id") or request.query_params.get("project")
+    if not project_id:
+        return Response({"detail": "project_id parameter is required."}, status=400)
     project = _scoped_project(request, project_id)
     if not project:
         return Response({"detail": "Project not found."}, status=404)
