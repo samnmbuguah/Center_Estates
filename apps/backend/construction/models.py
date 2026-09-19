@@ -135,6 +135,12 @@ class Project(models.Model):
             raise ValidationError({"name": "Project name cannot be empty"})
 
     def save(self, *args, **kwargs):
+        if not self.code or not str(self.code).strip():
+            import datetime
+            year = datetime.date.today().year
+            self.code = f"CP-{year}-{str(uuid.uuid4())[:6].upper()}"
+        if not self.baseline_boq_ref or not str(self.baseline_boq_ref).strip():
+            self.baseline_boq_ref = f"BOQ-{self.code}-01"
         try:
             self.full_clean(exclude=["organization"])
         except Exception:

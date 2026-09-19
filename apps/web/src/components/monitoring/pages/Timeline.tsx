@@ -9,6 +9,7 @@ import {
   fetchMilestones,
   fetchScurve,
   updateWorkplanTask,
+  workplanTemplateUrl,
 } from "../api";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { formatDate, pct } from "../lib/format";
@@ -634,6 +635,14 @@ export function Timeline() {
           <button className="btn ghost sm" onClick={load} disabled={loading} title="Refresh">
             {loading ? "Refreshing…" : "Refresh"}
           </button>
+          <a
+            href={workplanTemplateUrl}
+            download="workplan_template.xlsx"
+            className="btn ghost sm"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, textDecoration: "none" }}
+          >
+            <Download size={14} /> Download Template
+          </a>
           <button
             className="btn primary sm"
             onClick={() => navigate(activeProjectId ? `/monitoring?tab=ingestion&type=workplan&id=${activeProjectId}` : "/monitoring?tab=ingestion")}

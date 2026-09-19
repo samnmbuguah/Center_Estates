@@ -23,12 +23,14 @@ import {
   Tab,
   Tabs,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
-import { ArrowLeft, ArrowRight, CheckCircle2, FileSpreadsheet, Plus, Save, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Download, FileSpreadsheet, Plus, RefreshCw, Save, Trash2, Upload } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/monitoring/hooks/useToast";
+import { boqTemplateUrl, workplanTemplateUrl } from "@/components/monitoring/api";
 
 interface ConstructionOnboardingFormProps {
   onBack?: () => void;
@@ -59,6 +61,18 @@ const sections = [
   ["approvals", "Approvals & Safeguards"],
   ["notes", "Notes & Remarks"],
 ] as const;
+
+function generateProjectCode(): string {
+  const yr = new Date().getFullYear();
+  const rand = Math.floor(100 + Math.random() * 900);
+  return `CP-${yr}-${rand}`;
+}
+
+function generateBoqRef(projectCode?: string): string {
+  const yr = new Date().getFullYear();
+  const c = projectCode?.trim() || `CP-${yr}`;
+  return `BOQ-${c}-01`;
+}
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
@@ -104,12 +118,13 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
 
   // Step 1: General metadata
   const [name, setName] = useState("");
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(() => generateProjectCode());
   const [clientName, setClientName] = useState("");
   const [stage, setStage] = useState("active");
   const [projectType, setProjectType] = useState("residential");
   const [contractType, setContractType] = useState("full");
   const [description, setDescription] = useState("");
+  const [hasManuallyEditedBoqRef, setHasManuallyEditedBoqRef] = useState(false);
 
   // Step 2: Site & Location
   const [location, setLocation] = useState("");
@@ -129,7 +144,7 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
   // Step 4: Budget & BOQ
   const [budget, setBudget] = useState("");
   const [tenderAmount, setTenderAmount] = useState("");
-  const [baselineBoqRef, setBaselineBoqRef] = useState("");
+  const [baselineBoqRef, setBaselineBoqRef] = useState(() => generateBoqRef(generateProjectCode()));
   const [procurementMethod, setProcurementMethod] = useState("open_national");
   const [financialApproval, setFinancialApproval] = useState("");
   const [boqFile, setBoqFile] = useState<File | null>(null);
@@ -420,9 +435,37 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
           <Grid>
             <TextField
               label="Project code"
-              placeholder="e.g. CP-2026-001 (auto-generated if blank)"
+              placeholder="e.g. CP-2026-001"
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setCode(val);
+                if (!hasManuallyEditedBoqRef) {
+                  setBaselineBoqRef(generateBoqRef(val));
+                }
+              }}
+              helperText="Auto-generated project reference (editable)"
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <Tooltip title="Regenerate project code">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          const next = generateProjectCode();
+                          setCode(next);
+                          if (!hasManuallyEditedBoqRef) {
+                            setBaselineBoqRef(generateBoqRef(next));
+                          }
+                        }}
+                        edge="end"
+                      >
+                        <RefreshCw size={15} />
+                      </IconButton>
+                    </Tooltip>
+                  ),
+                },
+              }}
             />
             <TextField
               required
@@ -634,24 +677,37 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
                 )}
               </Box>
             </Box>
-            <Button
-              component="label"
-              variant={workplanFile ? "outlined" : "contained"}
-              size="small"
-              startIcon={<Upload size={16} />}
-              sx={{ whiteSpace: "nowrap", alignSelf: { xs: "flex-start", sm: "center" } }}
-            >
-              {workplanFile ? "Change File" : "Select Schedule (.xlsx)"}
-              <input
-                type="file"
-                hidden
-                accept=".xlsx,.xls,.csv,.mpp"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) setWorkplanFile(f);
-                }}
-              />
-            </Button>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignSelf: { xs: "flex-start", sm: "center" } }}>
+              <Button
+                component="a"
+                href={workplanTemplateUrl}
+                download="workplan_template.xlsx"
+                variant="outlined"
+                size="small"
+                startIcon={<Download size={15} />}
+                sx={{ whiteSpace: "nowrap" }}
+              >
+                Download Workplan Template (.xlsx)
+              </Button>
+              <Button
+                component="label"
+                variant={workplanFile ? "outlined" : "contained"}
+                size="small"
+                startIcon={<Upload size={16} />}
+                sx={{ whiteSpace: "nowrap" }}
+              >
+                {workplanFile ? "Change File" : "Select Schedule (.xlsx)"}
+                <input
+                  type="file"
+                  hidden
+                  accept=".xlsx,.xls,.csv,.mpp"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) setWorkplanFile(f);
+                  }}
+                />
+              </Button>
+            </Box>
           </Box>
         </Section>
 
@@ -675,9 +731,31 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
             />
             <TextField
               label="Baseline BOQ reference"
-              placeholder="e.g. BOQ-CIVIL-REV-02"
+              placeholder="e.g. BOQ-CP-2026-001-01"
               value={baselineBoqRef}
-              onChange={(e) => setBaselineBoqRef(e.target.value)}
+              onChange={(e) => {
+                setHasManuallyEditedBoqRef(true);
+                setBaselineBoqRef(e.target.value);
+              }}
+              helperText="Auto-generated reference (editable)"
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <Tooltip title="Regenerate BOQ reference">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setBaselineBoqRef(generateBoqRef(code));
+                          setHasManuallyEditedBoqRef(false);
+                        }}
+                        edge="end"
+                      >
+                        <RefreshCw size={15} />
+                      </IconButton>
+                    </Tooltip>
+                  ),
+                },
+              }}
             />
             <TextField
               select
@@ -753,25 +831,39 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
                 )}
               </Box>
             </Box>
-            <Button
-              component="label"
-              variant={boqFile ? "outlined" : "contained"}
-              size="small"
-              color="secondary"
-              startIcon={<Upload size={16} />}
-              sx={{ whiteSpace: "nowrap", alignSelf: { xs: "flex-start", sm: "center" } }}
-            >
-              {boqFile ? "Change File" : "Select BoQ (.xlsx / .pdf)"}
-              <input
-                type="file"
-                hidden
-                accept=".xlsx,.xls,.pdf,.csv"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) setBoqFile(f);
-                }}
-              />
-            </Button>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignSelf: { xs: "flex-start", sm: "center" } }}>
+              <Button
+                component="a"
+                href={boqTemplateUrl}
+                download="boq_template.xlsx"
+                variant="outlined"
+                size="small"
+                color="secondary"
+                startIcon={<Download size={15} />}
+                sx={{ whiteSpace: "nowrap" }}
+              >
+                Download BoQ Template (.xlsx)
+              </Button>
+              <Button
+                component="label"
+                variant={boqFile ? "outlined" : "contained"}
+                size="small"
+                color="secondary"
+                startIcon={<Upload size={16} />}
+                sx={{ whiteSpace: "nowrap" }}
+              >
+                {boqFile ? "Change File" : "Select BoQ (.xlsx / .pdf)"}
+                <input
+                  type="file"
+                  hidden
+                  accept=".xlsx,.xls,.csv,.pdf,application/pdf"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) setBoqFile(f);
+                  }}
+                />
+              </Button>
+            </Box>
           </Box>
         </Section>
 
@@ -976,9 +1068,24 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
                     </Typography>
                   </Box>
                 </Box>
-                <Button size="small" variant="contained" color="secondary" endIcon={<ArrowRight size={14} />}>
-                  Ingest BoQ
-                </Button>
+                <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                  <Button
+                    component="a"
+                    href={boqTemplateUrl}
+                    download="boq_template.xlsx"
+                    size="small"
+                    variant="outlined"
+                    color="secondary"
+                    startIcon={<Download size={13} />}
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{ whiteSpace: "nowrap" }}
+                  >
+                    Download Template
+                  </Button>
+                  <Button size="small" variant="contained" color="secondary" endIcon={<ArrowRight size={14} />}>
+                    Ingest BoQ
+                  </Button>
+                </Box>
               </Box>
             </Card>
 
@@ -1008,9 +1115,23 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
                     </Typography>
                   </Box>
                 </Box>
-                <Button size="small" variant="contained" endIcon={<ArrowRight size={14} />}>
-                  Ingest Plan
-                </Button>
+                <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                  <Button
+                    component="a"
+                    href={workplanTemplateUrl}
+                    download="workplan_template.xlsx"
+                    size="small"
+                    variant="outlined"
+                    startIcon={<Download size={13} />}
+                    onClick={(e) => e.stopPropagation()}
+                    sx={{ whiteSpace: "nowrap" }}
+                  >
+                    Download Template
+                  </Button>
+                  <Button size="small" variant="contained" endIcon={<ArrowRight size={14} />}>
+                    Ingest Plan
+                  </Button>
+                </Box>
               </Box>
             </Card>
           </Box>

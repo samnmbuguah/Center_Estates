@@ -126,6 +126,14 @@ export function BoqCostStates() {
           <div className="muted" style={{ fontSize: 13 }}>{projectName} — {items.length} items</div>
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <a
+            href={boqTemplateUrl}
+            download="boq_template.xlsx"
+            className="btn ghost sm"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, textDecoration: "none" }}
+          >
+            <Download size={14} /> Download Template
+          </a>
           <Link to={`/monitoring?tab=ingestion&type=boq&id=${id}`} className="btn primary sm" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Upload size={14} /> Import BoQ
           </Link>
