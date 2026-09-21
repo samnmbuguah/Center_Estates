@@ -5,6 +5,7 @@ import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, 
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import { describeEmptyGrid, normalizeDateString, parseCsv, parseImportGrid, type ImportGridParse } from "@/lib/csv";
 import { useAuth } from "@/components/auth-provider";
+import { usePropertyContext } from "@/lib/property-context";
 
 type SourceRow = Record<string, string>;
 type PreviewRow = { row: number; data: SourceRow; errors: Record<string, string> };
@@ -95,8 +96,24 @@ export function describeEmptyParse(result: LeaseGridParse): string {
   return describeEmptyGrid(result, "lease rows");
 }
 
+export type PreviewErrorSummary = { message: string; count: number };
+
+/** Group preview row errors so the dialog can state what's blocking import at a glance. */
+export function summarizePreviewErrors(rows: PreviewRow[]): PreviewErrorSummary[] {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    for (const message of Object.values(row.errors)) {
+      counts.set(message, (counts.get(message) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([message, count]) => ({ message, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
 export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
   const { session } = useAuth();
+  const { activeProperty } = usePropertyContext();
   const fileRef = useRef<HTMLInputElement>(null);
   const [sourceRows, setSourceRows] = useState<SourceRow[]>([]);
   const [preview, setPreview] = useState<PreviewRow[]>([]);
@@ -106,15 +123,17 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
   const [importedFileName, setImportedFileName] = useState("");
   const [autoActivate, setAutoActivate] = useState(true);
   const validCount = preview.filter((row) => Object.keys(row.errors).length === 0).length;
+  const errorSummary = summarizePreviewErrors(preview);
 
-  async function submit(mode: "preview" | "commit") {
-    if (!sourceRows.length || !session?.activeOrganizationId) return;
+  async function submit(mode: "preview" | "commit", rowsOverride?: SourceRow[]) {
+    const rows = rowsOverride ?? sourceRows;
+    if (!rows.length || !session?.activeOrganizationId) return;
     setBusy(true); setError("");
     try {
       await apiFetch("/auth/csrf/");
       const response = await apiFetch("/property/leases/bulk-import/", {
         method: "POST", headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
-        body: JSON.stringify({ mode, rows: sourceRows }),
+        body: JSON.stringify({ mode, rows }),
       }, session.activeOrganizationId);
       if (!response.ok) throw new Error(await apiErrorMessage(response, "Lease import could not be processed."));
       const payload = await response.json();
@@ -138,13 +157,16 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
     } finally { setBusy(false); }
   }
 
-  return <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="lg">
+  return <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="md">
     <DialogTitle>Import existing leases</DialogTitle>
     {busy && <LinearProgress />}
     <DialogContent>
-      <Typography color="text.secondary" sx={{ mb: 2 }}>
+      <Typography color="text.secondary" sx={{ mb: 1 }}>
         Match existing tenants and units. All imported leases for property onboarding are registered as existing paper leases — digital offer letter signing is bypassed.
       </Typography>
+      {activeProperty
+        ? <Typography variant="body2" sx={{ mb: 2 }}>Importing into property: <strong>{activeProperty.name}</strong></Typography>
+        : <Alert severity="warning" sx={{ mb: 2 }}>No property selected — pick a property in the workspace switcher first, or units cannot match.</Alert>}
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {notice && <Alert severity="warning" sx={{ mb: 2 }}>{notice}</Alert>}
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
@@ -168,23 +190,30 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
                 warnings.push(`${result.droppedCount} row${result.droppedCount === 1 ? "" : "s"} skipped (no tenant_code or unit_code).`);
               }
               if (warnings.length) setNotice(warnings.join(" "));
+              // Validation runs automatically: the preview call saves nothing.
+              await submit("preview", result.rows);
             }
           } catch (reason) {
             setError(reason instanceof Error ? reason.message : "The selected file could not be read. Download the template and try again.");
           }
           event.target.value = "";
         }} />
-        {sourceRows.length > 0 && <Button onClick={() => submit("preview")} disabled={busy}>Validate {sourceRows.length} rows</Button>}
       </Box>
-      {importedFileName && <Alert severity="success" sx={{ mb: 2 }}>Loaded {sourceRows.length} lease row{sourceRows.length === 1 ? "" : "s"} from {importedFileName}. Validate before importing.</Alert>}
+      {importedFileName && preview.length === 0 && !busy && <Alert severity="success" sx={{ mb: 2 }}>Loaded {sourceRows.length} lease row{sourceRows.length === 1 ? "" : "s"} from {importedFileName}. Validating…</Alert>}
       {preview.length > 0 && <Paper variant="outlined" sx={{ overflowX: "auto" }}>
         <Alert severity={validCount === preview.length ? "success" : "warning"}>
           {validCount} ready; {preview.length - validCount} need correction. Nothing has been saved yet.
+          {errorSummary.length > 0 && validCount < preview.length && (
+            <Box component="ul" sx={{ mt: 1, mb: 0, pl: 2 }}>
+              {errorSummary.map((item) => <li key={item.message}>{item.count}× {item.message}</li>)}
+            </Box>
+          )}
         </Alert>
         <Table size="small"><TableHead><TableRow><TableCell>Row</TableCell><TableCell>Tenant</TableCell><TableCell>Unit</TableCell><TableCell>Term</TableCell><TableCell>Rent</TableCell><TableCell>Service Charge</TableCell><TableCell>Inherited deposit</TableCell><TableCell>Validation</TableCell></TableRow></TableHead>
           <TableBody>{preview.map((row) => <TableRow key={row.row} sx={Object.keys(row.errors).length ? { bgcolor: "error.lighter" } : undefined}>
             <TableCell>{row.row}</TableCell><TableCell>{row.data.tenant}</TableCell><TableCell>{row.data.unit_code}</TableCell>
-            <TableCell>{row.data.starts_on} – {row.data.ends_on}</TableCell><TableCell>{row.data.monthly_rent}</TableCell>
+            <TableCell sx={{ whiteSpace: "nowrap" }}>{row.data.starts_on} – {row.data.ends_on}</TableCell>
+            <TableCell sx={{ whiteSpace: "nowrap" }}>{row.data.monthly_rent ? `KES ${Number(row.data.monthly_rent).toLocaleString()}` : "—"}</TableCell>
             <TableCell>{row.data.service_charge ? `KES ${Number(row.data.service_charge).toLocaleString()}` : "—"}</TableCell>
             <TableCell>{row.data.deposit}</TableCell>
             <TableCell>{Object.values(row.errors).join(" ") || "Ready"}</TableCell>

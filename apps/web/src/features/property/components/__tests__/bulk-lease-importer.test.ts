@@ -1,5 +1,5 @@
 import { parseCsv } from "@/lib/csv";
-import { describeEmptyParse, parseLeaseGrid } from "../BulkLeaseImporter";
+import { describeEmptyParse, parseLeaseGrid, summarizePreviewErrors } from "../BulkLeaseImporter";
 
 const TEMPLATE = "tenant_code,unit_code,starts_on,ends_on,monthly_rent,service_charge,billing_day,escalation_percent,escalation_interval_months";
 
@@ -83,5 +83,18 @@ describe("BulkLeaseImporter grid parsing", () => {
     const result = parseLeaseGrid(parseCsv(`${TEMPLATE}\nTNT-1,A-1,01-Oct-25,30-Sept-31,10000,0,1,0,0`));
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0]).toMatchObject({ starts_on: "2025-10-01", ends_on: "2031-09-30" });
+  });
+
+  it("summarises preview errors by frequency", () => {
+    const summary = summarizePreviewErrors([
+      { row: 2, data: {}, errors: { unit: "Match an existing unit in 'Owned Property'." } },
+      { row: 3, data: {}, errors: { unit: "Match an existing unit in 'Owned Property'.", tenant: "Match an existing tenant." } },
+      { row: 4, data: {}, errors: {} },
+    ]);
+    expect(summary).toEqual([
+      { message: "Match an existing unit in 'Owned Property'.", count: 2 },
+      { message: "Match an existing tenant.", count: 1 },
+    ]);
+    expect(summarizePreviewErrors([])).toEqual([]);
   });
 });

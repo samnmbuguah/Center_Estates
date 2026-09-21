@@ -90,6 +90,19 @@ def _parse_flexible_date(val):
     return None
 
 
+def _closest_matches(wanted, candidates, *, limit=3):
+    """Best-effort 'did you mean' suggestions for import validation messages."""
+    import difflib
+    if not wanted:
+        return []
+    seen = []
+    for candidate in candidates:
+        text = str(candidate or '').strip()
+        if text and text not in seen:
+            seen.append(text)
+    return difflib.get_close_matches(str(wanted).strip(), seen, n=limit, cutoff=0.6)
+
+
 def _payment_intent_invoices(intent, *, lock=False):
     """Return the audited invoice allocation encoded when an intent is created.
 
@@ -3127,6 +3140,9 @@ class LeaseViewSet(OrganizationModelViewSet):
         existing_refs = Lease.objects.for_organization(organization).filter(reference__startswith='LEASE-').values_list('reference', flat=True)
         ref_numbers = [int(ref.rsplit('-', 1)[-1]) for ref in existing_refs if ref.rsplit('-', 1)[-1].isdigit()]
         next_number = max(ref_numbers, default=0)
+        scope_name = f"'{active_property.name}'" if active_property else 'the selected property'
+        # Lazily loaded once per request; only used to explain misses.
+        org_unit_codes = org_unit_properties = org_tenant_names = None
         results, created = [], []
         for index, raw in enumerate(source_rows, start=2):
             row = {str(key).strip().lower(): value for key, value in (raw or {}).items()}
@@ -3141,9 +3157,32 @@ class LeaseViewSet(OrganizationModelViewSet):
                 units = units.filter(property=active_property)
             unit = units.first()
             if not tenant:
+                if org_tenant_names is None:
+                    org_tenant_names = list(Tenant.objects.for_organization(organization).values_list('code', flat=True)[:2000])
+                    org_tenant_names += list(Tenant.objects.for_organization(organization).values_list('name', flat=True)[:2000])
+                hint = _closest_matches(tenant_key, org_tenant_names)
                 errors['tenant'] = 'Match an existing tenant by code, email or exact name.'
+                if hint:
+                    errors['tenant'] += f" Did you mean: {', '.join(hint)}?"
             if not unit:
-                errors['unit'] = 'Match an existing unit in the selected property.'
+                if not unit_code:
+                    errors['unit'] = f'Match an existing unit in {scope_name}.'
+                else:
+                    if org_unit_properties is None:
+                        org_unit_properties = list(
+                            Unit.objects.for_organization(organization).select_related('property').values_list('code', 'property__name')[:5000]
+                        )
+                        org_unit_codes = [code for code, _ in org_unit_properties]
+                    elsewhere = next(
+                        (name for code, name in org_unit_properties if str(code).lower() == unit_code.lower()), None,
+                    )
+                    if elsewhere:
+                        errors['unit'] = f"Unit {unit_code} belongs to '{elsewhere}', not {scope_name}."
+                    else:
+                        hint = _closest_matches(unit_code, org_unit_codes)
+                        errors['unit'] = f'Match an existing unit in {scope_name}.'
+                        if hint:
+                            errors['unit'] += f" Did you mean: {', '.join(hint)}?"
             starts_on = _parse_flexible_date(row.get('starts_on') or row.get('commencement_date'))
             if not starts_on:
                 errors['starts_on'] = 'Invalid date. Use YYYY-MM-DD or DD/MM/YYYY.'
@@ -3230,6 +3269,7 @@ class LeaseViewSet(OrganizationModelViewSet):
             results.append({'row': index, 'data': normalized, 'errors': errors})
         return Response({
             'mode': 'commit' if commit else 'preview', 'rows': results,
+            'property': {'id': str(active_property.id), 'name': active_property.name} if active_property else None,
             'valid_count': sum(1 for row in results if not row['errors']),
             'error_count': sum(1 for row in results if row['errors']),
             'created_count': len(created), 'created_ids': created,

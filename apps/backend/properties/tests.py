@@ -1829,6 +1829,31 @@ class PropertyApiTests(TestCase):
         lease = Lease.objects.get(unit=unit)
         self.assertEqual(lease.monthly_rent, Decimal('11305.94'))
 
+    def test_lease_import_explains_unit_scope_misses(self):
+        other_property = Property.objects.create(
+            organization=self.organization, code='OTH', name='Other Block', status=Property.Status.ACTIVE,
+        )
+        Unit.objects.create(organization=self.organization, property=other_property, code='ELSE-01', area=Decimal('100'))
+        Unit.objects.create(organization=self.organization, property=self.property, code='HERE-01', area=Decimal('100'))
+        tenant = Tenant.objects.create(
+            organization=self.organization, property=self.property, code='TNT-HINT', name='Hint Tenant',
+        )
+        headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+        base = {'tenant_code': tenant.code, 'starts_on': '2026-09-01', 'ends_on': '2027-08-31', 'monthly_rent': '45000'}
+        rows = [
+            {**base, 'unit_code': 'ELSE-01'},
+            {**base, 'unit_code': 'HERE-0X'},
+            {**base, 'tenant_code': 'TNT-HIN', 'unit_code': 'HERE-01'},
+        ]
+        res = self.client.post('/api/v1/property/leases/bulk-import/', {'mode': 'preview', 'rows': rows}, format='json', **headers)
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(res.data['property'], {'id': str(self.property.id), 'name': 'Owned Property'})
+        by_row = {entry['row']: entry for entry in res.data['rows']}
+        self.assertIn("belongs to 'Other Block'", by_row[2]['errors']['unit'])
+        self.assertIn('Owned Property', by_row[2]['errors']['unit'])
+        self.assertIn('Did you mean: HERE-01', by_row[3]['errors']['unit'])
+        self.assertIn('Did you mean: TNT-HINT', by_row[4]['errors']['tenant'])
+
     def test_tenant_portal_is_user_linked_and_creates_scoped_service_request(self):
         TenantPortalAccess.objects.create(
             organization=self.organization, user=self.user, tenant=self.tenant,
