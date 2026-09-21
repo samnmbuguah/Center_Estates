@@ -2,7 +2,7 @@
 
 import React, { useCallback, useRef, useState } from "react";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
-import { csvCell as get, csvColumn as col, normalizeCsvHeader as norm, parseCsv } from "@/lib/csv";
+import { csvCell as get, csvColumn as col, describeEmptyGrid, normalizeCsvHeader as norm, parseCsv, parseImportGrid } from "@/lib/csv";
 
 type ParsedContractorRow = {
   name: string;
@@ -78,11 +78,30 @@ export function BulkContractorUploaderModal({
   const handleFile = useCallback((file: File) => {
     setFilename(file.name);
     setResult(null);
+    setRows([]);
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = String(e.target?.result ?? "");
-      const parsed = csvToContractorRows(text);
-      setRows(parsed);
+      try {
+        const parsed = csvToContractorRows(text);
+        if (!parsed.length) {
+          // Name the headings actually found so the user can fix the file
+          // instead of facing a silent empty table.
+          const grid = parseImportGrid(parseCsv(text), {
+            fields: {
+              name: ["name", "provider_name", "vendor_name", "company_name"],
+              code: ["code", "vendor_code", "provider_id", "code_id"],
+            },
+            required: ["name"],
+            keep: (row) => Boolean(row.name),
+          });
+          setResult({ count: 0, errors: [describeEmptyGrid(grid, "contractor rows")] });
+          return;
+        }
+        setRows(parsed);
+      } catch (reason) {
+        setResult({ count: 0, errors: [reason instanceof Error ? reason.message : "The selected file could not be read. Download the template and try again."] });
+      }
     };
     reader.readAsText(file);
   }, []);

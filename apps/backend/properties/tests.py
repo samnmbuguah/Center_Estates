@@ -1783,6 +1783,19 @@ class PropertyApiTests(TestCase):
         self.assertEqual(leases.count(), 2)
         self.assertEqual(set(leases.values_list('unit__code', flat=True)), {'FL1-01', 'FL2-01'})
 
+    def test_bulk_onboard_accepts_grouped_amounts(self):
+        Unit.objects.create(organization=self.organization, property=self.property, code='FL9-01', floor='9', area=Decimal('100.00'))
+        payload = {'rows': [{
+            'tenant': {'name': 'Grouped Amounts Ltd'},
+            'lease': {'unit_code': 'FL9-01', 'starts_on': '01-Feb-26', 'term_months': 12, 'monthly_rent': '120,000.50'},
+        }]}
+        res = self.client.post('/api/v1/property/tenants/bulk-onboard/', payload, format='json', **self.headers)
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertEqual(res.data['succeeded_count'], 1, res.data)
+        lease = Lease.objects.get(unit__code='FL9-01')
+        self.assertEqual(lease.monthly_rent, Decimal('120000.50'))
+        self.assertEqual(str(lease.starts_on), '2026-02-01')
+
     def test_lease_import_previews_then_creates_drafts_with_unit_deposit(self):
         unit = Unit.objects.create(organization=self.organization, property=self.property, code='IMPORT-01', area=Decimal('500'))
         tenant = Tenant.objects.create(organization=self.organization, property=self.property, code='TNT-IMPORT', name='Imported Tenant')

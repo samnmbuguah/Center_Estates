@@ -2729,7 +2729,9 @@ class TenantViewSet(OrganizationModelViewSet):
 
                     def _amount(name, default='0'):
                         try:
-                            val = Decimal(str(lease_data.get(name, default) or default)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                            # Spreadsheet exports quote thousands separators ("120,000.50").
+                            raw_amount = (str(lease_data.get(name, default) or default).replace(',', '').strip()) or default
+                            val = Decimal(raw_amount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
                         except Exception:
                             raise ValidationError({f'lease.{name}': 'Enter a valid number.'})
                         if val < 0:
