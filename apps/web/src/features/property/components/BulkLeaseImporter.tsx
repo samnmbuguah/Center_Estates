@@ -24,24 +24,73 @@ function downloadTemplate() {
   URL.revokeObjectURL(url);
 }
 
-function rowsFromGrid(parsed: string[][]): SourceRow[] {
-  if (parsed.length < 2) return [];
+/**
+ * Headings accepted for each lease field. Mirrors the aliases honoured by the
+ * bulk-import API (tenant/tenant_code, unit/unit_code, commencement_date,
+ * expiry_date) so a file the server would validate is never rejected by the
+ * browser pre-parse. Values are mapped back to the canonical keys before
+ * upload, so the request payload is unchanged.
+ */
+export const headerAliases: Record<string, string[]> = {
+  tenant_code: ["tenant_code", "tenant"],
+  unit_code: ["unit_code", "unit"],
+  starts_on: ["starts_on", "commencement_date", "commencement", "start_date"],
+  ends_on: ["ends_on", "expiry_date", "expiry", "end_date"],
+  monthly_rent: ["monthly_rent", "rent"],
+  service_charge: ["service_charge"],
+  billing_day: ["billing_day"],
+  escalation_percent: ["escalation_percent"],
+  escalation_interval_months: ["escalation_interval_months", "escalation_interval"],
+};
+
+/** Headings a file must match before any row can be imported. */
+const requiredHeaders = ["tenant_code", "unit_code"];
+
+type LeaseGridParse = {
+  rows: SourceRow[];
+  /** Raw heading cells from the first row, as written in the file. */
+  detectedHeaders: string[];
+  /** Canonical headers that matched a column in the file. */
+  matchedHeaders: string[];
+  /** Required headings with no matching column. */
+  missingRequired: string[];
+  /** Non-blank data rows seen below the heading row. */
+  dataRowCount: number;
+  /** Data rows dropped because they had neither tenant nor unit reference. */
+  droppedCount: number;
+};
+
+export function parseLeaseGrid(parsed: string[][]): LeaseGridParse {
+  const empty = (detectedHeaders: string[] = []): LeaseGridParse => ({
+    rows: [], detectedHeaders, matchedHeaders: [],
+    missingRequired: [...requiredHeaders], dataRowCount: 0, droppedCount: 0,
+  });
+  if (!parsed.length) return empty();
+  const detectedHeaders = parsed[0].map((cell) => String(cell ?? "").trim()).filter(Boolean);
   const normalized = parsed[0].map(normalizeCsvHeader);
-  return parsed.slice(1).map((row) => {
+  const matchedHeaders = headers.filter((header) => csvColumn(normalized, headerAliases[header]) >= 0);
+  const missingRequired = requiredHeaders.filter((header) => !matchedHeaders.includes(header));
+  const dataRows = parsed.slice(1).filter((row) => row.some((cell) => String(cell ?? "").trim()));
+  const rows: SourceRow[] = [];
+  for (const row of dataRows) {
     const raw = Object.fromEntries(headers.map((header) => [
-      header, csvCell(row, csvColumn(normalized, [header])),
+      header, csvCell(row, csvColumn(normalized, headerAliases[header])),
     ]));
     if (raw.starts_on) raw.starts_on = normalizeDateString(raw.starts_on);
     if (raw.ends_on) raw.ends_on = normalizeDateString(raw.ends_on);
-    return raw;
-  }).filter((row) => row.tenant_code || row.unit_code);
+    if (raw.tenant_code || raw.unit_code) rows.push(raw);
+  }
+  return {
+    rows, detectedHeaders, matchedHeaders, missingRequired,
+    dataRowCount: dataRows.length, droppedCount: dataRows.length - rows.length,
+  };
 }
 
-function readRows(text: string): SourceRow[] {
-  return rowsFromGrid(parseCsv(text));
+function readRows(text: string): LeaseGridParse {
+  return parseLeaseGrid(parseCsv(text));
 }
 
-async function readImportFile(file: File): Promise<SourceRow[]> {
+async function readImportFile(file: File): Promise<LeaseGridParse> {
   const extension = file.name.split(".").pop()?.toLowerCase();
   if (extension === "csv") return readRows(await file.text());
   if (extension !== "xlsx") {
@@ -54,10 +103,24 @@ async function readImportFile(file: File): Promise<SourceRow[]> {
   // validation path and date normalisation consistent.
   const { default: readXlsxFile } = await import("read-excel-file");
   const workbookRows = await readXlsxFile(file);
-  return rowsFromGrid(workbookRows.map((row) => row.map((value) => {
+  return parseLeaseGrid(workbookRows.map((row) => row.map((value) => {
     if (value instanceof Date) return value.toISOString().slice(0, 10);
     return value === null || value === undefined ? "" : String(value);
   })));
+}
+
+/** Explain an empty parse so the user can fix the file instead of guessing. */
+export function describeEmptyParse(result: LeaseGridParse): string {
+  const found = result.detectedHeaders.length
+    ? `Headings found: ${result.detectedHeaders.join(", ")}.`
+    : "No headings were found on the first row — put the template headings on row 1 with no title rows above them.";
+  const missing = result.missingRequired.length
+    ? ` Missing required heading${result.missingRequired.length === 1 ? "" : "s"}: ${result.missingRequired.join(", ")}.`
+    : "";
+  const skipped = result.dataRowCount > 0
+    ? ` ${result.dataRowCount} data row${result.dataRowCount === 1 ? " was" : "s were"} ignored — none had a tenant_code or unit_code value.`
+    : "";
+  return `No lease rows were found. ${found}${missing}${skipped}`;
 }
 
 export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
@@ -67,6 +130,7 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [importedFileName, setImportedFileName] = useState("");
   const [autoActivate, setAutoActivate] = useState(true);
   const validCount = preview.filter((row) => Object.keys(row.errors).length === 0).length;
@@ -110,19 +174,28 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
         Match existing tenants and units. All imported leases for property onboarding are registered as existing paper leases — digital offer letter signing is bypassed.
       </Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {notice && <Alert severity="warning" sx={{ mb: 2 }}>{notice}</Alert>}
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
         <Button variant="outlined" onClick={downloadTemplate}>Download CSV template</Button>
         <Button variant="contained" onClick={() => fileRef.current?.click()}>Choose CSV or Excel (.xlsx)</Button>
         <input ref={fileRef} hidden type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={async (event) => {
           const file = event.target.files?.[0]; if (!file) return;
-          setError(""); setImportedFileName(""); setSourceRows([]); setPreview([]);
+          setError(""); setNotice(""); setImportedFileName(""); setSourceRows([]); setPreview([]);
           try {
-            const rows = await readImportFile(file);
-            setSourceRows(rows);
-            if (!rows.length) {
-              setError("No lease rows were found. Ensure the first worksheet uses the template headings, including tenant_code and unit_code.");
+            const result = await readImportFile(file);
+            setSourceRows(result.rows);
+            if (!result.rows.length) {
+              setError(describeEmptyParse(result));
             } else {
               setImportedFileName(file.name);
+              const warnings: string[] = [];
+              if (result.missingRequired.length) {
+                warnings.push(`Heading${result.missingRequired.length === 1 ? "" : "s"} not found: ${result.missingRequired.join(", ")} — affected rows will fail validation until the column is added.`);
+              }
+              if (result.droppedCount > 0) {
+                warnings.push(`${result.droppedCount} row${result.droppedCount === 1 ? "" : "s"} skipped (no tenant_code or unit_code).`);
+              }
+              if (warnings.length) setNotice(warnings.join(" "));
             }
           } catch (reason) {
             setError(reason instanceof Error ? reason.message : "The selected file could not be read. Download the template and try again.");
