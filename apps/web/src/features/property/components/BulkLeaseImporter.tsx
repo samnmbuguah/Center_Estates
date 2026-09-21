@@ -24,8 +24,7 @@ function downloadTemplate() {
   URL.revokeObjectURL(url);
 }
 
-function readRows(text: string): SourceRow[] {
-  const parsed = parseCsv(text);
+function rowsFromGrid(parsed: string[][]): SourceRow[] {
   if (parsed.length < 2) return [];
   const normalized = parsed[0].map(normalizeCsvHeader);
   return parsed.slice(1).map((row) => {
@@ -38,6 +37,29 @@ function readRows(text: string): SourceRow[] {
   }).filter((row) => row.tenant_code || row.unit_code);
 }
 
+function readRows(text: string): SourceRow[] {
+  return rowsFromGrid(parseCsv(text));
+}
+
+async function readImportFile(file: File): Promise<SourceRow[]> {
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  if (extension === "csv") return readRows(await file.text());
+  if (extension !== "xlsx") {
+    throw new Error("Choose a CSV or Excel workbook (.xlsx).");
+  }
+
+  // Load the parser only when an Excel workbook is selected, keeping ordinary
+  // lease-page loads small. read-excel-file returns text, numeric and Date
+  // cells; converting each populated value to text keeps the existing CSV
+  // validation path and date normalisation consistent.
+  const { default: readXlsxFile } = await import("read-excel-file");
+  const workbookRows = await readXlsxFile(file);
+  return rowsFromGrid(workbookRows.map((row) => row.map((value) => {
+    if (value instanceof Date) return value.toISOString().slice(0, 10);
+    return value === null || value === undefined ? "" : String(value);
+  })));
+}
+
 export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
   const { session } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -45,6 +67,7 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
   const [preview, setPreview] = useState<PreviewRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [importedFileName, setImportedFileName] = useState("");
   const [autoActivate, setAutoActivate] = useState(true);
   const validCount = preview.filter((row) => Object.keys(row.errors).length === 0).length;
 
@@ -88,15 +111,27 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
       </Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mb: 2 }}>
-        <Button variant="outlined" onClick={downloadTemplate}>Download template</Button>
-        <Button variant="contained" onClick={() => fileRef.current?.click()}>Choose CSV</Button>
-        <input ref={fileRef} hidden type="file" accept=".csv,text/csv" onChange={async (event) => {
+        <Button variant="outlined" onClick={downloadTemplate}>Download CSV template</Button>
+        <Button variant="contained" onClick={() => fileRef.current?.click()}>Choose CSV or Excel (.xlsx)</Button>
+        <input ref={fileRef} hidden type="file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={async (event) => {
           const file = event.target.files?.[0]; if (!file) return;
-          const rows = readRows(await file.text()); setSourceRows(rows); setPreview([]);
-          if (!rows.length) setError("No lease rows were found. Use the provided template headings.");
+          setError(""); setImportedFileName(""); setSourceRows([]); setPreview([]);
+          try {
+            const rows = await readImportFile(file);
+            setSourceRows(rows);
+            if (!rows.length) {
+              setError("No lease rows were found. Ensure the first worksheet uses the template headings, including tenant_code and unit_code.");
+            } else {
+              setImportedFileName(file.name);
+            }
+          } catch (reason) {
+            setError(reason instanceof Error ? reason.message : "The selected file could not be read. Download the template and try again.");
+          }
+          event.target.value = "";
         }} />
         {sourceRows.length > 0 && <Button onClick={() => submit("preview")} disabled={busy}>Validate {sourceRows.length} rows</Button>}
       </Box>
+      {importedFileName && <Alert severity="success" sx={{ mb: 2 }}>Loaded {sourceRows.length} lease row{sourceRows.length === 1 ? "" : "s"} from {importedFileName}. Validate before importing.</Alert>}
       {preview.length > 0 && <Paper variant="outlined" sx={{ overflowX: "auto" }}>
         <Alert severity={validCount === preview.length ? "success" : "warning"}>
           {validCount} ready; {preview.length - validCount} need correction. Nothing has been saved yet.
