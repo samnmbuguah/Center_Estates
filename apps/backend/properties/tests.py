@@ -1808,6 +1808,27 @@ class PropertyApiTests(TestCase):
         self.assertEqual(lease.metadata['source'], 'lease_import')
         self.assertTrue(lease.billing_profiles.filter(billing_item=deposit_item).exists())
 
+    def test_lease_import_handles_grouped_amounts_and_word_dates(self):
+        unit = Unit.objects.create(organization=self.organization, property=self.property, code='IMPORT-02', area=Decimal('500'))
+        tenant = Tenant.objects.create(organization=self.organization, property=self.property, code='TNT-WORD', name='Word Date Tenant')
+        rows = [{
+            'tenant_code': tenant.code, 'unit_code': unit.code,
+            'starts_on': '01-Feb-24', 'ends_on': '30-Sept-31',
+            'monthly_rent': '11,305.94', 'service_charge': '1,500.00',
+            'billing_day': '25', 'escalation_percent': '10',
+        }]
+        preview = self.client.post('/api/v1/property/leases/bulk-import/', {'mode': 'preview', 'rows': rows}, format='json', **self.headers)
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertEqual(preview.data['valid_count'], 1, preview.data)
+        data = preview.data['rows'][0]['data']
+        self.assertEqual(data['starts_on'], '2024-02-01')
+        self.assertEqual(data['ends_on'], '2031-09-30')
+        self.assertEqual(data['monthly_rent'], '11305.94')
+        committed = self.client.post('/api/v1/property/leases/bulk-import/', {'mode': 'commit', 'rows': rows}, format='json', **self.headers)
+        self.assertEqual(committed.status_code, 201, committed.data)
+        lease = Lease.objects.get(unit=unit)
+        self.assertEqual(lease.monthly_rent, Decimal('11305.94'))
+
     def test_tenant_portal_is_user_linked_and_creates_scoped_service_request(self):
         TenantPortalAccess.objects.create(
             organization=self.organization, user=self.user, tenant=self.tenant,

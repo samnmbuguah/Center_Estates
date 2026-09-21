@@ -68,11 +68,15 @@ def _parse_flexible_date(val):
     val_str = str(val).strip()
     if not val_str:
         return None
+    # Spreadsheet exports write September as "Sept" ("30-Sept-31"); strptime
+    # only accepts "Sep".
+    for sept in ('Sept.', 'SEPT.', 'Sept', 'SEPT'):
+        val_str = val_str.replace(sept, 'Sep')
     try:
         return date.fromisoformat(val_str)
     except Exception:
         pass
-    for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%d.%m.%Y', '%Y/%m/%d', '%d/%m/%y', '%d-%m-%y', '%Y.%m.%d', '%B %d, %Y', '%d %b %Y', '%d %B %Y'):
+    for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%d.%m.%Y', '%Y/%m/%d', '%d/%m/%y', '%d-%m-%y', '%Y.%m.%d', '%B %d, %Y', '%d %b %Y', '%d %B %Y', '%d-%b-%y', '%d-%b-%Y'):
         try:
             return datetime.strptime(val_str, fmt).date()
         except Exception:
@@ -3149,7 +3153,8 @@ class LeaseViewSet(OrganizationModelViewSet):
             elif starts_on and ends_on <= starts_on:
                 errors['ends_on'] = 'Expiry date must be after commencement date.'
             try:
-                monthly_rent = Decimal(str(row.get('monthly_rent') or '0')).quantize(Decimal('0.01'))
+                # Spreadsheet exports quote thousands separators ("11,305.94").
+                monthly_rent = Decimal((str(row.get('monthly_rent') or '0').replace(',', '').strip()) or '0').quantize(Decimal('0.01'))
                 if monthly_rent < 0:
                     raise ValueError
             except Exception:
@@ -3163,14 +3168,14 @@ class LeaseViewSet(OrganizationModelViewSet):
                 billing_day = 1
                 errors['billing_day'] = 'Use a day from 1 to 28.'
             try:
-                escalation_percent = Decimal(str(row.get('escalation_percent') or 0)).quantize(Decimal('0.01'))
+                escalation_percent = Decimal((str(row.get('escalation_percent') or 0).replace(',', '').strip()) or '0').quantize(Decimal('0.01'))
                 escalation_interval = int(row.get('escalation_interval_months') or 12)
                 if escalation_percent < 0 or not 1 <= escalation_interval <= 120:
                     raise ValueError
             except Exception:
                 escalation_percent, escalation_interval = Decimal('0.00'), 12
             try:
-                service_charge = Decimal(str(row.get('service_charge') or 0)).quantize(Decimal('0.01'))
+                service_charge = Decimal((str(row.get('service_charge') or 0).replace(',', '').strip()) or '0').quantize(Decimal('0.01'))
                 if service_charge < 0:
                     raise ValueError
             except Exception:

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, LinearProgress, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
-import { csvCell, csvColumn, normalizeCsvHeader, normalizeDateString, parseCsv } from "@/lib/csv";
+import { describeEmptyGrid, normalizeDateString, parseCsv, parseImportGrid, type ImportGridParse } from "@/lib/csv";
 import { useAuth } from "@/components/auth-provider";
 
 type SourceRow = Record<string, string>;
@@ -34,56 +34,37 @@ function downloadTemplate() {
 export const headerAliases: Record<string, string[]> = {
   tenant_code: ["tenant_code", "tenant"],
   unit_code: ["unit_code", "unit"],
-  starts_on: ["starts_on", "commencement_date", "commencement", "start_date"],
-  ends_on: ["ends_on", "expiry_date", "expiry", "end_date"],
+  starts_on: ["starts_on", "commencement_date", "commencement", "start_date", "start"],
+  ends_on: ["ends_on", "expiry_date", "expiry", "end_date", "end"],
   monthly_rent: ["monthly_rent", "rent"],
   service_charge: ["service_charge"],
   billing_day: ["billing_day"],
-  escalation_percent: ["escalation_percent"],
+  escalation_percent: ["escalation_percent", "escalation"],
   escalation_interval_months: ["escalation_interval_months", "escalation_interval"],
 };
 
 /** Headings a file must match before any row can be imported. */
 const requiredHeaders = ["tenant_code", "unit_code"];
 
-type LeaseGridParse = {
-  rows: SourceRow[];
-  /** Raw heading cells from the first row, as written in the file. */
-  detectedHeaders: string[];
-  /** Canonical headers that matched a column in the file. */
-  matchedHeaders: string[];
-  /** Required headings with no matching column. */
-  missingRequired: string[];
-  /** Non-blank data rows seen below the heading row. */
-  dataRowCount: number;
-  /** Data rows dropped because they had neither tenant nor unit reference. */
-  droppedCount: number;
-};
+export type LeaseGridParse = ImportGridParse & { rows: SourceRow[] };
 
 export function parseLeaseGrid(parsed: string[][]): LeaseGridParse {
-  const empty = (detectedHeaders: string[] = []): LeaseGridParse => ({
-    rows: [], detectedHeaders, matchedHeaders: [],
-    missingRequired: [...requiredHeaders], dataRowCount: 0, droppedCount: 0,
-  });
-  if (!parsed.length) return empty();
-  const detectedHeaders = parsed[0].map((cell) => String(cell ?? "").trim()).filter(Boolean);
-  const normalized = parsed[0].map(normalizeCsvHeader);
-  const matchedHeaders = headers.filter((header) => csvColumn(normalized, headerAliases[header]) >= 0);
-  const missingRequired = requiredHeaders.filter((header) => !matchedHeaders.includes(header));
-  const dataRows = parsed.slice(1).filter((row) => row.some((cell) => String(cell ?? "").trim()));
-  const rows: SourceRow[] = [];
-  for (const row of dataRows) {
-    const raw = Object.fromEntries(headers.map((header) => [
-      header, csvCell(row, csvColumn(normalized, headerAliases[header])),
-    ]));
-    if (raw.starts_on) raw.starts_on = normalizeDateString(raw.starts_on);
-    if (raw.ends_on) raw.ends_on = normalizeDateString(raw.ends_on);
-    if (raw.tenant_code || raw.unit_code) rows.push(raw);
-  }
-  return {
-    rows, detectedHeaders, matchedHeaders, missingRequired,
-    dataRowCount: dataRows.length, droppedCount: dataRows.length - rows.length,
-  };
+  return parseImportGrid(parsed, {
+    fields: headerAliases,
+    required: requiredHeaders,
+    keep: (row) => Boolean(row.tenant_code || row.unit_code),
+    normalize: (row) => {
+      const clean: SourceRow = { ...row };
+      // Spreadsheet exports quote thousands separators ("11,305.94"); the
+      // API parses plain decimals, so strip grouping commas up front.
+      for (const key of ["monthly_rent", "service_charge", "escalation_percent"]) {
+        if (clean[key]) clean[key] = clean[key].replace(/,/g, "").trim();
+      }
+      if (clean.starts_on) clean.starts_on = normalizeDateString(clean.starts_on);
+      if (clean.ends_on) clean.ends_on = normalizeDateString(clean.ends_on);
+      return clean;
+    },
+  }) as LeaseGridParse;
 }
 
 function readRows(text: string): LeaseGridParse {
@@ -111,16 +92,7 @@ async function readImportFile(file: File): Promise<LeaseGridParse> {
 
 /** Explain an empty parse so the user can fix the file instead of guessing. */
 export function describeEmptyParse(result: LeaseGridParse): string {
-  const found = result.detectedHeaders.length
-    ? `Headings found: ${result.detectedHeaders.join(", ")}.`
-    : "No headings were found on the first row — put the template headings on row 1 with no title rows above them.";
-  const missing = result.missingRequired.length
-    ? ` Missing required heading${result.missingRequired.length === 1 ? "" : "s"}: ${result.missingRequired.join(", ")}.`
-    : "";
-  const skipped = result.dataRowCount > 0
-    ? ` ${result.dataRowCount} data row${result.dataRowCount === 1 ? " was" : "s were"} ignored — none had a tenant_code or unit_code value.`
-    : "";
-  return `No lease rows were found. ${found}${missing}${skipped}`;
+  return describeEmptyGrid(result, "lease rows");
 }
 
 export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {

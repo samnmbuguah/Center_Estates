@@ -58,4 +58,30 @@ describe("BulkLeaseImporter grid parsing", () => {
     expect(result.rows).toHaveLength(0);
     expect(describeEmptyParse(result)).toContain("No headings were found on the first row");
   });
+
+  it("loads a rent-roll export with Start/End headings, grouped amounts and word dates", () => {
+    // Sharon's tenancy-schedule shape: bare Start/End/Escalation headings,
+    // quoted thousands separators, DD-Mon-YY dates.
+    const result = parseLeaseGrid(parseCsv(
+      'Reference,Tenant,Unit,Start,End,Monthly Rent,Deposit,Escalation %,Status,Outstanding\n'
+      + '1,Ambunya Lawrence T/A Lawrence Merchants,GR-1,01-Feb-24,31/01/2030,"11,305.94","31,406.00",10,Active,0\n'
+      + '2,Ravishing Radish Caterers Ltd,F1-1,01-May-25,30-Apr-31,"323,744.40","964,256.00",10,Active,0',
+    ));
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows[0]).toMatchObject({
+      tenant_code: "Ambunya Lawrence T/A Lawrence Merchants", unit_code: "GR-1",
+      starts_on: "2024-02-01", ends_on: "2030-01-31",
+      monthly_rent: "11305.94", escalation_percent: "10",
+    });
+    expect(result.rows[1]).toMatchObject({
+      starts_on: "2025-05-01", ends_on: "2031-04-30", monthly_rent: "323744.40",
+    });
+    expect(result.missingRequired).toEqual([]);
+  });
+
+  it("normalises Sept word dates", () => {
+    const result = parseLeaseGrid(parseCsv(`${TEMPLATE}\nTNT-1,A-1,01-Oct-25,30-Sept-31,10000,0,1,0,0`));
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({ starts_on: "2025-10-01", ends_on: "2031-09-30" });
+  });
 });

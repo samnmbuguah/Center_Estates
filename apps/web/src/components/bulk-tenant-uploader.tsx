@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
-import { csvCell as get, csvColumn as col, normalizeCsvHeader as norm, parseCsv } from "@/lib/csv";
+import { csvCell as get, csvColumn as col, describeEmptyGrid, normalizeCsvHeader as norm, parseCsv, parseImportGrid } from "@/lib/csv";
 
 type ParsedRow = {
   unit_code: string;
@@ -278,7 +278,19 @@ export function BulkTenantUploader({ onDone, onCancel }: { onDone: () => void; o
     reader.onload = (e) => {
       const text = e.target?.result as string;
       const parsed = csvToRows(text);
-      if (!parsed.length) { setParseError('No valid data rows found. Check that the file matches the template headers.'); return; }
+      if (!parsed.length) {
+        // Name the headings actually found so the user can fix the file
+        // instead of guessing against the template.
+        const grid = parseImportGrid(parseCsv(text), {
+          fields: {
+            unit_code: ['unit_code', 'unit', 'unit_no', 'unit_number'],
+            name: ['name', 'tenant_name', 'full_name', 'tenant'],
+          },
+          required: ['unit_code', 'name'],
+        });
+        setParseError(describeEmptyGrid(grid, 'tenant rows'));
+        return;
+      }
       setRows(parsed); setFileName(file.name);
     };
     reader.readAsText(file);
