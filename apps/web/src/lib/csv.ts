@@ -1,5 +1,21 @@
+/**
+ * Detect the separator used by common spreadsheet CSV exports. Excel uses a
+ * semicolon in locales where the comma is the decimal separator, while a TSV
+ * may be supplied by a reporting tool. The first populated line is enough for
+ * the import templates because their headers are unquoted identifiers.
+ */
+function detectCsvDelimiter(text: string) {
+  const header = text.split(/\r?\n/, 1)[0] ?? "";
+  const candidates = [",", ";", "\t"] as const;
+  return candidates.reduce((best, delimiter) => {
+    const count = header.split(delimiter).length - 1;
+    const bestCount = header.split(best).length - 1;
+    return count > bestCount ? delimiter : best;
+  }, ",");
+}
+
 /** RFC-4180 compatible CSV parsing shared by every bulk uploader. */
-export function parseCsv(text: string): string[][] {
+export function parseCsv(text: string, delimiter = detectCsvDelimiter(text)): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";
@@ -11,7 +27,7 @@ export function parseCsv(text: string): string[][] {
       index += 1;
     } else if (character === '"') {
       quoted = !quoted;
-    } else if (character === "," && !quoted) {
+    } else if (character === delimiter && !quoted) {
       row.push(cell.trim()); cell = "";
     } else if ((character === "\n" || character === "\r") && !quoted) {
       if (character === "\r" && text[index + 1] === "\n") index += 1;
@@ -98,4 +114,3 @@ export function normalizeDateString(raw: string | number | null | undefined): st
 
   return str;
 }
-
