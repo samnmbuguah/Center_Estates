@@ -869,11 +869,20 @@ def _format_report_cell(value: str, *, header: str = "") -> str:
     return raw
 
 
+def _months_to_years(raw):
+    """Render an escalation interval in years (12 -> "1", 18 -> "1.5")."""
+    try:
+        months = float(str(raw).replace(",", "").strip())
+    except (TypeError, ValueError):
+        return raw
+    return f"{months / 12:g}"
+
+
 def _clean_header_label(header: str) -> str:
     h = str(header or "").strip()
     cleanups = {
-        "Escalation Interval (Months)": "Esc.<br/>(Mos)",
-        "Escalation Interval Months": "Esc.<br/>(Mos)",
+        "Escalation Interval (Months)": "Esc.<br/>(Yrs)",
+        "Escalation Interval Months": "Esc.<br/>(Yrs)",
         "Escalation %": "Esc.<br/>%",
         "Next Effective Rent": "Next<br/>Rent",
         "Service Charge": "Service<br/>Charge",
@@ -934,23 +943,27 @@ def _column_widths(headers: list[str], rows: list[list[str]], page_width: float)
         is_unit = any(k in h_lower for k in ("unit", "unit_code"))
         is_status = any(k in h_lower for k in ("status", "marketing"))
         is_date = any(k in h_lower for k in ("date", "start", "end", "due", "issued", "expires", "completed", "since"))
+        is_interval = any(k in h_lower for k in ("interval", "mos", "month", "yrs", "year"))
         is_rate = any(k in h_lower for k in ("%", "rate", "ratio", "interval", "days", "count", "mos", "month"))
         is_money = any(k in h_lower for k in ("rent", "amount", "charge", "balance", "total", "subtotal", "paid", "billed", "vat", "net", "tax", "fee", "cost", "spend", "income"))
         is_area = "area" in h_lower
         is_primary_text = any(k in h_lower for k in ("tenant", "owner", "landlord", "supplier", "contractor", "party", "description", "name", "reason", "comment", "entity", "payee"))
 
         if is_floor:
-            base_min = max(20.0 * mm, min(max_content_len * 2.3 * mm, 25.0 * mm))
-            flex = 0.12
+            base_min = max(14.0 * mm, min(max_content_len * 2.0 * mm, 18.0 * mm))
+            flex = 0.08
         elif is_unit:
-            base_min = max(25.0 * mm, min(max_content_len * 2.3 * mm, 32.0 * mm))
-            flex = 0.2
+            base_min = max(18.0 * mm, min(max_content_len * 2.0 * mm, 24.0 * mm))
+            flex = 0.12
         elif is_status:
             base_min = 14 * mm
             flex = 0.08
         elif is_date:
             base_min = 18 * mm
             flex = 0.08
+        elif is_interval:
+            base_min = 20 * mm
+            flex = 0.15
         elif is_rate:
             base_min = 13 * mm
             flex = 0.08
@@ -1019,6 +1032,13 @@ def tabular_report_pdf(
     column_count = max(len(headers), max((len(row) for row in body), default=0), 1)
     headers = (headers + [""] * column_count)[:column_count]
     body = [row + [""] * (column_count - len(row)) for row in body]
+    # Escalation intervals arrive as months; present them in years.
+    esc_indices = {i for i, h in enumerate(headers) if "escalation interval" in h.lower()}
+    if esc_indices:
+        body = [
+            [_months_to_years(cell) if i in esc_indices else cell for i, cell in enumerate(row)]
+            for row in body
+        ]
     page_width = landscape(A4)[0] - 28 * mm
     widths = _column_widths(headers, body, page_width)
 

@@ -99,6 +99,97 @@ class ConstructionApiTests(TestCase):
         self.assertEqual(Decimal(response.data["kpis"]["paidValue"]), Decimal("900000"))
         self.assertEqual(response.data["kpis"]["budgetUtilization"], 18.0)
 
+    def test_cost_dashboard_aggregates_commercial_position(self):
+        now = int(time() * 1000)
+        Variation.objects.create(
+            organization=self.organization, project=self.project, variation_number="V2",
+            description="Omitted finishes", variation_type="omission", amount=Decimal("50000"),
+            status="approved", created_at=now, updated_at=now,
+        )
+        ProvisionalSum.objects.create(
+            organization=self.organization, project=self.project, item_number="PS-1",
+            description="PC sum", budgeted_amount=Decimal("200000"), ascertained_amount=Decimal("150000"),
+            status="ascertained", created_at=now, updated_at=now,
+        )
+        ContingencyDrawdown.objects.create(
+            organization=self.organization, project=self.project, drawdown_number="CD-1",
+            reason="Unforeseen rock", amount=Decimal("100000"), status="approved",
+            created_at=now, updated_at=now,
+        )
+        AdvancePayment.objects.create(
+            organization=self.organization, project=self.project, contractor_name="Main Contractor",
+            amount=Decimal("1000000"), recovered_amount=Decimal("200000"), status="paid",
+            created_at=now, updated_at=now,
+        )
+        BoQItem.objects.create(
+            organization=self.organization, project=self.project, section="Substructure",
+            item_number="1.1", description="Excavation", quantity=Decimal("100"), rate=Decimal("30000"),
+            amount=Decimal("3000000"), approval_status="approved", cost_state="budgeted",
+        )
+        BoQItem.objects.create(
+            organization=self.organization, project=self.project, section="Superstructure",
+            item_number="2.1", description="Frame", quantity=Decimal("50"), rate=Decimal("40000"),
+            amount=Decimal("2000000"), approval_status="approved", cost_state="certified",
+            certified_amount=Decimal("1500000"),
+        )
+        response = self.client.get(
+            f"/api/v1/construction/projects/{self.project.id}/cost-dashboard", **self.headers,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data
+        self.assertEqual(Decimal(data["budget"]), Decimal("5000000.00"))
+        self.assertEqual(data["budget_source"], "project")
+        self.assertEqual(Decimal(data["approved_variations"]), Decimal("200000.00"))
+        self.assertEqual(Decimal(data["provisional_sums_budget"]), Decimal("200000.00"))
+        self.assertEqual(Decimal(data["provisional_sums_ascertained"]), Decimal("150000.00"))
+        self.assertEqual(Decimal(data["contingency_drawn"]), Decimal("100000.00"))
+        self.assertEqual(Decimal(data["forecast_final_cost"]), Decimal("5300000.00"))
+        self.assertEqual(Decimal(data["cost_variance"]), Decimal("300000.00"))
+        self.assertEqual(Decimal(data["certified_to_date"]), Decimal("1000000.00"))
+        self.assertEqual(Decimal(data["paid_to_date"]), Decimal("900000.00"))
+        self.assertEqual(Decimal(data["advance_payments_outstanding"]), Decimal("800000.00"))
+        self.assertEqual(Decimal(data["boq_total"]), Decimal("5000000.00"))
+        self.assertEqual(data["boq_by_state"]["certified"]["total"], "2000000.00")
+        self.assertEqual(data["boq_by_state"]["certified"]["certified_amount"], "1500000.00")
+        self.assertEqual(Decimal(data["drawdown_eligibility"]["available"]), Decimal("150000.00"))
+
+    def test_cash_flow_forecast_spreads_programme_months(self):
+        import datetime
+        WorkPlanTask = __import__("construction.models", fromlist=["WorkPlanTask"]).WorkPlanTask
+        BoQItem.objects.create(
+            organization=self.organization, project=self.project, section="Substructure works",
+            item_number="1.1", description="Excavation", quantity=Decimal("10"), rate=Decimal("20000"),
+            amount=Decimal("200000"), approval_status="approved", cost_state="budgeted",
+        )
+        BoQItem.objects.create(
+            organization=self.organization, project=self.project, section="Superstructure frame",
+            item_number="2.1", description="Frame", quantity=Decimal("10"), rate=Decimal("40000"),
+            amount=Decimal("400000"), approval_status="approved", cost_state="budgeted",
+        )
+        WorkPlanTask.objects.create(
+            organization=self.organization, project=self.project, task_id="T-1", task_name="Foundations",
+            wbs_level=1, level1_name="Substructure works", start_date=datetime.date(2026, 1, 1),
+            end_date=datetime.date(2026, 2, 28), duration_days=59, percent_complete=Decimal("0"),
+            approval_status="approved",
+        )
+        WorkPlanTask.objects.create(
+            organization=self.organization, project=self.project, task_id="T-2", task_name="Frame",
+            wbs_level=1, level1_name="Superstructure frame", start_date=datetime.date(2026, 2, 1),
+            end_date=datetime.date(2026, 3, 31), duration_days=59, percent_complete=Decimal("0"),
+            approval_status="approved",
+        )
+        response = self.client.get(
+            f"/api/v1/construction/projects/{self.project.id}/cash-flow-forecast", **self.headers,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        data = response.data
+        self.assertEqual([m["month"] for m in data["months"]], ["2026-01", "2026-02", "2026-03"])
+        self.assertEqual(Decimal(data["months"][0]["planned"]), Decimal("100000.00"))
+        self.assertEqual(Decimal(data["months"][1]["planned"]), Decimal("300000.00"))
+        self.assertEqual(Decimal(data["total_planned"]), Decimal("600000.00"))
+        self.assertEqual(Decimal(data["total_actual"]), Decimal("0.00"))
+        self.assertEqual(data["forecast_completion"], "2026-03")
+
     def test_project_query_filters_charfield_and_fk_registers(self):
         other_portfolio = PortfolioProject.objects.create(
             organization=self.organization, code="P2-PORT", name="Project Two Portfolio",

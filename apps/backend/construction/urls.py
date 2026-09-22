@@ -28,6 +28,7 @@ from .ingest import (
     ingestion_preview,
     ingestion_status,
 )
+from .views.cost_views import cash_flow_forecast, cost_dashboard
 
 router = DefaultRouter()
 router.register("dashboard", DashboardViewSet, basename="construction-dashboard")
@@ -110,5 +111,9 @@ urlpatterns += [
     path("projects/<str:project_id>/ingest/status", ingestion_status, name="construction-project-ingest-status"),
     path("projects/<str:project_id>/ingest/generate", generate_milestones_endpoint, name="construction-project-ingest-generate"),
     path("ai/convert-project-pdf", convert_project_pdf, name="construction-ai-convert-project-pdf"),
+
+    # Commercial cost management
+    path("projects/<str:project_id>/cost-dashboard", cost_dashboard, name="construction-cost-dashboard"),
+    path("projects/<str:project_id>/cash-flow-forecast", cash_flow_forecast, name="construction-cash-flow-forecast"),
 ]
 
