@@ -6323,10 +6323,11 @@ class PropertyAnalyticsViewSet(ViewSet):
             # Column width hints per report type (header label -> width)
             REPORT_WIDTHS = {
                 'tenancy-schedule': {
-                    'Floor': 7, 'Unit': 12, 'Tenant': 32, 'Property': 22,
+                    'Floor': 6, 'Unit': 10, 'Tenant': 32, 'Property': 22,
                     'Area': 10, 'Use': 12, 'Lease Start': 13, 'Lease End': 13,
                     'Rent': 16, 'Service Charge': 16, 'Escalation %': 13,
-                    'Escalation Interval (Months)': 14, 'Next Effective Rent': 18,
+                    'Escalation Interval (Months)': 16, 'Escalation Interval (Yrs)': 16,
+                    'Next Effective Rent': 18,
                 },
                 'income-analysis': {
                     'Property': 24, 'Unit': 12, 'Tenant': 32, 'Use': 12,
@@ -6335,6 +6336,12 @@ class PropertyAnalyticsViewSet(ViewSet):
                 },
             }
             col_widths = REPORT_WIDTHS.get(report_kind, {})
+            # Human-readable workbooks present escalation intervals in years,
+            # matching the PDF (raw CSV keeps months for machine use).
+            esc_interval_idx = {
+                i for i, h in enumerate(parsed_rows[0])
+                if report_kind == 'tenancy-schedule' and 'escalation interval' in str(h).lower()
+            } if parsed_rows else set()
 
             for row_index, csv_row in enumerate(parsed_rows, start=start_row):
                 is_header = row_index == start_row
@@ -6345,8 +6352,17 @@ class PropertyAnalyticsViewSet(ViewSet):
                     cell.font = header_font if is_header else body_font
                     cell.border = thin
                     if is_header:
+                        if zero_idx in esc_interval_idx:
+                            cell.value = 'Escalation Interval (Yrs)'
                         cell.fill = header_fill
                         cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                    elif zero_idx in esc_interval_idx and value not in (None, '', '—'):
+                        try:
+                            years = float(str(value).replace(',', '').strip()) / 12
+                            cell.value = int(years) if years.is_integer() else round(years, 1)
+                            cell.alignment = Alignment(horizontal='center', vertical='center')
+                        except (TypeError, ValueError):
+                            pass
                     else:
                         if (row_index - start_row) % 2 == 0:
                             cell.fill = zebra
