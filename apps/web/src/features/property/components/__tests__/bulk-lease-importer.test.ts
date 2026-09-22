@@ -91,6 +91,12 @@ describe("BulkLeaseImporter grid parsing", () => {
     expect(result.rows[0]).toMatchObject({ rent_rate_per_sqft: "1250" });
   });
 
+  it("maps service-charge rate aliases", () => {
+    const result = parseLeaseGrid(parseCsv('tenant_code,unit_code,starts_on,ends_on,SC Rate\nTNT-1,A-1,2026-09-01,2027-08-31,25'));
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({ service_charge_rate_per_sqft: "25" });
+  });
+
   it("warns about every defaulted column", () => {
     expect(defaultColumnWarnings(["tenant_code", "unit_code", "starts_on", "ends_on", "monthly_rent", "service_charge", "billing_day", "escalation_percent", "escalation_interval_months"])).toEqual([]);
     const warnings = defaultColumnWarnings(["tenant_code", "unit_code"]);
@@ -98,6 +104,8 @@ describe("BulkLeaseImporter grid parsing", () => {
     expect(warnings.join(" ")).toContain("defaults to 12 months");
     // A rate column suppresses the rent default warning.
     expect(defaultColumnWarnings(["tenant_code", "unit_code", "rent_rate_per_sqft"])).toHaveLength(4);
+    // A service-charge rate column suppresses the service-charge warning.
+    expect(defaultColumnWarnings(["tenant_code", "unit_code", "service_charge_rate_per_sqft"])).toHaveLength(4);
   });
 
   it("summarises preview errors by frequency", () => {

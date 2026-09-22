@@ -1839,6 +1839,25 @@ class PropertyApiTests(TestCase):
         self.assertEqual(lease.monthly_rent, Decimal('250000.00'))
         self.assertEqual(lease.metadata['rent_rate_per_sqft'], '1250.00')
 
+    def test_lease_import_computes_service_charge_from_rate(self):
+        unit = Unit.objects.create(organization=self.organization, property=self.property, code='SCR-01', area=Decimal('3101'))
+        tenant = Tenant.objects.create(organization=self.organization, property=self.property, code='TNT-SCR', name='SC Rate Tenant')
+        base = {'tenant_code': tenant.code, 'unit_code': unit.code, 'starts_on': '2026-09-01', 'ends_on': '2027-08-31'}
+        preview = self.client.post('/api/v1/property/leases/bulk-import/', {
+            'mode': 'preview', 'rows': [{**base, 'service_charge_rate_per_sqft': '25'}],
+        }, format='json', **self.headers)
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertEqual(preview.data['valid_count'], 1, preview.data)
+        self.assertEqual(preview.data['rows'][0]['data']['service_charge'], '77525.00')
+        committed = self.client.post('/api/v1/property/leases/bulk-import/', {
+            'mode': 'commit', 'rows': [{**base, 'service_charge_rate_per_sqft': '25'}],
+        }, format='json', **self.headers)
+        self.assertEqual(committed.status_code, 201, committed.data)
+        lease = Lease.objects.get(unit=unit)
+        self.assertEqual(lease.metadata['service_charge_rate_per_sqft'], '25.00')
+        profile = lease.billing_profiles.get(billing_item__code='SERVICE_CHARGE')
+        self.assertEqual(profile.amount, Decimal('77525.00'))
+
     def test_lease_import_rejects_conflicting_rent_and_rate(self):
         unit = Unit.objects.create(organization=self.organization, property=self.property, code='RATE-02', area=Decimal('200'))
         tenant = Tenant.objects.create(organization=self.organization, property=self.property, code='TNT-RATE2', name='Rate Tenant 2')
