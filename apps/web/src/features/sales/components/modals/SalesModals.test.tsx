@@ -16,9 +16,12 @@ describe("Sales transaction dialogs", () => {
     );
 
     fireEvent.change(screen.getByRole("textbox", { name: "Sale reference" }), { target: { value: "SALE-001" } });
+    // MUI Select renders a div-based combobox: open the listbox, then pick the option.
     const selects = screen.getAllByRole("combobox");
-    fireEvent.change(selects[0], { target: { value: "buyer-1" } });
-    fireEvent.change(selects[1], { target: { value: "listing-1" } });
+    fireEvent.mouseDown(selects[0]);
+    fireEvent.click(screen.getByRole("option", { name: /Test Buyer/ }));
+    fireEvent.mouseDown(selects[1]);
+    fireEvent.click(screen.getByRole("option", { name: /Lynx/ }));
     fireEvent.change(screen.getByRole("spinbutton", { name: "Agreed price (KES)" }), { target: { value: "11500000" } });
     fireEvent.click(screen.getByRole("button", { name: "Create Sale" }));
 

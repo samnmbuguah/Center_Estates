@@ -16,7 +16,7 @@ describe("Facility procurement and finance workspaces", () => {
       status: "evaluation", quotations: [],
     }]} organizationId="org-1" reload={jest.fn()} canApprove />);
 
-    expect(screen.getByText("Procurement control centre")).toBeInTheDocument();
+    expect(screen.getByText("Procurement Control Centre")).toBeInTheDocument();
     expect(screen.getByText("Replace booster pump")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add quotation" })).toBeInTheDocument();
   });
