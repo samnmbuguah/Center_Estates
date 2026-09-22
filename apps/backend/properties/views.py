@@ -6260,6 +6260,24 @@ class PropertyAnalyticsViewSet(ViewSet):
         except Exception:
             pass
 
+    @staticmethod
+    def _rent_rate_for_lease(lease, as_of):
+        """Return the rent rate per sqft for a lease.
+        Priority: 1) stored import rate in metadata
+                  2) effective rent ÷ unit area
+        """
+        meta = lease.metadata or {}
+        stored = str(meta.get('rent_rate_per_sqft') or '').strip()
+        if stored:
+            return stored
+        try:
+            area = Decimal(str(lease.unit.area or '0'))
+            if area > 0:
+                return (lease.effective_rent(as_of) / area).quantize(Decimal('0.01'))
+        except Exception:
+            pass
+        return '—'
+
         return Decimal('0')
 
     def _complete_export(self, request, report_kind, response, start, end, output_format, row_count=0):
@@ -6304,6 +6322,11 @@ class PropertyAnalyticsViewSet(ViewSet):
                     'total', 'cost', 'fee', 'income', 'expense', 'subtotal', 'variance', 'budget', 'paid', 'net', 'charge',
                 )) and 'rate' not in str(header).lower()
             }
+            # Per-sqft rates format as money but must never be totalled.
+            rate_headers = {
+                index for index, header in enumerate(headers)
+                if 'sqft' in str(header).lower()
+            }
             # Per-column type classification for smart formatting
             PERCENT_TOKENS = ('escalation %', 'escalation_percent', 'occupancy', 'rate', 'ratio', 'vat %', 'tax %', '% ')
             DATE_TOKENS = ('date', 'start', 'end', '_on', 'since', 'expiry', 'generated')
@@ -6325,7 +6348,7 @@ class PropertyAnalyticsViewSet(ViewSet):
                 'tenancy-schedule': {
                     'Floor': 6, 'Unit': 10, 'Tenant': 32, 'Property': 22,
                     'Area': 10, 'Use': 12, 'Lease Start': 13, 'Lease End': 13,
-                    'Rent': 16, 'Service Charge': 16, 'Escalation %': 13,
+                    'Rent': 16, 'Rent per Sqft': 14, 'Service Charge': 16, 'Escalation %': 13,
                     'Escalation Interval (Months)': 16, 'Escalation Interval (Yrs)': 16,
                     'Next Effective Rent': 18,
                 },
@@ -6419,7 +6442,7 @@ class PropertyAnalyticsViewSet(ViewSet):
                         cell.fill = totals_fill
                         cell.border = thin
                         cell.font = totals_font
-                        if zero_idx in money_headers and len(parsed_rows) > 1:
+                        if zero_idx in money_headers and zero_idx not in rate_headers and len(parsed_rows) > 1:
                             data_start = start_row + 1
                             data_end = start_row + len(parsed_rows) - 1
                             col_letter = get_column_letter(col_index)
@@ -6931,7 +6954,7 @@ class PropertyAnalyticsViewSet(ViewSet):
                 rent = active_lease.effective_rent(end) if active_lease else Decimal('0')
                 writer.writerow((unit.floor or '—', unit.code, tenant_name, unit.property.name, unit.unit_type, unit.area or '—', rent, unit.status.title()))
         elif report_kind == 'tenancy-schedule':
-            writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Lease Start', 'Lease End', 'Rent', 'Service Charge', 'Escalation %', 'Escalation Interval (Months)', 'Status', 'Next Effective Rent'))
+            writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Lease Start', 'Lease End', 'Rent', 'Rent per Sqft', 'Service Charge', 'Escalation %', 'Escalation Interval (Months)', 'Status', 'Next Effective Rent'))
             leases = scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
             include_drafts = request.query_params.get('include_drafts', '').lower() in ('1', 'true', 'yes')
             has_active = leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).exists()
@@ -6948,7 +6971,8 @@ class PropertyAnalyticsViewSet(ViewSet):
                 service_charge = self._service_charge_for_lease(lease)
                 writer.writerow((lease.unit.floor or '—', lease.unit.code, lease.tenant.name, lease.unit.property.name,
                                  lease.unit.area or '—', lease.starts_on,
-                                 lease.ends_on, lease.effective_rent(end), service_charge, lease.escalation_percent,
+                                 lease.ends_on, lease.effective_rent(end), self._rent_rate_for_lease(lease, end),
+                                 service_charge, lease.escalation_percent,
                                  lease.escalation_interval_months, lease.status.title(),
                                  lease.effective_rent(min(lease.ends_on - timedelta(days=1), end + timedelta(days=365)))))
         elif report_kind == 'ownership-schedule':

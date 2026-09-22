@@ -883,6 +883,7 @@ def _clean_header_label(header: str) -> str:
     cleanups = {
         "Escalation Interval (Months)": "Esc.<br/>(Yrs)",
         "Escalation Interval Months": "Esc.<br/>(Yrs)",
+        "Rent Per Sqft": "Rent<br/>/Sqft",
         "Escalation %": "Esc.<br/>%",
         "Next Effective Rent": "Next<br/>Rent",
         "Service Charge": "Service<br/>Charge",
