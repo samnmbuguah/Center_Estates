@@ -1,5 +1,5 @@
 import { parseCsv } from "@/lib/csv";
-import { describeEmptyParse, parseLeaseGrid, summarizePreviewErrors } from "../BulkLeaseImporter";
+import { defaultColumnWarnings, describeEmptyParse, parseLeaseGrid, summarizePreviewErrors } from "../BulkLeaseImporter";
 
 const TEMPLATE = "tenant_code,unit_code,starts_on,ends_on,monthly_rent,service_charge,billing_day,escalation_percent,escalation_interval_months";
 
@@ -83,6 +83,21 @@ describe("BulkLeaseImporter grid parsing", () => {
     const result = parseLeaseGrid(parseCsv(`${TEMPLATE}\nTNT-1,A-1,01-Oct-25,30-Sept-31,10000,0,1,0,0`));
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0]).toMatchObject({ starts_on: "2025-10-01", ends_on: "2031-09-30" });
+  });
+
+  it("maps rent-rate aliases and strips grouped amounts", () => {
+    const result = parseLeaseGrid(parseCsv('tenant_code,unit_code,starts_on,ends_on,Rate\nTNT-1,A-1,2026-09-01,2027-08-31,"1,250"'));
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({ rent_rate_per_sqft: "1250" });
+  });
+
+  it("warns about every defaulted column", () => {
+    expect(defaultColumnWarnings(["tenant_code", "unit_code", "starts_on", "ends_on", "monthly_rent", "service_charge", "billing_day", "escalation_percent", "escalation_interval_months"])).toEqual([]);
+    const warnings = defaultColumnWarnings(["tenant_code", "unit_code"]);
+    expect(warnings).toHaveLength(5);
+    expect(warnings.join(" ")).toContain("defaults to 12 months");
+    // A rate column suppresses the rent default warning.
+    expect(defaultColumnWarnings(["tenant_code", "unit_code", "rent_rate_per_sqft"])).toHaveLength(4);
   });
 
   it("summarises preview errors by frequency", () => {

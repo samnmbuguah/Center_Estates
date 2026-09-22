@@ -10,14 +10,14 @@ import { usePropertyContext } from "@/lib/property-context";
 type SourceRow = Record<string, string>;
 type PreviewRow = { row: number; data: SourceRow; errors: Record<string, string> };
 
-const headers = ["tenant_code", "unit_code", "starts_on", "ends_on", "monthly_rent", "service_charge", "billing_day", "escalation_percent", "escalation_interval_months"];
+const headers = ["tenant_code", "unit_code", "starts_on", "ends_on", "monthly_rent", "rent_rate_per_sqft", "service_charge", "billing_day", "escalation_percent", "escalation_interval_months"];
 
 function downloadTemplate() {
   const csv = [
     headers,
-    ["TNT-0001", "A-101", "2026-09-01", "2027-08-31", "25000", "0", "1", "0", "12"],
-    ["TNT-0002", "B-201", "01/09/2026", "31/08/2027", "50000", "0", "1", "0", "12"],
-    ["TNT-0003", "G-01", "2026-09-01", "2028-08-31", "85000", "15000", "1", "10", "12"],
+    ["TNT-0001", "A-101", "2026-09-01", "2027-08-31", "25000", "", "0", "1", "0", "12"],
+    ["TNT-0002", "B-201", "01/09/2026", "31/08/2027", "50000", "", "0", "1", "0", "12"],
+    ["TNT-0003", "G-01", "2026-09-01", "2028-08-31", "", "850", "15000", "1", "10", "12"],
   ]
     .map((row) => row.map((value) => `"${value}"`).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -38,6 +38,7 @@ export const headerAliases: Record<string, string[]> = {
   starts_on: ["starts_on", "commencement_date", "commencement", "start_date", "start"],
   ends_on: ["ends_on", "expiry_date", "expiry", "end_date", "end"],
   monthly_rent: ["monthly_rent", "rent"],
+  rent_rate_per_sqft: ["rent_rate_per_sqft", "rent_per_sqft", "rate_per_sqft", "rate"],
   service_charge: ["service_charge"],
   billing_day: ["billing_day"],
   escalation_percent: ["escalation_percent", "escalation"],
@@ -58,7 +59,7 @@ export function parseLeaseGrid(parsed: string[][]): LeaseGridParse {
       const clean: SourceRow = { ...row };
       // Spreadsheet exports quote thousands separators ("11,305.94"); the
       // API parses plain decimals, so strip grouping commas up front.
-      for (const key of ["monthly_rent", "service_charge", "escalation_percent"]) {
+      for (const key of ["monthly_rent", "rent_rate_per_sqft", "service_charge", "escalation_percent"]) {
         if (clean[key]) clean[key] = clean[key].replace(/,/g, "").trim();
       }
       if (clean.starts_on) clean.starts_on = normalizeDateString(clean.starts_on);
@@ -94,6 +95,31 @@ async function readImportFile(file: File): Promise<LeaseGridParse> {
 /** Explain an empty parse so the user can fix the file instead of guessing. */
 export function describeEmptyParse(result: LeaseGridParse): string {
   return describeEmptyGrid(result, "lease rows");
+}
+
+/**
+ * Warn about absent optional columns whose values silently fall back to
+ * defaults (the KASNEB case: no interval column meant every lease got 12).
+ */
+export function defaultColumnWarnings(matchedFields: string[]): string[] {
+  const has = (field: string) => matchedFields.includes(field);
+  const warnings: string[] = [];
+  if (!has("monthly_rent") && !has("rent_rate_per_sqft")) {
+    warnings.push("No 'monthly_rent' or 'rent_rate_per_sqft' column found — rent defaults to 0.00 for all rows.");
+  }
+  if (!has("service_charge")) {
+    warnings.push("No 'service_charge' column found — defaults to 0 for all rows.");
+  }
+  if (!has("billing_day")) {
+    warnings.push("No 'billing_day' column found — defaults to 1 for all rows.");
+  }
+  if (!has("escalation_percent")) {
+    warnings.push("No 'escalation_percent' column found — defaults to 0 for all rows.");
+  }
+  if (!has("escalation_interval_months")) {
+    warnings.push("No 'escalation_interval_months' column found — defaults to 12 months for all rows.");
+  }
+  return warnings;
 }
 
 export type PreviewErrorSummary = { message: string; count: number };
@@ -163,6 +189,7 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
     <DialogContent>
       <Typography color="text.secondary" sx={{ mb: 1 }}>
         Match existing tenants and units. All imported leases for property onboarding are registered as existing paper leases — digital offer letter signing is bypassed.
+        Provide either monthly rent (KES) or rent rate per sqft per row — the rate is multiplied by the unit&apos;s area.
       </Typography>
       {activeProperty
         ? <Typography variant="body2" sx={{ mb: 2 }}>Importing into property: <strong>{activeProperty.name}</strong></Typography>
@@ -182,7 +209,7 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
               setError(describeEmptyParse(result));
             } else {
               setImportedFileName(file.name);
-              const warnings: string[] = [];
+              const warnings: string[] = [...defaultColumnWarnings(result.matchedFields)];
               if (result.missingRequired.length) {
                 warnings.push(`Heading${result.missingRequired.length === 1 ? "" : "s"} not found: ${result.missingRequired.join(", ")} — affected rows will fail validation until the column is added.`);
               }

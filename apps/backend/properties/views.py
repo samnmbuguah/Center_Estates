@@ -3202,6 +3202,24 @@ class LeaseViewSet(OrganizationModelViewSet):
                 monthly_rent = Decimal('0.00')
                 errors['monthly_rent'] = 'Enter an amount greater than or equal to zero.'
             try:
+                rate_raw = (str(row.get('rent_rate_per_sqft') or '').replace(',', '').strip())
+                rent_rate = Decimal(rate_raw).quantize(Decimal('0.01')) if rate_raw else None
+                if rent_rate is not None and rent_rate < 0:
+                    raise ValueError
+            except Exception:
+                rent_rate = None
+                errors['rent_rate_per_sqft'] = 'Enter a valid rate per sqft.'
+            if rent_rate is not None and not errors.get('rent_rate_per_sqft'):
+                unit_area = unit.area if unit and unit.area else None
+                if not unit_area:
+                    errors['rent_rate_per_sqft'] = f'Unit {unit_code or "—"} has no area recorded. Set the unit area or enter monthly_rent instead.'
+                else:
+                    computed = (rent_rate * unit_area).quantize(Decimal('0.01'))
+                    if monthly_rent and monthly_rent != computed:
+                        errors['rent_rate_per_sqft'] = 'Provide either monthly_rent or rent_rate_per_sqft, not conflicting values.'
+                    else:
+                        monthly_rent = computed
+            try:
                 billing_day = int(row.get('billing_day') or 1)
                 if not 1 <= billing_day <= 28:
                     raise ValueError
@@ -3231,7 +3249,9 @@ class LeaseViewSet(OrganizationModelViewSet):
                 'tenant': tenant.name if tenant else tenant_key, 'tenant_code': tenant.code if tenant else '',
                 'unit_code': unit.code if unit else unit_code,
                 'starts_on': starts_on.isoformat() if starts_on else '', 'ends_on': ends_on.isoformat() if ends_on else '',
-                'monthly_rent': str(monthly_rent), 'service_charge': str(service_charge), 'billing_day': billing_day,
+                'monthly_rent': str(monthly_rent),
+                'rent_rate_per_sqft': str(rent_rate) if rent_rate is not None else '',
+                'service_charge': str(service_charge), 'billing_day': billing_day,
                 'escalation_percent': str(escalation_percent),
                 'escalation_interval_months': escalation_interval,
                 'deposit': str(_unit_deposit_amount(unit)) if unit else '0.00',
@@ -3252,6 +3272,7 @@ class LeaseViewSet(OrganizationModelViewSet):
                         'is_ongoing': True,
                         'imported_by': request.user.get_username(),
                         'service_charge': str(service_charge),
+                        'rent_rate_per_sqft': str(rent_rate) if rent_rate is not None else '',
                     },
                 )
                 _inherit_unit_charge_profiles(lease)

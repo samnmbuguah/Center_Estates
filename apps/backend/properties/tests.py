@@ -1821,6 +1821,36 @@ class PropertyApiTests(TestCase):
         self.assertEqual(lease.metadata['source'], 'lease_import')
         self.assertTrue(lease.billing_profiles.filter(billing_item=deposit_item).exists())
 
+    def test_lease_import_computes_rent_from_rate_per_sqft(self):
+        unit = Unit.objects.create(organization=self.organization, property=self.property, code='RATE-01', area=Decimal('200'))
+        tenant = Tenant.objects.create(organization=self.organization, property=self.property, code='TNT-RATE', name='Rate Tenant')
+        base = {'tenant_code': tenant.code, 'unit_code': unit.code, 'starts_on': '2026-09-01', 'ends_on': '2027-08-31'}
+        preview = self.client.post('/api/v1/property/leases/bulk-import/', {
+            'mode': 'preview', 'rows': [{**base, 'rent_rate_per_sqft': '1,250'}],
+        }, format='json', **self.headers)
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertEqual(preview.data['valid_count'], 1, preview.data)
+        self.assertEqual(preview.data['rows'][0]['data']['monthly_rent'], '250000.00')
+        committed = self.client.post('/api/v1/property/leases/bulk-import/', {
+            'mode': 'commit', 'rows': [{**base, 'rent_rate_per_sqft': '1250'}],
+        }, format='json', **self.headers)
+        self.assertEqual(committed.status_code, 201, committed.data)
+        lease = Lease.objects.get(unit=unit)
+        self.assertEqual(lease.monthly_rent, Decimal('250000.00'))
+        self.assertEqual(lease.metadata['rent_rate_per_sqft'], '1250.00')
+
+    def test_lease_import_rejects_conflicting_rent_and_rate(self):
+        unit = Unit.objects.create(organization=self.organization, property=self.property, code='RATE-02', area=Decimal('200'))
+        tenant = Tenant.objects.create(organization=self.organization, property=self.property, code='TNT-RATE2', name='Rate Tenant 2')
+        preview = self.client.post('/api/v1/property/leases/bulk-import/', {'mode': 'preview', 'rows': [{
+            'tenant_code': tenant.code, 'unit_code': unit.code,
+            'starts_on': '2026-09-01', 'ends_on': '2027-08-31',
+            'monthly_rent': '300000', 'rent_rate_per_sqft': '1250',
+        }]}, format='json', **self.headers)
+        self.assertEqual(preview.status_code, 200, preview.data)
+        self.assertEqual(preview.data['valid_count'], 0, preview.data)
+        self.assertIn('rent_rate_per_sqft', preview.data['rows'][0]['errors'])
+
     def test_lease_import_handles_grouped_amounts_and_word_dates(self):
         unit = Unit.objects.create(organization=self.organization, property=self.property, code='IMPORT-02', area=Decimal('500'))
         tenant = Tenant.objects.create(organization=self.organization, property=self.property, code='TNT-WORD', name='Word Date Tenant')
