@@ -466,6 +466,7 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
   const importUnits = async (file?: File) => {
     if (!file) return;
     const rows = parseCsv(await file.text());
+    const rawHeadings = (rows[0] ?? []).filter(Boolean).join(", ");
     const headers = (rows.shift() ?? []).map(normalizeCsvHeader);
     const columns = {
       unit_no: headerIndex(headers, ["unit_no", "unit_number", "unit_code", "unit", "code"]),
@@ -481,7 +482,7 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
     };
 
     if (columns.unit_no < 0) {
-      setError("Unit CSV must contain a unit column (e.g. unit_no, unit_code, or unit). Download the template for reference.");
+      setError(`Unit CSV must contain a unit column (e.g. unit_no, unit_code, or unit).${rawHeadings ? ` Headings found: ${rawHeadings}.` : ""} Download the template for reference.`);
       jump("units"); return;
     }
 
@@ -585,9 +586,10 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
     if (!file) return;
     const rows = parseCsv(await file.text());
     const expected = ["asset_name", "category", "location", "quantity", "status"];
+    const rawHeadings = (rows[0] ?? []).filter(Boolean).join(", ");
     const headers = (rows.shift() ?? []).map(normalizeCsvHeader);
     if (expected.some((header, index) => headers[index] !== header)) {
-      setError(`Asset CSV columns must be: ${expected.join(", ")}.`); jump("assets"); return;
+      setError(`Asset CSV columns must be: ${expected.join(", ")}.${rawHeadings ? ` Headings found: ${rawHeadings}.` : ""}`); jump("assets"); return;
     }
     const imported: AssetDraft[] = rows.map(row => ({ name: row[0] ?? "", category: row[1] ?? "", location: row[2] ?? "", quantity: row[3] ?? "1", status: (row[4] || "active").toLowerCase() }));
     const nameless = imported.filter(asset => !asset.name);
@@ -605,8 +607,9 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
     if (!file) return;
     const rows = parseCsv(await file.text());
     const expected = ["name", "role", "email", "phone"];
+    const rawHeadings = (rows[0] ?? []).filter(Boolean).join(", ");
     const headers = (rows.shift() ?? []).map(normalizeCsvHeader);
-    if (expected.some((header, index) => headers[index] !== header)) { setError(`Contact CSV columns must be: ${expected.join(", ")}.`); jump("contacts"); return; }
+    if (expected.some((header, index) => headers[index] !== header)) { setError(`Contact CSV columns must be: ${expected.join(", ")}.${rawHeadings ? ` Headings found: ${rawHeadings}.` : ""}`); jump("contacts"); return; }
     const imported = rows.map(row => ({ name: row[0] ?? "", role: row[1] ?? "", email: row[2] ?? "", phone: row[3] ?? "" }));
     const noName = imported.filter(c => !c.name);
     const noContact = imported.filter(c => !c.email && !c.phone);
@@ -620,7 +623,11 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
   const importProviders = async (file?: File) => {
     if (!file) return;
     const rows = parseCsv(await file.text());
-    if (rows.length < 2) { setError("The service line CSV file contains no data rows."); jump("providers"); return; }
+    if (rows.length < 2) {
+      const found = (rows[0] ?? []).filter(Boolean).join(", ");
+      setError(found ? `Headings found: ${found}. Add at least one service line below them.` : "The service line CSV file contains no data rows.");
+      jump("providers"); return;
+    }
     rows.shift(); // skip header
     const imported: ProviderDraft[] = rows.map(row => ({
       service: row[0] ?? "",

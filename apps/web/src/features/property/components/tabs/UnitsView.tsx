@@ -424,11 +424,12 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
     setChargeImportFile(file.name);
     try {
       const csvRows = parseCsv(await file.text());
+      const rawHeadings = (csvRows[0] ?? []).filter(Boolean).join(", ");
       const headers = (csvRows.shift() ?? []).map(normalizeCsvHeader);
       const codeColumn = csvColumn(headers, ["unit_no", "unit_number", "unit_code", "unit", "code"]);
       const amountColumn = csvColumn(headers, ["monthly_service_charge", "service_charge_amount", "service_charge_rate", "sc_amount"]);
       if (codeColumn < 0 || amountColumn < 0) {
-        throw new Error("The CSV needs a unit_no column and a monthly_service_charge or service_charge_rate column.");
+        throw new Error(`The CSV needs a unit_no column and a monthly_service_charge or service_charge_rate column.${rawHeadings ? ` Headings found: ${rawHeadings}.` : ""}`);
       }
       const parsed = csvRows.filter(row => row.some(Boolean)).map(row => ({
         unit_code: String(row[codeColumn] || "").trim(),

@@ -195,10 +195,15 @@ export function OwnersView({
     setOwnerImportError("");
     try {
       const rows = parseCsv(await file.text());
-      if (rows.length < 2) throw new Error("The CSV needs a header row and at least one owner row.");
+      if (rows.length < 2) {
+        const found = rows[0]?.filter(Boolean).join(", ");
+        throw new Error(found
+          ? `Headings found: ${found}. Add at least one owner row below them.`
+          : "The CSV needs a header row and at least one owner row.");
+      }
       const headers = rows[0].map(normalizeCsvHeader);
       const nameIndex = csvColumn(headers, ["name", "owner_name", "landlord_name"]);
-      if (nameIndex < 0) throw new Error("The CSV needs a Name, Owner Name, or Landlord Name column.");
+      if (nameIndex < 0) throw new Error(`The CSV needs a Name, Owner Name, or Landlord Name column. Headings found: ${rows[0].filter(Boolean).join(", ")}.`);
       if (rows.length - 1 > 500) throw new Error("Upload a maximum of 500 owners at a time.");
       setOwnerImportFile(file.name);
       setOwnerImportRows(
