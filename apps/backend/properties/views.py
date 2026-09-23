@@ -90,6 +90,17 @@ def _parse_flexible_date(val):
     return None
 
 
+def _optional_iso_date(value):
+    """Parse an optional ISO date, returning None for blanks/invalid input."""
+    raw = str(value or '').strip()
+    if not raw:
+        return None
+    try:
+        return date.fromisoformat(raw)
+    except ValueError:
+        return None
+
+
 def _closest_matches(wanted, candidates, *, limit=3):
     """Best-effort 'did you mean' suggestions for import validation messages."""
     import difflib
@@ -2359,6 +2370,18 @@ class TenantViewSet(OrganizationModelViewSet):
             raise ValidationError({'lease.escalation_interval_months': 'Select a valid escalation frequency.'})
         if escalation_percent and not 1 <= escalation_interval <= 120:
             raise ValidationError({'lease.escalation_interval_months': 'Escalation frequency must be between 1 and 120 months.'})
+
+        def _optional_date(name):
+            raw = str(lease_data.get(name) or '').strip()
+            if not raw:
+                return None
+            try:
+                return date.fromisoformat(raw)
+            except ValueError:
+                raise ValidationError({f'lease.{name}': 'Use an ISO date (YYYY-MM-DD).'})
+
+        offer_letter_signed_on = _optional_date('offer_letter_signed_on')
+        lease_signed_on = _optional_date('signed_on')
         vat_rate = amount('vat_rate', 16)
         if vat_rate not in (Decimal('0.00'), Decimal('16.00')):
             raise ValidationError({'lease.vat_rate': 'Supported VAT rates are 0% and 16%.'})
@@ -2443,6 +2466,8 @@ class TenantViewSet(OrganizationModelViewSet):
             escalation_percent=escalation_percent,
             escalation_interval_months=escalation_interval,
             status=Lease.Status.DRAFT,
+            signed_on=lease_signed_on,
+            offer_letter_signed_on=offer_letter_signed_on,
             metadata=lease_meta,
         )
 
@@ -2613,6 +2638,8 @@ class TenantViewSet(OrganizationModelViewSet):
                 escalation_percent=Decimal(str(extra.get('escalation_percent', '0'))),
                 escalation_interval_months=int(extra.get('escalation_interval_months', 12)),
                 status=Lease.Status.DRAFT,
+                signed_on=lease_signed_on,
+                offer_letter_signed_on=offer_letter_signed_on,
                 metadata={'application_number': extra_app_num, 'term_months': e_term, **extra_calc},
             )
             _inherit_unit_charge_profiles(extra_lease)
@@ -2878,6 +2905,8 @@ class TenantViewSet(OrganizationModelViewSet):
                         escalation_percent=escalation_percent,
                         escalation_interval_months=int(lease_data.get('escalation_interval_months', 12)),
                         status=Lease.Status.ACTIVE if is_active_initial else Lease.Status.DRAFT,
+                        signed_on=_optional_iso_date(lease_data.get('signed_on')),
+                        offer_letter_signed_on=_optional_iso_date(lease_data.get('offer_letter_signed_on')),
                         metadata=lease_meta,
                     )
                     _inherit_unit_charge_profiles(lease)
@@ -4859,6 +4888,38 @@ class TenantDocumentViewSet(OrganizationModelViewSet):
             organization=self._validate_organization(serializer), status=TenantDocument.Status.PENDING,
         )
 
+    @action(detail=False, methods=('post',), url_path='upload')
+    def upload(self, request):
+        """Store an uploaded file (default storage: local media or S3) and
+        register it as a pending-review tenant document. Used for signed
+        leases and other onboarding paperwork."""
+        from django.core.files.storage import default_storage
+
+        organization = get_active_organization(request)
+        upload = request.FILES.get('file')
+        if not upload:
+            raise ValidationError({'file': 'Choose a file to upload.'})
+        if upload.size > 25 * 1024 * 1024:
+            raise ValidationError({'file': 'Files must be 25 MB or smaller.'})
+        try:
+            tenant = Tenant.objects.for_organization(organization).get(pk=request.data.get('tenant'))
+        except (Tenant.DoesNotExist, ValueError, TypeError):
+            raise ValidationError({'tenant': 'Select a valid tenant.'})
+        safe_name = ''.join(c if c.isalnum() or c in ('-', '_', '.') else '_' for c in (upload.name or 'document'))[-120:]
+        stored = default_storage.save(f'tenant-documents/{organization.id}/{tenant.id}/{safe_name}', upload)
+        try:
+            file_url = default_storage.url(stored)
+        except Exception:
+            file_url = stored
+        document = TenantDocument.objects.create(
+            organization=organization, tenant=tenant,
+            document_type=str(request.data.get('document_type') or 'Signed lease agreement'),
+            document_number=str(request.data.get('document_number') or ''),
+            file_url=file_url,
+            status=TenantDocument.Status.PENDING,
+        )
+        return Response(self.get_serializer(document).data, status=status.HTTP_201_CREATED)
+
     @action(detail=True, methods=('post',))
     def verify(self, request, pk=None):
         document = self.get_object()
@@ -6280,6 +6341,7 @@ class PropertyAnalyticsViewSet(ViewSet):
                 return (area * rate).quantize(Decimal('0.01'))
         except Exception:
             pass
+        return Decimal('0.00')
 
     @staticmethod
     def _rent_rate_for_lease(lease, as_of):
@@ -6367,7 +6429,7 @@ class PropertyAnalyticsViewSet(ViewSet):
             # Column width hints per report type (header label -> width)
             REPORT_WIDTHS = {
                 'tenancy-schedule': {
-                    'Floor': 6, 'Unit': 10, 'Tenant': 32,
+                    'Unit': 10, 'Tenant': 32,
                     'Area': 10, 'Lease Signed': 13, 'Lease Start': 13, 'Lease End': 13,
                     'Rent': 16, 'Rent per Sqft': 14, 'Service Charge': 16,
                     'Service Charge per Sqft': 16, 'Escalation %': 13,
@@ -6450,6 +6512,11 @@ class PropertyAnalyticsViewSet(ViewSet):
                     sheet.column_dimensions[letter].width = width
 
                 # Add totals row for money columns if tenancy-schedule
+                # Area columns (numeric but not money) — summed separately
+                area_headers = {
+                    index for index, h in enumerate(parsed_rows[0] if parsed_rows else [])
+                    if str(h).lower() == 'area' and report_kind == 'tenancy-schedule'
+                }
                 if report_kind in ('tenancy-schedule', 'income-analysis') and len(parsed_rows) > 1:
                     total_row = start_row + len(parsed_rows)
                     sheet.row_dimensions[total_row].height = 18
@@ -6462,6 +6529,13 @@ class PropertyAnalyticsViewSet(ViewSet):
                         cell.border = thin
                         cell.font = totals_font
                         if zero_idx in money_headers and zero_idx not in rate_headers and len(parsed_rows) > 1:
+                            data_start = start_row + 1
+                            data_end = start_row + len(parsed_rows) - 1
+                            col_letter = get_column_letter(col_index)
+                            cell.value = f'=SUM({col_letter}{data_start}:{col_letter}{data_end})'
+                            cell.number_format = '#,##0.00'
+                            cell.alignment = Alignment(horizontal='right', vertical='center')
+                        elif zero_idx in area_headers and len(parsed_rows) > 1:
                             data_start = start_row + 1
                             data_end = start_row + len(parsed_rows) - 1
                             col_letter = get_column_letter(col_index)
@@ -6576,10 +6650,10 @@ class PropertyAnalyticsViewSet(ViewSet):
             _area = lease.unit.area
             schedule.append({
                 'lease': lease.reference, 'tenant': lease.tenant.name,
-                'floor': lease.unit.floor or '—', 'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
+                'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
                 'area': _area or '—', 'monthly_rent': lease.effective_rent(today),
                 'service_charge': _sc,
-                'service_charge_per_sqft': (_sc / _area).quantize(Decimal('0.01')) if _area and _area > 0 else Decimal('0'),
+                'service_charge_per_sqft': ((_sc or Decimal('0')) / _area).quantize(Decimal('0.01')) if _sc and _area and _area > 0 else Decimal('0'),
                 'escalation_percent': lease.escalation_percent,
                 'next_escalation_date': _next_escalation_date_simple(lease),
                 'signed_on': lease.signed_on,
@@ -6909,6 +6983,7 @@ class PropertyAnalyticsViewSet(ViewSet):
             {'key': 'management-fee', 'name': 'Management fee report', 'category': 'Financial', 'section': 'Collections & reconciliation'},
             {'key': 'occupancy', 'name': 'Portfolio occupancy', 'category': 'Tenants & Occupancy'},
             {'key': 'lease-expiry', 'name': 'Lease expiry', 'category': 'Tenants & Occupancy'},
+            {'key': 'leases-unsigned', 'name': 'Leases not signed', 'category': 'Tenants & Occupancy', 'description': 'Leases missing an offer-letter or lease signature with days outstanding.'},
             {'key': 'contractor-expiry', 'name': 'Service provider expiry', 'category': 'Service Providers'},
             {'key': 'work-order-spend', 'name': 'Work order spend', 'category': 'Service Providers'},
             {'key': 'tenant-compliance', 'name': 'Tenant document compliance', 'category': 'Compliance & Risk'},
@@ -7003,7 +7078,7 @@ class PropertyAnalyticsViewSet(ViewSet):
                 rent = active_lease.effective_rent(end) if active_lease else Decimal('0')
                 writer.writerow((unit.floor or '—', unit.code, tenant_name, unit.property.name, unit.unit_type, unit.area or '—', rent, unit.status.title()))
         elif report_kind == 'tenancy-schedule':
-            writer.writerow(('Floor', 'Unit', 'Tenant', 'Area', 'Lease Signed', 'Lease Start', 'Lease End', 'Rent', 'Rent per Sqft', 'Service Charge', 'Service Charge per Sqft', 'Escalation %', 'Next Escalation Date'))
+            writer.writerow(('Unit', 'Tenant', 'Area', 'Lease Signed', 'Lease Start', 'Lease End', 'Rent', 'Rent per Sqft', 'Service Charge', 'Service Charge per Sqft', 'Escalation %', 'Next Escalation Date'))
             leases = scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
             include_drafts = request.query_params.get('include_drafts', '').lower() in ('1', 'true', 'yes')
             has_active = leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).exists()
@@ -7026,17 +7101,28 @@ class PropertyAnalyticsViewSet(ViewSet):
                 steps_done = elapsed_months // interval
                 next_date = lease.starts_on + _rdelta(months=(steps_done + 1) * interval)
                 return next_date if next_date < lease.ends_on else '—'
+            total_area = Decimal('0')
+            total_rent = Decimal('0')
+            total_sc = Decimal('0')
             for lease in rows.order_by('unit__code'):
-                service_charge = self._service_charge_for_lease(lease)
+                service_charge = self._service_charge_for_lease(lease) or Decimal('0')
                 sc_per_sqft = (
                     (service_charge / lease.unit.area).quantize(Decimal('0.01'))
-                    if lease.unit.area and lease.unit.area > 0 else Decimal('0')
+                    if service_charge and lease.unit.area and lease.unit.area > 0 else Decimal('0')
                 )
-                writer.writerow((lease.unit.floor or '—', lease.unit.code, lease.tenant.name,
+                effective_rent = lease.effective_rent(end)
+                rent_per_sqft = self._rent_rate_for_lease(lease, end)
+                writer.writerow((lease.unit.code, lease.tenant.name,
                                  lease.unit.area or '—', lease.signed_on or '—', lease.starts_on,
-                                 lease.ends_on, lease.effective_rent(end), self._rent_rate_for_lease(lease, end),
+                                 lease.ends_on, effective_rent, rent_per_sqft,
                                  service_charge, sc_per_sqft, lease.escalation_percent,
                                  _next_esc_date(lease)))
+                if lease.unit.area:
+                    total_area += lease.unit.area
+                total_rent += effective_rent
+                total_sc += service_charge
+            # Totals row: aggregate numeric columns, leave rate/date cols blank
+            writer.writerow(('TOTALS', '', total_area, '', '', '', total_rent, '', total_sc, '', '', ''))
         elif report_kind == 'ownership-schedule':
             writer.writerow(('Floor', 'Unit', 'Type', 'Owner / Landlord', 'Owner Code', 'Tenant / Occupant', 'Management Mandate', 'Estate Rent Billing', 'Monthly Service Charge', 'Billing Readiness'))
             units = scope_model_queryset(Unit, request, organization).select_related('owner').prefetch_related('charge_rules__billing_item', 'leases__tenant').order_by('code')
@@ -7084,6 +7170,17 @@ class PropertyAnalyticsViewSet(ViewSet):
             for lease in scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property'):
                 writer.writerow((lease.reference, lease.tenant.name, lease.unit.property.name, lease.unit.code,
                                  lease.ends_on, lease.status, lease.monthly_rent))
+        elif report_kind == 'leases-unsigned':
+            writer.writerow(('Unit', 'Tenant', 'Property', 'Lease Start', 'Lease End', 'Status', 'Offer Letter Signed On', 'Lease Signed On', 'Days Outstanding'))
+            today = timezone.localdate()
+            unsigned = scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property').filter(
+                status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING, Lease.Status.DRAFT),
+            ).filter(Q(signed_on__isnull=True) | Q(offer_letter_signed_on__isnull=True))
+            for lease in unsigned.order_by('unit__code'):
+                writer.writerow((lease.unit.code, lease.tenant.name, lease.unit.property.name,
+                                 lease.starts_on, lease.ends_on, lease.status.title(),
+                                 lease.offer_letter_signed_on or '—', lease.signed_on or '—',
+                                 max((today - lease.starts_on).days, 0)))
         elif report_kind == 'budget-actual':
             writer.writerow(('Property', 'Year', 'Category', 'Budget', 'Actual', 'Variance', 'Status'))
             budgets = BudgetViewSet.actual_expenses

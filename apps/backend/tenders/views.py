@@ -193,7 +193,9 @@ class TenderAnalyticsViewSet(ViewSet):
  @extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("report_kind", OpenApiTypes.STR, OpenApiParameter.PATH)])
  @action(detail=False,methods=('get',),url_path=r'exports/(?P<report_kind>[^/.]+)')
  def export(self,request,report_kind=None):
-  org=get_active_organization(request); response=HttpResponse(content_type='text/csv'); response['Content-Disposition']=f'attachment; filename="tender-{report_kind}.csv"'; writer=csv.writer(response)
+  org=get_active_organization(request); output=str(request.query_params.get('output','csv')).lower()
+  if output not in ('csv','xlsx','pdf'): raise ValidationError({'output':'Output format must be csv, xlsx or pdf.'})
+  from io import StringIO; buffer=StringIO(); writer=csv.writer(buffer)
   if report_kind=='pipeline':
    writer.writerow(('Reference','Title','Client','Deadline','Value','Currency','Stage','Readiness'))
    for x in scope_model_queryset(Tender,request,org): writer.writerow((x.reference,x.title,x.client,x.submission_deadline,x.estimated_value,x.currency,x.stage,x.readiness_score))
@@ -210,4 +212,12 @@ class TenderAnalyticsViewSet(ViewSet):
    writer.writerow(('Tender','Result','Notified','Awarded value','Winner','Feedback','Lessons learned'))
    for x in scope_model_queryset(TenderOutcome,request,org).select_related('tender'): writer.writerow((x.tender.reference,x.result,x.notified_on,x.awarded_value or '',x.winner,x.feedback,x.lessons_learned))
   else: raise ValidationError({'report':'Unknown tender report.'})
-  return response
+  content=buffer.getvalue().encode('utf-8-sig'); titles={'pipeline':'Tender Pipeline','requirements':'Tender Requirements','tasks':'Tender Tasks','pricing':'Tender Pricing','outcomes':'Tender Outcomes'}
+  title=titles.get(report_kind,f'Tender {report_kind}'); filename=f'tender-{report_kind}.{output}'
+  if output=='pdf':
+   from properties.pdf_documents import tabular_report_pdf
+   return tabular_report_pdf(org,title,filename,content,property_name='Portfolio',generated_by=request.user.get_username())
+  if output=='xlsx':
+   from properties.pdf_documents import xlsx_from_csv
+   return xlsx_from_csv(title,content,filename=filename)
+  response=HttpResponse(content,content_type='text/csv'); response['Content-Disposition']=f'attachment; filename="{filename}"'; return response

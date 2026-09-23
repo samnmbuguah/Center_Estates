@@ -2103,7 +2103,7 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.data['kpis']['occupancy_rate'], 100.0)
         self.assertEqual(response.data['tenancy_schedule'][0]['tenant'], self.tenant.name)
         self.assertNotIn('property', response.data['tenancy_schedule'][0])
-        self.assertIn('floor', response.data['tenancy_schedule'][0])
+        self.assertNotIn('floor', response.data['tenancy_schedule'][0])
         self.assertIn('service_charge', response.data['tenancy_schedule'][0])
         self.assertIn('service_charge_per_sqft', response.data['tenancy_schedule'][0])
         self.assertIn('escalation_percent', response.data['tenancy_schedule'][0])
@@ -2117,6 +2117,27 @@ class PropertyApiTests(TestCase):
         self.assertIn('management_mandate', response.data['ownership_schedule'][0])
         self.assertIn('billing_readiness', response.data['ownership_schedule'][0])
         self.assertEqual(response.data['lease_expiry'][0]['lease'], self.lease.reference)
+
+    def test_tenancy_reports_survive_leases_without_service_charge(self):
+        # Regression: _service_charge_for_lease returned None when a lease had
+        # no billing profile, metadata value or rate — crashing both the
+        # tenancy-occupancy dashboard and the tenancy-schedule export.
+        self.unit.area = Decimal('100')
+        self.unit.save(update_fields=('area', 'updated_at'))
+        headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
+        response = self.client.get(
+            '/api/v1/property/analytics/tenancy-occupancy/?start=2026-01-01&end=2026-12-31',
+            **headers,
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        entry = response.data['tenancy_schedule'][0]
+        self.assertEqual(Decimal(str(entry['service_charge'])), Decimal('0'))
+        self.assertEqual(Decimal(str(entry['service_charge_per_sqft'])), Decimal('0'))
+        export = self.client.get(
+            '/api/v1/property/analytics/exports/tenancy-schedule/?output=csv',
+            **headers,
+        )
+        self.assertEqual(export.status_code, 200)
 
     def test_bulk_service_charge_upload_previews_then_updates_existing_units_only(self):
         headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}

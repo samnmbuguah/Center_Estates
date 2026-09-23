@@ -406,7 +406,7 @@ export function useSalesLogic(initialTab = "overview") {
     }
   }
 
-  async function downloadReport(key: string, name: string, format: "csv" | "xlsx", start = "", end = "") {
+  async function downloadReport(key: string, name: string, format: "csv" | "xlsx" | "pdf", start = "", end = "") {
     if (!org) return;
     setError("");
     try {

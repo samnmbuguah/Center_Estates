@@ -208,7 +208,9 @@ class ValuationAnalyticsViewSet(ViewSet):
  @extend_schema(request=None, responses={200: {"type": "string", "format": "binary"}}, parameters=[OpenApiParameter("report_kind", OpenApiTypes.STR, OpenApiParameter.PATH)])
  @action(detail=False,methods=('get',),url_path=r'exports/(?P<report_kind>[^/.]+)')
  def export(self,request,report_kind=None):
-  org=get_active_organization(request);response=HttpResponse(content_type='text/csv');response['Content-Disposition']=f'attachment; filename="valuation-{report_kind}.csv"';writer=csv.writer(response)
+  org=get_active_organization(request);output=str(request.query_params.get('output','csv')).lower()
+  if output not in ('csv','xlsx','pdf'): raise ValidationError({'output':'Output format must be csv, xlsx or pdf.'})
+  from io import StringIO;buffer=StringIO();writer=csv.writer(buffer)
   if report_kind=='instructions':
    writer.writerow(('Reference','Client','Property','Type','Purpose','Valuer','Instruction date','Due date','Fee','Priority','Status'))
    for x in scope_model_queryset(ValuationInstruction,request,org).select_related('client','valuer'):writer.writerow((x.reference,x.client.name,x.property_description,x.valuation_type,x.purpose,x.valuer.username,x.instructed_on,x.due_on,x.quoted_fee,x.priority,x.status))
@@ -225,4 +227,12 @@ class ValuationAnalyticsViewSet(ViewSet):
    writer.writerow(('Invoice','Instruction','Client','Issued','Due','Subtotal','Tax','Total','Balance','Status'))
    for x in scope_model_queryset(ValuationInvoice,request,org).select_related('instruction__client'):writer.writerow((x.number,x.instruction.reference,x.instruction.client.name,x.issued_on,x.due_on,x.subtotal,x.tax,x.total,x.balance,x.status))
   else:raise ValidationError({'report':'Unknown valuation report.'})
-  return response
+  content=buffer.getvalue().encode('utf-8-sig');titles={'instructions':'Valuation Instructions','inspections':'Valuation Inspections','comparables':'Comparable Evidence','reports':'Valuation Reports','fees':'Valuation Fees'}
+  title=titles.get(report_kind,f'Valuation {report_kind}');filename=f'valuation-{report_kind}.{output}'
+  if output=='pdf':
+   from properties.pdf_documents import tabular_report_pdf
+   return tabular_report_pdf(org,title,filename,content,property_name='Portfolio',generated_by=request.user.get_username())
+  if output=='xlsx':
+   from properties.pdf_documents import xlsx_from_csv
+   return xlsx_from_csv(title,content,filename=filename)
+  response=HttpResponse(content,content_type='text/csv');response['Content-Disposition']=f'attachment; filename="{filename}"';return response

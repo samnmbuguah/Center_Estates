@@ -2238,8 +2238,8 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
     }
   }
 
-  async function exportReport(key: string, name: string) {
-    const res = await apiFetch(`/tender/analytics/exports/${key}/`, {}, org);
+  async function exportReport(key: string, name: string, format: "csv" | "xlsx" | "pdf" = "csv") {
+    const res = await apiFetch(`/tender/analytics/exports/${key}/?output=${format}`, {}, org);
     if (!res.ok) {
       setError("Report generation failed.");
       return;
@@ -2248,7 +2248,7 @@ export function TenderWorkspace({ initialTab = "overview" }: { initialTab?: stri
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `tender-${key}.csv`;
+    a.download = `tender-${key}.${format}`;
     a.click();
     URL.revokeObjectURL(url);
     setRecentExports((prev) => [{ key, name, exportedAt: new Date().toISOString() }, ...prev].slice(0, 8));

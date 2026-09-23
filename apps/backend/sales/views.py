@@ -882,8 +882,8 @@ class SalesAnalyticsViewSet(ViewSet):
     def export(self, request, report_kind=None):
         organization = self._organization()
         output_format = request.query_params.get('output', 'csv').lower()
-        if output_format not in ('csv', 'xlsx'):
-            raise ValidationError({'output': 'Output format must be csv or xlsx.'})
+        if output_format not in ('csv', 'xlsx', 'pdf'):
+            raise ValidationError({'output': 'Output format must be csv, xlsx or pdf.'})
         from .reporting import build_report, resolve_report_key, cell_value
         report_kind = resolve_report_key(report_kind)
         headers, rows, start, end = build_report(request, self._queries(), report_kind)
@@ -958,12 +958,25 @@ class SalesAnalyticsViewSet(ViewSet):
                     if (data_index - start_row) % 2 == 0:
                         cell.fill = zebra
             from io import BytesIO
+            from openpyxl.utils import get_column_letter
+            for col_index, header in enumerate(headers, start=1):
+                samples = [str(header)]
+                samples.extend(str(cell_value(row, header)) for row in rows[:40])
+                sheet.column_dimensions[get_column_letter(col_index)].width = min(max(max(len(s) for s in samples if s), 8) + 3, 45)
             byte_io = BytesIO()
             workbook.save(byte_io)
             byte_io.seek(0)
             response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             response['Content-Disposition'] = f'attachment; filename="sales-{report_kind}-{start:%Y%m%d}-{end:%Y%m%d}.xlsx"'
             response.write(byte_io.getvalue())
+        elif output_format == 'pdf':
+            from properties.pdf_documents import tabular_report_pdf
+            response = tabular_report_pdf(
+                organization, friendly, f'sales-{report_kind}-{start:%Y%m%d}-{end:%Y%m%d}.pdf',
+                buffer.getvalue().encode('utf-8'),
+                property_name=organization.name, period=f'{start:%d %b %Y} — {end:%d %b %Y}',
+                generated_by=request.user.get_username(),
+            )
         else:
             response.write(buffer.getvalue().encode('utf-8'))
 

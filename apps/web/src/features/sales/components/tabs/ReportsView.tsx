@@ -34,7 +34,7 @@ export function ReportsView({
   reportLoading: boolean;
   reportKey: string;
   loadReportPreview: (key: string, start?: string, end?: string) => Promise<void>;
-  downloadReport: (key: string, name: string, format: "csv" | "xlsx", start?: string, end?: string) => Promise<void>;
+  downloadReport: (key: string, name: string, format: "csv" | "xlsx" | "pdf", start?: string, end?: string) => Promise<void>;
 }) {
   const [selected, setSelected] = useState<string>("");
   const [start, setStart] = useState("");
@@ -102,7 +102,8 @@ export function ReportsView({
                         <p className="muted" style={{ fontSize: 12, lineHeight: 1.5, margin: "0 0 14px", minHeight: 36 }}>{r.description ?? "Exports the current sales dataset."}</p>
                         <div style={{ display: "flex", gap: 6 }}>
                           <button className="btn primary sm" style={{ flex: 1, justifyContent: "center" }} onClick={(e) => { e.stopPropagation(); void downloadReport(key, name, "xlsx", start, end); }}>Excel</button>
-                          <button className="btn secondary sm" style={{ flex: 1, justifyContent: "center" }} onClick={(e) => { e.stopPropagation(); void downloadReport(key, name, "csv", start, end); }}>CSV</button>
+                          <button className="btn secondary sm" style={{ flex: 1, justifyContent: "center" }} onClick={(e) => { e.stopPropagation(); void downloadReport(key, name, "pdf", start, end); }}>PDF</button>
+                          <button className="btn ghost sm" style={{ flex: 1, justifyContent: "center" }} onClick={(e) => { e.stopPropagation(); void downloadReport(key, name, "csv", start, end); }}>CSV</button>
                         </div>
                         <button className="btn ghost sm" style={{ width: "100%", justifyContent: "center", marginTop: 6 }} onClick={(e) => { e.stopPropagation(); openReport(key, name); }}>
                           {isActive ? "Previewing…" : "Preview"}
@@ -126,7 +127,8 @@ export function ReportsView({
           action={
             <div style={{ display: "flex", gap: 8 }}>
               <button className="btn primary sm" onClick={() => void downloadReport(selected, String(active?.name ?? ""), "xlsx", start, end)}>↓ Excel</button>
-              <button className="btn secondary sm" onClick={() => void downloadReport(selected, String(active?.name ?? ""), "csv", start, end)}>↓ CSV</button>
+              <button className="btn secondary sm" onClick={() => void downloadReport(selected, String(active?.name ?? ""), "pdf", start, end)}>↓ PDF</button>
+              <button className="btn ghost sm" onClick={() => void downloadReport(selected, String(active?.name ?? ""), "csv", start, end)}>↓ CSV</button>
             </div>
           }
         >

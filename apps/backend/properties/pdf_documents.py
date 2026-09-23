@@ -878,12 +878,82 @@ def _months_to_years(raw):
     return f"{months / 12:g}"
 
 
+def xlsx_from_csv(title, csv_bytes, *, filename="report.xlsx", subtitle=""):
+    """Compact styled workbook shared by modules without their own Excel
+    builder (tenders, valuations). Title block, zebra rows, per-column
+    auto widths, money/percent/date formatting."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+    from openpyxl.utils import get_column_letter
+
+    rows = list(csv.reader(StringIO(csv_bytes.decode("utf-8-sig"))))
+    headers = rows[0] if rows else ["Message"]
+    body = rows[1:] if len(rows) > 1 else [["No records match the selected filters."]]
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = str(title)[:31]
+    header_fill = PatternFill("solid", fgColor="17243B")
+    header_font = Font(color="FFFFFF", bold=True, name="Calibri", size=11)
+    body_font = Font(name="Calibri", size=10)
+    zebra = PatternFill("solid", fgColor="F4F7FA")
+    thin = Border(*(Side(style="thin", color="DBE3EC"),) * 4)
+    sheet["A1"] = str(title)
+    sheet["A1"].font = Font(name="Calibri", size=14, bold=True, color="17243B")
+    if subtitle:
+        sheet["A2"] = str(subtitle)
+        sheet["A2"].font = Font(name="Calibri", size=10, color="64748B")
+    start_row = 4
+    money_tokens = ("amount", "price", "value", "balance", "fee", "paid", "cost", "total", "income")
+    for col_index, header in enumerate(headers, start=1):
+        cell = sheet.cell(row=start_row, column=col_index, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = thin
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    for row_index, csv_row in enumerate(body, start=start_row + 1):
+        hl = [str(h).lower() for h in headers]
+        for col_index, value in enumerate(csv_row, start=1):
+            header = hl[col_index - 1] if col_index - 1 < len(hl) else ""
+            cell = sheet.cell(row=row_index, column=col_index, value=value)
+            cell.font = body_font
+            cell.border = thin
+            if (row_index - start_row) % 2 == 0:
+                cell.fill = zebra
+            cell.alignment = Alignment(vertical="center")
+            if value in (None, "", "—"):
+                continue
+            try:
+                if any(k in header for k in money_tokens) and "%" not in header and "rate" not in header:
+                    cell.value = Decimal(str(value).replace(",", "").replace("KES", "").strip())
+                    cell.number_format = "#,##0.00"
+                    cell.alignment = Alignment(horizontal="right", vertical="center")
+                elif "%" in str(value) or "%" in header:
+                    cell.value = float(str(value).replace("%", "").strip())
+                    cell.number_format = '0.00"%"'
+                    cell.alignment = Alignment(horizontal="right", vertical="center")
+            except Exception:
+                pass
+    for col_index, header in enumerate(headers, start=1):
+        samples = [str(header)]
+        samples.extend(str(row[col_index - 1]) for row in body[:40] if col_index - 1 < len(row))
+        sheet.column_dimensions[get_column_letter(col_index)].width = min(max(max(len(s) for s in samples if s), 8) + 3, 45)
+    sheet.freeze_panes = f"A{start_row + 1}"
+    buffer = BytesIO()
+    workbook.save(buffer)
+    response = HttpResponse(buffer.getvalue(), content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
 def _clean_header_label(header: str) -> str:
     h = str(header or "").strip()
     cleanups = {
         "Escalation Interval (Months)": "Esc.<br/>(Yrs)",
         "Escalation Interval Months": "Esc.<br/>(Yrs)",
         "Rent Per Sqft": "Rent<br/>/Sqft",
+        "Service Charge Per Sqft": "Service<br/>Charge/Sqft",
+        "Next Escalation Date": "Next<br/>Escalation",
+        "Lease Signed": "Signed<br/>On",
         "Escalation %": "Esc.<br/>%",
         "Next Effective Rent": "Next<br/>Rent",
         "Service Charge": "Service<br/>Charge",
