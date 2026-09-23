@@ -2105,8 +2105,11 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.data['tenancy_schedule'][0]['property'], self.property.name)
         self.assertIn('floor', response.data['tenancy_schedule'][0])
         self.assertIn('service_charge', response.data['tenancy_schedule'][0])
+        self.assertIn('service_charge_per_sqft', response.data['tenancy_schedule'][0])
         self.assertIn('escalation_percent', response.data['tenancy_schedule'][0])
-        self.assertIn('next_effective_rent', response.data['tenancy_schedule'][0])
+        self.assertIn('next_escalation_date', response.data['tenancy_schedule'][0])
+        self.assertNotIn('next_effective_rent', response.data['tenancy_schedule'][0])
+        self.assertNotIn('status', response.data['tenancy_schedule'][0])
         self.assertNotIn('owner', response.data['tenancy_schedule'][0])
         self.assertNotIn('management_mandate', response.data['tenancy_schedule'][0])
         self.assertEqual(len(response.data['ownership_schedule']), 1)
@@ -2148,7 +2151,7 @@ class PropertyApiTests(TestCase):
     def test_each_visible_report_tab_exports_its_own_dataset_in_supported_formats(self):
         headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
         report_headings = {
-            'tenancy-schedule': b'Escalation %', 'ownership-schedule': b'Billing Readiness', 'vacancy': b'Days vacant',
+            'tenancy-schedule': b'Next Escalation Date', 'ownership-schedule': b'Billing Readiness', 'vacancy': b'Days vacant',
             'movements': b'Movement', 'income-analysis': b'Annualized income',
             'billing-schedule': b'Outstanding C/F', 'vat-schedule': b'Taxable value',
             'expenses-schedule': b'Cost centre',

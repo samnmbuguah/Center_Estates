@@ -6369,9 +6369,9 @@ class PropertyAnalyticsViewSet(ViewSet):
                 'tenancy-schedule': {
                     'Floor': 6, 'Unit': 10, 'Tenant': 32, 'Property': 22,
                     'Area': 10, 'Use': 12, 'Lease Start': 13, 'Lease End': 13,
-                    'Rent': 16, 'Rent per Sqft': 14, 'Service Charge': 16, 'Escalation %': 13,
-                    'Escalation Interval (Months)': 16, 'Escalation Interval (Yrs)': 16,
-                    'Next Effective Rent': 18,
+                    'Rent': 16, 'Rent per Sqft': 14, 'Service Charge': 16,
+                    'Service Charge per Sqft': 16, 'Escalation %': 13,
+                    'Next Escalation Date': 18,
                 },
                 'income-analysis': {
                     'Property': 24, 'Unit': 12, 'Tenant': 32, 'Use': 12,
@@ -6382,10 +6382,8 @@ class PropertyAnalyticsViewSet(ViewSet):
             col_widths = REPORT_WIDTHS.get(report_kind, {})
             # Human-readable workbooks present escalation intervals in years,
             # matching the PDF (raw CSV keeps months for machine use).
-            esc_interval_idx = {
-                i for i, h in enumerate(parsed_rows[0])
-                if report_kind == 'tenancy-schedule' and 'escalation interval' in str(h).lower()
-            } if parsed_rows else set()
+            # No longer converting interval months to years — column replaced by Next Escalation Date
+            esc_interval_idx: set = set()
 
             for row_index, csv_row in enumerate(parsed_rows, start=start_row):
                 is_header = row_index == start_row
@@ -6546,17 +6544,46 @@ class PropertyAnalyticsViewSet(ViewSet):
 
         active_lease_rows = list(active_leases.order_by('unit__code'))
         active_lease_by_unit = {lease.unit_id: lease for lease in active_lease_rows}
-        schedule = [{
-            'lease': lease.reference, 'tenant': lease.tenant.name, 'property': lease.unit.property.name,
-            'floor': lease.unit.floor or '—', 'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
-            'area': lease.unit.area or '—', 'monthly_rent': lease.effective_rent(today),
-            'service_charge': self._service_charge_for_lease(lease),
-            'escalation_percent': lease.escalation_percent,
-            'escalation_interval_months': lease.escalation_interval_months,
-            'status': lease.status.title(),
-            'next_effective_rent': lease.effective_rent(min(lease.ends_on - timedelta(days=1), today + timedelta(days=365))),
-            'lease_start': lease.starts_on, 'lease_end': lease.ends_on,
-        } for lease in active_lease_rows]
+        def _next_escalation_date(lease):
+            """Return the next future escalation date based on lease start + interval cadence."""
+            from dateutil.relativedelta import relativedelta
+            interval = max(lease.escalation_interval_months or 12, 1)
+            candidate = lease.starts_on
+            while candidate <= today:
+                candidate = lease.starts_on + relativedelta(months=interval * (
+                    ((candidate - lease.starts_on).days // 30) // interval + 1
+                ))
+                # Advance by one interval at a time to avoid infinite loops
+                candidate += relativedelta(months=interval)
+                if candidate >= lease.ends_on:
+                    return None
+            return candidate if candidate < lease.ends_on else None
+
+        def _next_escalation_date_simple(lease):
+            """Compute next escalation date from starts_on + N * interval where N puts us past today."""
+            from dateutil.relativedelta import relativedelta
+            if not lease.escalation_percent or not lease.escalation_interval_months:
+                return None
+            interval = max(lease.escalation_interval_months, 1)
+            elapsed_months = (today.year - lease.starts_on.year) * 12 + today.month - lease.starts_on.month
+            steps_done = elapsed_months // interval
+            next_date = lease.starts_on + relativedelta(months=(steps_done + 1) * interval)
+            return next_date if next_date < lease.ends_on else None
+
+        schedule = []
+        for lease in active_lease_rows:
+            _sc = self._service_charge_for_lease(lease)
+            _area = lease.unit.area
+            schedule.append({
+                'lease': lease.reference, 'tenant': lease.tenant.name, 'property': lease.unit.property.name,
+                'floor': lease.unit.floor or '—', 'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
+                'area': _area or '—', 'monthly_rent': lease.effective_rent(today),
+                'service_charge': _sc,
+                'service_charge_per_sqft': (_sc / _area).quantize(Decimal('0.01')) if _area and _area > 0 else Decimal('0'),
+                'escalation_percent': lease.escalation_percent,
+                'next_escalation_date': _next_escalation_date_simple(lease),
+                'lease_start': lease.starts_on, 'lease_end': lease.ends_on,
+            })
 
         ownership_schedule = []
         for unit in units.order_by('code'):
@@ -6975,7 +7002,7 @@ class PropertyAnalyticsViewSet(ViewSet):
                 rent = active_lease.effective_rent(end) if active_lease else Decimal('0')
                 writer.writerow((unit.floor or '—', unit.code, tenant_name, unit.property.name, unit.unit_type, unit.area or '—', rent, unit.status.title()))
         elif report_kind == 'tenancy-schedule':
-            writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Lease Start', 'Lease End', 'Rent', 'Rent per Sqft', 'Service Charge', 'Escalation %', 'Escalation Interval (Months)', 'Status', 'Next Effective Rent'))
+            writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Lease Start', 'Lease End', 'Rent', 'Rent per Sqft', 'Service Charge', 'Service Charge per Sqft', 'Escalation %', 'Next Escalation Date'))
             leases = scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
             include_drafts = request.query_params.get('include_drafts', '').lower() in ('1', 'true', 'yes')
             has_active = leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).exists()
@@ -6988,14 +7015,27 @@ class PropertyAnalyticsViewSet(ViewSet):
             date_filtered = rows.filter(Q(starts_on__lte=end, ends_on__gte=start) | Q(status=Lease.Status.DRAFT))
             if date_filtered.exists():
                 rows = date_filtered
+            from dateutil.relativedelta import relativedelta as _rdelta
+            def _next_esc_date(lease):
+                if not lease.escalation_percent or not lease.escalation_interval_months:
+                    return '—'
+                interval = max(lease.escalation_interval_months, 1)
+                ref = end  # use report end date as reference point
+                elapsed_months = (ref.year - lease.starts_on.year) * 12 + ref.month - lease.starts_on.month
+                steps_done = elapsed_months // interval
+                next_date = lease.starts_on + _rdelta(months=(steps_done + 1) * interval)
+                return next_date if next_date < lease.ends_on else '—'
             for lease in rows.order_by('unit__code'):
                 service_charge = self._service_charge_for_lease(lease)
+                sc_per_sqft = (
+                    (service_charge / lease.unit.area).quantize(Decimal('0.01'))
+                    if lease.unit.area and lease.unit.area > 0 else Decimal('0')
+                )
                 writer.writerow((lease.unit.floor or '—', lease.unit.code, lease.tenant.name, lease.unit.property.name,
                                  lease.unit.area or '—', lease.starts_on,
                                  lease.ends_on, lease.effective_rent(end), self._rent_rate_for_lease(lease, end),
-                                 service_charge, lease.escalation_percent,
-                                 lease.escalation_interval_months, lease.status.title(),
-                                 lease.effective_rent(min(lease.ends_on - timedelta(days=1), end + timedelta(days=365)))))
+                                 service_charge, sc_per_sqft, lease.escalation_percent,
+                                 _next_esc_date(lease)))
         elif report_kind == 'ownership-schedule':
             writer.writerow(('Floor', 'Unit', 'Type', 'Owner / Landlord', 'Owner Code', 'Tenant / Occupant', 'Management Mandate', 'Estate Rent Billing', 'Monthly Service Charge', 'Billing Readiness'))
             units = scope_model_queryset(Unit, request, organization).select_related('owner').prefetch_related('charge_rules__billing_item', 'leases__tenant').order_by('code')
