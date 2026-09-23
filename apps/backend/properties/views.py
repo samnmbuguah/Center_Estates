@@ -6367,8 +6367,8 @@ class PropertyAnalyticsViewSet(ViewSet):
             # Column width hints per report type (header label -> width)
             REPORT_WIDTHS = {
                 'tenancy-schedule': {
-                    'Floor': 6, 'Unit': 10, 'Tenant': 32, 'Property': 22,
-                    'Area': 10, 'Use': 12, 'Lease Start': 13, 'Lease End': 13,
+                    'Floor': 6, 'Unit': 10, 'Tenant': 32,
+                    'Area': 10, 'Lease Signed': 13, 'Lease Start': 13, 'Lease End': 13,
                     'Rent': 16, 'Rent per Sqft': 14, 'Service Charge': 16,
                     'Service Charge per Sqft': 16, 'Escalation %': 13,
                     'Next Escalation Date': 18,
@@ -6575,13 +6575,14 @@ class PropertyAnalyticsViewSet(ViewSet):
             _sc = self._service_charge_for_lease(lease)
             _area = lease.unit.area
             schedule.append({
-                'lease': lease.reference, 'tenant': lease.tenant.name, 'property': lease.unit.property.name,
+                'lease': lease.reference, 'tenant': lease.tenant.name,
                 'floor': lease.unit.floor or '—', 'unit': lease.unit.code, 'unit_type': lease.unit.unit_type,
                 'area': _area or '—', 'monthly_rent': lease.effective_rent(today),
                 'service_charge': _sc,
                 'service_charge_per_sqft': (_sc / _area).quantize(Decimal('0.01')) if _area and _area > 0 else Decimal('0'),
                 'escalation_percent': lease.escalation_percent,
                 'next_escalation_date': _next_escalation_date_simple(lease),
+                'signed_on': lease.signed_on,
                 'lease_start': lease.starts_on, 'lease_end': lease.ends_on,
             })
 
@@ -7002,7 +7003,7 @@ class PropertyAnalyticsViewSet(ViewSet):
                 rent = active_lease.effective_rent(end) if active_lease else Decimal('0')
                 writer.writerow((unit.floor or '—', unit.code, tenant_name, unit.property.name, unit.unit_type, unit.area or '—', rent, unit.status.title()))
         elif report_kind == 'tenancy-schedule':
-            writer.writerow(('Floor', 'Unit', 'Tenant', 'Property', 'Area', 'Lease Start', 'Lease End', 'Rent', 'Rent per Sqft', 'Service Charge', 'Service Charge per Sqft', 'Escalation %', 'Next Escalation Date'))
+            writer.writerow(('Floor', 'Unit', 'Tenant', 'Area', 'Lease Signed', 'Lease Start', 'Lease End', 'Rent', 'Rent per Sqft', 'Service Charge', 'Service Charge per Sqft', 'Escalation %', 'Next Escalation Date'))
             leases = scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
             include_drafts = request.query_params.get('include_drafts', '').lower() in ('1', 'true', 'yes')
             has_active = leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).exists()
@@ -7031,8 +7032,8 @@ class PropertyAnalyticsViewSet(ViewSet):
                     (service_charge / lease.unit.area).quantize(Decimal('0.01'))
                     if lease.unit.area and lease.unit.area > 0 else Decimal('0')
                 )
-                writer.writerow((lease.unit.floor or '—', lease.unit.code, lease.tenant.name, lease.unit.property.name,
-                                 lease.unit.area or '—', lease.starts_on,
+                writer.writerow((lease.unit.floor or '—', lease.unit.code, lease.tenant.name,
+                                 lease.unit.area or '—', lease.signed_on or '—', lease.starts_on,
                                  lease.ends_on, lease.effective_rent(end), self._rent_rate_for_lease(lease, end),
                                  service_charge, sc_per_sqft, lease.escalation_percent,
                                  _next_esc_date(lease)))

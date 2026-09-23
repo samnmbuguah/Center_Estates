@@ -472,6 +472,7 @@ class Lease(OrganizationOwnedModel):
     billing_day = models.PositiveSmallIntegerField(default=1)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
     metadata = models.JSONField(default=dict, blank=True)
+    signed_on = models.DateField(null=True, blank=True, help_text='Date the lease agreement was signed.')
     renewed_from = models.OneToOneField('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='renewal')
 
     class Meta:

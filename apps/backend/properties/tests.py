@@ -2102,7 +2102,7 @@ class PropertyApiTests(TestCase):
         self.assertEqual(response.data['kpis']['occupied_units'], 1)
         self.assertEqual(response.data['kpis']['occupancy_rate'], 100.0)
         self.assertEqual(response.data['tenancy_schedule'][0]['tenant'], self.tenant.name)
-        self.assertEqual(response.data['tenancy_schedule'][0]['property'], self.property.name)
+        self.assertNotIn('property', response.data['tenancy_schedule'][0])
         self.assertIn('floor', response.data['tenancy_schedule'][0])
         self.assertIn('service_charge', response.data['tenancy_schedule'][0])
         self.assertIn('service_charge_per_sqft', response.data['tenancy_schedule'][0])
