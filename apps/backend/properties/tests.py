@@ -2139,6 +2139,22 @@ class PropertyApiTests(TestCase):
         )
         self.assertEqual(export.status_code, 200)
 
+    def test_reports_survive_owner_invoices_without_lease_or_unit(self):
+        # Regression (Sept 9 production 500s): owner-level invoices carry no
+        # lease or unit; every report must attribute or coerce them, never crash.
+        owner = Owner.objects.create(organization=self.organization, code='OWN-9', name='Owner Nine')
+        Invoice.objects.create(
+            organization=self.organization, number='INV-OWN-9', owner=owner,
+            issued_on='2026-08-01', due_on='2026-08-08',
+            amount=Decimal('5000'), balance=Decimal('5000'), status=Invoice.Status.OVERDUE,
+        )
+        for url in (
+            '/api/v1/property/analytics/aging/',
+            '/api/v1/property/analytics/financial-reports/?start=2026-01-01&end=2026-12-31',
+        ):
+            response = self.client.get(url, **self.headers)
+            self.assertEqual(response.status_code, 200, url)
+
     def test_bulk_service_charge_upload_previews_then_updates_existing_units_only(self):
         headers = {**self.headers, 'HTTP_X_PROPERTY_ID': str(self.property.id)}
         url = '/api/v1/property/units/bulk-service-charges/'

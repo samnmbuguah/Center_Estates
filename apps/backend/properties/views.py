@@ -101,6 +101,20 @@ def _optional_iso_date(value):
         return None
 
 
+def _invoice_tenant(invoice):
+    """Tenant behind an invoice, or None for owner-level invoices."""
+    lease = getattr(invoice, 'lease', None)
+    return lease.tenant if lease is not None and getattr(lease, 'tenant', None) else None
+
+
+def _invoice_unit(invoice):
+    """Unit behind an invoice, or None when neither unit nor lease exists."""
+    if getattr(invoice, 'unit', None) is not None:
+        return invoice.unit
+    lease = getattr(invoice, 'lease', None)
+    return lease.unit if lease is not None else None
+
+
 def _closest_matches(wanted, candidates, *, limit=3):
     """Best-effort 'did you mean' suggestions for import validation messages."""
     import difflib
@@ -4009,7 +4023,9 @@ class InvoiceViewSet(OrganizationModelViewSet):
         invoice.refresh_from_db()
         if invoice.recipient_type == Invoice.RecipientType.OWNER:
             return Response(self.get_serializer(invoice).data)
-        tenant = invoice.lease.tenant
+        tenant = _invoice_tenant(invoice) or invoice.owner
+        if tenant is None:
+            return Response(self.get_serializer(invoice).data)
         preference = str(tenant.metadata.get('billing_preference', 'email' if tenant.email else 'portal'))
         channel = preference if preference in InvoiceReminder.Channel.values else (InvoiceReminder.Channel.EMAIL if tenant.email else InvoiceReminder.Channel.PORTAL)
         recipient = tenant.email if channel == InvoiceReminder.Channel.EMAIL else tenant.phone if channel == InvoiceReminder.Channel.SMS else tenant.name
@@ -4525,7 +4541,8 @@ class BankTransactionViewSet(OrganizationModelViewSet):
         sequence = Receipt.objects.filter(organization=organization, number__startswith=prefix).count() + 1
         receipt_number = f'{prefix}{sequence:05d}'
 
-        payer_name = request.data.get('payer_name') or transaction_record.extracted_payer_name or invoice.lease.tenant.name
+        _payer = _invoice_tenant(invoice) or invoice.owner
+        payer_name = request.data.get('payer_name') or transaction_record.extracted_payer_name or (_payer.name if _payer else '')
         channel = request.data.get('payment_channel')
         if not channel:
             channel = 'mpesa' if transaction_record.transaction_type == BankTransaction.TransactionType.MPESA_SWEEP else 'bank_transfer'
@@ -6909,15 +6926,23 @@ class PropertyAnalyticsViewSet(ViewSet):
             days = max((today - invoice.due_on).days, 0)
             bucket = 'current' if days <= 30 else '31_60' if days <= 60 else '61_90' if days <= 90 else '91_120' if days <= 120 else 'over_120'
             summary[bucket] += invoice.balance
-            tenant = invoice.lease.tenant if invoice.lease_id else None
+            tenant = _invoice_tenant(invoice)
             party = tenant or invoice.owner
-            unit = invoice.unit or invoice.lease.unit
-            party_key = f"{'tenant' if tenant else 'owner'}:{party.id}"
-            row = tenants.setdefault(party_key, {
-                'tenant': party.name, 'party_type': 'tenant' if tenant else 'owner',
-                'property': unit.property.name, 'unit': unit.code, 'outstanding': Decimal('0'),
-                'oldest_days': 0, 'invoice_count': 0,
-            })
+            unit = _invoice_unit(invoice)
+            if party is None or unit is None:
+                party_key = 'unassigned'
+                row = tenants.setdefault(party_key, {
+                    'tenant': 'Unassigned', 'party_type': 'unassigned',
+                    'property': '—', 'unit': '—', 'outstanding': Decimal('0'),
+                    'oldest_days': 0, 'invoice_count': 0,
+                })
+            else:
+                party_key = f"{'tenant' if tenant else 'owner'}:{party.id}"
+                row = tenants.setdefault(party_key, {
+                    'tenant': party.name, 'party_type': 'tenant' if tenant else 'owner',
+                    'property': unit.property.name, 'unit': unit.code, 'outstanding': Decimal('0'),
+                    'oldest_days': 0, 'invoice_count': 0,
+                })
             row['outstanding'] += invoice.balance
             row['oldest_days'] = max(row['oldest_days'], days)
             row['invoice_count'] += 1
@@ -7010,12 +7035,12 @@ class PropertyAnalyticsViewSet(ViewSet):
             bucket = 'current' if days <= 30 else '31_60' if days <= 60 else '61_90' if days <= 90 else '90_plus'
             aging[bucket] += invoice.balance
             last_payment = invoice.receipts.order_by('-received_on').values_list('received_on', flat=True).first()
-            tenant = invoice.lease.tenant if invoice.lease_id else None
+            tenant = _invoice_tenant(invoice)
             party = tenant or invoice.owner
-            unit = invoice.unit or invoice.lease.unit
+            unit = _invoice_unit(invoice)
             arrears_rows.append({
-                'invoice': invoice.number, 'tenant': party.name, 'party_type': 'tenant' if tenant else 'owner',
-                'property': unit.property.name, 'unit': unit.code,
+                'invoice': invoice.number, 'tenant': party.name if party else 'Unassigned', 'party_type': 'tenant' if tenant else ('owner' if party else 'unassigned'),
+                'property': unit.property.name if unit else '—', 'unit': unit.code if unit else '—',
                 'billed': invoice.amount, 'paid': invoice.amount - invoice.balance, 'balance': invoice.balance,
                 'due_on': invoice.due_on, 'days_overdue': days, 'ageing_bucket': bucket,
                 'last_payment': last_payment, 'status': invoice.status,
@@ -7032,12 +7057,12 @@ class PropertyAnalyticsViewSet(ViewSet):
             for line in lines:
                 code = line.billing_item.income_category if line.billing_item_id and line.billing_item.income_category else line.description
                 income_categories[code] = income_categories.get(code, Decimal('0')) + line.subtotal
-            tenant = invoice.lease.tenant if invoice.lease_id else None
+            tenant = _invoice_tenant(invoice)
             party = tenant or invoice.owner
-            unit = invoice.unit or invoice.lease.unit
+            unit = _invoice_unit(invoice)
             billing_rows.append({
-                'invoice': invoice.number, 'tenant': party.name, 'party_type': 'tenant' if tenant else 'owner',
-                'property': unit.property.name, 'unit': unit.code,
+                'invoice': invoice.number, 'tenant': party.name if party else 'Unassigned', 'party_type': 'tenant' if tenant else ('owner' if party else 'unassigned'),
+                'property': unit.property.name if unit else '—', 'unit': unit.code if unit else '—',
                 'billing_period': invoice.metadata.get('billing_period', ''), 'issued_on': invoice.issued_on,
                 'due_on': invoice.due_on, 'subtotal': invoice.subtotal, 'vat': invoice.tax_amount,
                 'total_billed': invoice.amount, 'collected': collected_for_invoice,
@@ -7047,8 +7072,8 @@ class PropertyAnalyticsViewSet(ViewSet):
         expense_categories = list(expenses.values('category').annotate(total=Sum('amount')).order_by('-total'))
         input_vat = expenses.aggregate(total=Sum('tax_amount'))['total'] or Decimal('0')
         vat_rows = [{'type': 'output', 'date': row.issued_on, 'reference': row.number,
-                     'party': (row.lease.tenant if row.lease_id else row.owner).name,
-                     'property': (row.unit or row.lease.unit).property.name,
+                     'party': (_invoice_tenant(row) or row.owner).name if (_invoice_tenant(row) or row.owner) else 'Unassigned',
+                     'property': (_invoice_unit(row).property.name if _invoice_unit(row) else '—'),
                      'taxable_value': row.subtotal, 'tax_amount': row.tax_amount}
                     for row in invoices.filter(tax_amount__gt=0)]
         vat_rows += [{'type': 'input', 'date': row.incurred_on, 'reference': row.invoice_number,
@@ -7216,10 +7241,12 @@ class PropertyAnalyticsViewSet(ViewSet):
                                  expense.description, expense.invoice_number, expense.amount, expense.cost_centre))
         elif report_kind == 'vat-schedule':
             writer.writerow(('Type', 'Date', 'Reference', 'Party', 'Property', 'Taxable value', 'VAT amount'))
-            invoices = scope_model_queryset(Invoice, request, organization).filter(issued_on__range=(start, end), tax_amount__gt=0).exclude(status=Invoice.Status.VOID).select_related('lease__tenant', 'lease__unit__property')
+            invoices = scope_model_queryset(Invoice, request, organization).filter(issued_on__range=(start, end), tax_amount__gt=0).exclude(status=Invoice.Status.VOID).select_related('lease__tenant', 'lease__unit__property', 'owner', 'unit__property')
             for invoice in invoices:
-                writer.writerow(('Output VAT', invoice.issued_on, invoice.number, invoice.lease.tenant.name,
-                                 invoice.lease.unit.property.name, invoice.subtotal, invoice.tax_amount))
+                _party = _invoice_tenant(invoice) or invoice.owner
+                _unit = _invoice_unit(invoice)
+                writer.writerow(('Output VAT', invoice.issued_on, invoice.number, _party.name if _party else 'Unassigned',
+                                 _unit.property.name if _unit else '—', invoice.subtotal, invoice.tax_amount))
             expenses = scope_model_queryset(Expense, request, organization).filter(incurred_on__range=(start, end), tax_amount__gt=0).select_related('property')
             for expense in expenses:
                 writer.writerow(('Input VAT', expense.incurred_on, expense.invoice_number, expense.supplier,
@@ -7363,23 +7390,24 @@ class PropertyAnalyticsViewSet(ViewSet):
                     raise ValidationError({'owner': 'Select a landlord assigned to a unit in the active property.'})
                 rows = rows.filter(Q(owner=scoped_owner) | Q(unit__owner=scoped_owner) | Q(lease__unit__owner=scoped_owner))
             for invoice in rows:
-                unit = invoice.unit or invoice.lease.unit
-                payer = invoice.owner or (invoice.lease.tenant if invoice.lease_id else None)
+                unit = _invoice_unit(invoice)
+                payer = invoice.owner or _invoice_tenant(invoice)
                 collected = invoice.amount - invoice.balance
-                writer.writerow((invoice.number, payer.name if payer else '—', unit.property.name, unit.code,
+                writer.writerow((invoice.number, payer.name if payer else '—', unit.property.name if unit else '—', unit.code if unit else '—',
                                  invoice.issued_on, invoice.due_on, invoice.subtotal, invoice.tax_amount,
                                  invoice.amount, collected, invoice.balance, invoice.status))
         elif report_kind == 'daily-collections':
             writer.writerow(('Date', 'Receipt', 'Tenant', 'Property', 'Invoice', 'Method', 'External reference', 'Amount'))
-            rows = scope_model_queryset(Receipt, request, organization).select_related('tenant__property', 'invoice__lease__unit__property')
+            rows = scope_model_queryset(Receipt, request, organization).select_related('tenant__property', 'owner', 'invoice__lease__unit__property', 'invoice__unit__property', 'invoice__owner')
             for row in rows:
-                prop = row.invoice.lease.unit.property if row.invoice else row.tenant.property
-                writer.writerow((row.received_on, row.number, row.tenant.name, prop.name if prop else '', row.invoice.number if row.invoice else '', row.payment_method, row.external_reference, row.amount))
+                payer = row.tenant or row.owner
+                prop = (_invoice_unit(row.invoice).property if row.invoice and _invoice_unit(row.invoice) else None) or (row.tenant.property if row.tenant else None)
+                writer.writerow((row.received_on, row.number, payer.name if payer else 'Unassigned', prop.name if prop else '', row.invoice.number if row.invoice else '', row.payment_method, row.external_reference, row.amount))
         elif report_kind == 'collections-property':
             writer.writerow(('Property', 'Receipt count', 'Total collected'))
             totals = {}
-            for row in scope_model_queryset(Receipt, request, organization).select_related('tenant__property', 'invoice__lease__unit__property'):
-                prop = row.invoice.lease.unit.property if row.invoice else row.tenant.property
+            for row in scope_model_queryset(Receipt, request, organization).select_related('tenant__property', 'owner', 'invoice__lease__unit__property', 'invoice__unit__property', 'invoice__owner'):
+                prop = (_invoice_unit(row.invoice).property if row.invoice and _invoice_unit(row.invoice) else None) or (row.tenant.property if row.tenant else None)
                 key = prop.name if prop else 'Unassigned'; current = totals.setdefault(key, [0, Decimal('0')]); current[0] += 1; current[1] += row.amount
             for name, (count, total) in sorted(totals.items()): writer.writerow((name, count, total))
         elif report_kind == 'collections-tenant':
