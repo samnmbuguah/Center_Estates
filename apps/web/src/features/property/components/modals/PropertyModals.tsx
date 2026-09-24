@@ -79,6 +79,248 @@ function VoidCreditNoteForm({ creditNote, onConfirm, onCancel }: { creditNote: C
   );
 }
 
+function AddLeaseFormModal({
+  tenantOptions,
+  unitOptions,
+  onClose,
+  onSubmit,
+}: {
+  tenantOptions: Row[];
+  unitOptions: Row[];
+  onClose: () => void;
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void;
+}) {
+  const [selectedUnitId, setSelectedUnitId] = useState("");
+  const [rentRate, setRentRate] = useState("");
+  const [monthlyRent, setMonthlyRent] = useState("");
+  const [scRate, setScRate] = useState("");
+  const [serviceCharge, setServiceCharge] = useState("");
+
+  const selectedUnit = useMemo(() => {
+    return unitOptions.find((u) => String(u.id) === selectedUnitId) ?? null;
+  }, [unitOptions, selectedUnitId]);
+
+  const unitArea = useMemo(() => {
+    if (!selectedUnit) return 0;
+    const a = parseFloat(String(selectedUnit.area ?? "0").replace(/,/g, ""));
+    return isNaN(a) || a <= 0 ? 0 : a;
+  }, [selectedUnit]);
+
+  const handleUnitChange = (unitId: string) => {
+    setSelectedUnitId(unitId);
+    const u = unitOptions.find((it) => String(it.id) === unitId);
+    const a = u ? parseFloat(String(u.area ?? "0").replace(/,/g, "")) : 0;
+    const validArea = !isNaN(a) && a > 0 ? a : 0;
+    if (validArea > 0) {
+      if (rentRate) {
+        const r = parseFloat(rentRate);
+        if (!isNaN(r)) setMonthlyRent((validArea * r).toFixed(2));
+      }
+      if (scRate) {
+        const sc = parseFloat(scRate);
+        if (!isNaN(sc)) setServiceCharge((validArea * sc).toFixed(2));
+      }
+    }
+  };
+
+  const handleRentRateChange = (rateVal: string) => {
+    setRentRate(rateVal);
+    const r = parseFloat(rateVal);
+    if (!isNaN(r) && unitArea > 0) {
+      setMonthlyRent((unitArea * r).toFixed(2));
+    }
+  };
+
+  const handleMonthlyRentChange = (rentVal: string) => {
+    setMonthlyRent(rentVal);
+    const m = parseFloat(rentVal);
+    if (!isNaN(m) && unitArea > 0) {
+      setRentRate((m / unitArea).toFixed(2));
+    }
+  };
+
+  const handleScRateChange = (rateVal: string) => {
+    setScRate(rateVal);
+    const r = parseFloat(rateVal);
+    if (!isNaN(r) && unitArea > 0) {
+      setServiceCharge((unitArea * r).toFixed(2));
+    }
+  };
+
+  const handleServiceChargeChange = (scVal: string) => {
+    setServiceCharge(scVal);
+    const s = parseFloat(scVal);
+    if (!isNaN(s) && unitArea > 0) {
+      setScRate((s / unitArea).toFixed(2));
+    }
+  };
+
+  return (
+    <Modal title="Add Single Lease" onClose={onClose} wide>
+      <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="grid-2">
+          <TextField fullWidth size="small" name="reference" label="Lease reference" required placeholder="e.g. LSE-2026-0001" slotProps={{ htmlInput: { "data-testid": "lease-ref-input" } }} />
+          <TextField fullWidth size="small" name="billing_day" label="Billing day" type="number" defaultValue={1} slotProps={{ htmlInput: { min: 1, max: 28 } }} />
+        </div>
+        <div className="grid-2">
+          <TextField select fullWidth size="small" name="tenant" label="Tenant" required defaultValue="" slotProps={{ select: { native: true }, htmlInput: { "data-testid": "lease-tenant-select" } }}>
+            <option value="" disabled>Select tenant</option>
+            {tenantOptions.map((t) => (
+              <option key={String(t.id)} value={String(t.id)}>{String(t.name)}</option>
+            ))}
+          </TextField>
+          <TextField
+            select
+            fullWidth
+            size="small"
+            name="unit"
+            label="Unit"
+            required
+            value={selectedUnitId}
+            onChange={(e) => handleUnitChange(e.target.value)}
+            slotProps={{ select: { native: true }, htmlInput: { "data-testid": "lease-unit-select" } }}
+          >
+            <option value="" disabled>Select unit</option>
+            {unitOptions.map((u) => {
+              const uArea = parseFloat(String(u.area ?? "0").replace(/,/g, ""));
+              const areaLabel = !isNaN(uArea) && uArea > 0 ? ` (${uArea.toLocaleString()} sqft)` : "";
+              return (
+                <option key={String(u.id)} value={String(u.id)}>
+                  {String(u.code)}{areaLabel} · {String(u.property_name ?? "")}
+                </option>
+              );
+            })}
+          </TextField>
+        </div>
+
+        {/* Commercial Unit Area & Auto-Calculation Info Box */}
+        {selectedUnit && (
+          <div
+            style={{
+              padding: "10px 14px",
+              borderRadius: 8,
+              border: unitArea > 0 ? "1px solid var(--color-blue-200, #bfdbfe)" : "1px solid var(--color-amber-300, #fde68a)",
+              background: unitArea > 0 ? "var(--color-blue-50, #eff6ff)" : "var(--color-amber-50, #fffbeb)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 8,
+              fontSize: 13,
+            }}
+          >
+            {unitArea > 0 ? (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>📐</span>
+                  <span style={{ color: "#1e3a8a", fontWeight: 700 }}>
+                    Unit Area: {unitArea.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} sqft
+                  </span>
+                  <span style={{ color: "#2563eb" }}>— Enter rate per sqft below to auto-calculate contract rent</span>
+                </div>
+                {rentRate && monthlyRent && (
+                  <span style={{ background: "#dbeafe", color: "#1e40af", padding: "2px 8px", borderRadius: 4, fontWeight: 700, fontSize: 12 }}>
+                    {unitArea.toLocaleString()} sqft × KES {rentRate} = KES {Number(monthlyRent).toLocaleString(undefined, { minimumFractionDigits: 2 })}/mo
+                  </span>
+                )}
+              </>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#92400e" }}>
+                <span>⚠️</span>
+                <span>Unit <b>{String(selectedUnit.code)}</b> has no area recorded. You can enter monthly rent directly, or update unit area in Occupancy tab.</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="grid-1">
+          <TextField select fullWidth size="small" name="contract_type" label="Lease onboarding type" defaultValue="paper_lease" slotProps={{ select: { native: true } }}>
+            <option value="paper_lease">Existing paper lease — already signed offline</option>
+            <option value="new_digital_signing">New tenant — issue digital offer for portal signing</option>
+          </TextField>
+        </div>
+
+        <div className="grid-2">
+          <TextField fullWidth size="small" name="starts_on" label="Start date" type="date" required slotProps={{ inputLabel: { shrink: true }, htmlInput: { "data-testid": "lease-start-input" } }} />
+          <TextField fullWidth size="small" name="ends_on" label="End date" type="date" required slotProps={{ inputLabel: { shrink: true }, htmlInput: { "data-testid": "lease-end-input" } }} />
+        </div>
+
+        {/* Commercial Rent Auto-Calculation: Rate/sqft <-> Monthly Rent */}
+        <div className="grid-2">
+          <TextField
+            fullWidth
+            size="small"
+            name="rent_rate_per_sqft"
+            label="Rent Rate per SqFt (KES/sqft)"
+            type="number"
+            value={rentRate}
+            onChange={(e) => handleRentRateChange(e.target.value)}
+            placeholder="e.g. 132.94"
+            helperText={unitArea > 0 ? "⚡ Auto-calculates monthly rent" : "Enter rate (requires unit area)"}
+            slotProps={{ htmlInput: { min: 0, step: "0.01", "data-testid": "lease-rent-rate-input" } }}
+          />
+          <TextField
+            fullWidth
+            size="small"
+            name="monthly_rent"
+            label="Monthly Rent (KES)"
+            type="number"
+            required
+            value={monthlyRent}
+            onChange={(e) => handleMonthlyRentChange(e.target.value)}
+            placeholder="e.g. 307613.90"
+            helperText={rentRate && unitArea > 0 ? `Calculated: ${unitArea} sqft @ KES ${rentRate}/sqft` : "Calculated or manual"}
+            slotProps={{ htmlInput: { min: 1, step: "0.01", "data-testid": "lease-rent-input" } }}
+          />
+        </div>
+
+        {/* Commercial Service Charge Auto-Calculation */}
+        <div className="grid-2">
+          <TextField
+            fullWidth
+            size="small"
+            name="service_charge_rate_per_sqft"
+            label="Service Charge Rate per SqFt (KES/sqft)"
+            type="number"
+            value={scRate}
+            onChange={(e) => handleScRateChange(e.target.value)}
+            placeholder="e.g. 25.00"
+            helperText={unitArea > 0 ? "⚡ Auto-calculates service charge" : ""}
+            slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+          />
+          <TextField
+            fullWidth
+            size="small"
+            name="service_charge"
+            label="Monthly Service Charge (KES)"
+            type="number"
+            value={serviceCharge}
+            onChange={(e) => handleServiceChargeChange(e.target.value)}
+            placeholder="e.g. 57850.00"
+            helperText={scRate && unitArea > 0 ? `Calculated: ${unitArea} sqft @ KES ${scRate}/sqft` : ""}
+            slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+          />
+        </div>
+
+        <div className="grid-3">
+          <TextField fullWidth size="small" name="deposit" label="Deposit (KES)" type="number" defaultValue={0} slotProps={{ htmlInput: { min: 0, "data-testid": "lease-deposit-input" } }} />
+          <TextField fullWidth size="small" name="escalation_percent" label="Escalation %" type="number" defaultValue={0} slotProps={{ htmlInput: { min: 0 } }} />
+          <TextField select fullWidth size="small" name="escalation_interval_months" label="Escalation frequency" defaultValue="12" slotProps={{ select: { native: true } }}>
+            <option value="12">Annually (12 months)</option>
+            <option value="24">Biennially (24 months)</option>
+            <option value="36">Triennially (36 months)</option>
+          </TextField>
+        </div>
+
+        <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
+          <Button type="button" variant="outlined" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="contained" data-testid="lease-save-btn">Save Lease</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 export interface PropertyModalsProps {
   showAddProperty: boolean;
   setShowAddProperty: (v: boolean) => void;
@@ -453,48 +695,12 @@ export function PropertyModals(props: PropertyModalsProps) {
         )}
 
         {showAddLease && (
-          <Modal title="Add Single Lease" onClose={() => setShowAddLease(false)} wide>
-            <form onSubmit={submitAddLease} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div className="grid-2">
-                <TextField fullWidth size="small" name="reference" label="Lease reference" required placeholder="e.g. LSE-2026-0001" slotProps={{ htmlInput: { "data-testid": "lease-ref-input" } }} />
-                <TextField fullWidth size="small" name="billing_day" label="Billing day" type="number" defaultValue={1} slotProps={{ htmlInput: { min: 1, max: 28 } }} />
-              </div>
-              <div className="grid-2">
-                <TextField select fullWidth size="small" name="tenant" label="Tenant" required defaultValue="" slotProps={{ select: { native: true }, htmlInput: { "data-testid": "lease-tenant-select" } }}>
-                    <option value="" disabled>Select tenant</option>
-                    {tenantOptions.map((t) => (
-                      <option key={String(t.id)} value={String(t.id)}>{String(t.name)}</option>
-                    ))}
-                </TextField>
-                <TextField select fullWidth size="small" name="unit" label="Unit" required defaultValue="" slotProps={{ select: { native: true }, htmlInput: { "data-testid": "lease-unit-select" } }}>
-                    <option value="" disabled>Select unit</option>
-                    {unitOptions.map((u) => (
-                      <option key={String(u.id)} value={String(u.id)}>{String(u.code)} · {String(u.property_name ?? "")}</option>
-                    ))}
-                </TextField>
-              </div>
-              <div className="grid-1">
-                <TextField select fullWidth size="small" name="contract_type" label="Lease onboarding type" defaultValue="paper_lease" slotProps={{ select: { native: true } }}>
-                  <option value="paper_lease">Existing paper lease — already signed offline</option>
-                  <option value="new_digital_signing">New tenant — issue digital offer for portal signing</option>
-                </TextField>
-              </div>
-              <div className="grid-2">
-                <TextField fullWidth size="small" name="starts_on" label="Start date" type="date" required slotProps={{ inputLabel: { shrink: true }, htmlInput: { "data-testid": "lease-start-input" } }} />
-                <TextField fullWidth size="small" name="ends_on" label="End date" type="date" required slotProps={{ inputLabel: { shrink: true }, htmlInput: { "data-testid": "lease-end-input" } }} />
-              </div>
-              <div className="grid-3">
-                <TextField fullWidth size="small" name="monthly_rent" label="Monthly rent (KES)" type="number" required slotProps={{ htmlInput: { min: 1, "data-testid": "lease-rent-input" } }} />
-                <TextField fullWidth size="small" name="deposit" label="Deposit (KES)" type="number" defaultValue={0} slotProps={{ htmlInput: { min: 0, "data-testid": "lease-deposit-input" } }} />
-                <TextField fullWidth size="small" name="escalation_percent" label="Escalation %" type="number" defaultValue={0} slotProps={{ htmlInput: { min: 0 } }} />
-                <TextField select fullWidth size="small" name="escalation_interval_months" label="Escalation frequency" defaultValue="12" slotProps={{ select: { native: true } }}><option value="12">Annually</option><option value="24">Biennially</option><option value="36">Triennially</option></TextField>
-              </div>
-              <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
-                <Button type="button" variant="outlined" onClick={() => setShowAddLease(false)}>Cancel</Button>
-                <Button type="submit" variant="contained" data-testid="lease-save-btn">Save Lease</Button>
-              </div>
-            </form>
-          </Modal>
+          <AddLeaseFormModal
+            tenantOptions={tenantOptions}
+            unitOptions={unitOptions}
+            onClose={() => setShowAddLease(false)}
+            onSubmit={submitAddLease}
+          />
         )}
 
         {showUploadDoc && (

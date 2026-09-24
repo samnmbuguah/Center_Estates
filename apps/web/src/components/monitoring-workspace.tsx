@@ -55,6 +55,8 @@ const MaterialRequisitions = lazy(() => import("@/components/monitoring/pages/Ma
 const PurchaseOrders = lazy(() => import("@/components/monitoring/pages/PurchaseOrders").then(m => ({ default: m.PurchaseOrders })));
 const StockMovements = lazy(() => import("@/components/monitoring/pages/StockMovements").then(m => ({ default: m.StockMovements })));
 const BimModels = lazy(() => import("@/components/monitoring/pages/BimModels").then(m => ({ default: m.BimModels })));
+const BimVerificationHub = lazy(() => import("@/components/monitoring/pages/BimVerificationHub").then(m => ({ default: m.BimVerificationHub })));
+const IQSKRatesHandbook = lazy(() => import("@/components/monitoring/pages/IQSKRatesHandbook").then(m => ({ default: m.IQSKRatesHandbook })));
 const BimDiscrepancies = lazy(() => import("@/components/monitoring/pages/BimDiscrepancies").then(m => ({ default: m.BimDiscrepancies })));
 const DroneDatasets = lazy(() => import("@/components/monitoring/pages/DroneDatasets").then(m => ({ default: m.DroneDatasets })));
 const SatelliteDatasets = lazy(() => import("@/components/monitoring/pages/SatelliteDatasets").then(m => ({ default: m.SatelliteDatasets })));
@@ -110,6 +112,8 @@ type Tab =
   | "documents"
   | "document-versions"
   | "bim-models"
+  | "bim-verification"
+  | "iqsk-rates"
   | "bim-discrepancies"
   | "drone-datasets"
   | "satellite-datasets"
@@ -171,6 +175,8 @@ const tabLabels: Record<Tab, string> = {
   documents: "Controlled Project Documents",
   "document-versions": "Document Revisions & CAD",
   "bim-models": "BIM Models & IFC Viewer",
+  "bim-verification": "BIM & BoQ Verification Hub",
+  "iqsk-rates": "IQSK Construction Costs Handbook",
   "bim-discrepancies": "BIM Discrepancy Register",
   "drone-datasets": "Drone Photogrammetry",
   "satellite-datasets": "Satellite Orthomosaics",
@@ -1120,6 +1126,8 @@ function WorkspaceContent() {
         {tab === "documents" && <ProjectDocuments />}
         {tab === "document-versions" && <DocumentRevisions />}
         {tab === "bim-models" && <BimModels />}
+        {tab === "bim-verification" && <BimVerificationHub />}
+        {tab === "iqsk-rates" && <IQSKRatesHandbook />}
         {tab === "bim-discrepancies" && <BimDiscrepancies />}
         {tab === "drone-datasets" && <DroneDatasets />}
         {tab === "satellite-datasets" && <SatelliteDatasets />}

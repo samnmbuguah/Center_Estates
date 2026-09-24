@@ -41,6 +41,7 @@ const modules = [
 
 const SETTINGS_SUBITEMS = [
   { id: "profile", label: "Profile & Account", icon: "👤", href: "/settings?tab=profile" },
+  { id: "security", label: "Security & Password", icon: "🔒", href: "/settings?tab=security" },
   { id: "notifications", label: "Notifications & Alerts", icon: "🔔", href: "/settings?tab=notifications" },
   { id: "appearance", label: "Display & Regional", icon: "🎨", href: "/settings?tab=appearance" },
 ];

@@ -1,3 +1,5 @@
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -151,7 +153,18 @@ class MemberListCreateView(OrganizationAdminAPIView):
         if error:
             return error
         property_id = request.query_params.get("property")
-        memberships = organization.memberships.filter(status=Membership.Status.ACTIVE).select_related("user").prefetch_related("roles", "assigned_properties")
+        include_inactive = (
+            request.query_params.get("include_inactive", "").lower() in ("true", "1")
+            or request.query_params.get("all", "").lower() in ("true", "1")
+        )
+        status_filter = request.query_params.get("status")
+
+        memberships = organization.memberships.select_related("user").prefetch_related("roles", "assigned_properties")
+        if status_filter:
+            memberships = memberships.filter(status=status_filter)
+        elif not include_inactive:
+            memberships = memberships.filter(status=Membership.Status.ACTIVE)
+
         if property_id:
             from django.db.models import Q
             memberships = memberships.filter(
@@ -187,6 +200,28 @@ class MemberDetailView(OrganizationAdminAPIView):
             membership.phone_number = str(data["phone_number"]).strip()
         if "status" in data and data["status"] in Membership.Status.values:
             membership.status = data["status"]
+            if data["status"] == Membership.Status.SUSPENDED:
+                membership.user.is_active = False
+                membership.user.save(update_fields=["is_active"])
+            elif data["status"] == Membership.Status.ACTIVE:
+                membership.user.is_active = True
+                membership.user.save(update_fields=["is_active"])
+
+        # Enable / Disable account toggle
+        if "is_active" in data:
+            target_is_active = bool(data["is_active"])
+            if membership.user == request.user and not target_is_active:
+                return Response(
+                    {"detail": "You cannot disable your own user account."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            membership.user.is_active = target_is_active
+            membership.user.save(update_fields=["is_active"])
+            if target_is_active:
+                membership.status = Membership.Status.ACTIVE
+            else:
+                membership.status = Membership.Status.SUSPENDED
+
         membership.save()
 
         # Update underlying User record fields
@@ -200,6 +235,22 @@ class MemberDetailView(OrganizationAdminAPIView):
         if "last_name" in data:
             membership.user.last_name = str(data["last_name"]).strip()
             user_updated_fields.append("last_name")
+
+        # Admin reset/change user password
+        new_password = str(data.get("password") or data.get("new_password") or "").strip()
+        if new_password:
+            if len(new_password) < 8:
+                return Response(
+                    {"detail": "Password must be at least 8 characters long."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            try:
+                validate_password(new_password, user=membership.user)
+            except DjangoValidationError as exc:
+                return Response({"detail": " ".join(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+            membership.user.set_password(new_password)
+            user_updated_fields.append("password")
+
         if user_updated_fields:
             membership.user.save(update_fields=user_updated_fields)
 
@@ -224,7 +275,9 @@ class MemberDetailView(OrganizationAdminAPIView):
         if membership.user == request.user:
             return Response({"detail": "You cannot remove your own organization membership."}, status=status.HTTP_400_BAD_REQUEST)
         membership.status = Membership.Status.SUSPENDED
-        membership.save()
+        membership.save(update_fields=["status"])
+        membership.user.is_active = False
+        membership.user.save(update_fields=["is_active"])
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -286,6 +339,22 @@ class CurrentUserProfileView(APIView):
         if "last_name" in data:
             user.last_name = str(data["last_name"]).strip()
             updated_fields.append("last_name")
+
+        if "new_password" in data:
+            current_password = str(data.get("current_password", ""))
+            new_password = str(data.get("new_password", ""))
+            if not current_password or not user.check_password(current_password):
+                return Response({"detail": "Current password is incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+            if len(new_password) < 8:
+                return Response({"detail": "New password must be at least 8 characters long."}, status=status.HTTP_400_BAD_REQUEST)
+            if new_password == current_password:
+                return Response({"detail": "New password cannot be identical to current password."}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                validate_password(new_password, user=user)
+            except DjangoValidationError as exc:
+                return Response({"detail": " ".join(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+            user.set_password(new_password)
+            updated_fields.append("password")
 
         if updated_fields:
             user.save(update_fields=updated_fields)

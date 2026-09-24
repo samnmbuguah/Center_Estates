@@ -10,6 +10,8 @@ import { useCallback } from "react";
 
 import { Search, Moon, Sun, LogOut, HelpCircle, Bug } from "lucide-react";
 import AppSidebar from "@/components/app-sidebar";
+import ModuleIconSidebar from "@/components/module-icon-sidebar";
+import SwitchPropertyModal from "@/components/switch-property-modal";
 import { TelemetryProvider } from "@/components/telemetry-provider";
 import { isPublicRoute } from "@/lib/public-routes";
 import { usePropertyContext } from "@/lib/property-context";
@@ -64,10 +66,53 @@ const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; ico
 export default function PlatformShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+
+  const activeModuleSlug = useMemo(() => {
+    const segment = pathname.split("/")[1] || "";
+    return segment.toLowerCase();
+  }, [pathname]);
+
   const { activeProperty, properties, propertyContextReady, selectProperty } = usePropertyContext();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [propertyModalOpen, setPropertyModalOpen] = useState(false);
+  const [pendingTargetModule, setPendingTargetModule] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
+
+  const handleModuleClick = useCallback((moduleSlug: string) => {
+    if (moduleSlug === activeModuleSlug) return;
+    const skipPrompt = typeof window !== "undefined" && localStorage.getItem("ce_skip_module_property_dialog") === "true";
+    if (skipPrompt) {
+      router.push(`/${moduleSlug}`);
+    } else {
+      setPendingTargetModule(moduleSlug);
+      setPropertyModalOpen(true);
+    }
+  }, [activeModuleSlug, router]);
+
+  const handleContinueCurrent = useCallback(() => {
+    if (pendingTargetModule) {
+      router.push(`/${pendingTargetModule}`);
+      setPendingTargetModule(null);
+    }
+    setPropertyModalOpen(false);
+  }, [pendingTargetModule, router]);
+
+  const handleSwitchProperty = useCallback((selectedProp: any) => {
+    if (selectedProp) {
+      selectProperty(selectedProp);
+    }
+    if (pendingTargetModule) {
+      router.push(`/${pendingTargetModule}`);
+      setPendingTargetModule(null);
+    }
+    setPropertyModalOpen(false);
+  }, [pendingTargetModule, router, selectProperty]);
+
+  const handleOpenDirectPropertySwitch = useCallback(() => {
+    setPendingTargetModule(null);
+    setPropertyModalOpen(true);
+  }, []);
 
   // Listen for custom event to open mobile menu
   useEffect(() => {
@@ -178,11 +223,6 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
     if (!term) return base;
     return base.filter((r) => `${r.name} ${r.detail}`.toLowerCase().includes(term));
   }, [allowedSlugs, query, session?.permissions]);
-
-  const activeModuleSlug = useMemo(() => {
-    const segment = pathname.split("/")[1] || "";
-    return segment.toLowerCase();
-  }, [pathname]);
 
   const activeIdentityGroups = useMemo(() => {
     if (activeModuleSlug === "companion") {
@@ -300,11 +340,21 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
         onCloseMobile={() => setMenuOpen(false)}
       />}
 
+      {moduleWorkspaceActive && (
+        <ModuleIconSidebar
+          activeModuleSlug={activeModuleSlug}
+          allowedSlugs={allowedSlugs}
+          activeProperty={activeProperty}
+          onSwitchPropertyClick={handleOpenDirectPropertySwitch}
+          onModuleClick={handleModuleClick}
+        />
+      )}
+
       <div className="workspace" style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: 0, paddingBottom: "60px" }}>
-        {/* MUI AppBar Header — Increased height (84px) for Property Switcher Dropdown */}
-        <AppBar position="sticky" elevation={0} color="inherit" sx={{ height: 84, display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
+        {/* MUI AppBar Header */}
+        <AppBar position="sticky" elevation={0} color="inherit" sx={{ height: 68, display: "flex", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
           <Toolbar variant="dense" sx={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: { xs: 1, md: 2.5 }, px: { xs: 1.5, md: 3 } }}>
-            {/* Top Navbar Left: Prominent Logo + Property Switcher Dropdown inside Module Workspace */}
+            {/* Top Navbar Left: Prominent Logo */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               {moduleWorkspaceActive && (
                 <BrandLogo
@@ -316,34 +366,6 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                   logoUrl={activeOrganization?.logo_url}
                   primaryColor={activeOrganization?.primary_color}
                 />
-              )}
-              {moduleWorkspaceActive && activeProperty && (
-                <Box sx={{ minWidth: 220 }}>
-                  <select
-                    aria-label="Select property"
-                    value={activeProperty.id}
-                    onChange={(e) => {
-                      const sel = properties.find((p) => p.id === e.target.value);
-                      if (sel) selectProperty(sel);
-                    }}
-                    style={{
-                      padding: "8px 12px",
-                      borderRadius: 8,
-                      border: "1px solid var(--border-color)",
-                      background: "var(--bg-surface, #ffffff)",
-                      color: "var(--text-primary, #000000)",
-                      fontSize: 13,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </Box>
               )}
             </Box>
 
@@ -604,6 +626,18 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
     />
     <CompanionNudgeModal />
     <CommandPalette />
+    <SwitchPropertyModal
+      open={propertyModalOpen}
+      targetModuleSlug={pendingTargetModule}
+      activeProperty={activeProperty}
+      properties={properties}
+      onClose={() => {
+        setPropertyModalOpen(false);
+        setPendingTargetModule(null);
+      }}
+      onContinueCurrent={handleContinueCurrent}
+      onSwitchProperty={handleSwitchProperty}
+    />
   </TelemetryProvider>
   );
 }

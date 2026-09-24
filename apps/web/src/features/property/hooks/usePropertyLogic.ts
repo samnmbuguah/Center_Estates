@@ -867,6 +867,9 @@ export function usePropertyLogic({
       billing_day: Number(raw.billing_day ?? 1),
       status: "draft",
       contract_type: String(raw.contract_type ?? "paper_lease"),
+      rent_rate_per_sqft: String(raw.rent_rate_per_sqft ?? "").trim(),
+      service_charge_rate_per_sqft: String(raw.service_charge_rate_per_sqft ?? "").trim(),
+      service_charge: String(raw.service_charge ?? "").trim(),
     };
     await apiFetch("/auth/csrf/");
     const res = await apiFetch("/property/leases/", {

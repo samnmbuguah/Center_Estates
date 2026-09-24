@@ -29,6 +29,7 @@ from .ingest import (
     ingestion_status,
 )
 from .views.cost_views import cash_flow_forecast, cost_dashboard
+from .views_verification import BimBoqVerifyView, IQSKRateListView, IQSKRateSummaryView
 
 router = DefaultRouter()
 router.register("dashboard", DashboardViewSet, basename="construction-dashboard")
@@ -115,5 +116,11 @@ urlpatterns += [
     # Commercial cost management
     path("projects/<str:project_id>/cost-dashboard", cost_dashboard, name="construction-cost-dashboard"),
     path("projects/<str:project_id>/cash-flow-forecast", cash_flow_forecast, name="construction-cash-flow-forecast"),
+
+    # BIM Drawing vs BoQ Verification & IQSK Cost Rates
+    path("bim/verify-quantities/", BimBoqVerifyView.as_view(), name="construction-bim-verify"),
+    path("iqsk-rates/", IQSKRateListView.as_view(), name="construction-iqsk-rates"),
+    path("iqsk-rates/summary/", IQSKRateSummaryView.as_view(), name="construction-iqsk-rates-summary"),
 ]
+
 

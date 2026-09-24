@@ -21,6 +21,9 @@ import {
   Search,
   ExternalLink,
   Lock,
+  Unlock,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { RoleAccessManager } from "@/components/role-access-manager";
 import { FeedbackQrManager } from "@/components/feedback-qr-manager";
@@ -40,6 +43,7 @@ type MemberItem = {
   phone_number: string;
   is_organization_admin: boolean;
   status: string;
+  is_active?: boolean;
   roles: { id: string; name: string; slug: string }[];
   assigned_properties: { id: string; name: string; code: string }[];
 };
@@ -166,11 +170,19 @@ function AdministrationContent() {
   const [userSearch, setUserSearch] = useState("");
   const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<string>("all");
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>("all");
+  const [userStatusFilter, setUserStatusFilter] = useState<"all" | "active" | "disabled">("all");
 
   // User Management Modals
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [editingMember, setEditingMember] = useState<MemberItem | null>(null);
   const [memberError, setMemberError] = useState<string | null>(null);
+
+  // Admin Reset Password State
+  const [resetPasswordMember, setResetPasswordMember] = useState<MemberItem | null>(null);
+  const [adminNewPassword, setAdminNewPassword] = useState("");
+  const [showAdminNewPassword, setShowAdminNewPassword] = useState(false);
+  const [resetPasswordSaving, setResetPasswordSaving] = useState(false);
+  const [resetPasswordNotice, setResetPasswordNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Matrix Filter / Search State
   const [matrixRoleSearch, setMatrixRoleSearch] = useState("");
@@ -378,7 +390,7 @@ function AdministrationContent() {
     if (!organizationId || (!isSuperAdministrator && !isManagerOrAdmin)) return;
     setLoading(true);
     try {
-      const res = await apiFetch("/access/members/", {}, organizationId);
+      const res = await apiFetch("/access/members/?include_inactive=true", {}, organizationId);
       if (res.ok) {
         const data = await res.json();
         setMembers(Array.isArray(data) ? data : data.results || []);
@@ -834,6 +846,90 @@ function AdministrationContent() {
     }
   }
 
+  // Handle Disable / Enable User Account
+  async function handleToggleAccountStatus(m: MemberItem) {
+    if (!organizationId) return;
+    const isCurrentlyActive = m.is_active !== false && m.status !== "suspended";
+    const actionText = isCurrentlyActive ? "disable" : "enable";
+    const confirmAction = window.confirm(
+      isCurrentlyActive
+        ? `Are you sure you want to DISABLE the account for '${m.full_name || m.username}'? They will be immediately blocked from signing in.`
+        : `Are you sure you want to ENABLE and restore access for '${m.full_name || m.username}'?`
+    );
+    if (!confirmAction) return;
+
+    setSaving(true);
+    setNotice(null);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(
+        `/access/members/${m.id}/`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({ is_active: !isCurrentlyActive }),
+        },
+        organizationId
+      );
+      if (res.ok) {
+        setNotice({
+          type: "success",
+          text: `Account for ${m.full_name || m.username} has been ${isCurrentlyActive ? "disabled" : "enabled"}.`,
+        });
+        await loadMembers();
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setNotice({ type: "error", text: String(body.detail || `Failed to ${actionText} user account.`) });
+      }
+    } catch {
+      setNotice({ type: "error", text: `Network error while attempting to ${actionText} user account.` });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Handle Admin Reset Password Submit
+  async function handleAdminResetPassword(e: FormEvent) {
+    e.preventDefault();
+    if (!organizationId || !resetPasswordMember) return;
+    if (adminNewPassword.length < 8) {
+      setResetPasswordNotice({ type: "error", text: "New password must be at least 8 characters long." });
+      return;
+    }
+    setResetPasswordSaving(true);
+    setResetPasswordNotice(null);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(
+        `/access/members/${resetPasswordMember.id}/`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({ password: adminNewPassword.trim() }),
+        },
+        organizationId
+      );
+      if (res.ok) {
+        setNotice({
+          type: "success",
+          text: `Password for ${resetPasswordMember.full_name || resetPasswordMember.username} successfully updated!`,
+        });
+        setResetPasswordMember(null);
+        setAdminNewPassword("");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setResetPasswordNotice({
+          type: "error",
+          text: String(body.detail || body.password || "Failed to update user password."),
+        });
+      }
+    } catch {
+      setResetPasswordNotice({ type: "error", text: "Network error occurred while resetting password." });
+    } finally {
+      setResetPasswordSaving(false);
+    }
+  }
+
   // Save M-Pesa Gateway Settings (create or update)
   async function handleSaveMpesa(e: FormEvent) {
     e.preventDefault();
@@ -922,6 +1018,11 @@ function AdministrationContent() {
   // Filtered Members for Tab 1
   const filteredMembers = useMemo(() => {
     return members.filter((m) => {
+      if (userStatusFilter === "active") {
+        if (m.is_active === false || m.status === "suspended") return false;
+      } else if (userStatusFilter === "disabled") {
+        if (m.is_active !== false && m.status !== "suspended") return false;
+      }
       if (selectedPropertyFilter !== "all") {
         if (!m.is_organization_admin && !m.assigned_properties?.some((p) => p.id === selectedPropertyFilter)) {
           return false;
@@ -943,11 +1044,13 @@ function AdministrationContent() {
       }
       return true;
     });
-  }, [members, selectedPropertyFilter, selectedRoleFilter, userSearch]);
+  }, [members, userStatusFilter, selectedPropertyFilter, selectedRoleFilter, userSearch]);
 
   const totalUsers = members.length;
   const adminCount = members.filter((m) => m.is_organization_admin).length;
   const staffCount = totalUsers - adminCount;
+  const activeCount = members.filter((m) => m.is_active !== false && m.status !== "suspended").length;
+  const disabledCount = members.filter((m) => m.is_active === false || m.status === "suspended").length;
 
   if (!mounted) {
     return <div style={{ padding: 40, textAlign: "center", color: "var(--muted)" }}>Loading administration…</div>;
@@ -1027,11 +1130,12 @@ function AdministrationContent() {
       {tab === "users" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* KPI Strip */}
-          <KpiStrip cols={4}>
+          <KpiStrip cols={5}>
             <KpiCard icon="👥" iconBg="var(--color-indigo-bg)" iconColor="var(--color-indigo)" label="Total System Users" value={String(totalUsers)} sub="Organization members" />
+            <KpiCard icon="✅" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Active Accounts" value={String(activeCount)} sub="Can sign in & operate" />
+            <KpiCard icon="🚫" iconBg="rgba(239, 68, 68, 0.12)" iconColor="var(--color-danger)" label="Disabled Accounts" value={String(disabledCount)} sub="Login access blocked" />
             <KpiCard icon="🛡️" iconBg="var(--color-amber-bg)" iconColor="var(--color-amber-strong)" label="Super Administrators" value={String(adminCount)} sub="Portfolio-wide access" />
-            <KpiCard icon="💼" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky)" label="Operational Staff" value={String(staffCount)} sub="Scoped to properties" />
-            <KpiCard icon="🔐" iconBg="var(--color-green-bg)" iconColor="var(--color-success)" label="Configured Roles" value={String(roles.length)} sub="Active RBAC roles" />
+            <KpiCard icon="🔐" iconBg="var(--color-sky-bg)" iconColor="var(--color-sky)" label="Configured Roles" value={String(roles.length)} sub="Active RBAC roles" />
           </KpiStrip>
 
           {/* User Table Card */}
@@ -1039,11 +1143,39 @@ function AdministrationContent() {
             {/* Filter & Search Bar */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid var(--border)" }}>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", flex: 1 }}>
-                <div style={{ position: "relative", minWidth: 260 }}>
+                {/* Status Segmented Filter */}
+                <div style={{ display: "inline-flex", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-sunken)", padding: 2 }}>
+                  {[
+                    { id: "all", label: `All (${totalUsers})` },
+                    { id: "active", label: `Active (${activeCount})` },
+                    { id: "disabled", label: `Disabled (${disabledCount})` },
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setUserStatusFilter(s.id as "all" | "active" | "disabled")}
+                      style={{
+                        padding: "5px 12px",
+                        fontSize: 12,
+                        fontWeight: userStatusFilter === s.id ? 700 : 500,
+                        border: "none",
+                        borderRadius: 4,
+                        background: userStatusFilter === s.id ? "var(--surface)" : "transparent",
+                        color: userStatusFilter === s.id ? "var(--primary, var(--color-danger))" : "var(--muted)",
+                        boxShadow: userStatusFilter === s.id ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ position: "relative", minWidth: 240 }}>
                   <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
                   <input
                     type="search"
-                    placeholder="Search by name, username, email or phone…"
+                    placeholder="Search name, username, email…"
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
                     style={{ width: "100%", paddingLeft: 32, paddingRight: 12, height: 36, borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-sunken)", fontSize: 13 }}
@@ -1056,7 +1188,7 @@ function AdministrationContent() {
                   onChange={(e) => setSelectedPropertyFilter(e.target.value)}
                   style={{ height: 36, padding: "0 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface-sunken)", fontSize: 13 }}
                 >
-                  <option value="all">🏢 All Properties / Scopes</option>
+                  <option value="all">🏢 All Properties</option>
                   {properties.map((p) => (
                     <option key={p.id} value={p.id}>
                       🏢 {p.name} ({p.code})
@@ -1078,12 +1210,13 @@ function AdministrationContent() {
                   ))}
                 </select>
 
-                {(userSearch || selectedPropertyFilter !== "all" || selectedRoleFilter !== "all") && (
+                {(userSearch || selectedPropertyFilter !== "all" || selectedRoleFilter !== "all" || userStatusFilter !== "all") && (
                   <button
                     onClick={() => {
                       setUserSearch("");
                       setSelectedPropertyFilter("all");
                       setSelectedRoleFilter("all");
+                      setUserStatusFilter("all");
                     }}
                     style={{ border: "none", background: "none", color: "var(--muted)", textDecoration: "underline", cursor: "pointer", fontSize: 12 }}
                   >
@@ -1124,7 +1257,7 @@ function AdministrationContent() {
                   </thead>
                   <tbody>
                     {filteredMembers.map((m) => (
-                      <tr key={m.id} style={{ borderBottom: "1px solid var(--border)", transition: "background 0.15s" }}>
+                      <tr key={m.id} style={{ borderBottom: "1px solid var(--border)", background: (m.is_active === false || m.status === "suspended") ? "rgba(241, 245, 249, 0.5)" : "transparent", transition: "background 0.15s" }}>
                         <td style={{ padding: "12px 14px", verticalAlign: "top" }}>
                           <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                             <span
@@ -1141,13 +1274,14 @@ function AdministrationContent() {
                                 fontSize: 13,
                                 fontWeight: 700,
                                 boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                opacity: (m.is_active === false || m.status === "suspended") ? 0.6 : 1,
                               }}
                             >
                               {(m.first_name?.[0] || m.username?.[0] || "U").toUpperCase()}
                             </span>
                             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                                <strong style={{ fontSize: 14, color: "var(--text)" }}>
+                                <strong style={{ fontSize: 14, color: (m.is_active === false || m.status === "suspended") ? "var(--muted)" : "var(--text)" }}>
                                   {m.full_name || m.username}
                                 </strong>
                                 <span className="mono" style={{ fontSize: 11, color: "var(--muted)", background: "var(--surface-sunken)", padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)" }}>
@@ -1156,6 +1290,15 @@ function AdministrationContent() {
                                 {m.is_organization_admin && (
                                   <span style={{ fontSize: 10, fontWeight: 700, background: "var(--color-amber-bg)", color: "var(--color-amber-strong)", padding: "1px 6px", borderRadius: 10 }}>
                                     Super Admin
+                                  </span>
+                                )}
+                                {(m.is_active === false || m.status === "suspended") ? (
+                                  <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(239, 68, 68, 0.12)", color: "var(--color-danger)", padding: "2px 7px", borderRadius: 10, border: "1px solid rgba(239, 68, 68, 0.3)", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                    <span>🚫</span> Disabled
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: 10, fontWeight: 700, background: "rgba(16, 185, 129, 0.12)", color: "var(--color-emerald, #059669)", padding: "2px 7px", borderRadius: 10, border: "1px solid rgba(16, 185, 129, 0.3)", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                                    <span>●</span> Active
                                   </span>
                                 )}
                               </div>
@@ -1243,15 +1386,60 @@ function AdministrationContent() {
                           </div>
                         </td>
                         <td style={{ padding: "12px 14px", verticalAlign: "top", textAlign: "right" }}>
-                          <div style={{ display: "inline-flex", gap: 8, alignItems: "center", justifyContent: "flex-end" }}>
+                          <div style={{ display: "inline-flex", gap: 6, alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap" }}>
                             <button
                               className="btn ghost sm"
                               style={{
-                                padding: "6px 12px",
+                                padding: "5px 10px",
                                 fontSize: 12,
                                 display: "inline-flex",
                                 alignItems: "center",
-                                gap: 6,
+                                gap: 5,
+                                fontWeight: 600,
+                                borderRadius: 6,
+                                border: "1px solid var(--border)",
+                              }}
+                              onClick={() => {
+                                setResetPasswordMember(m);
+                                setAdminNewPassword("");
+                                setResetPasswordNotice(null);
+                              }}
+                              title="Reset User Password"
+                            >
+                              <Key size={13} color="var(--color-sky-deep, #0284c7)" />
+                              <span>Reset Pwd</span>
+                            </button>
+                            <button
+                              className="btn ghost sm"
+                              style={{
+                                padding: "5px 10px",
+                                fontSize: 12,
+                                color: (m.is_active === false || m.status === "suspended") ? "var(--color-emerald, #059669)" : "var(--color-amber-strong, #b45309)",
+                                background: (m.is_active === false || m.status === "suspended") ? "rgba(16, 185, 129, 0.08)" : "rgba(245, 158, 11, 0.08)",
+                                border: `1px solid ${(m.is_active === false || m.status === "suspended") ? "rgba(16, 185, 129, 0.3)" : "rgba(245, 158, 11, 0.3)"}`,
+                                borderRadius: 6,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
+                                fontWeight: 600,
+                                cursor: (m.user_id === session?.user?.id || m.username === session?.user?.username) ? "not-allowed" : "pointer",
+                                opacity: (m.user_id === session?.user?.id || m.username === session?.user?.username) ? 0.4 : 1,
+                              }}
+                              disabled={m.user_id === session?.user?.id || m.username === session?.user?.username}
+                              onClick={() => handleToggleAccountStatus(m)}
+                              title={(m.user_id === session?.user?.id || m.username === session?.user?.username) ? "Cannot disable own account" : (m.is_active === false || m.status === "suspended") ? "Enable user login" : "Disable user login"}
+                            >
+                              {(m.is_active === false || m.status === "suspended") ? <Unlock size={13} /> : <Lock size={13} />}
+                              <span>{(m.is_active === false || m.status === "suspended") ? "Enable" : "Disable"}</span>
+                            </button>
+                            <button
+                              className="btn ghost sm"
+                              style={{
+                                padding: "5px 10px",
+                                fontSize: 12,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 5,
                                 fontWeight: 600,
                                 borderRadius: 6,
                                 border: "1px solid var(--border)",
@@ -1260,12 +1448,12 @@ function AdministrationContent() {
                               title="Edit Role & Property Matrix"
                             >
                               <Edit2 size={13} />
-                              <span>Edit Matrix</span>
+                              <span>Matrix</span>
                             </button>
                             <button
                               className="btn ghost sm"
                               style={{
-                                padding: "6px 10px",
+                                padding: "5px 8px",
                                 fontSize: 12,
                                 color: "var(--color-danger)",
                                 background: "rgba(220, 38, 38, 0.06)",
@@ -1273,7 +1461,7 @@ function AdministrationContent() {
                                 borderRadius: 6,
                                 display: "inline-flex",
                                 alignItems: "center",
-                                gap: 5,
+                                gap: 4,
                                 fontWeight: 600,
                                 cursor: "pointer",
                               }}
@@ -1281,7 +1469,6 @@ function AdministrationContent() {
                               title="Remove user from organization"
                             >
                               <Trash2 size={13} color="var(--color-danger)" />
-                              <span>Delete</span>
                             </button>
                           </div>
                         </td>
@@ -2997,6 +3184,117 @@ function AdministrationContent() {
               </button>
               <button type="submit" className="btn primary" disabled={saving} style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)", padding: "10px 22px", fontWeight: 800 }}>
                 {saving ? "Saving Changes…" : "Save Matrix Changes"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL: ADMIN RESET USER PASSWORD */}
+      {resetPasswordMember && (
+        <Modal
+          title={`Reset Password — ${resetPasswordMember.full_name || resetPasswordMember.username}`}
+          onClose={() => {
+            setResetPasswordMember(null);
+            setAdminNewPassword("");
+            setResetPasswordNotice(null);
+          }}
+        >
+          <form onSubmit={handleAdminResetPassword} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 14, background: "var(--surface-sunken)", borderRadius: 10, border: "1px solid var(--border)" }}>
+              <span style={{ fontSize: 24 }}>🔐</span>
+              <div>
+                <strong style={{ fontSize: 13, display: "block" }}>
+                  Resetting credentials for @{resetPasswordMember.username}
+                </strong>
+                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                  The user will be required to use this new password immediately upon next login.
+                </span>
+              </div>
+            </div>
+
+            {resetPasswordNotice && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  background: resetPasswordNotice.type === "success" ? "rgba(22, 163, 74, 0.1)" : "rgba(220, 38, 38, 0.1)",
+                  color: resetPasswordNotice.type === "success" ? "var(--color-success)" : "var(--color-danger)",
+                  border: `1px solid ${resetPasswordNotice.type === "success" ? "var(--color-green-300)" : "var(--color-red-300)"}`,
+                }}
+              >
+                {resetPasswordNotice.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{resetPasswordNotice.text}</span>
+              </div>
+            )}
+
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 700 }}>
+                  New Password <span style={{ color: "var(--color-danger)" }}>*</span>:
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*";
+                    let gen = "";
+                    for (let i = 0; i < 12; i++) {
+                      gen += chars.charAt(Math.floor(Math.random() * chars.length));
+                    }
+                    setAdminNewPassword(gen);
+                    setShowAdminNewPassword(true);
+                  }}
+                  style={{ background: "none", border: "none", color: "var(--color-sky-deep, #0284c7)", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+                >
+                  ⚡ Generate Strong Password
+                </button>
+              </div>
+              <div style={{ position: "relative" }}>
+                <input
+                  type={showAdminNewPassword ? "text" : "password"}
+                  value={adminNewPassword}
+                  onChange={(e) => setAdminNewPassword(e.target.value)}
+                  placeholder="Enter new password (min. 8 characters)"
+                  required
+                  style={{ width: "100%", padding: "9px 38px 9px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--surface)" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAdminNewPassword(!showAdminNewPassword)}
+                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 4 }}
+                  title={showAdminNewPassword ? "Hide password" : "Show password"}
+                >
+                  {showAdminNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <small style={{ color: adminNewPassword.length > 0 && adminNewPassword.length < 8 ? "var(--color-danger)" : "var(--muted)", fontSize: 11, marginTop: 4, display: "block" }}>
+                Minimum 8 characters. Must contain letters and numbers.
+              </small>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => {
+                  setResetPasswordMember(null);
+                  setAdminNewPassword("");
+                  setResetPasswordNotice(null);
+                }}
+                disabled={resetPasswordSaving}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn primary"
+                disabled={resetPasswordSaving || adminNewPassword.trim().length < 8}
+                style={{ background: "var(--color-danger)", borderColor: "var(--color-danger)", padding: "9px 20px", fontWeight: 700 }}
+              >
+                {resetPasswordSaving ? "Updating Password…" : "Save New Password"}
               </button>
             </div>
           </form>

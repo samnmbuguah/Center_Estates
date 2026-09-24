@@ -10,6 +10,7 @@ import {
   DollarSign, Landmark, Users, Plus, Trash2, Edit3, HelpCircle, Layers,
   CreditCard, Sparkles, RefreshCw, KeyRound, Check, FileText
 } from "lucide-react";
+import { OnboardingChecklistModal } from "./OnboardingChecklistModal";
 
 interface BlockItem {
   name: string;
@@ -46,6 +47,7 @@ interface UnitItem {
   letting_fee_amount: string;
   // Optional tenant details
   tenant_name?: string;
+  rent_rate_per_sqft?: string;
   monthly_rent?: string;
   lease_starts_on?: string;
   lease_ends_on?: string;
@@ -128,6 +130,8 @@ export function SectionalTitleOnboardingModal({
     { name: "Block A", floors: 4 },
     { name: "Block B", floors: 4 },
   ]);
+
+  const [showChecklist, setShowChecklist] = useState(false);
 
   // Step 3 & 4: Units & Owners
   const [owners, setOwners] = useState<OwnerItem[]>([
@@ -378,6 +382,11 @@ export function SectionalTitleOnboardingModal({
           rental_commission_rate: u.rental_commission_rate || "10.00",
           common_area_fee_amount: u.common_area_fee_amount || "0.00",
           letting_fee_amount: u.letting_fee_amount || "0.00",
+          tenant_name: u.tenant_name || null,
+          rent_rate_per_sqft: u.rent_rate_per_sqft || null,
+          monthly_rent: u.monthly_rent || null,
+          lease_starts_on: u.lease_starts_on || null,
+          lease_ends_on: u.lease_ends_on || null,
         })),
         fee_profiles: feeProfiles,
         collection_accounts: collectionAccounts,
@@ -514,6 +523,47 @@ export function SectionalTitleOnboardingModal({
         {/* Step 1: Property Profile */}
         {currentStep === 1 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 12,
+              background: "rgba(99, 102, 241, 0.08)",
+              border: "1px solid rgba(99, 102, 241, 0.25)",
+              borderRadius: 8,
+              padding: "12px 16px",
+            }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)" }}>
+                  Need the Sectional Title Onboarding Documentation List?
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+                  Download the official checklist for sectional plans, bylaws, KRA PIN, and unit schedules before completing setup.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowChecklist(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "var(--color-indigo-strong)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "7px 14px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  boxShadow: "0 2px 8px rgba(99, 102, 241, 0.25)",
+                }}
+              >
+                <FileText size={14} /> Download Checklist
+              </button>
+            </div>
+
             <div style={{ fontSize: 14, color: "var(--muted)" }}>
               Define the master estate or complex profile under Sectional Properties Act management.
             </div>
@@ -1038,8 +1088,10 @@ export function SectionalTitleOnboardingModal({
                 <thead>
                   <tr>
                     <th>Unit</th>
+                    <th>Area (sqft)</th>
                     <th>Mandate</th>
                     <th>Tenant Name</th>
+                    <th>Rate / Sqft (KES)</th>
                     <th>Monthly Rent (KES)</th>
                     <th>Lease Starts</th>
                     <th>Lease Ends</th>
@@ -1049,6 +1101,9 @@ export function SectionalTitleOnboardingModal({
                   {units.map((u, i) => (
                     <tr key={i}>
                       <td><span style={{ fontWeight: 600 }}>{u.code}</span></td>
+                      <td style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                        {u.area ? `${Number(u.area).toLocaleString()} sqft` : "—"}
+                      </td>
                       <td>
                         <StatusPill
                           value={u.management_mandate === "both" || u.management_mandate === "rental_management" ? "active" : "draft"}
@@ -1068,14 +1123,47 @@ export function SectionalTitleOnboardingModal({
                       </td>
                       <td>
                         <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={u.rent_rate_per_sqft ?? ""}
+                          onChange={(e) => {
+                            const rateVal = e.target.value;
+                            const areaNum = parseFloat(u.area || "0");
+                            const r = parseFloat(rateVal);
+                            const autoRent = !isNaN(r) && !isNaN(areaNum) && areaNum > 0 ? (areaNum * r).toFixed(2) : u.monthly_rent;
+                            setUnits((prev) => prev.map((it, idx) => idx === i ? {
+                              ...it,
+                              rent_rate_per_sqft: rateVal,
+                              monthly_rent: !isNaN(r) && !isNaN(areaNum) && areaNum > 0 ? autoRent : it.monthly_rent,
+                            } : it));
+                          }}
+                          placeholder="Rate/sqft"
+                          title="Rate per sqft (auto-computes monthly rent if unit area is set)"
+                          disabled={u.management_mandate === "common_area_only" || u.management_mandate === "none"}
+                          style={{ width: 90, padding: "4px 8px" }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
                           value={u.monthly_rent ?? ""}
                           onChange={(e) => {
-                            const val = e.target.value;
-                            setUnits((prev) => prev.map((it, idx) => idx === i ? { ...it, monthly_rent: val } : it));
+                            const rentVal = e.target.value;
+                            const areaNum = parseFloat(u.area || "0");
+                            const m = parseFloat(rentVal);
+                            const autoRate = !isNaN(m) && !isNaN(areaNum) && areaNum > 0 ? (m / areaNum).toFixed(2) : u.rent_rate_per_sqft;
+                            setUnits((prev) => prev.map((it, idx) => idx === i ? {
+                              ...it,
+                              monthly_rent: rentVal,
+                              rent_rate_per_sqft: !isNaN(m) && !isNaN(areaNum) && areaNum > 0 ? autoRate : it.rent_rate_per_sqft,
+                            } : it));
                           }}
                           placeholder="e.g. 45000"
                           disabled={u.management_mandate === "common_area_only" || u.management_mandate === "none"}
-                          style={{ width: 100, padding: "4px 8px" }}
+                          style={{ width: 105, padding: "4px 8px" }}
                         />
                       </td>
                       <td>
@@ -1470,6 +1558,14 @@ export function SectionalTitleOnboardingModal({
           </div>
         </div>
       </div>
+
+      <OnboardingChecklistModal
+        open={showChecklist}
+        onClose={() => setShowChecklist(false)}
+        defaultScope="both"
+        defaultPropertyType="sectional_title"
+        initialPropertyName={propName}
+      />
     </Modal>
   );
 }

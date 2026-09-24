@@ -1693,6 +1693,50 @@ class PasswordResetRequestView(APIView):
         return Response({'detail': 'If an account with that email exists, you will receive a reset link shortly.'})
 
 
+class ChangePasswordView(APIView):
+    """
+    Allow an authenticated user to change their own password.
+    Requires current password verification and validates new password strength.
+    """
+    permission_classes = (IsAuthenticated,)
+
+    @extend_schema(request=None, responses={200: {'type': 'object'}, 400: {'type': 'object'}})
+    def post(self, request):
+        user = request.user
+        data = request.data
+        current_password = str(data.get('current_password', ''))
+        new_password = str(data.get('new_password', ''))
+        confirm_password = str(data.get('confirm_password', ''))
+
+        errors = {}
+        if not current_password:
+            errors['current_password'] = ['Current password is required.']
+        elif not user.check_password(current_password):
+            errors['current_password'] = ['Current password is incorrect.']
+
+        if not new_password:
+            errors['new_password'] = ['New password is required.']
+        elif len(new_password) < 8:
+            errors['new_password'] = ['Password must be at least 8 characters long.']
+        elif current_password and new_password == current_password:
+            errors['new_password'] = ['New password cannot be identical to current password.']
+        elif confirm_password and new_password != confirm_password:
+            errors['confirm_password'] = ['New password confirmation does not match.']
+
+        if errors:
+            return Response(errors, status=400)
+
+        try:
+            validate_password(new_password, user=user)
+        except DjangoValidationError as exc:
+            return Response({'new_password': list(exc.messages)}, status=400)
+
+        user.set_password(new_password)
+        user.save(update_fields=['password'])
+
+        return Response({'detail': 'Password changed successfully.'}, status=200)
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class ClientErrorView(APIView):
     """Receive client-side error reports from the frontend.

@@ -24,3 +24,4 @@ infrastructure/docker/secrets/
 # Retained standalone migration sources; do not absorb their histories/files yet.
 MonitoringERP/
 Visitor_Management/
+937126954-*.pdf

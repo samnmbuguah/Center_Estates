@@ -608,6 +608,7 @@ class TenantPortalAccessSerializer(serializers.ModelSerializer):
 class LeaseSerializer(serializers.ModelSerializer):
     tenant_name = serializers.CharField(source='tenant.name', read_only=True)
     unit_code = serializers.CharField(source='unit.code', read_only=True)
+    unit_area = serializers.DecimalField(source='unit.area', max_digits=12, decimal_places=2, read_only=True)
     property_name = serializers.CharField(source='unit.property.name', read_only=True)
     class Meta:
         model = Lease

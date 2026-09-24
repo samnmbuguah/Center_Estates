@@ -348,12 +348,15 @@ export const constructionNav: ModuleNavGroup[] = [
     items: [
       { id: "documents", label: "Documents", icon: "📁" },
       { id: "document-versions", label: "Document Revisions", icon: "📑" },
+      { id: "bim-verification", label: "BIM & BoQ Verification Hub", icon: "📐" },
+      { id: "iqsk-rates", label: "IQSK Cost Handbook", icon: "📖" },
       { id: "bim-models", label: "BIM Models", icon: "🧊" },
       { id: "bim-discrepancies", label: "BIM Issues", icon: "⚠️" },
       { id: "drone-datasets", label: "Drone Surveys", icon: "🚁" },
       { id: "satellite-datasets", label: "Satellite", icon: "🛰️" },
     ],
   },
+
   {
     label: "INSIGHTS & COLLABORATION",
     icon: "◌",

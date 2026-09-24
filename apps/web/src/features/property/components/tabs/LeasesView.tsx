@@ -21,6 +21,7 @@ import {
 } from "../../utils/property.utils";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
+import { usePropertyContext } from "@/lib/property-context";
 import { Zap, CheckSquare, Layers, AlertCircle, CheckCircle2, Sparkles, FileText, Upload } from "lucide-react";
 import { BulkLeaseImporter } from "../BulkLeaseImporter";
 
@@ -62,6 +63,7 @@ export function LeasesView({
 }) {
   const { session } = useAuth();
   const org = session?.activeOrganizationId ?? null;
+  const { activeProperty } = usePropertyContext();
   const handleAdd = onAdd || onAddLease || (() => {});
 
   const [filterStatus, setFilterStatus] = useState("");
@@ -71,16 +73,43 @@ export function LeasesView({
   const [showImport, setShowImport] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkNotice, setBulkNotice] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [exportingCsv, setExportingCsv] = useState(false);
+
+  const handleExportTenancySchedule = async () => {
+    if (!org) return;
+    setExportingCsv(true);
+    try {
+      const propParam = activeProperty?.id ? `&property=${encodeURIComponent(activeProperty.id)}` : "";
+      const response = await apiFetch(`/property/analytics/exports/tenancy-schedule/?output=csv${propParam}`, {}, org);
+      if (!response.ok) throw new Error("Failed to export tenancy schedule");
+      const disposition = response.headers.get("content-disposition") ?? "";
+      const filename = disposition.match(/filename="?([^";]+)"?/)?.[1] ?? `tenancy-schedule.csv`;
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to export tenancy schedule:", err);
+    } finally {
+      setExportingCsv(false);
+    }
+  };
 
   // Single Lease Edit State
   const [editTarget, setEditTarget] = useState<LeaseRow | null>(null);
   const [editStartsOn, setEditStartsOn] = useState("");
   const [editEndsOn, setEditEndsOn] = useState("");
   const [editMonthlyRent, setEditMonthlyRent] = useState("");
+  const [editRentRate, setEditRentRate] = useState("");
+  const [editUnitArea, setEditUnitArea] = useState<number>(0);
   const [editDeposit, setEditDeposit] = useState("");
   const [editEscalation, setEditEscalation] = useState("");
   const [editInterval, setEditInterval] = useState("12");
   const [editBillingDay, setEditBillingDay] = useState("1");
+  const [editWaterPayer, setEditWaterPayer] = useState("tenant");
+  const [editWaterLoading, setEditWaterLoading] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState("");
 
@@ -128,6 +157,47 @@ export function LeasesView({
     setEditInterval(String(l.escalation_interval_months || "12"));
     setEditBillingDay(String(l.billing_day || "1"));
     setEditError("");
+
+    const rawArea = (l as any).unit_area ?? (l as any).unit?.area ?? (l as any).area;
+    const parsedArea = rawArea ? parseFloat(String(rawArea).replace(/,/g, "")) : 0;
+    const validArea = !isNaN(parsedArea) && parsedArea > 0 ? parsedArea : 0;
+    setEditUnitArea(validArea);
+    if (validArea > 0 && l.monthly_rent) {
+      setEditRentRate((Number(l.monthly_rent) / validArea).toFixed(2));
+    } else {
+      setEditRentRate("");
+    }
+
+    const initialWaterPayer = (l as any).unit_water_payer || (l as any).unit?.water_payer || (l as any).water_payer || "tenant";
+    setEditWaterPayer(String(initialWaterPayer));
+    if (l.unit) {
+      setEditWaterLoading(true);
+      apiFetch(`/property/units/${l.unit}/`, {}, org)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data?.water_payer) {
+            setEditWaterPayer(String(data.water_payer));
+          }
+        })
+        .catch(() => null)
+        .finally(() => setEditWaterLoading(false));
+    }
+  };
+
+  const handleEditRentRateChange = (val: string) => {
+    setEditRentRate(val);
+    const r = parseFloat(val);
+    if (!isNaN(r) && editUnitArea > 0) {
+      setEditMonthlyRent((editUnitArea * r).toFixed(2));
+    }
+  };
+
+  const handleEditMonthlyRentChange = (val: string) => {
+    setEditMonthlyRent(val);
+    const m = parseFloat(val);
+    if (!isNaN(m) && editUnitArea > 0) {
+      setEditRentRate((m / editUnitArea).toFixed(2));
+    }
   };
 
   const handleEditSubmit = async (e: FormEvent) => {
@@ -151,6 +221,13 @@ export function LeasesView({
         body: JSON.stringify(payload),
       }, org);
       if (res.ok) {
+        if (editTarget.unit) {
+          await apiFetch(`/property/units/${editTarget.unit}/`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ water_payer: editWaterPayer }),
+          }, org).catch(() => null);
+        }
         setEditTarget(null);
         onRefresh();
       } else {
@@ -329,14 +406,14 @@ export function LeasesView({
           <option value="">All Status</option>
           {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
-        <button className="btn ghost sm" onClick={() => exportCsv(filtered, [
-          { key: "reference", label: "Reference" }, { key: "tenant_name", label: "Tenant" },
-          { key: "unit_code", label: "Unit" },
-          { key: "starts_on", label: "Start" }, { key: "ends_on", label: "End" },
-          { key: "monthly_rent", label: "Monthly Rent" }, { key: "deposit", label: "Deposit" },
-          { key: "escalation_percent", label: "Escalation %" }, { key: "status", label: "Status" },
-          { key: "outstanding", label: "Outstanding" },
-        ], "leases.csv")}>Export CSV</button>
+        <button
+          className="btn ghost sm"
+          onClick={() => void handleExportTenancySchedule()}
+          disabled={exportingCsv}
+          title="Export the official Tenancy Schedule matching the reports tab"
+        >
+          {exportingCsv ? "Exporting…" : "Export CSV"}
+        </button>
         <button className="btn ghost sm" onClick={() => exportLeaseICS(filtered)} title="Export leases to Outlook/Google Calendar">📅 Export Calendar</button>
       </ViewToolbar>
 
@@ -755,7 +832,50 @@ export function LeasesView({
               </Field>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            {editUnitArea > 0 && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 8,
+                  border: "1px solid var(--color-blue-200, #bfdbfe)",
+                  background: "var(--color-blue-50, #eff6ff)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  fontSize: 13,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>📐</span>
+                  <span style={{ color: "#1e3a8a", fontWeight: 700 }}>
+                    Unit Area: {editUnitArea.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} sqft
+                  </span>
+                  <span style={{ color: "#2563eb" }}>— Enter rate per sqft to auto-calculate contract rent</span>
+                </div>
+                {editRentRate && editMonthlyRent && (
+                  <span style={{ background: "#dbeafe", color: "#1e40af", padding: "2px 8px", borderRadius: 4, fontWeight: 700, fontSize: 12 }}>
+                    {editUnitArea.toLocaleString()} sqft × KES {editRentRate} = KES {Number(editMonthlyRent).toLocaleString(undefined, { minimumFractionDigits: 2 })}/mo
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: editUnitArea > 0 ? "1fr 1fr 1fr" : "1fr 1fr", gap: 14 }}>
+              {editUnitArea > 0 && (
+                <Field label="Rent Rate / SqFt (KES/sqft)">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g. 132.94"
+                    value={editRentRate}
+                    onChange={(e) => handleEditRentRateChange(e.target.value)}
+                  />
+                </Field>
+              )}
+
               <Field label="Monthly Contract Rent (KES)" required>
                 <input
                   type="number"
@@ -764,7 +884,7 @@ export function LeasesView({
                   step="0.01"
                   placeholder="e.g. 50000"
                   value={editMonthlyRent}
-                  onChange={(e) => setEditMonthlyRent(e.target.value)}
+                  onChange={(e) => handleEditMonthlyRentChange(e.target.value)}
                 />
               </Field>
 
@@ -811,6 +931,51 @@ export function LeasesView({
                   onChange={(e) => setEditBillingDay(e.target.value)}
                 />
               </Field>
+            </div>
+
+            {/* Unit Utility & Water Responsibility */}
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 8,
+                background: editWaterPayer === "owner" ? "rgba(16, 185, 129, 0.08)" : "rgba(245, 158, 11, 0.08)",
+                border: editWaterPayer === "owner" ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid rgba(245, 158, 11, 0.3)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>💧</span> Unit Utility & Water Payer ({editTarget.unit_code || "Unit"})
+                </span>
+                {editWaterLoading && <span style={{ fontSize: 11, color: "var(--muted)" }}>Loading unit settings…</span>}
+              </div>
+
+              <Field label="Who Pays Water Meter Charges?">
+                <select
+                  value={editWaterPayer}
+                  onChange={(e) => setEditWaterPayer(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 10px",
+                    borderRadius: 6,
+                    border: "1px solid var(--border)",
+                    background: "var(--surface)",
+                    fontSize: 13,
+                    color: "var(--text-main)",
+                  }}
+                >
+                  <option value="owner">Landlord / Owner (Landlord pays water — rent is NEVER blocked)</option>
+                  <option value="tenant">Tenant (Billed via Water Meter Readings — blocks rent until reading is logged)</option>
+                </select>
+              </Field>
+
+              <div style={{ fontSize: 11, color: editWaterPayer === "owner" ? "var(--color-emerald, #10b981)" : "var(--color-amber-deep, #b45309)" }}>
+                {editWaterPayer === "owner"
+                  ? "✓ Landlord pays water: Meter readings will NOT block monthly rent generation for this tenancy."
+                  : "⚠️ Tenant pays water: Under Consolidated Billing, monthly rent invoices will be put ON HOLD until this unit's water meter reading is recorded."}
+              </div>
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>

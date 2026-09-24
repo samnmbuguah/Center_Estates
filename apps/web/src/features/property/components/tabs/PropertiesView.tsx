@@ -16,8 +16,9 @@ import type {
 import {
   kM, kN, pct, occupancyTone,
 } from "../../utils/property.utils";
-import { Building2, DollarSign, Users, Layers, CheckCircle2, Plus, FileText, MoreHorizontal, Pencil, Home, UserRound, ReceiptText } from "lucide-react";
+import { Building2, DollarSign, Users, Layers, CheckCircle2, Plus, FileText, MoreHorizontal, Pencil, Home, UserRound, ReceiptText, ClipboardCheck } from "lucide-react";
 import { PropertyDossierModal } from "../modals/PropertyDossierModal";
+import { OnboardingChecklistModal } from "../modals/OnboardingChecklistModal";
 
 export function PropertiesView({
   rows, loading, setTab, onAdd, onAddSectionalTitle, onSelectRow,
@@ -28,6 +29,7 @@ export function PropertiesView({
   const router = useRouter();
   const [page, setPage] = useState(1);
   const [selectedDossier, setSelectedDossier] = useState<PropertyRow | null>(null);
+  const [showChecklist, setShowChecklist] = useState(false);
   const [actionAnchor, setActionAnchor] = useState<HTMLElement | null>(null);
   const [actionProperty, setActionProperty] = useState<PropertyRow | null>(null);
 
@@ -108,6 +110,15 @@ export function PropertiesView({
         title="Property Portfolio"
         action={
           <div className="module-action-group">
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<ClipboardCheck size={14} />}
+              onClick={() => setShowChecklist(true)}
+              sx={{ fontWeight: 600, fontSize: 12, borderColor: "var(--border)" }}
+            >
+              Onboarding Checklist
+            </Button>
             {onAddSectionalTitle && (
               <Button
                 variant="outlined"
@@ -288,6 +299,14 @@ export function PropertiesView({
           onEdit={(id) => router.push(`/property-onboarding?edit=${id}`)}
         />
       )}
+
+      {/* Onboarding Checklist Matrix Modal */}
+      <OnboardingChecklistModal
+        open={showChecklist}
+        onClose={() => setShowChecklist(false)}
+        defaultScope="both"
+        defaultPropertyType="commercial_office"
+      />
     </Box>
   );
 }

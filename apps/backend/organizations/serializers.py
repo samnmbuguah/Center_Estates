@@ -68,6 +68,7 @@ class MemberSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source="user.first_name", read_only=True)
     last_name = serializers.CharField(source="user.last_name", read_only=True)
     email = serializers.CharField(source="user.email", read_only=True)
+    is_active = serializers.BooleanField(source="user.is_active", read_only=True)
     full_name = serializers.SerializerMethodField()
     roles = serializers.SerializerMethodField()
     assigned_properties = serializers.SerializerMethodField()
@@ -76,7 +77,7 @@ class MemberSerializer(serializers.ModelSerializer):
         model = Membership
         fields = (
             "id", "user_id", "username", "first_name", "last_name", "full_name",
-            "email", "phone_number", "is_organization_admin", "status",
+            "email", "phone_number", "is_organization_admin", "status", "is_active",
             "roles", "assigned_properties", "created_at",
         )
 

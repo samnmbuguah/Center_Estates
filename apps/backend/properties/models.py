@@ -473,6 +473,7 @@ class Lease(OrganizationOwnedModel):
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
     metadata = models.JSONField(default=dict, blank=True)
     signed_on = models.DateField(null=True, blank=True, help_text='Date the lease agreement was signed.')
+    offer_letter_signed_on = models.DateField(null=True, blank=True, help_text='Date the offer letter was signed. Empty means not signed.')
     renewed_from = models.OneToOneField('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='renewal')
 
     class Meta:

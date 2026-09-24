@@ -64,6 +64,9 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   const [isBulkUpdating, setIsBulkUpdating] = useState<boolean>(false);
   const [editingSingleUnit, setEditingSingleUnit] = useState<UnitRow | null>(null);
   const [singleTypologyInput, setSingleTypologyInput] = useState<string>("");
+  const [singleAreaInput, setSingleAreaInput] = useState<string>("");
+  const [singleWaterPayerInput, setSingleWaterPayerInput] = useState<string>("tenant");
+  const [singleScPayerInput, setSingleScPayerInput] = useState<string>("owner");
   const [isSingleUpdating, setIsSingleUpdating] = useState<boolean>(false);
   const [chargeImportOpen, setChargeImportOpen] = useState(false);
   const [chargeImportRows, setChargeImportRows] = useState<ServiceChargeImportRow[]>([]);
@@ -366,6 +369,9 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   const openEditSingleUnit = (u: UnitRow) => {
     setEditingSingleUnit(u);
     setSingleTypologyInput(String(u.unit_type || ""));
+    setSingleAreaInput(u.area !== undefined && u.area !== null ? String(u.area) : "");
+    setSingleWaterPayerInput(String(u.water_payer || "tenant"));
+    setSingleScPayerInput(String(u.service_charge_payer || "owner"));
   };
 
   const handleSaveSingleTypology = async () => {
@@ -378,16 +384,28 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
     setIsSingleUpdating(true);
     try {
       await apiFetch("/auth/csrf/");
+      const payload: Record<string, any> = {
+        unit_type: finalType,
+        water_payer: singleWaterPayerInput,
+        service_charge_payer: singleScPayerInput,
+      };
+      if (singleAreaInput.trim()) {
+        const a = parseFloat(singleAreaInput.replace(/,/g, ""));
+        if (!isNaN(a) && a >= 0) {
+          payload.area = a;
+        }
+      }
       const res = await apiFetch(`/property/units/${editingSingleUnit.id}/`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
-        body: JSON.stringify({ unit_type: finalType }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
+        const updated = await res.json().catch(() => null);
         setLocalUnits((prev) =>
-          prev.map((u) => (u.id === editingSingleUnit.id ? { ...u, unit_type: finalType } : u))
+          prev.map((u) => (u.id === editingSingleUnit.id ? { ...u, ...payload, ...(updated || {}) } : u))
         );
-        toast.success(`Unit ${editingSingleUnit.code} updated to "${finalType}".`);
+        toast.success(`Unit ${editingSingleUnit.code} settings updated successfully.`);
         setEditingSingleUnit(null);
       } else {
         const data = await res.json().catch(() => ({}));
@@ -1038,9 +1056,21 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                               sx={{ height: 18, fontSize: 10, fontWeight: 700, mt: 0.5 }}
                             />
                           )}
+                          {u.water_payer === "owner" && (
+                            <Chip size="small" variant="outlined" label="💧 Water: Landlord Paid" sx={{ height: 18, fontSize: 10, color: "var(--color-cyan, #06b6d4)", borderColor: "var(--color-cyan, #06b6d4)", mt: 0.5 }} />
+                          )}
                         </TableCell>
                         <TableCell align="right">
                           <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={(event) => { event.stopPropagation(); openEditSingleUnit(u); }}
+                              sx={{ minWidth: 0, px: 0.75, py: 0.25, fontSize: 11 }}
+                              title="Edit unit details, area, and utility/service charge payer"
+                            >
+                              Edit
+                            </Button>
                             <Button
                               size="small"
                               variant="text"
@@ -1074,46 +1104,104 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
         </Panel>
       )}
 
-      {/* Single Unit Typology Edit Modal */}
+      {/* Single Unit Edit Modal */}
       {editingSingleUnit && (
         <Modal
-          title={`Edit Typology for Unit ${editingSingleUnit.code}`}
+          title={`Edit Unit ${editingSingleUnit.code} & Billing Settings`}
           onClose={() => setEditingSingleUnit(null)}
+          wide
           footer={
             <>
               <Button variant="outlined" onClick={() => setEditingSingleUnit(null)} sx={{ textTransform: "none" }}>
                 Cancel
               </Button>
               <Button variant="contained" disabled={isSingleUpdating} onClick={handleSaveSingleTypology} sx={{ textTransform: "none" }}>
-                {isSingleUpdating ? "Saving..." : "Save Typology"}
+                {isSingleUpdating ? "Saving..." : "Save Changes"}
               </Button>
             </>
           }
         >
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, p: 1 }}>
             <Typography variant="body2" sx={{ color: "var(--muted)" }}>
-              Select or type the typology for <strong>Unit {editingSingleUnit.code}</strong>:
+              Update unit specification and utility / service charge responsibility for <strong>Unit {editingSingleUnit.code}</strong>:
             </Typography>
-            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-              {["Studio", "1Br", "2Br Std", "2Br Ensuite", "3Br", "Penthouse"].map((t) => (
-                <Chip
-                  key={t}
-                  label={t}
-                  clickable
-                  color={singleTypologyInput === t ? "primary" : "default"}
-                  onClick={() => setSingleTypologyInput(t)}
-                  sx={{ fontWeight: 600 }}
+
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <Typography variant="caption" sx={{ fontWeight: 700 }}>Unit Typology</Typography>
+                <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mb: 0.5 }}>
+                  {["Studio", "1Br", "2Br Std", "Commercial Office", "Shop", "Storage"].map((t) => (
+                    <Chip
+                      key={t}
+                      label={t}
+                      size="small"
+                      clickable
+                      color={singleTypologyInput === t ? "primary" : "default"}
+                      onClick={() => setSingleTypologyInput(t)}
+                      sx={{ fontWeight: 600, fontSize: 11 }}
+                    />
+                  ))}
+                </Box>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Typology Name"
+                  value={singleTypologyInput}
+                  onChange={(e) => setSingleTypologyInput(e.target.value)}
+                  placeholder="e.g. 2Br Ensuite, Office Suite, Retail"
                 />
-              ))}
+              </Box>
+
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <Typography variant="caption" sx={{ fontWeight: 700 }}>Unit Area (Square Feet)</Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  type="number"
+                  label="Area (sqft)"
+                  value={singleAreaInput}
+                  onChange={(e) => setSingleAreaInput(e.target.value)}
+                  placeholder="e.g. 1250"
+                  helperText={singleAreaInput ? `${kN(Number(singleAreaInput))} sqft ≈ ${kN(Number(singleAreaInput) / 10.7639)} sqm` : "Used for sqft rate rent & service charge"}
+                />
+              </Box>
             </Box>
-            <TextField
-              fullWidth
-              size="small"
-              label="Typology Name"
-              value={singleTypologyInput}
-              onChange={(e) => setSingleTypologyInput(e.target.value)}
-              placeholder="e.g. Studio, 1Br, 2Br Std, 2Br Ensuite"
-            />
+
+            <Divider />
+
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1 }}>
+              ⚡ Utility & Charge Responsibility
+            </Typography>
+
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Water Payer"
+                value={singleWaterPayerInput}
+                onChange={(e) => setSingleWaterPayerInput(e.target.value)}
+                slotProps={{ select: { native: true } }}
+                helperText={singleWaterPayerInput === "owner" ? "💧 Landlord pays water. Tenant is NOT billed and meter readings never block rent." : "Tenant pays metered water."}
+              >
+                <option value="owner">Landlord / Owner (Landlord pays water)</option>
+                <option value="tenant">Tenant (Billed to Tenant via Meter Readings)</option>
+              </TextField>
+
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Service Charge Payer"
+                value={singleScPayerInput}
+                onChange={(e) => setSingleScPayerInput(e.target.value)}
+                slotProps={{ select: { native: true } }}
+                helperText={singleScPayerInput === "owner" ? "Landlord / Unit Owner pays service charge." : "Tenant pays monthly service charge."}
+              >
+                <option value="tenant">Tenant (Billed to Tenant)</option>
+                <option value="owner">Landlord / Owner (Owner pays)</option>
+              </TextField>
+            </Box>
           </Box>
         </Modal>
       )}

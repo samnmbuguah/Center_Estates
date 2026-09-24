@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { money } from "@/components/module-ui";
 import { FacilityTab, FacilityDashboard } from "../../types/facility.types";
 import { FcStatus } from "../FacilityToolbar";
+import { OnboardingChecklistModal } from "@/features/property/components/modals/OnboardingChecklistModal";
 
 function PanelHeader({
   title,
@@ -109,6 +110,7 @@ export function OverviewView({
   canWork: boolean;
 }) {
   const [viewMode, setViewMode] = useState<"manager" | "client">("manager");
+  const [showChecklist, setShowChecklist] = useState(false);
   const kpi = dashboard.kpis;
   const openWO = Number(kpi.openWorkOrders ?? 0);
   const overdueWO = Number(kpi.overdueWorkOrders ?? 0);
@@ -181,14 +183,32 @@ export function OverviewView({
             Client Executive View
           </button>
         </div>
-        <a
-          href="/caretaker-portal?preview=1"
-          target="_blank"
-          rel="noreferrer"
-          className="module-secondary-action"
-        >
-          📱 Preview caretaker portal ↗
-        </a>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => setShowChecklist(true)}
+            className="module-secondary-action"
+            style={{
+              background: "transparent",
+              border: "1px solid var(--border)",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontWeight: 600,
+            }}
+          >
+            📋 Onboarding Checklist
+          </button>
+          <a
+            href="/caretaker-portal?preview=1"
+            target="_blank"
+            rel="noreferrer"
+            className="module-secondary-action"
+          >
+            📱 Preview caretaker portal ↗
+          </a>
+        </div>
       </div>
 
       {/* KPI Strip */}
@@ -584,6 +604,13 @@ export function OverviewView({
           </article>
         </div>
       )}
+
+      <OnboardingChecklistModal
+        open={showChecklist}
+        onClose={() => setShowChecklist(false)}
+        defaultScope="facility"
+        defaultPropertyType="commercial_office"
+      />
     </div>
   );
 }

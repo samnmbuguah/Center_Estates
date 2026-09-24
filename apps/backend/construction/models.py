@@ -1706,3 +1706,65 @@ class StockMovement(models.Model):
 
     class Meta:
         ordering = ("-created_at",)
+
+
+class IQSKCostRate(models.Model):
+    """
+    IQSK (Institute of Quantity Surveyors of Kenya) Construction Costs Handbook Rate.
+    Extracted from the National Construction Costs Handbook published in collaboration
+    with the State Department for Public Works and Kenya National Bureau of Statistics (KNBS).
+    """
+    class Trade(models.TextChoices):
+        DEMOLITIONS = "DEMOLITIONS", "Demolitions and Alterations"
+        EARTHWORKS = "EARTHWORKS", "Earthworks and Excavations"
+        CONCRETE = "CONCRETE", "Concrete (In-Situ)"
+        FORMWORK = "FORMWORK", "Formwork"
+        REINFORCEMENT = "REINFORCEMENT", "Reinforcement"
+        WALLING = "WALLING", "Walling"
+        WATERPROOFING = "WATERPROOFING", "Waterproofing"
+        ROOFING = "ROOFING", "Roof Coverings & Insulation"
+        RAINWATER = "RAINWATER", "Rain Water Goods"
+        CARPENTRY_JOINERY = "CARPENTRY_JOINERY", "Carpentry and Joinery"
+        IRONMONGERY = "IRONMONGERY", "Ironmongery"
+        STRUCTURAL_STEEL = "STRUCTURAL_STEEL", "Structural Steel Works"
+        METALWORK = "METALWORK", "Metalwork"
+        FINISHES = "FINISHES", "Wall, Ceiling and Floor Finishes"
+        GLAZING = "GLAZING", "Glass and Glazing"
+        PAINTING = "PAINTING", "Painting and Decoration"
+        PLUMBING_DRAINAGE = "PLUMBING_DRAINAGE", "Plumbing, Drainage & Sanitary Fittings"
+        ELECTRICAL = "ELECTRICAL", "Electrical Installations"
+        FIRE_FIGHTING = "FIRE_FIGHTING", "Fire Fighting Equipment"
+        EXTERNAL_WORKS = "EXTERNAL_WORKS", "External Works & Landscaping"
+        PLANT_EQUIPMENT = "PLANT_EQUIPMENT", "Plant and Equipment Hire Rates"
+        LABOUR_RATES = "LABOUR_RATES", "Daily & Hourly Labour Rates"
+        APPROXIMATE_ESTIMATING = "APPROXIMATE_ESTIMATING", "Approximate Estimating (Cost/m2)"
+        OTHER = "OTHER", "Other Trades"
+
+    id = models.CharField(primary_key=True, max_length=36, default=new_uuid, editable=False)
+    trade = models.CharField(max_length=40, choices=Trade.choices, db_index=True)
+    subcategory = models.CharField(max_length=255, blank=True, default="", db_index=True)
+    item_code = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    description = models.TextField()
+    unit = models.CharField(max_length=20, db_index=True)  # SM, CM, LM, KG, TON, NO, etc.
+    
+    # Regional All-In Contractor Rates (KES)
+    rate_nairobi = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    rate_coastal = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    rate_western = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    rate_kes = models.DecimalField(max_digits=14, decimal_places=2, default=0, db_index=True)  # primary / baseline rate
+    
+    handbook_edition = models.CharField(max_length=20, default="2023-2024")
+    source_page = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("trade", "subcategory", "item_code", "id")
+        indexes = [
+            models.Index(fields=["trade", "subcategory"]),
+            models.Index(fields=["unit"]),
+        ]
+
+    def __str__(self):
+        return f"[{self.trade}] {self.description[:40]} - {self.unit} @ KES {self.rate_kes}"
+

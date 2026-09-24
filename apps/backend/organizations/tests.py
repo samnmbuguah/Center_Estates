@@ -132,3 +132,126 @@ class OrganizationAccessApiTests(TestCase):
         self.assertIn(custom.slug, slugs)
         self.assertIn('legacy-inspector', slugs)
         self.assertIn('property-manager', slugs)
+
+    def test_admin_can_reset_member_password(self):
+        target_user = get_user_model().objects.create_user(username='subordinate-user', password='OldPassword123!')
+        target_mem = Membership.objects.create(user=target_user, organization=self.organization)
+
+        res = self.client.patch(
+            f'/api/v1/access/members/{target_mem.id}/',
+            {'password': 'NewSecurePassword456!'},
+            format='json',
+            **self.headers,
+        )
+        self.assertEqual(res.status_code, 200, res.data)
+        target_user.refresh_from_db()
+        self.assertTrue(target_user.check_password('NewSecurePassword456!'))
+
+    def test_admin_can_disable_and_enable_member(self):
+        target_user = get_user_model().objects.create_user(username='disable-me', password='InitPassword123!')
+        target_mem = Membership.objects.create(user=target_user, organization=self.organization)
+
+        # Disable
+        res = self.client.patch(
+            f'/api/v1/access/members/{target_mem.id}/',
+            {'is_active': False},
+            format='json',
+            **self.headers,
+        )
+        self.assertEqual(res.status_code, 200, res.data)
+        target_user.refresh_from_db()
+        target_mem.refresh_from_db()
+        self.assertFalse(target_user.is_active)
+        self.assertEqual(target_mem.status, Membership.Status.SUSPENDED)
+        self.assertFalse(res.data['is_active'])
+
+        # Re-enable
+        res_enable = self.client.patch(
+            f'/api/v1/access/members/{target_mem.id}/',
+            {'is_active': True},
+            format='json',
+            **self.headers,
+        )
+        self.assertEqual(res_enable.status_code, 200, res_enable.data)
+        target_user.refresh_from_db()
+        target_mem.refresh_from_db()
+        self.assertTrue(target_user.is_active)
+        self.assertEqual(target_mem.status, Membership.Status.ACTIVE)
+        self.assertTrue(res_enable.data['is_active'])
+
+    def test_admin_cannot_disable_self(self):
+        res = self.client.patch(
+            f'/api/v1/access/members/{self.membership.id}/',
+            {'is_active': False},
+            format='json',
+            **self.headers,
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertIn('cannot disable your own', res.data['detail'])
+
+    def test_list_members_with_include_inactive(self):
+        u_active = get_user_model().objects.create_user(username='u-active')
+        u_inactive = get_user_model().objects.create_user(username='u-inactive', is_active=False)
+        m_active = Membership.objects.create(user=u_active, organization=self.organization, status=Membership.Status.ACTIVE)
+        m_inactive = Membership.objects.create(user=u_inactive, organization=self.organization, status=Membership.Status.SUSPENDED)
+
+        # Default: only active
+        res_default = self.client.get('/api/v1/access/members/', **self.headers)
+        self.assertEqual(res_default.status_code, 200)
+        usernames_default = [item['username'] for item in res_default.data]
+        self.assertIn('u-active', usernames_default)
+        self.assertNotIn('u-inactive', usernames_default)
+
+        # With include_inactive=true: includes suspended/disabled
+        res_all = self.client.get('/api/v1/access/members/?include_inactive=true', **self.headers)
+        self.assertEqual(res_all.status_code, 200)
+        usernames_all = [item['username'] for item in res_all.data]
+        self.assertIn('u-active', usernames_all)
+        self.assertIn('u-inactive', usernames_all)
+
+    def test_user_can_change_own_password(self):
+        user = get_user_model().objects.create_user(username='self-changer', password='CurrentPassword123!')
+        client = APIClient()
+        client.force_authenticate(user)
+
+        res = client.post(
+            '/api/v1/auth/change-password/',
+            {
+                'current_password': 'CurrentPassword123!',
+                'new_password': 'NewChangedPassword789!',
+                'confirm_password': 'NewChangedPassword789!',
+            },
+            format='json',
+        )
+        self.assertEqual(res.status_code, 200, res.data)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password('NewChangedPassword789!'))
+
+    def test_user_change_password_validation(self):
+        user = get_user_model().objects.create_user(username='bad-changer', password='CurrentPassword123!')
+        client = APIClient()
+        client.force_authenticate(user)
+
+        # Wrong current password
+        res = client.post(
+            '/api/v1/auth/change-password/',
+            {
+                'current_password': 'WrongPassword!',
+                'new_password': 'NewChangedPassword789!',
+            },
+            format='json',
+        )
+        self.assertEqual(res.status_code, 400)
+        self.assertIn('current_password', res.data)
+
+        # Identical to current password
+        res2 = client.post(
+            '/api/v1/auth/change-password/',
+            {
+                'current_password': 'CurrentPassword123!',
+                'new_password': 'CurrentPassword123!',
+            },
+            format='json',
+        )
+        self.assertEqual(res2.status_code, 400)
+        self.assertIn('new_password', res2.data)

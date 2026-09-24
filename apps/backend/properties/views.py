@@ -1427,6 +1427,46 @@ class PropertyViewSet(OrganizationModelViewSet):
                 )
                 created_units.append(unit_obj)
 
+                # Optional Tenant & Lease creation for rental units
+                t_name = str(u_item.get('tenant_name') or '').strip()
+                m_rent_str = str(u_item.get('monthly_rent') or '').strip()
+                if t_name and m_rent_str:
+                    try:
+                        rent_dec = Decimal(m_rent_str)
+                        if rent_dec > 0:
+                            tenant_obj = Tenant.objects.filter(organization=organization, name__iexact=t_name).first()
+                            if not tenant_obj:
+                                tenant_code = f"TEN-{Tenant.objects.filter(organization=organization).count() + 1:04d}"
+                                tenant_obj = Tenant.objects.create(
+                                    organization=organization,
+                                    name=t_name,
+                                    code=tenant_code,
+                                    status=Tenant.Status.ACTIVE,
+                                )
+                            l_starts = _parse_flexible_date(u_item.get('lease_starts_on')) or commence_date or timezone.localdate()
+                            l_ends = _parse_flexible_date(u_item.get('lease_ends_on')) or (l_starts + timedelta(days=365))
+                            lease_code = f"LSE-{Lease.objects.filter(organization=organization).count() + 1:04d}"
+                            
+                            l_meta = {}
+                            if u_item.get('rent_rate_per_sqft'):
+                                l_meta['rent_rate_per_sqft'] = str(u_item['rent_rate_per_sqft'])
+
+                            Lease.objects.create(
+                                organization=organization,
+                                unit=unit_obj,
+                                tenant=tenant_obj,
+                                reference=lease_code,
+                                starts_on=l_starts,
+                                ends_on=l_ends,
+                                monthly_rent=rent_dec,
+                                status=Lease.Status.ACTIVE,
+                                metadata=l_meta,
+                            )
+                            unit_obj.status = Unit.Status.OCCUPIED
+                            unit_obj.save(update_fields=['status'])
+                    except Exception as ex:
+                        logger.warning(f"Failed to auto-create lease for unit {u_code}: {ex}")
+
         # 5. Create Fee Profiles
         fee_profiles_data = data.get('fee_profiles') or []
         if isinstance(fee_profiles_data, list):
@@ -1570,6 +1610,56 @@ class PropertyViewSet(OrganizationModelViewSet):
             if was_created:
                 created.append(unit)
         return Response({'created': len(created), 'units': UnitSerializer(created, many=True).data}, status=201)
+
+    @action(detail=False, methods=('get', 'post'), url_path='onboarding-checklist')
+    def onboarding_checklist(self, request):
+        """Dynamic onboarding checklist generator for property & facility management.
+
+        Tailors requirements based on management scope, property type, and operational
+        features, returning JSON, PDF, Excel (.xlsx), or CSV.
+        """
+        from .checklist_engine import filter_checklist, generate_checklist_pdf, generate_checklist_xlsx, generate_checklist_csv
+
+        organization = get_active_organization(request)
+        scope = request.query_params.get('scope') or (request.data.get('scope') if isinstance(request.data, dict) else None) or 'both'
+        property_type = request.query_params.get('property_type') or (request.data.get('property_type') if isinstance(request.data, dict) else None) or 'commercial_office'
+        property_name = request.query_params.get('property_name') or (request.data.get('property_name') if isinstance(request.data, dict) else None) or 'Target Property'
+        output_format = (request.query_params.get('output') or (request.data.get('output') if isinstance(request.data, dict) else None) or 'json').lower()
+
+        def _get_flag(key, default=True):
+            val = request.query_params.get(key)
+            if val is None and isinstance(request.data, dict):
+                val = request.data.get(key)
+            if val is None:
+                return default
+            return str(val).lower() in ('1', 'true', 'yes', 'on')
+
+        options = {
+            'submeters': _get_flag('submeters', True),
+            'service_charge': _get_flag('service_charge', True),
+            'lifts': _get_flag('lifts', True),
+            'generator': _get_flag('generator', True),
+            'borehole': _get_flag('borehole', True),
+            'fire_safety': _get_flag('fire_safety', True),
+            'security_cctv': _get_flag('security_cctv', True),
+            'existing_tenants': _get_flag('existing_tenants', True),
+            'vat_registered': _get_flag('vat_registered', True),
+            'new_development': _get_flag('new_development', False),
+        }
+
+        checklist_data = filter_checklist(scope=scope, property_type=property_type, options=options)
+
+        user_name = request.user.get_full_name() or request.user.get_username() if request.user.is_authenticated else 'Center Estates Operations'
+
+        if output_format == 'pdf':
+            return generate_checklist_pdf(organization, checklist_data, property_name=property_name, generated_by=user_name)
+        elif output_format == 'xlsx':
+            return generate_checklist_xlsx(checklist_data, property_name=property_name, generated_by=user_name)
+        elif output_format == 'csv':
+            return generate_checklist_csv(checklist_data)
+
+        return Response(checklist_data)
+
 
 
 class BuildingViewSet(OrganizationModelViewSet):
@@ -3150,8 +3240,30 @@ class LeaseViewSet(OrganizationModelViewSet):
             metadata['offer_signed_offline'] = True
             metadata['require_offer_letter'] = False
             metadata['is_ongoing'] = True
+        if self.request.data.get('rent_rate_per_sqft'):
+            metadata['rent_rate_per_sqft'] = str(self.request.data.get('rent_rate_per_sqft')).strip()
+        if self.request.data.get('service_charge_rate_per_sqft'):
+            metadata['service_charge_rate_per_sqft'] = str(self.request.data.get('service_charge_rate_per_sqft')).strip()
+        if self.request.data.get('service_charge'):
+            metadata['service_charge'] = str(self.request.data.get('service_charge')).strip()
         lease = serializer.save(organization=organization, metadata=metadata)
         _inherit_unit_charge_profiles(lease)
+        try:
+            sc_val = Decimal(str(metadata.get('service_charge') or 0))
+        except Exception:
+            sc_val = Decimal('0')
+        if sc_val > 0:
+            sc_item, _ = BillingItem.objects.get_or_create(
+                organization=organization, code='SERVICE_CHARGE',
+                defaults={'name': 'Service charge', 'calculation': BillingItem.Calculation.FIXED, 'income_category': 'service_charge', 'is_recurring': True},
+            )
+            BillingProfile.objects.update_or_create(
+                organization=organization, lease=lease, billing_item=sc_item, effective_from=lease.starts_on,
+                defaults={
+                    'amount': sc_val, 'effective_to': lease.ends_on, 'frequency': BillingProfile.Frequency.MONTHLY,
+                    'calculation': BillingItem.Calculation.FIXED, 'billing_day': lease.billing_day, 'is_active': True,
+                },
+            )
         if is_new_tenant:
             self._issue_offer_letter(lease, self.request.user, require_acceptance=True)
 
@@ -5230,11 +5342,20 @@ class BillingRunViewSet(OrganizationModelViewSet):
                         continue
                     monthly_val = (profile.rate * lease.unit.area).quantize(Decimal('0.01'))
                 elif profile.calculation == BillingItem.Calculation.METERED:
+                    # If landlord/owner pays water, do not bill tenant or generate missing water issue
+                    if lease.unit and getattr(lease.unit, 'water_payer', 'tenant') == 'owner':
+                        continue
+                    # For commercial properties, water meter readings must not block rent
+                    prop = lease.unit.property if lease.unit else None
+                    is_comm = prop and (getattr(prop, 'property_type', '') == 'commercial' or getattr(prop, 'is_commercial', False))
                     readings = MeterReading.objects.for_organization(run.organization).filter(
                         meter__property_unit=lease.unit, meter__utility_type=UtilityMeter.Utility.WATER,
                         read_at__date__range=(run.period_start, run.period_end), status=MeterReading.Status.APPROVED,
                     ).select_related('meter')
                     if not readings.exists():
+                        if is_comm:
+                            # Commercial properties bill utilities separately or via landlord; do not block rent
+                            continue
                         issue_rows.append(('missing_water_reading', 'A valid water meter reading is required.', profile))
                         continue
                     monthly_val = sum((row.cost for row in readings), Decimal('0'))
@@ -5296,39 +5417,38 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     })
                 if (invoice_types is None or "service_charge" in invoice_types) and not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
                     meta = lease.metadata or {}
-                    monthly_sc_meta = meta.get('monthly_service_charge_excl_vat') or meta.get('service_charge')
-                    if monthly_sc_meta is not None:
+                    area = Decimal(str(lease.unit.area or '0')) if lease.unit and lease.unit.area else Decimal('0')
+                    sc_rate_val = meta.get('service_charge_rate_per_sqft') or meta.get('sc_rate')
+                    monthly_sc = Decimal('0')
+                    
+                    # 1. If rate per sqft is provided and unit has area, calculate area * rate
+                    if sc_rate_val is not None:
                         try:
-                            monthly_sc = Decimal(str(monthly_sc_meta))
-                        except Exception:
-                            monthly_sc = Decimal('0')
-                        if monthly_sc > 0:
-                            line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
-                            desc = f"Service charge ({period_suffix})" if months_count > 1 else "Service charge"
-                            items.append({
-                                'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
-                                'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
-                                'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
-                                'source_type': 'lease_metadata', 'source_id': str(lease.id),
-                                'payer': 'owner' if should_bill_owner_sc else 'tenant',
-                            })
-                    else:
-                        try:
-                            rate = Decimal(str(meta.get('service_charge_rate_per_sqft') or '0'))
-                            area = Decimal(str(lease.unit.area or '0')) if lease.unit and lease.unit.area else Decimal('0')
+                            rate = Decimal(str(sc_rate_val))
                             if rate > 0 and area > 0:
                                 monthly_sc = (rate * area).quantize(Decimal('0.01'))
-                                line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
-                                desc = f"Service charge ({period_suffix})" if months_count > 1 else "Service charge"
-                                items.append({
-                                    'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
-                                    'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
-                                    'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
-                                    'source_type': 'lease_metadata', 'source_id': str(lease.id),
-                                    'payer': 'owner' if should_bill_owner_sc else 'tenant',
-                                })
                         except Exception:
                             pass
+                    
+                    # 2. Otherwise fall back to explicit monthly service charge
+                    if monthly_sc <= 0:
+                        monthly_sc_meta = meta.get('monthly_service_charge_excl_vat') or meta.get('service_charge')
+                        if monthly_sc_meta is not None:
+                            try:
+                                monthly_sc = Decimal(str(monthly_sc_meta))
+                            except Exception:
+                                monthly_sc = Decimal('0')
+
+                    if monthly_sc > 0:
+                        line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
+                        desc = f"Service charge ({period_suffix})" if months_count > 1 else "Service charge"
+                        items.append({
+                            'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
+                            'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
+                            'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
+                            'source_type': 'lease_metadata', 'source_id': str(lease.id),
+                            'payer': 'owner' if should_bill_owner_sc else 'tenant',
+                        })
 
             if not items:
                 continue
@@ -5515,21 +5635,33 @@ class BillingRunViewSet(OrganizationModelViewSet):
         if not candidates:
             raise ValidationError({'candidates': 'Select at least one ready billing candidate.'})
 
-        # Enforce consolidated billing: Candidates requiring water readings cannot be billed until reading is approved
+        # Enforce consolidated billing: Only enforce water hold if tenant pays water and property is residential
         for cand in candidates:
-            water_issues = [iss for iss in (cand.issue_summary or []) if iss.get('code') == 'missing_water_reading']
-            if water_issues:
-                t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
-                u_code = cand.lease.unit.code if cand.lease and cand.lease.unit else 'Unit'
-                raise ValidationError({
-                    'candidates': f"Cannot generate invoice for {t_name} ({u_code}): A valid water meter reading is required before billing rent and utilities."
-                })
+            # Skip water hold if unit's water is paid by landlord/owner
+            unit_obj = cand.lease.unit if cand.lease else None
+            prop_obj = unit_obj.property if unit_obj else None
+            is_comm = prop_obj and (getattr(prop_obj, 'property_type', '') == 'commercial' or getattr(prop_obj, 'is_commercial', False))
+            landlord_pays_water = unit_obj and getattr(unit_obj, 'water_payer', 'tenant') == 'owner'
+            
+            if not is_comm and not landlord_pays_water:
+                water_issues = [iss for iss in (cand.issue_summary or []) if iss.get('code') == 'missing_water_reading']
+                if water_issues:
+                    t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
+                    u_code = cand.lease.unit.code if cand.lease and cand.lease.unit else 'Unit'
+                    raise ValidationError({
+                        'candidates': f"Cannot generate invoice for {t_name} ({u_code}): A valid water meter reading is required before billing rent and utilities."
+                    })
             if cand.status == BillingCandidate.Status.ISSUE:
-                t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
-                u_code = cand.lease.unit.code if cand.lease and cand.lease.unit else 'Unit'
-                raise ValidationError({
-                    'candidates': f"Cannot generate invoice for {t_name} ({u_code}): Resolve open billing issues before generating invoices."
-                })
+                non_water_issues = [
+                    iss for iss in (cand.issue_summary or [])
+                    if iss.get('code') != 'missing_water_reading' or (not is_comm and not landlord_pays_water)
+                ]
+                if non_water_issues:
+                    t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
+                    u_code = cand.lease.unit.code if cand.lease and cand.lease.unit else 'Unit'
+                    raise ValidationError({
+                        'candidates': f"Cannot generate invoice for {t_name} ({u_code}): Resolve open billing issues before generating invoices."
+                    })
 
         year = run.period_start.year
         raw_types = request.data.get('invoice_types')
@@ -5636,6 +5768,8 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 item['billed'] = True
                 item['invoice_id'] = str(invoice.id)
                 item['invoice_number'] = invoice.number
+                _apply_wallet_to_invoice(invoice=invoice, organization=run.organization)
+                invoice.refresh_from_db()
                 candidate_invoices.append(invoice)
                 generated.append(invoice)
             if candidate_invoices:
@@ -6380,6 +6514,10 @@ class PropertyAnalyticsViewSet(ViewSet):
             sheet.title = friendly[:31]
             decoded = content.decode('utf-8-sig')
             parsed_rows = list(csv.reader(StringIO(decoded)))
+            # If the CSV already includes a text totals row at the end, remove it so
+            # openpyxl can generate a single, styled totals row with dynamic Excel formulas.
+            if parsed_rows and len(parsed_rows) > 1 and str(parsed_rows[-1][0]).strip().upper() == 'TOTALS':
+                parsed_rows.pop()
             header_fill = PatternFill('solid', fgColor='17243B')
             header_font = Font(color='FFFFFF', bold=True, name='Calibri', size=11)
             body_font = Font(name='Calibri', size=10)
@@ -6403,15 +6541,19 @@ class PropertyAnalyticsViewSet(ViewSet):
                 if any(token in str(header).lower() for token in (
                     'amount', 'rent', 'balance', 'billed', 'collected', 'outstanding', 'vat', 'tax',
                     'total', 'cost', 'fee', 'income', 'expense', 'subtotal', 'variance', 'budget', 'paid', 'net', 'charge',
-                )) and 'rate' not in str(header).lower()
+                )) and 'rate' not in str(header).lower() and 'sqft' not in str(header).lower()
             }
             # Per-sqft rates format as money but must never be totalled.
             rate_headers = {
                 index for index, header in enumerate(headers)
-                if 'sqft' in str(header).lower()
+                if 'sqft' in str(header).lower() and 'area' not in str(header).lower()
+            }
+            area_headers = {
+                index for index, h in enumerate(headers)
+                if 'area' in str(h).lower()
             }
             # Per-column type classification for smart formatting
-            PERCENT_TOKENS = ('escalation %', 'escalation_percent', 'occupancy', 'rate', 'ratio', 'vat %', 'tax %', '% ')
+            PERCENT_TOKENS = ('escalation %', 'escalation_percent', 'occupancy', 'rate', 'ratio', 'vat %', 'tax %', '% ', 'esc. %')
             DATE_TOKENS = ('date', 'start', 'end', '_on', 'since', 'expiry', 'generated')
             percent_headers = {
                 index for index, h in enumerate(headers)
@@ -6430,10 +6572,16 @@ class PropertyAnalyticsViewSet(ViewSet):
             REPORT_WIDTHS = {
                 'tenancy-schedule': {
                     'Unit': 10, 'Tenant': 32,
-                    'Area': 10, 'Lease Signed': 13, 'Lease Start': 13, 'Lease End': 13,
-                    'Rent': 16, 'Rent per Sqft': 14, 'Service Charge': 16,
-                    'Service Charge per Sqft': 16, 'Escalation %': 13,
-                    'Next Escalation Date': 18,
+                    'Area (sqft)': 13, 'Area': 13,
+                    'Signed On': 13, 'Lease Signed': 13,
+                    'Start Date': 13, 'Lease Start': 13,
+                    'End Date': 13, 'Lease End': 13,
+                    'Rent': 16,
+                    'Rent/Sqft': 14, 'Rent per Sqft': 14,
+                    'Service Charge': 16,
+                    'Service Charge/Sqft': 18, 'Service Charge per Sqft': 18,
+                    'Esc. %': 12, 'Escalation %': 12,
+                    'Next Escalation': 16, 'Next Escalation Date': 16,
                 },
                 'income-analysis': {
                     'Property': 24, 'Unit': 12, 'Tenant': 32, 'Use': 12,
@@ -6471,7 +6619,14 @@ class PropertyAnalyticsViewSet(ViewSet):
                         if (row_index - start_row) % 2 == 0:
                             cell.fill = zebra
                         cell.alignment = Alignment(vertical='center')
-                        if zero_idx in money_headers and value not in (None, '', '—'):
+                        if zero_idx in area_headers and value not in (None, '', '—'):
+                            try:
+                                cell.value = Decimal(str(value).replace(',', '').strip())
+                                cell.number_format = '#,##0.00'
+                                cell.alignment = Alignment(horizontal='right', vertical='center')
+                            except Exception:
+                                pass
+                        elif zero_idx in money_headers and value not in (None, '', '—'):
                             try:
                                 cell.value = Decimal(str(value).replace(',', '').replace('KES', '').strip())
                                 cell.number_format = '#,##0.00'
@@ -6515,7 +6670,7 @@ class PropertyAnalyticsViewSet(ViewSet):
                 # Area columns (numeric but not money) — summed separately
                 area_headers = {
                     index for index, h in enumerate(parsed_rows[0] if parsed_rows else [])
-                    if str(h).lower() == 'area' and report_kind == 'tenancy-schedule'
+                    if 'area' in str(h).lower() and report_kind == 'tenancy-schedule'
                 }
                 if report_kind in ('tenancy-schedule', 'income-analysis') and len(parsed_rows) > 1:
                     total_row = start_row + len(parsed_rows)
@@ -7078,7 +7233,7 @@ class PropertyAnalyticsViewSet(ViewSet):
                 rent = active_lease.effective_rent(end) if active_lease else Decimal('0')
                 writer.writerow((unit.floor or '—', unit.code, tenant_name, unit.property.name, unit.unit_type, unit.area or '—', rent, unit.status.title()))
         elif report_kind == 'tenancy-schedule':
-            writer.writerow(('Unit', 'Tenant', 'Area', 'Lease Signed', 'Lease Start', 'Lease End', 'Rent', 'Rent per Sqft', 'Service Charge', 'Service Charge per Sqft', 'Escalation %', 'Next Escalation Date'))
+            writer.writerow(('Unit', 'Tenant', 'Area (sqft)', 'Signed On', 'Start Date', 'End Date', 'Rent', 'Rent/Sqft', 'Service Charge', 'Service Charge/Sqft', 'Esc. %', 'Next Escalation'))
             leases = scope_model_queryset(Lease, request, organization).select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
             include_drafts = request.query_params.get('include_drafts', '').lower() in ('1', 'true', 'yes')
             has_active = leases.filter(status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING)).exists()
