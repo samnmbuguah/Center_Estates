@@ -91,7 +91,10 @@ export function PropertyWorkspaceProvider({ children }: { children: ReactNode })
       return;
     }
     let cancelled = false;
-    setPropertyContextReady(false);
+    // Only unmount shell on initial load when property context is completely missing
+    if (!properties.length && !activeProperty) {
+      setPropertyContextReady(false);
+    }
     setLoadingProperties(true);
     const propertiesUrl = activeModule
       ? `/property/properties/?module=${encodeURIComponent(activeModule)}`
