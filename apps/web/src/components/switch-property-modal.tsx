@@ -113,16 +113,18 @@ export default function SwitchPropertyModal({
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="xs"
-      fullWidth
+      maxWidth={false}
       slotProps={{
         paper: {
           sx: {
-            borderRadius: "20px",
+            width: "100%",
+            maxWidth: "460px !important",
+            m: { xs: 1.5, sm: 2 },
+            borderRadius: "18px",
             overflow: "hidden",
             boxShadow: "0 25px 60px -15px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(59, 130, 246, 0.2)",
             background: "var(--bg-surface, #ffffff)",
-            maxHeight: "90vh",
+            maxHeight: "88vh",
             display: "flex",
             flexDirection: "column",
           },
