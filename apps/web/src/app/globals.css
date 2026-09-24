@@ -6413,11 +6413,21 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 }
 
 /* Module left rail icon sidebar */
+.module-icon-sidebar-btn {
+  width: 44px;
+  height: 44px;
+}
+
 @media (max-width: 640px) {
   .module-icon-sidebar {
-    width: 48px !important;
-    min-width: 48px !important;
-    padding: 8px 3px !important;
+    width: 46px !important;
+    min-width: 46px !important;
+    padding: 8px 2px !important;
+  }
+  .module-icon-sidebar-btn {
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 10px !important;
   }
 }
 
@@ -6534,24 +6544,46 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
     display: inline-flex !important;
   }
 
-  .module-nav-groups,
-  .module-nav-pages { display: none; }
-
+  /* Mobile / tablet workflow navigation: sleek swipeable pill strips instead of dropdown */
   .module-nav-mobile-select {
-    display: grid;
+    display: none !important;
+  }
+
+  .module-nav-bar {
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+
+  .module-nav-groups,
+  .module-nav-pages {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     gap: 5px;
-    padding: 10px;
+    padding: 6px 8px;
   }
 
-  .module-nav-mobile-select .MuiInputLabel-root {
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 700;
+  .module-nav-groups::-webkit-scrollbar,
+  .module-nav-pages::-webkit-scrollbar {
+    display: none;
   }
 
-  .module-nav-mobile-select .MuiSelect-select {
-    font-size: 13px;
-    font-weight: 700;
+  .module-nav-groups button,
+  .module-nav-groups .MuiButtonBase-root {
+    flex-shrink: 0 !important;
+    padding: 6px 12px;
+    font-size: 11px;
+    border-radius: 7px;
+  }
+
+  .module-nav-pages button,
+  .module-nav-pages .MuiButtonBase-root {
+    flex-shrink: 0 !important;
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 7px;
   }
 
   .module-nav-bar-compact .module-nav-mobile-select { display: none; }

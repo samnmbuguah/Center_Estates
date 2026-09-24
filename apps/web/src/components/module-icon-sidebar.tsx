@@ -90,11 +90,10 @@ export default function ModuleIconSidebar({
         >
           <button
             type="button"
+            className="module-icon-sidebar-btn"
             onClick={onSwitchPropertyClick}
             aria-label="Switch property"
             style={{
-              width: 44,
-              height: 44,
               borderRadius: 12,
               border: "1px solid rgba(255, 255, 255, 0.35)",
               background: "rgba(255, 255, 255, 0.15)",
@@ -152,12 +151,11 @@ export default function ModuleIconSidebar({
               <Tooltip key={module.slug} title={module.name} placement="right" arrow>
                 <button
                   type="button"
+                  className="module-icon-sidebar-btn"
                   onClick={() => onModuleClick(module.slug)}
                   aria-label={module.name}
                   aria-current={isActive ? "page" : undefined}
                   style={{
-                    width: 44,
-                    height: 44,
                     borderRadius: 12,
                     border: isActive
                       ? "1px solid #ffffff"

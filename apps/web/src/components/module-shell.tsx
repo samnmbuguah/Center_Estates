@@ -124,30 +124,6 @@ export function ModuleShell({
           {/* Two-level module navigation: workflow groups, then pages in the active group. */}
           {hasGroups && (
             <nav className="module-nav-bar" aria-label={`${moduleName} navigation`}>
-              <div className="module-nav-mobile-select">
-                <TextField
-                  select
-                  fullWidth
-                  size="small"
-                  label="Module page"
-                  value={navigationActiveId ?? ""}
-                  onChange={(event) => onSelect?.(event.target.value)}
-                  slotProps={{ select: { MenuProps: { slotProps: { paper: { sx: { maxHeight: 420 } } } } } }}
-                >
-                  {resolvedGroups.flatMap((group) => [
-                    <MenuItem key={`${group.label}-heading`} disabled sx={{ fontSize: 11, fontWeight: 800, letterSpacing: ".07em", opacity: "1 !important" }}>
-                      {group.label}
-                    </MenuItem>,
-                    ...group.items.map((item) => (
-                      <MenuItem value={item.id} key={`${group.label}-${item.id}`} sx={{ pl: 3 }}>
-                        {item.icon ? <span aria-hidden="true" style={{ marginRight: 8 }}>{item.icon}</span> : null}
-                        {item.label}
-                      </MenuItem>
-                    )),
-                  ])}
-                </TextField>
-              </div>
-
               <div className="module-nav-groups" role="tablist" aria-label="Workflow sections">
                 {resolvedGroups.map((group) => {
                   const selected = group === activeGroup;
