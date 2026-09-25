@@ -55,6 +55,8 @@ interface DocModule {
 }
 
 const ROLES: Array<{ key: string; label: string }> = [
+  { key: "property_manager", label: "Property Manager" },
+  { key: "property_accountant", label: "Property Accountant" },
   { key: "clerk_of_works", label: "Clerk of Works" },
   { key: "project_manager", label: "Project Manager" },
   { key: "qs", label: "Quantity Surveyor" },
@@ -65,6 +67,74 @@ const ROLES: Array<{ key: string; label: string }> = [
 ];
 
 const DOC_SECTIONS: DocSection[] = [
+  {
+    id: "property-mgmt",
+    title: "Property & Tenancy",
+    icon: Building2,
+    description: "Multi-estate management, unit inventory, tenant onboarding, leases, and utility billing.",
+    modules: [
+      {
+        name: "Property Registry & Context",
+        path: "/app/property",
+        description: "Organize properties into commercial, residential, or sectional titles with isolated scoping.",
+        features: [
+          "Switch between assigned estates with context dialog",
+          "Property-level isolation for financial safety",
+          "Sectional title & Body Corporate configurations",
+          "Unit registers with real-time status tracking"
+        ],
+        perm: "properties.view",
+        roles: ["property_manager", "admin", "all"]
+      },
+      {
+        name: "Tenancy & Leases",
+        path: "/app/property",
+        description: "End-to-end tenant lifecycle management from initial KYC to lease renewals and terminations.",
+        features: [
+          "Tenant profile creation and legal identity capture",
+          "Lease tenure, rent escalation, and service charge definitions",
+          "Escrow deposit registers (rent & utility deposits)",
+          "Direct upload of countersigned lease contracts"
+        ],
+        perm: "properties.view",
+        roles: ["property_manager", "admin", "all"]
+      },
+      {
+        name: "Utility Billing & Invoicing",
+        path: "/app/property",
+        description: "Automated monthly recurring invoices, water meter logs, and payment receipts.",
+        features: [
+          "End-of-month water meter reading capture with variance check",
+          "One-click batch generation of monthly tax invoices",
+          "M-Pesa, EFT, and Bank transfer receipting with FIFO allocation",
+          "Automatic rent arrears and reminder notifications"
+        ],
+        perm: "properties.view",
+        roles: ["property_manager", "property_accountant", "admin", "all"]
+      }
+    ]
+  },
+  {
+    id: "facility-mgmt",
+    title: "Facility Management",
+    icon: Settings,
+    description: "Asset registers, preventative maintenance, vendor management, and work order dispatch.",
+    modules: [
+      {
+        name: "Work Orders & Tickets",
+        path: "/app/facility",
+        description: "Dispatch maintenance requests to in-house technicians or external contractors.",
+        features: [
+          "Service request intake from tenants or caretakers",
+          "SLA priority matrix (Emergency, High, Medium, Low)",
+          "Work order assignment and photo completion evidence",
+          "Asset warranty and maintenance history tracking"
+        ],
+        perm: "facility.view",
+        roles: ["property_manager", "admin", "all"]
+      }
+    ]
+  },
   {
     id: "dashboard",
     title: "Dashboard & Overview",
@@ -257,7 +327,7 @@ export function Documentation() {
   const { me, can } = useAuth();
   const userRole = me?.roles?.[0] || "default";
   const tour = useOutletContext<TourAPI>();
-  const [activeSection, setActiveSection] = useState<string>("dashboard");
+  const [activeSection, setActiveSection] = useState<string>("property-mgmt");
   const [activeRole, setActiveRole] = useState<string>(userRole);
 
   const roleLabel = ROLES.find((r) => r.key === activeRole)?.label || "Default";
@@ -274,12 +344,80 @@ export function Documentation() {
   return (
     <div style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* Header */}
-      <div className="page-head" style={{ marginBottom: 24 }}>
+      <div className="page-head" style={{ marginBottom: 20 }}>
         <div className="eyebrow">Documentation</div>
         <h2>System Documentation & User Guides</h2>
         <p className="muted" style={{ marginTop: 4 }}>
           Comprehensive guides for all user roles. Select your role to see relevant features, or browse all modules.
         </p>
+      </div>
+
+      {/* Official PDF User Guide Banner */}
+      <div
+        className="card"
+        style={{
+          background: "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)",
+          color: "#FFFFFF",
+          padding: "20px 24px",
+          borderRadius: "12px",
+          marginBottom: "24px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "16px",
+          flexWrap: "wrap",
+          boxShadow: "0 10px 25px -5px rgba(37, 99, 235, 0.25)",
+        }}
+      >
+        <div style={{ maxWidth: 640 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                background: "rgba(255,255,255,0.2)",
+                padding: "2px 8px",
+                borderRadius: 4,
+                textTransform: "uppercase",
+              }}
+            >
+              Official Guide
+            </span>
+            <span style={{ fontSize: 12, opacity: 0.85 }}>Release 2026.1 Enterprise</span>
+          </div>
+          <h3 style={{ margin: "0 0 6px", color: "#FFFFFF", fontSize: 20, fontWeight: 700 }}>
+            Center Estates ERP — User & Operational Guide (PDF)
+          </h3>
+          <p style={{ margin: 0, fontSize: 13.5, color: "#E0E7FF", lineHeight: 1.5 }}>
+            Complete downloadable operational manual for Property Managers, Accountants, and Administrators. Covers multi-estate scoping, unit readiness, tenant leases, utility billing, rent invoicing, and maintenance workflows.
+          </p>
+        </div>
+        <div>
+          <a
+            href="/docs/Center_Estates_User_Guide.pdf"
+            download="Center_Estates_User_Guide.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn"
+            style={{
+              background: "#FFFFFF",
+              color: "#1E3A8A",
+              fontWeight: 700,
+              fontSize: 13.5,
+              padding: "10px 20px",
+              borderRadius: 8,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+              textDecoration: "none",
+              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+            }}
+          >
+            <FileText size={18} />
+            Download PDF Guide
+          </a>
+        </div>
       </div>
 
       {/* Role selector */}

@@ -1422,12 +1422,12 @@ function AdministrationContent() {
                                 alignItems: "center",
                                 gap: 5,
                                 fontWeight: 600,
-                                cursor: (m.user_id === session?.user?.id || m.username === session?.user?.username) ? "not-allowed" : "pointer",
-                                opacity: (m.user_id === session?.user?.id || m.username === session?.user?.username) ? 0.4 : 1,
+                                cursor: (String(m.user_id) === String(session?.user?.id) || m.username === session?.user?.username) ? "not-allowed" : "pointer",
+                                opacity: (String(m.user_id) === String(session?.user?.id) || m.username === session?.user?.username) ? 0.4 : 1,
                               }}
-                              disabled={m.user_id === session?.user?.id || m.username === session?.user?.username}
+                              disabled={String(m.user_id) === String(session?.user?.id) || m.username === session?.user?.username}
                               onClick={() => handleToggleAccountStatus(m)}
-                              title={(m.user_id === session?.user?.id || m.username === session?.user?.username) ? "Cannot disable own account" : (m.is_active === false || m.status === "suspended") ? "Enable user login" : "Disable user login"}
+                              title={(String(m.user_id) === String(session?.user?.id) || m.username === session?.user?.username) ? "Cannot disable own account" : (m.is_active === false || m.status === "suspended") ? "Enable user login" : "Disable user login"}
                             >
                               {(m.is_active === false || m.status === "suspended") ? <Unlock size={13} /> : <Lock size={13} />}
                               <span>{(m.is_active === false || m.status === "suspended") ? "Enable" : "Disable"}</span>
