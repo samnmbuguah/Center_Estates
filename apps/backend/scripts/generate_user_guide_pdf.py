@@ -399,5 +399,5 @@ def build_pdf(output_path):
     print(f"PDF successfully built at: {output_path}")
 
 if __name__ == '__main__':
-    target = sys.argv[1] if len(sys.argv) > 1 else 'apps/web/public/docs/Center_Estates_User_Guide.pdf'
+    target = sys.argv[1] if len(sys.argv) > 1 else 'apps/web/public/guides/Center_Estates_User_Guide.pdf'
     build_pdf(target)

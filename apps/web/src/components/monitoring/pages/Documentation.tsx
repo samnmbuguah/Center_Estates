@@ -395,7 +395,7 @@ export function Documentation() {
         </div>
         <div>
           <a
-            href="/docs/Center_Estates_User_Guide.pdf"
+            href="/guides/Center_Estates_User_Guide.pdf"
             download="Center_Estates_User_Guide.pdf"
             target="_blank"
             rel="noopener noreferrer"
