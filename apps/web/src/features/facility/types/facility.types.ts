@@ -35,6 +35,7 @@ export type FacilityTab =
   | "spare-parts"
   | "consumables"
   | "tickets"
+  | "feedback-qr"
   | "calendar";
 
 export type ID = string | number;
@@ -172,5 +173,6 @@ export const facilityLabels: Record<FacilityTab, string> = {
   "spare-parts": "Spare Parts",
   consumables: "Consumables",
   tickets: "Tickets & Issues",
+  "feedback-qr": "Public & Concierge QR Codes",
   calendar: "Calendar",
 };

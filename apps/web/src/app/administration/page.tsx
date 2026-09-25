@@ -26,7 +26,6 @@ import {
   EyeOff,
 } from "lucide-react";
 import { RoleAccessManager } from "@/components/role-access-manager";
-import { FeedbackQrManager } from "@/components/feedback-qr-manager";
 import { Field, Modal, StatusPill, Badge, EmptyState, KpiCard, KpiStrip } from "@/components/module-ui";
 import { readStoredOrganizationBrand, DEFAULT_ORGANIZATION_BRAND, type OrganizationBrand } from "@/lib/organization-branding";
 
@@ -144,12 +143,12 @@ function AdministrationContent() {
 
   // Active subtab read from sidebar URL search parameter
   const urlTab = searchParams ? searchParams.get("tab") : null;
-  const tab = (urlTab && ["users", "roles", "mpesa", "smtp", "orgs", "tax", "audit", "system-health", "feedback-qr"].includes(urlTab))
-    ? (urlTab as "users" | "roles" | "mpesa" | "smtp" | "orgs" | "tax" | "audit" | "system-health" | "feedback-qr")
-    : (isSuperAdministrator ? "users" : "feedback-qr");
+  const tab = (urlTab && ["users", "roles", "mpesa", "smtp", "orgs", "tax", "audit", "system-health"].includes(urlTab))
+    ? (urlTab as "users" | "roles" | "mpesa" | "smtp" | "orgs" | "tax" | "audit" | "system-health")
+    : (isSuperAdministrator ? "users" : "mpesa");
 
   const canAccessAdministration = isSuperAdministrator || (
-    isManagerOrAdmin && ["feedback-qr", "mpesa", "smtp", "tax", "audit", "users"].includes(tab)
+    isManagerOrAdmin && ["mpesa", "smtp", "tax"].includes(tab)
   );
 
   // Shared Data
@@ -2464,8 +2463,6 @@ function AdministrationContent() {
           </div>
         </div>
       )}
-
-      {tab === "feedback-qr" && <FeedbackQrManager organizationId={organizationId} />}
 
       {/* MODAL 1: ADD SYSTEM USER */}
       {showAddUserModal && (

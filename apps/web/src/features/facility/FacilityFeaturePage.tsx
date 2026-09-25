@@ -21,6 +21,7 @@ import { SupplierInvoicesView } from "./components/tabs/SupplierInvoicesView";
 import { ProcurementView } from "./components/tabs/ProcurementView";
 import { FinanceControlView } from "./components/tabs/FinanceControlView";
 import { FacilityModals } from "./components/modals/FacilityModals";
+import { FeedbackQrManager } from "@/components/feedback-qr-manager";
 import { ErrorBanner, LoadingState } from "@/components/module-ui";
 
 const StrategicFMPlanView = dynamic(() => import("./components/tabs/StrategicFMPlanView").then((m) => m.StrategicFMPlanView), { loading: () => <LoadingState rows={6} /> });
@@ -140,6 +141,8 @@ export function FacilityFeaturePage({ defaultTab = "overview" }: { defaultTab?: 
             canAdminister={logic.canAdminister}
             reload={logic.load}
           />
+        ) : logic.tab === "feedback-qr" ? (
+          <FeedbackQrManager organizationId={logic.organizationId} />
         ) : logic.tab === "meters" ? (
           <UtilitiesView
             rows={logic.rows}

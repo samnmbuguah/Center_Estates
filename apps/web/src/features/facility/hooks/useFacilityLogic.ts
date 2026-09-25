@@ -40,7 +40,7 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
     if (!organizationId) { setLoading(false); return; }
     setLoading(true);
     setError("");
-    if (tab === "tickets" || tab === "calendar") {
+    if (tab === "tickets" || tab === "calendar" || tab === "feedback-qr") {
       setRows([]);
       setLoading(false);
       return;

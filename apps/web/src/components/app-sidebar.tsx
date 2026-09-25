@@ -47,16 +47,15 @@ const SETTINGS_SUBITEMS = [
 ];
 
 const ADMIN_SUBITEMS = [
-  { id: "testing", label: "Testing & Release Hub", icon: "🧪", href: "/testing" },
   { id: "users", label: "Users & Staff Accounts", icon: "👥", href: "/administration?tab=users" },
   { id: "roles", label: "Roles & Permissions", icon: "🔐", href: "/administration?tab=roles" },
+  { id: "orgs", label: "Organization & Modules", icon: "🏢", href: "/administration?tab=orgs" },
   { id: "mpesa", label: "M-Pesa & Payment Hub", icon: "💳", href: "/administration?tab=mpesa" },
   { id: "smtp", label: "Email SMTP Gateway", icon: "✉️", href: "/administration?tab=smtp" },
-  { id: "orgs", label: "Organization & Modules", icon: "🏢", href: "/administration?tab=orgs" },
   { id: "tax", label: "KRA Tax & E-TIMS", icon: "📜", href: "/administration?tab=tax" },
   { id: "audit", label: "Security Audit Trail", icon: "🛡️", href: "/administration?tab=audit" },
   { id: "system-health", label: "System Health", icon: "🩺", href: "/administration?tab=system-health" },
-  { id: "feedback-qr", label: "Public Feedback QR Codes", icon: "▦", href: "/administration?tab=feedback-qr" },
+  { id: "testing", label: "Testing & Release Hub", icon: "🧪", href: "/testing" },
 ];
 
 type AppSidebarProps = {
@@ -752,8 +751,8 @@ export default function AppSidebar({ menuOpen, onCloseMobile }: AppSidebarProps)
                       marginBottom: 4,
                     }}
                   >
-                    {ADMIN_SUBITEMS.filter((item) => isAdministrator || ["testing", "feedback-qr", "mpesa", "tax", "smtp", "users", "audit"].includes(item.id)).map((item) => {
-                      const isItemActive = (pathname === "/testing" && item.id === "testing") || (pathname === "/administration" && (currentTab === item.id || (!currentTab && item.id === (isAdministrator ? "users" : "feedback-qr"))));
+                    {ADMIN_SUBITEMS.filter((item) => isAdministrator || ["mpesa", "smtp", "tax", "testing"].includes(item.id)).map((item) => {
+                      const isItemActive = (pathname === "/testing" && item.id === "testing") || (pathname === "/administration" && (currentTab === item.id || (!currentTab && item.id === (isAdministrator ? "users" : "mpesa"))));
                       return (
                         <Link
                           key={item.id}

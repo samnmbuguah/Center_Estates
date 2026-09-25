@@ -121,6 +121,7 @@ export const facilityNav: ModuleNavGroup[] = [
       { id: "incidents", label: "Incident Reporting", icon: "🔍" },
       { id: "inspections", label: "Inspections", icon: "🔎" },
       { id: "meters", label: "Energy & Utilities", icon: "⚡" },
+      { id: "feedback-qr", label: "Public & Concierge QR Codes", icon: "▦" },
     ],
   },
   {
