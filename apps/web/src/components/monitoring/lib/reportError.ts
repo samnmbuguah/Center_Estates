@@ -52,7 +52,8 @@ export function installGlobalErrorHandlers(): void {
     }
 
     // Ignore third-party / browser extension web-vitals PerformanceObserver errors
-    if (/reading 'startTime'|reportAllChanges/i.test(ev.message || "")) {
+    if (/reading 'startTime'|reportAllChanges/i.test(ev.message || "") || /reading 'startTime'|reportAllChanges/i.test(ev.error?.message || "")) {
+      if (typeof ev.preventDefault === "function") ev.preventDefault();
       return;
     }
 
@@ -65,6 +66,10 @@ export function installGlobalErrorHandlers(): void {
   window.addEventListener("unhandledrejection", (ev) => {
     const reason = ev.reason;
     const message = reason instanceof Error ? reason.message : String(reason || "unhandledrejection");
+    if (/reading 'startTime'|reportAllChanges/i.test(message)) {
+      if (typeof ev.preventDefault === "function") ev.preventDefault();
+      return;
+    }
     const stack = reason instanceof Error ? reason.stack : undefined;
     reportClientError({ message, stack });
   });

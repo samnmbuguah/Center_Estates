@@ -20,10 +20,12 @@ import {
   Megaphone,
   Scale,
   ScanLine,
+  Search,
   Settings,
   ShieldCheck,
   ShieldHalf,
   SlidersHorizontal,
+  Sparkles,
   TestTube,
   Ticket,
   Umbrella,
@@ -31,7 +33,7 @@ import {
   Wallet,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Link, useOutletContext } from "@/components/monitoring/react-router-shim";
 import { useAuth } from "../auth";
 import { type TourAPI } from "../components/tour";
@@ -55,6 +57,7 @@ interface DocModule {
 }
 
 const ROLES: Array<{ key: string; label: string }> = [
+  { key: "all", label: "All Roles" },
   { key: "property_manager", label: "Property Manager" },
   { key: "property_accountant", label: "Property Accountant" },
   { key: "clerk_of_works", label: "Clerk of Works" },
@@ -250,6 +253,168 @@ const DOC_SECTIONS: DocSection[] = [
     ],
   },
   {
+    id: "sales",
+    title: "Sales & Off-Plan Developments",
+    icon: Coins,
+    description: "Buyer management, off-plan unit allocations, installment schedules, agent commissions, and buyer self-service portal.",
+    modules: [
+      {
+        name: "Off-Plan Unit Sales & KYC",
+        path: "/app/sales",
+        description: "Capture prospective buyers, configure sales prices, reserve units, and issue formal reservation agreements.",
+        features: [
+          "Prospective buyer directory with KYC identity verification",
+          "Unit reservation workflow with expiry lock timers",
+          "Automatic generation of offer letters & purchase agreements",
+          "Support for individual, joint, and corporate buyers"
+        ],
+        perm: "sales.view",
+        roles: ["property_manager", "admin", "all"]
+      },
+      {
+        name: "Installment Schedules & Collections",
+        path: "/app/sales",
+        description: "Automated payment plans based on calendar schedules or construction milestone completions.",
+        features: [
+          "Milestone-linked and calendar-based installment schedules",
+          "Automated payment reminders and arrears escalation",
+          "Buyer statement of accounts with payment receipts",
+          "Integrated M-Pesa, bank wire, and RTGS payment recording"
+        ],
+        perm: "sales.view",
+        roles: ["property_manager", "property_accountant", "admin", "all"]
+      },
+      {
+        name: "Sales Agent Commissions",
+        path: "/app/sales",
+        description: "Calculate and disburse tiered commissions for internal sales reps and external agency brokers.",
+        features: [
+          "Configurable percentage rates per project or agent agreement",
+          "Trigger payouts upon down payment or milestone qualification",
+          "Multi-tier approval workflow for agent disbursements",
+          "Tax deduction and withholding tax audit trails"
+        ],
+        perm: "sales.manage",
+        roles: ["property_manager", "property_accountant", "admin"]
+      },
+      {
+        name: "Buyer Self-Service Portal",
+        path: "/pay",
+        description: "Dedicated client-facing portal for buyers to review their purchase balances and upload proof of payments.",
+        features: [
+          "Client login with PIN and mobile OTP verification",
+          "Instant statement and milestone progress overview",
+          "Live photo timeline of property development progress",
+          "Direct receipt downloads and customer support messaging"
+        ],
+        perm: "sales.view",
+        roles: ["property_manager", "admin", "all"]
+      },
+    ],
+  },
+  {
+    id: "tenders",
+    title: "Tenders & Bid Management",
+    icon: Scale,
+    description: "End-to-end tender lifecycle from RFP intake and criteria evaluation to gate reviews and formal proposal submission.",
+    modules: [
+      {
+        name: "Tender Opportunity Pipeline",
+        path: "/app/tenders",
+        description: "Track upcoming public and private tenders with submission deadlines, bonds, and tender requirements.",
+        features: [
+          "Tender intake with client, sector, budget, and bid bond values",
+          "Mandatory criteria checklist & compliance matrix",
+          "Bid/No-Bid decision gate workflow with risk assessment",
+          "Calendar timeline and countdown to submission deadlines"
+        ],
+        perm: "tenders.view",
+        roles: ["project_manager", "qs", "admin", "all"]
+      },
+      {
+        name: "Proposal Assembly & Gate Reviews",
+        path: "/app/tenders",
+        description: "Collaborative drafting of technical and financial proposals with multi-stage governance signoffs.",
+        features: [
+          "Section assignment to QS, engineers, and financial teams",
+          "Gate 1 (Opportunity), Gate 2 (Pricing), and Gate 3 (Final Signoff)",
+          "Consensus scoring and executive management approval",
+          "Compiled digital submission packages with tamper-evident audit logs"
+        ],
+        perm: "tenders.manage",
+        roles: ["project_manager", "qs", "admin"]
+      },
+    ],
+  },
+  {
+    id: "valuations",
+    title: "Valuations & Advisory",
+    icon: ScanLine,
+    description: "Professional property valuations, field inspection capture, market comparables, and certified valuation reports.",
+    modules: [
+      {
+        name: "Valuation Instructions",
+        path: "/app/valuations",
+        description: "Log instructions from banks, corporations, and private clients with formal surveyor dispatch.",
+        features: [
+          "Client engagement intake with loan/mortgage references",
+          "Property identification, title deed, and survey map linking",
+          "Valuer site visit scheduling and surveyor assignment",
+          "Fee quotations, retainer billing, and invoice tracking"
+        ],
+        perm: "valuations.view",
+        roles: ["property_manager", "qs", "admin", "all"]
+      },
+      {
+        name: "Inspections, Evidence & Reports",
+        path: "/app/valuations",
+        description: "Record physical field observations, link market comparable transactions, and generate certified reports.",
+        features: [
+          "Structural condition assessment and building measurements",
+          "Comparable sales & rental transaction database",
+          "Automated replacement cost and market value computation",
+          "Digitally stamped and sealed valuation certificate export"
+        ],
+        perm: "valuations.manage",
+        roles: ["property_manager", "qs", "admin"]
+      },
+    ],
+  },
+  {
+    id: "companion",
+    title: "Companion Operational AI",
+    icon: Sparkles,
+    description: "Intelligent daily nudges, field task dispatch, team performance metrics, and cross-departmental operations.",
+    modules: [
+      {
+        name: "Daily Workload Nudges",
+        path: "/app/companion",
+        description: "Contextual morning briefings, workload task summaries, and operational reminders tailored to each staff member.",
+        features: [
+          "Role-based task prioritization based on due dates and urgency",
+          "Automated quiet mode when operating with zero pending tasks",
+          "Company leadership broadcast campaigns & operational notices",
+          "Customizable card features with one-click user preferences"
+        ],
+        perm: "companion.view",
+        roles: ["all"]
+      },
+      {
+        name: "Team Tasks & Feedback Hub",
+        path: "/app/companion",
+        description: "Operational task delegation across maintenance, leasing, and site teams with SLA performance monitoring.",
+        features: [
+          "Task assignment with priority badges and location tagging",
+          "Real-time status tracking (Pending → In Progress → Done)",
+          "Threaded communication and resolution notes",
+          "Team workload distribution analytics"
+        ],
+        perm: "companion.view",
+        roles: ["all"]
+      },
+    ],
+  },
+  {
     id: "admin",
     title: "Administration",
     icon: SlidersHorizontal,
@@ -307,6 +472,16 @@ function moduleIcon(name: string) {
     "AI Assistant": Zap,
     "Store": BarChart3,
     "Notices": Megaphone,
+    "Off-Plan Unit Sales & KYC": Coins,
+    "Installment Schedules & Collections": Coins,
+    "Sales Agent Commissions": Wallet,
+    "Buyer Self-Service Portal": Users,
+    "Tender Opportunity Pipeline": Scale,
+    "Proposal Assembly & Gate Reviews": FileSpreadsheet,
+    "Valuation Instructions": ScanLine,
+    "Inspections, Evidence & Reports": FileText,
+    "Daily Workload Nudges": Sparkles,
+    "Team Tasks & Feedback Hub": CheckCircle,
     "User Management": Users,
     "Role Management": ShieldHalf,
     "Tenant Management": Building2,
@@ -325,30 +500,72 @@ function moduleIcon(name: string) {
 
 export function Documentation() {
   const { me, can } = useAuth();
-  const userRole = me?.roles?.[0] || "default";
+  const userRole = me?.roles?.[0] || "all";
   const tour = useOutletContext<TourAPI>();
   const [activeSection, setActiveSection] = useState<string>("property-mgmt");
   const [activeRole, setActiveRole] = useState<string>(userRole);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
-  const roleLabel = ROLES.find((r) => r.key === activeRole)?.label || "Default";
+  const roleLabel = ROLES.find((r) => r.key === activeRole)?.label || "All Roles";
 
-  const visibleSections = DOC_SECTIONS.map((section) => ({
-    ...section,
-    modules: section.modules.filter((m) => m.roles.includes("all") || m.roles.includes(activeRole)),
-  })).filter((s) => s.modules.length > 0);
+  const roleFilteredSections = useMemo(() => {
+    return DOC_SECTIONS.map((section) => ({
+      ...section,
+      modules: section.modules.filter((m) => activeRole === "all" || m.roles.includes("all") || m.roles.includes(activeRole)),
+    })).filter((s) => s.modules.length > 0);
+  }, [activeRole]);
+
+  const q = searchQuery.toLowerCase().trim();
+  const visibleSections = useMemo(() => {
+    if (!q) return roleFilteredSections;
+    return roleFilteredSections.map((section) => ({
+      ...section,
+      modules: section.modules.filter((m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.description.toLowerCase().includes(q) ||
+        m.features.some((f) => f.toLowerCase().includes(q))
+      ),
+    })).filter((s) => s.modules.length > 0);
+  }, [roleFilteredSections, q]);
 
   function handleStartTour(stepIndex: number) {
-    tour.startFromStep(stepIndex);
+    if (tour?.startFromStep) {
+      tour.startFromStep(stepIndex);
+    } else {
+      window.location.assign("/app");
+    }
   }
 
+  const totalMatchingModules = visibleSections.reduce((acc, s) => acc + s.modules.length, 0);
+
   return (
-    <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+    <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 12px" }}>
+      <style>{`
+        @media (max-width: 820px) {
+          .doc-main-layout { flex-direction: column !important; }
+          .doc-sidebar-col { width: 100% !important; }
+          .doc-sidebar-card { position: static !important; margin-bottom: 12px; }
+          .doc-sidebar-buttons {
+            display: flex !important;
+            overflow-x: auto !important;
+            white-space: nowrap !important;
+            gap: 8px !important;
+            padding-bottom: 6px !important;
+            -webkit-overflow-scrolling: touch;
+          }
+          .doc-sidebar-buttons button {
+            flex-shrink: 0 !important;
+            width: auto !important;
+          }
+        }
+      `}</style>
+
       {/* Header */}
       <div className="page-head" style={{ marginBottom: 20 }}>
         <div className="eyebrow">Documentation</div>
         <h2>System Documentation & User Guides</h2>
         <p className="muted" style={{ marginTop: 4 }}>
-          Comprehensive guides for all user roles. Select your role to see relevant features, or browse all modules.
+          Comprehensive operating guides across all modules. Search any workflow, filter by role, or read the downloadable guide.
         </p>
       </div>
 
@@ -358,18 +575,18 @@ export function Documentation() {
         style={{
           background: "linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%)",
           color: "#FFFFFF",
-          padding: "20px 24px",
-          borderRadius: "12px",
+          padding: "22px 24px",
+          borderRadius: "14px",
           marginBottom: "24px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: "16px",
+          gap: "18px",
           flexWrap: "wrap",
           boxShadow: "0 10px 25px -5px rgba(37, 99, 235, 0.25)",
         }}
       >
-        <div style={{ maxWidth: 640 }}>
+        <div style={{ maxWidth: 660 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
             <span
               style={{
@@ -386,10 +603,10 @@ export function Documentation() {
             </span>
             <span style={{ fontSize: 12, opacity: 0.85 }}>Release 2026.1 Enterprise</span>
           </div>
-          <h3 style={{ margin: "0 0 6px", color: "#FFFFFF", fontSize: 20, fontWeight: 700 }}>
+          <h3 style={{ margin: "0 0 6px", color: "#FFFFFF", fontSize: 20, fontWeight: 800 }}>
             Center Estates ERP — User & Operational Guide (PDF)
           </h3>
-          <p style={{ margin: 0, fontSize: 13.5, color: "#E0E7FF", lineHeight: 1.5 }}>
+          <p style={{ margin: 0, fontSize: 13.5, color: "#E0E7FF", lineHeight: 1.55 }}>
             Complete downloadable operational manual for Property Managers, Accountants, and Administrators. Covers multi-estate scoping, unit readiness, tenant leases, utility billing, rent invoicing, and maintenance workflows.
           </p>
         </div>
@@ -403,15 +620,15 @@ export function Documentation() {
             style={{
               background: "#FFFFFF",
               color: "#1E3A8A",
-              fontWeight: 700,
+              fontWeight: 800,
               fontSize: 13.5,
-              padding: "10px 20px",
+              padding: "11px 22px",
               borderRadius: 8,
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
               textDecoration: "none",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              boxShadow: "0 4px 10px rgba(0, 0, 0, 0.15)",
             }}
           >
             <FileText size={18} />
@@ -420,15 +637,57 @@ export function Documentation() {
         </div>
       </div>
 
-      {/* Role selector */}
-      <div className="card" style={{ padding: 16, marginBottom: 20 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)", marginBottom: 8 }}>VIEW AS ROLE</div>
+      {/* Search & Role Filter Header */}
+      <div className="card" style={{ padding: 18, marginBottom: 20, borderRadius: 12 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+          <div style={{ position: "relative", flex: 1, minWidth: 260 }}>
+            <Search size={18} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--muted)", pointerEvents: "none" }} />
+            <input
+              type="text"
+              placeholder="Search documentation, modules, features, or workflows…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px 14px 10px 42px",
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--text)",
+                fontSize: 14,
+                outline: "none",
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                style={{
+                  position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                  background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 13, fontWeight: 600,
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          {searchQuery && (
+            <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>
+              Found {totalMatchingModules} matching module{totalMatchingModules === 1 ? "" : "s"}
+            </span>
+          )}
+        </div>
+
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8, textTransform: "uppercase" }}>
+          Filter by Role
+        </div>
         <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
           {ROLES.map((role) => (
             <button
               key={role.key}
               className={`btn sm ${activeRole === role.key ? "primary" : "ghost"}`}
-              onClick={() => { setActiveRole(role.key); setActiveSection("dashboard"); }}
+              onClick={() => { setActiveRole(role.key); }}
+              style={{ borderRadius: 6, fontWeight: activeRole === role.key ? 700 : 500 }}
             >
               {role.label}
             </button>
@@ -436,108 +695,132 @@ export function Documentation() {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-        {/* Sidebar TOC */}
-        <div style={{ width: 240, flexShrink: 0 }}>
-          <div className="card" style={{ padding: 12, position: "sticky", top: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--muted)", marginBottom: 8 }}>
-              {roleLabel} — Quick Nav
+      <div className="doc-main-layout" style={{ display: "flex", gap: 20 }}>
+        {/* Sidebar Quick Nav (Hidden when searching so all results stream cleanly) */}
+        {!q && (
+          <div className="doc-sidebar-col" style={{ width: 250, flexShrink: 0 }}>
+            <div className="card doc-sidebar-card" style={{ padding: 12, position: "sticky", top: 20, borderRadius: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: "var(--muted)", marginBottom: 10, textTransform: "uppercase" }}>
+                {roleLabel} — Quick Nav
+              </div>
+              <div className="doc-sidebar-buttons">
+                {visibleSections.map((section) => (
+                  <button
+                    key={section.id}
+                    onClick={() => setActiveSection(section.id)}
+                    className="doc-nav-btn"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      width: "100%",
+                      padding: "9px 12px",
+                      border: "none",
+                      borderRadius: 8,
+                      background: activeSection === section.id ? "var(--accent)" : "transparent",
+                      color: activeSection === section.id ? "#fff" : "var(--text)",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: activeSection === section.id ? 700 : 500,
+                      textAlign: "left",
+                      marginBottom: 3,
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <section.icon size={16} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{section.title}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            {visibleSections.map((section) => (
+          </div>
+        )}
+
+        {/* Content Area */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {visibleSections.length === 0 ? (
+            <div className="card" style={{ padding: 36, textAlign: "center", borderRadius: 12 }}>
+              <p style={{ color: "var(--muted)", margin: 0, fontSize: 15 }}>
+                No modules found matching &ldquo;{searchQuery}&rdquo; for {roleLabel}.
+              </p>
               <button
+                className="btn sm ghost"
+                onClick={() => { setSearchQuery(""); setActiveRole("all"); }}
+                style={{ marginTop: 12 }}
+              >
+                Reset Search and Role Filters
+              </button>
+            </div>
+          ) : (
+            visibleSections.map((section) => (
+              <div
                 key={section.id}
-                onClick={() => setActiveSection(section.id)}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  width: "100%",
-                  padding: "8px 10px",
-                  border: "none",
-                  borderRadius: 6,
-                  background: activeSection === section.id ? "var(--accent)" : "transparent",
-                  color: activeSection === section.id ? "#fff" : "var(--text)",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontWeight: activeSection === section.id ? 600 : 400,
-                  textAlign: "left",
-                  marginBottom: 2,
+                  display: q || activeSection === section.id ? "block" : "none",
+                  marginBottom: q ? 28 : 0,
                 }}
               >
-                <section.icon size={15} />
-                {section.title}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Content */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          {visibleSections.map((section) => (
-            <div
-              key={section.id}
-              style={{ display: activeSection === section.id ? "block" : "none" }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                <section.icon size={24} style={{ color: "var(--accent)" }} />
-                <div>
-                  <h3 style={{ margin: 0 }}>{section.title}</h3>
-                  <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>{section.description}</p>
-                </div>
-              </div>
-
-              {section.modules.map((mod) => {
-                const hasAccess = !mod.perm || can(mod.perm);
-                const Icon = moduleIcon(mod.name);
-
-                return (
-                  <div key={mod.name} className="card" style={{ padding: 20, marginBottom: 16 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 8, background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)" }}>
-                          {Icon}
-                        </div>
-                        <div>
-                          <h4 style={{ margin: 0, fontSize: 16 }}>
-                            {mod.name}
-                            {!hasAccess && <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: 8 }}>(no access)</span>}
-                          </h4>
-                          {mod.path && hasAccess && (
-                            <Link to={mod.path} style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
-                              <ExternalLink size={12} /> {mod.path}
-                            </Link>
-                          )}
-                          {!mod.path && (
-                            <span style={{ fontSize: 12, color: "var(--muted)" }}>Mobile app feature</span>
-                          )}
-                        </div>
-                      </div>
-                      {mod.tourStep && mod.tourStep.role === activeRole && (
-                        <button
-                          className="btn sm ghost"
-                          onClick={() => handleStartTour(mod.tourStep!.stepIndex)}
-                          style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}
-                        >
-                          <MapPin size={14} /> Start Tour
-                        </button>
-                      )}
-                    </div>
-
-                    <p className="muted" style={{ fontSize: 13, lineHeight: 1.5, marginBottom: 12 }}>{mod.description}</p>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 6 }}>
-                      {mod.features.map((f, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-2)" }}>
-                          <CheckCircle size={12} style={{ color: "var(--success)", flexShrink: 0 }} />
-                          {f}
-                        </div>
-                      ))}
-                    </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                  <section.icon size={24} style={{ color: "var(--accent)" }} />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{section.title}</h3>
+                    <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>{section.description}</p>
                   </div>
-                );
-              })}
-            </div>
-          ))}
+                </div>
+
+                {section.modules.map((mod) => {
+                  const hasAccess = !mod.perm || can(mod.perm);
+                  const Icon = moduleIcon(mod.name);
+
+                  return (
+                    <div key={mod.name} className="card" style={{ padding: 20, marginBottom: 16, borderRadius: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ width: 38, height: 38, borderRadius: 9, background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)", flexShrink: 0 }}>
+                            {Icon}
+                          </div>
+                          <div>
+                            <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+                              {mod.name}
+                              {!hasAccess && <span style={{ fontSize: 11, color: "var(--muted)", marginLeft: 8 }}>(no access)</span>}
+                            </h4>
+                            {mod.path && hasAccess && (
+                              <Link to={mod.path} style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                                <ExternalLink size={12} /> {mod.path}
+                              </Link>
+                            )}
+                            {!mod.path && (
+                              <span style={{ fontSize: 12, color: "var(--muted)" }}>Mobile app feature</span>
+                            )}
+                          </div>
+                        </div>
+                        {mod.tourStep && (mod.tourStep.role === activeRole || activeRole === "all") && (
+                          <button
+                            className="btn sm ghost"
+                            onClick={() => handleStartTour(mod.tourStep!.stepIndex)}
+                            style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, borderRadius: 6 }}
+                          >
+                            <MapPin size={14} /> Start Tour
+                          </button>
+                        )}
+                      </div>
+
+                      <p className="muted" style={{ fontSize: 13.5, lineHeight: 1.55, marginBottom: 12 }}>{mod.description}</p>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 8 }}>
+                        {mod.features.map((f, i) => (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-2)" }}>
+                            <CheckCircle size={13} style={{ color: "var(--success)", flexShrink: 0 }} />
+                            <span>{f}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>

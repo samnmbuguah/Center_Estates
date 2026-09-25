@@ -59,8 +59,6 @@ type NudgePreferences = {
   showQuote: boolean;
   showJokes: boolean;
   showAnnouncements: boolean;
-  showActionButton: boolean;
-  showFooterNote: boolean;
 };
 
 const DEFAULT_PREFERENCES: NudgePreferences = {
@@ -68,8 +66,6 @@ const DEFAULT_PREFERENCES: NudgePreferences = {
   showQuote: true,
   showJokes: true,
   showAnnouncements: true,
-  showActionButton: true,
-  showFooterNote: true,
 };
 
 const STORAGE_KEY = "ce_nudge_ack";
@@ -449,46 +445,6 @@ export function CompanionNudgeModal() {
                   </Box>
                 }
               />
-
-              <FormControlLabel
-                control={
-                  <Switch
-                    size="small"
-                    checked={prefs.showActionButton}
-                    onChange={(e) => updatePref("showActionButton", e.target.checked)}
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.85rem" }}>
-                      Main Action Button
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
-                      Primary navigation CTA
-                    </Typography>
-                  </Box>
-                }
-              />
-
-              <FormControlLabel
-                control={
-                  <Switch
-                    size="small"
-                    checked={prefs.showFooterNote}
-                    onChange={(e) => updatePref("showFooterNote", e.target.checked)}
-                  />
-                }
-                label={
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: "0.85rem" }}>
-                      Footer Cooldown Note
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.74rem" }}>
-                      Upcoming nudge interval notice
-                    </Typography>
-                  </Box>
-                }
-              />
             </Stack>
 
             <Box sx={{ mt: 2.5 }}>
@@ -513,17 +469,18 @@ export function CompanionNudgeModal() {
           /* Standard Rich Card View */
           <>
             {/* Companion avatar */}
-            <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+            <Box sx={{ display: "flex", justifyContent: "center", mb: 1.5 }}>
               <Box
                 sx={{
-                  width: 72,
-                  height: 72,
+                  width: 58,
+                  height: 58,
                   borderRadius: "50%",
                   background: lightAccent,
-                  border: `2px solid color-mix(in srgb, ${accent} 13%, transparent)`,
+                  border: `2px solid color-mix(in srgb, ${accent} 16%, transparent)`,
                   display: "grid",
                   placeItems: "center",
-                  fontSize: 34,
+                  fontSize: 28,
+                  boxShadow: `0 4px 14px color-mix(in srgb, ${accent} 15%, transparent)`,
                   animation:
                     nudge.animation === "breathe"
                       ? "breathe 3s ease-in-out infinite"
@@ -541,7 +498,7 @@ export function CompanionNudgeModal() {
             </Box>
 
             {/* Pill Category */}
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mb: 1.2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mb: 1.5 }}>
               <Box
                 sx={{
                   display: "inline-flex",
@@ -551,7 +508,7 @@ export function CompanionNudgeModal() {
                   py: 0.4,
                   borderRadius: 99,
                   bgcolor: lightAccent,
-                  border: `1px solid color-mix(in srgb, ${accent} 9%, transparent)`,
+                  border: `1px solid color-mix(in srgb, ${accent} 12%, transparent)`,
                 }}
               >
                 <Sparkles size={12} style={{ color: accent }} />
@@ -565,23 +522,32 @@ export function CompanionNudgeModal() {
                     color: accent,
                   }}
                 >
-                  Companion Nudge · {nudge.category}
+                  Companion · {nudge.category}
                 </Typography>
               </Box>
             </Box>
 
-            {/* Operational Summary / Title & Message */}
+            {/* Operational Task Summary Card (with integrated action button) */}
             {prefs.showOperationalSummary && (
-              <>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: 2,
+                  mb: 1.5,
+                  borderRadius: 2.75,
+                  bgcolor: "rgba(248, 250, 252, 0.88)",
+                  border: "1px solid rgba(226, 232, 240, 0.95)",
+                  textAlign: "center",
+                }}
+              >
                 <Typography
                   variant="h6"
                   sx={{
-                    fontWeight: 900,
-                    textAlign: "center",
-                    lineHeight: 1.25,
-                    mb: 1,
+                    fontWeight: 800,
+                    lineHeight: 1.3,
+                    mb: 0.75,
                     color: "text.primary",
-                    fontSize: "1.15rem",
+                    fontSize: "1.08rem",
                   }}
                 >
                   {nudge.title}
@@ -589,53 +555,73 @@ export function CompanionNudgeModal() {
 
                 <Typography
                   variant="body2"
-                  sx={{ color: "text.secondary", textAlign: "center", lineHeight: 1.6, mb: 1.5, px: 1 }}
+                  sx={{
+                    color: "text.secondary",
+                    lineHeight: 1.55,
+                    mb: 1.75,
+                    fontSize: "0.86rem",
+                    px: 0.5,
+                  }}
                 >
                   {nudge.message}
                 </Typography>
-              </>
+
+                <Button
+                  fullWidth
+                  variant="contained"
+                  size="medium"
+                  onClick={handleAction}
+                  endIcon={<ArrowRight size={15} />}
+                  sx={{
+                    borderRadius: 2.25,
+                    py: 1,
+                    textTransform: "none",
+                    fontWeight: 700,
+                    fontSize: "0.88rem",
+                    boxShadow: `0 4px 14px color-mix(in srgb, ${accent} 20%, transparent)`,
+                    bgcolor: accent,
+                    "&:hover": {
+                      bgcolor: accent,
+                      filter: "brightness(0.93)",
+                      boxShadow: `0 6px 18px color-mix(in srgb, ${accent} 25%, transparent)`,
+                    },
+                  }}
+                >
+                  {nudge.action_label || "Explore Workspace"}
+                </Button>
+              </Paper>
             )}
 
             {/* Thoughtful quote */}
             {prefs.showQuote && nudge.thought && (
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.75, mb: 1.75, px: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.75, mb: 1.5, px: 1 }}>
                 <Heart size={13} style={{ color: accent, opacity: 0.9 }} />
                 <Typography
                   variant="caption"
-                  sx={{ fontStyle: "italic", color: "text.secondary", fontWeight: 600, textAlign: "center" }}
+                  sx={{ fontStyle: "italic", color: "text.secondary", fontWeight: 600, textAlign: "center", fontSize: "0.78rem" }}
                 >
                   {nudge.thought}
                 </Typography>
               </Box>
             )}
 
-            {/* Dedicated Company Announcement / Advertisement Sub-section */}
+            {/* Company Announcement Sub-section (no redundant title) */}
             {prefs.showAnnouncements && nudge.announcement && (
               <Paper
                 elevation={0}
                 sx={{
                   p: 1.5,
-                  mb: 1.75,
+                  mb: 1.5,
                   borderRadius: 2.5,
-                  bgcolor: "rgba(245, 158, 11, 0.07)",
-                  border: "1px solid rgba(245, 158, 11, 0.24)",
-                  position: "relative",
+                  bgcolor: "rgba(245, 158, 11, 0.08)",
+                  border: "1px solid rgba(245, 158, 11, 0.22)",
                 }}
               >
                 <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", mb: 0.5 }}>
                   <Stack direction="row" sx={{ alignItems: "center", gap: 0.75 }}>
-                    <span style={{ fontSize: 13 }}>{nudge.announcement.icon || "📣"}</span>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontWeight: 800,
-                        color: "var(--color-warning)",
-                        letterSpacing: ".04em",
-                        textTransform: "uppercase",
-                        fontSize: "0.68rem",
-                      }}
-                    >
-                      Company {nudge.announcement.category === "campaign" ? "Campaign" : "Announcement"}
+                    <span style={{ fontSize: 15 }}>{nudge.announcement.icon || "📢"}</span>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: "0.88rem", color: "text.primary" }}>
+                      {nudge.announcement.title}
                     </Typography>
                   </Stack>
                   {nudge.announcement.action_href && (
@@ -645,7 +631,7 @@ export function CompanionNudgeModal() {
                         background: "none",
                         border: "none",
                         color: "var(--color-warning)",
-                        fontSize: "0.72rem",
+                        fontSize: "0.74rem",
                         fontWeight: 700,
                         cursor: "pointer",
                         display: "inline-flex",
@@ -658,12 +644,9 @@ export function CompanionNudgeModal() {
                     </button>
                   )}
                 </Stack>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: "0.88rem", color: "text.primary" }}>
-                  {nudge.announcement.title}
-                </Typography>
                 <Typography
                   variant="caption"
-                  sx={{ color: "text.secondary", lineHeight: 1.45, display: "block", mt: 0.25 }}
+                  sx={{ color: "text.secondary", lineHeight: 1.45, display: "block", pl: 3.1 }}
                 >
                   {nudge.announcement.message}
                 </Typography>
@@ -675,10 +658,10 @@ export function CompanionNudgeModal() {
               <Paper
                 elevation={0}
                 sx={{
-                  p: 1.5,
-                  mb: 2.25,
-                  borderRadius: 2.5,
-                  bgcolor: "rgba(248,250,252,0.9)",
+                  p: 1.25,
+                  mb: 1,
+                  borderRadius: 2.25,
+                  bgcolor: "rgba(248,250,252,0.85)",
                   border: "1px dashed",
                   borderColor: "divider",
                   textAlign: "center",
@@ -691,52 +674,20 @@ export function CompanionNudgeModal() {
                     color: accent,
                     letterSpacing: ".04em",
                     textTransform: "uppercase",
-                    fontSize: "0.66rem",
+                    fontSize: "0.64rem",
                     display: "block",
-                    mb: 0.5,
+                    mb: 0.35,
                   }}
                 >
                   Just for smiles
                 </Typography>
                 <Typography
                   variant="body2"
-                  sx={{ fontStyle: "italic", color: "text.secondary", lineHeight: 1.5, fontSize: "0.86rem" }}
+                  sx={{ fontStyle: "italic", color: "text.secondary", lineHeight: 1.45, fontSize: "0.82rem" }}
                 >
                   “{nudge.joke}”
                 </Typography>
               </Paper>
-            )}
-
-            {/* Main Action CTA Button */}
-            {prefs.showActionButton && (
-              <Button
-                fullWidth
-                variant="contained"
-                size="large"
-                onClick={handleAction}
-                endIcon={<ArrowRight size={16} />}
-                sx={{
-                  borderRadius: 2.5,
-                  py: 1.35,
-                  textTransform: "none",
-                  fontWeight: 800,
-                  fontSize: "0.92rem",
-                  boxShadow: `0 8px 20px color-mix(in srgb, ${accent} 19%, transparent)`,
-                  bgcolor: accent,
-                  "&:hover": { bgcolor: accent, filter: "brightness(0.92)", boxShadow: `0 10px 24px color-mix(in srgb, ${accent} 22%, transparent)` },
-                }}
-              >
-                {nudge.action_label || "Got it, thanks"}
-              </Button>
-            )}
-
-            {/* Footer Cooldown Note */}
-            {prefs.showFooterNote && (
-              <Box sx={{ display: "flex", justifyContent: "center", mt: 1.25 }}>
-                <Typography variant="caption" sx={{ color: "text.disabled", fontSize: "0.7rem" }}>
-                  You’ll see a new thoughtful nudge again in a little while
-                </Typography>
-              </Box>
             )}
           </>
         )}

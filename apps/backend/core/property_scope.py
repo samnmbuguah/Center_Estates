@@ -203,11 +203,15 @@ def get_active_property(request, organization, *, required=False):
         raise ValidationError({'property': 'Invalid property ID format. Expected a UUID.'})
     property_record = Property.objects.filter(pk=property_id, organization=organization).first()
     if property_record is None:
-        raise PermissionDenied('The selected property is not available in this organization.')
+        if required or request.method not in SAFE_METHODS:
+            raise PermissionDenied('The selected property is not available in this organization.')
+        return None
     if is_property_manager_restricted(request.user, organization):
         accessible_ids = get_accessible_property_ids(request.user, organization)
         if not accessible_ids.filter(pk=property_record.pk).exists():
-            raise PermissionDenied('You do not have permission to view or manage this property.')
+            if required or request.method not in SAFE_METHODS:
+                raise PermissionDenied('You do not have permission to view or manage this property.')
+            return None
     # A module may be switched off for a property. Block new activity in that
     # module while keeping historical reads available for reporting.
     module = _request_module(request)

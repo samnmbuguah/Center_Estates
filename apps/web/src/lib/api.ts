@@ -232,9 +232,12 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
   if ((!authPath || authContextAllowed) && activeOrgId && !headers.has("X-Organization-ID")) {
     headers.set("X-Organization-ID", activeOrgId);
   }
-  // A selected property is workspace state, not authentication context. Stale
-  // state from another user must not make /auth/me/ fail after valid login.
-  if (!authPath && typeof window !== "undefined" && !headers.has("X-Property-Scope") && !headers.has("X-Property-ID")) {
+  const isPropertiesList =
+    normalizedPath === "/properties/" ||
+    normalizedPath.startsWith("/properties/?") ||
+    normalizedPath === "/property/properties/" ||
+    normalizedPath.startsWith("/property/properties/?");
+  if (!authPath && !isPropertiesList && typeof window !== "undefined" && !headers.has("X-Property-Scope") && !headers.has("X-Property-ID")) {
     const raw = localStorage.getItem(activeOrgId ? `ce-active-property:${activeOrgId}` : "ce-active-property");
     if (raw) {
       try {
@@ -345,6 +348,11 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
       if (response.ok && !isAuthRead) {
         rememberGet(cacheKey, response);
       } else if (!fullPath.startsWith("/auth/") && !fullPath.includes("/telemetry/")) {
+        if (response.status === 403 && typeof window !== "undefined" && headers.has("X-Property-ID")) {
+          try {
+            localStorage.removeItem(activeOrgId ? `ce-active-property:${activeOrgId}` : "ce-active-property");
+          } catch {}
+        }
         announceApiError(await apiErrorMessage(response, "The requested information could not be loaded."));
       }
       return response;

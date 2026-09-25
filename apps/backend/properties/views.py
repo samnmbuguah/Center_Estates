@@ -7536,6 +7536,18 @@ class TenantPortalViewSet(ViewSet):
             user=self.request.user, is_active=True,
         ).select_related('tenant').first()
         if not access:
+            if can_support:
+                first_tenant = scope_model_queryset(Tenant, self.request, organization).first()
+                if first_tenant:
+                    portal_access = TenantPortalAccess.objects.for_organization(organization).filter(
+                        tenant=first_tenant, is_active=True,
+                    ).select_related('user').first()
+                    class ScopedAccess:
+                        def __init__(self, org, t, portal_user):
+                            self.organization = org
+                            self.tenant = t
+                            self.user = portal_user
+                    return ScopedAccess(organization, first_tenant, portal_access.user if portal_access else None)
             raise PermissionDenied('No active tenant portal profile is linked to this account.')
         return access
 
@@ -7715,7 +7727,36 @@ class TenantPortalViewSet(ViewSet):
     @extend_schema(request=None, responses={200: {"type": "object"}})
     def list(self, request):
         tenant_id = request.query_params.get('tenant')
-        access = self._access(tenant_id=tenant_id)
+        try:
+            access = self._access(tenant_id=tenant_id)
+        except PermissionDenied:
+            organization = get_active_organization(request)
+            membership = get_active_membership(request, organization)
+            can_support = bool(
+                request.user.is_staff or request.user.is_superuser
+                or (membership and (
+                    membership.is_organization_admin
+                    or membership.has_permission('property.leasing')
+                    or membership.has_permission('property.view')
+                ))
+            )
+            if can_support:
+                return Response({
+                    'tenant': None,
+                    'currentLease': None,
+                    'offerLetter': None,
+                    'balance': Decimal('0.00'),
+                    'walletCredit': Decimal('0.00'),
+                    'walletEntries': [],
+                    'invoices': [],
+                    'receipts': [],
+                    'paymentGateways': [],
+                    'documents': [],
+                    'serviceRequests': [],
+                    'notices': [],
+                    'empty_message': 'No tenant portal profile is linked to this account, and no tenants were found in your assigned properties.',
+                })
+            raise
         return Response(self._build_portal_data(access, request))
 
     @extend_schema(request=None, responses={200: {"type": "object"}})

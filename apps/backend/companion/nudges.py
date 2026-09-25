@@ -365,7 +365,7 @@ def evaluate_employee_nudge(user, organization, session_active_minutes: int = 11
 
     nudge = _attach_delight(nudge, user)
 
-    if campaign:
+    if campaign and nudge.get('id') != campaign.get('id'):
         nudge['announcement'] = {
             'id': campaign.get('id'),
             'title': campaign.get('title'),

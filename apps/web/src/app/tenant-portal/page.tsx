@@ -8,7 +8,8 @@ import { Bell, Building2, CreditCard, FileCheck2, FileText, Gauge, Menu, Receipt
 
 type Row = Record<string, string | number | boolean | null>;
 type Portal = {
-  tenant: { name: string; code: string; email: string; phone: string };
+  empty_message?: string;
+  tenant?: { name: string; code: string; email: string; phone: string } | null;
   currentLease: null | {
     reference: string;
     property_name: string;
@@ -431,12 +432,22 @@ export default function TenantPortalPage() {
         <div className="tenant-portal-loading"><CircularProgress size={34} /><strong>Preparing your account</strong><span>Bringing your lease, payments and requests together…</span></div>
       </div>
     );
-  if (!data)
+  if (!data || !data.tenant)
     return (
-      <div className="page-wrap">
-        <div className="form-error">{error}</div>
+      <div className="page-wrap tenant-portal-page" style={{ padding: "48px 24px", display: "flex", justifyContent: "center" }}>
+        <div className="card" style={{ maxWidth: 520, width: "100%", padding: 36, textAlign: "center", borderRadius: 16 }}>
+          <div style={{ fontSize: 44, marginBottom: 16 }}>🏢</div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>Tenant Portal</h2>
+          <p style={{ color: "var(--text-secondary)", fontSize: 14, lineHeight: 1.6, marginBottom: 24 }}>
+            {data?.empty_message || error || "This account is not linked to an active tenant profile, or no tenants currently exist in your assigned properties."}
+          </p>
+          <a href="/property" className="btn btn-primary" style={{ display: "inline-block", padding: "10px 22px", borderRadius: 8, textDecoration: "none", fontWeight: 700 }}>
+            Return to Property Workspace
+          </a>
+        </div>
       </div>
     );
+  const tenant = data.tenant;
   const lease = data.currentLease;
   const isImpersonating = typeof window !== "undefined" && Boolean(new URLSearchParams(window.location.search).get("tenant"));
   const isPreviewMode = isImpersonating || previewTenants.length > 0;
@@ -792,7 +803,7 @@ export default function TenantPortalPage() {
       )}
       {tab === "payments" && (
         <Panel title="Payments & receipts" action={
-          <button className="tenant-action-button" type="button" onClick={() => void downloadDocument("/property/portal/statement.pdf/", `Tenant-statement-${data.tenant.code}.pdf`)}>
+          <button className="tenant-action-button" type="button" onClick={() => void downloadDocument("/property/portal/statement.pdf/", `Tenant-statement-${tenant.code}.pdf`)}>
             Download statement PDF
           </button>
         }>

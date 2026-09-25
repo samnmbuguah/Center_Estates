@@ -10,6 +10,7 @@ const WHATSAPP_MESSAGE = "Hi! I'm interested in CeEst ERP. Can we chat?";
 const PAGE_LINKS = [
   { to: "/product", label: "Product" },
   { to: "/pricing", label: "Pricing" },
+  { to: "/docs", label: "Documentation & Guides" },
   { to: "/about", label: "About" },
   { to: "/blog", label: "Blog" },
   { to: "/faq", label: "FAQ" },
@@ -20,6 +21,7 @@ const FOOTER_LINKS = [
   { to: "/#products", label: "Products" },
   { to: "/#solutions", label: "Solutions" },
   { to: "/#how-it-works", label: "How It Works" },
+  { to: "/docs", label: "Documentation" },
   { to: "/product", label: "Product" },
   { to: "/pricing", label: "Pricing" },
   { to: "/about", label: "About" },
