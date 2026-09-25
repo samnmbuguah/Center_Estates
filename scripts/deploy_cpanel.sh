@@ -306,6 +306,10 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
       fi
       exit 1
     fi
+    # Prune historical releases to prevent inode accumulation (keep active + 2 rollback targets)
+    if [ -d releases ]; then
+      ls -td releases/* 2>/dev/null | tail -n +4 | xargs rm -rf 2>/dev/null || true
+    fi
 EOF
   # Gate the release on the frontend actually serving traffic. A broken
   # standalone runtime (e.g. an unresolved node_modules symlink) can start
