@@ -114,12 +114,9 @@ def _pick_closer(nudge_id: str) -> str:
 def _attach_delight(nudge, user):
     if not nudge:
         return nudge
-    # Manager-authored campaigns should remain exactly as their author wrote
-    # them. Wellness jokes are useful for automated nudges, not deadlines.
-    if not nudge.get('is_campaign'):
-        uid = getattr(user, 'id', 0) or 0
-        nudge['joke'] = _pick_joke(nudge.get('id','ambient'), uid)
-        nudge['thought'] = _pick_closer(nudge.get('id','ambient'))
+    uid = getattr(user, 'id', 0) or 0
+    nudge['joke'] = _pick_joke(nudge.get('id','ambient'), uid)
+    nudge['thought'] = _pick_closer(nudge.get('id','ambient'))
     nudge['animation'] = {'wellness': 'breathe', 'productivity': 'confetti', 'workload': 'pulse', 'planning': 'float'}.get(nudge.get('category','wellness'), 'breathe')
     nudge['requires_acknowledgment'] = True
     return nudge

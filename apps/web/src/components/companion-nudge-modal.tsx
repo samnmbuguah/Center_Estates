@@ -497,36 +497,6 @@ export function CompanionNudgeModal() {
               </Box>
             </Box>
 
-            {/* Pill Category */}
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mb: 1.5 }}>
-              <Box
-                sx={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 0.6,
-                  px: 1.25,
-                  py: 0.4,
-                  borderRadius: 99,
-                  bgcolor: lightAccent,
-                  border: `1px solid color-mix(in srgb, ${accent} 12%, transparent)`,
-                }}
-              >
-                <Sparkles size={12} style={{ color: accent }} />
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontWeight: 800,
-                    fontSize: "0.68rem",
-                    letterSpacing: ".06em",
-                    textTransform: "uppercase",
-                    color: accent,
-                  }}
-                >
-                  Companion · {nudge.category}
-                </Typography>
-              </Box>
-            </Box>
-
             {/* Operational Task Summary Card (with integrated action button) */}
             {prefs.showOperationalSummary && (
               <Paper
