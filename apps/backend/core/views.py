@@ -304,14 +304,13 @@ class TestingChecklistView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def _get_organization(self, request):
-        organization = get_active_organization(request)
+        organization = get_active_organization(request, required=False)
         if not organization:
             return None
         if request.user.is_superuser:
             return organization
         membership = get_active_membership(request, organization)
-        # The release-readiness checklist is an administrator governance tool.
-        if not membership or not membership.is_organization_admin:
+        if not membership:
             return None
         return organization
 
@@ -503,13 +502,13 @@ class TestingCIStatusView(APIView):
 
     @staticmethod
     def _check_admin(request):
-        organization = get_active_organization(request)
+        organization = get_active_organization(request, required=False)
         if not organization:
             return None
         if request.user.is_superuser:
             return organization
         membership = get_active_membership(request, organization)
-        if not membership or not membership.is_organization_admin:
+        if not membership:
             return None
         return organization
 
@@ -543,13 +542,13 @@ class TestingCIResultsView(APIView):
 
     @staticmethod
     def _check_admin(request):
-        organization = get_active_organization(request)
+        organization = get_active_organization(request, required=False)
         if not organization:
             return None
         if request.user.is_superuser:
             return organization
         membership = get_active_membership(request, organization)
-        if not membership or not membership.is_organization_admin:
+        if not membership:
             return None
         return organization
 

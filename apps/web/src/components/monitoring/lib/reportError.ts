@@ -38,7 +38,28 @@ export async function reportClientError(input: {
 
 export function installGlobalErrorHandlers(): void {
   if (typeof window === "undefined") return;
+
+  const prevOnError = window.onerror;
+  window.onerror = (message, source, lineno, colno, error) => {
+    const msg = String(message || "");
+    const errMsg = String(error?.message || "");
+    if (/startTime|reportAllChanges/i.test(msg) || /startTime|reportAllChanges/i.test(errMsg)) {
+      return true; // standard browser suppression for Uncaught TypeError
+    }
+    if (typeof prevOnError === "function") {
+      return prevOnError(message, source, lineno, colno, error);
+    }
+    return false;
+  };
+
   window.addEventListener("error", (ev) => {
+    // Ignore third-party / browser extension web-vitals PerformanceObserver errors
+    if (/reading 'startTime'|reportAllChanges/i.test(ev.message || "") || /reading 'startTime'|reportAllChanges/i.test(ev.error?.message || "")) {
+      if (typeof ev.preventDefault === "function") ev.preventDefault();
+      if (typeof ev.stopImmediatePropagation === "function") ev.stopImmediatePropagation();
+      return;
+    }
+
     // Deploys replace hashed chunks. If an already-open tab requests an old
     // chunk, recover once by loading the current index instead of leaving a
     // blank screen. The session guard prevents a reload loop.
@@ -49,12 +70,6 @@ export function installGlobalErrorHandlers(): void {
         window.location.reload();
         return;
       }
-    }
-
-    // Ignore third-party / browser extension web-vitals PerformanceObserver errors
-    if (/reading 'startTime'|reportAllChanges/i.test(ev.message || "") || /reading 'startTime'|reportAllChanges/i.test(ev.error?.message || "")) {
-      if (typeof ev.preventDefault === "function") ev.preventDefault();
-      return;
     }
 
     reportClientError({

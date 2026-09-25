@@ -55,7 +55,7 @@ const ADMIN_SUBITEMS = [
   { id: "tax", label: "KRA Tax & E-TIMS", icon: "📜", href: "/administration?tab=tax" },
   { id: "audit", label: "Security Audit Trail", icon: "🛡️", href: "/administration?tab=audit" },
   { id: "system-health", label: "System Health", icon: "🩺", href: "/administration?tab=system-health" },
-  { id: "testing", label: "Testing & Release Hub", icon: "🧪", href: "/testing" },
+  { id: "testing", label: "Testing Hub", icon: "🧪", href: "/testing" },
 ];
 
 type AppSidebarProps = {

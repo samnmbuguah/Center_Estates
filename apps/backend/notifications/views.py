@@ -113,7 +113,7 @@ from .services import get_email_connection_and_sender, resolve_email_delivery, s
 
 
 class IsOrganizationEmailAdmin(BasePermission):
-    message = 'Only an organization administrator can change email delivery settings.'
+    message = 'An active organization membership is required to access email delivery settings.'
 
     def has_permission(self, request, view):
         from core.tenancy import get_active_membership
@@ -121,7 +121,7 @@ class IsOrganizationEmailAdmin(BasePermission):
             return True
         organization = get_active_organization(request, required=False)
         membership = get_active_membership(request, organization) if organization else None
-        return bool(membership and membership.is_organization_admin)
+        return bool(membership)
 
 
 class EmailConfigurationViewSet(ModelViewSet):

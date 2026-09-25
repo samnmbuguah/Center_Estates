@@ -223,7 +223,7 @@ export default function TestingPage() {
             <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary, var(--color-slate-500))" }}>• {data?.total ?? 0} End-to-End Workflows</span>
           </div>
           <h1 style={{ margin: 0, fontSize: 26, fontWeight: 850, letterSpacing: "-0.02em", color: "var(--text, var(--color-slate-900))" }}>
-            Testing & Release Readiness Hub
+            Testing Hub
           </h1>
           <p className="muted" style={{ margin: "6px 0 0", fontSize: 14, maxWidth: 840, lineHeight: 1.5 }}>
             Continuous quality assurance matrix. Live telemetry tracks button clicks and database operations, automatically verifying workflows as your team operates.
