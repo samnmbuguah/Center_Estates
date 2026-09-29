@@ -26,11 +26,20 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { ArrowLeft, ArrowRight, CheckCircle2, Download, FileSpreadsheet, Plus, RefreshCw, Save, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bot, CheckCircle2, ClipboardList, Download, Edit3, FileSpreadsheet, Plus, RefreshCw, Save, Scale, Trash2, Upload } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/components/monitoring/hooks/useToast";
-import { boqTemplateUrl, workplanTemplateUrl } from "@/components/monitoring/api";
+import {
+  boqTemplateUrl,
+  workplanTemplateUrl,
+  ingestExcelPreview,
+  ingestExcelCommit,
+  convertProjectPdf,
+  generateMilestones,
+  fetchIngestionStatus,
+} from "@/components/monitoring/api";
+import { ConfirmModal } from "@/components/monitoring/components";
 
 interface ConstructionOnboardingFormProps {
   onBack?: () => void;
@@ -55,6 +64,7 @@ const blankMember: TeamMemberDraft = {
 const sections = [
   ["general", "General Details"],
   ["location", "Site & Geofencing"],
+  ["ingestion", "BoQ & Work Plan Ingestion"],
   ["timeline", "Timeline & Programme"],
   ["budget", "Budget & BOQ Baseline"],
   ["team", "Contractors & Team"],
@@ -112,9 +122,25 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
   const { toast } = useToast();
   const organizationId = session?.activeOrganizationId ?? null;
 
-  const [section, setSection] = useState("general");
+  const searchParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const initialStepParam = searchParams?.get("step") || "general";
+  const initialProjectId = searchParams?.get("id") || "";
+  const initialQueryType = searchParams?.get("type") || "";
+
+  const [section, setSection] = useState(initialStepParam);
+  const [activeProjectId, setActiveProjectId] = useState(initialProjectId);
+  const [queryType, setQueryType] = useState(initialQueryType);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Ingestion State & Handlers
+  const [wpDraft, setWpDraft] = useState<any[] | null>(null);
+  const [boqDraft, setBoqDraft] = useState<any[] | null>(null);
+  const [ingestUploading, setIngestUploading] = useState(false);
+  const [ingestMsg, setIngestMsg] = useState<string | null>(null);
+  const [ingestError, setIngestError] = useState<string | null>(null);
+  const [showUploadConfirm, setShowUploadConfirm] = useState(false);
+  const [ingestStatus, setIngestStatus] = useState<any>(null);
 
   // Step 1: General metadata
   const [name, setName] = useState("");
@@ -152,6 +178,148 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
   // Post-Creation Guidance
   const [createdProject, setCreatedProject] = useState<{ id: string; name?: string } | null>(null);
   const [showNextStepsDialog, setShowNextStepsDialog] = useState(false);
+
+  const loadIngestStatus = React.useCallback((projId: string) => {
+    if (!projId) return;
+    fetchIngestionStatus(projId).then(setIngestStatus).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const pid = activeProjectId || createdProject?.id;
+    if (pid) {
+      loadIngestStatus(pid);
+    }
+  }, [activeProjectId, createdProject, loadIngestStatus]);
+
+  const updateWpItem = (i: number, field: string, value: string) => {
+    if (!wpDraft) return;
+    const next = [...wpDraft];
+    next[i] = { ...next[i], [field]: value };
+    setWpDraft(next);
+  };
+
+  const updateBoqItem = (i: number, field: string, value: string) => {
+    if (!boqDraft) return;
+    const next = [...boqDraft];
+    next[i] = { ...next[i], [field]: value };
+    setBoqDraft(next);
+  };
+
+  const handleWpUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setWorkplanFile(file);
+    setIngestError(null);
+    setIngestUploading(true);
+    try {
+      const pid = activeProjectId || createdProject?.id;
+      if (pid) {
+        const r = await ingestExcelPreview(pid, file);
+        if (r.work_plan_tasks?.length) {
+          setWpDraft(r.work_plan_tasks);
+          setIngestMsg(`Work Plan: ${r.work_plan_tasks.length} tasks parsed`);
+        } else {
+          setIngestError("No tasks found in the file. Use the Work Plan template.");
+        }
+      } else {
+        setIngestMsg(`Work Plan file "${file.name}" attached. Tasks will be ingested upon project registration.`);
+      }
+    } catch (err: any) {
+      setIngestError(err.message || "Failed to preview work plan file.");
+    } finally {
+      setIngestUploading(false);
+    }
+  };
+
+  const handleBoqUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBoqFile(file);
+    setIngestError(null);
+    setIngestUploading(true);
+    try {
+      const pid = activeProjectId || createdProject?.id;
+      if (pid) {
+        const r = await ingestExcelPreview(pid, file);
+        if (r.boq_items?.length) {
+          setBoqDraft(r.boq_items);
+          setIngestMsg(`BoQ: ${r.boq_items.length} items parsed`);
+        } else {
+          setIngestError("No BoQ items found. Use the BoQ template.");
+        }
+      } else {
+        setIngestMsg(`BoQ file "${file.name}" attached. Items will be ingested upon project registration.`);
+      }
+    } catch (err: any) {
+      setIngestError(err.message || "Failed to preview BoQ file.");
+    } finally {
+      setIngestUploading(false);
+    }
+  };
+
+  const handlePdfConversion = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const pid = activeProjectId || createdProject?.id;
+    if (!pid) {
+      setIngestError("Please register or save the project details before running AI PDF extraction.");
+      return;
+    }
+    setIngestUploading(true);
+    setIngestError(null);
+    setIngestMsg("AI is converting the PDF into the standard template…");
+    try {
+      const result = await convertProjectPdf(pid, file);
+      if (result.work_plan_tasks?.length) setWpDraft(result.work_plan_tasks);
+      if (result.boq_items?.length) setBoqDraft(result.boq_items);
+      if (!result.work_plan_tasks?.length && !result.boq_items?.length) {
+        setIngestError("No BoQ items or work-plan tasks could be identified in the uploaded PDF.");
+      } else {
+        setIngestMsg(`AI draft ready: ${result.work_plan_tasks?.length || 0} tasks and ${result.boq_items?.length || 0} BoQ items. Review every row before committing.`);
+      }
+    } catch (err: any) {
+      setIngestError(err.message || "AI conversion failed.");
+      setIngestMsg(null);
+    } finally {
+      setIngestUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const doCommitIngestion = async () => {
+    const pid = activeProjectId || createdProject?.id;
+    if (!pid) {
+      setIngestError("Please save the project first before committing ingested items.");
+      return;
+    }
+    setIngestUploading(true);
+    setIngestError(null);
+    try {
+      const payload: any = {};
+      if (wpDraft) payload.work_plan_tasks = wpDraft;
+      if (boqDraft) payload.boq_items = boqDraft;
+      const r: any = await ingestExcelCommit(pid, payload);
+      setIngestMsg(`Saved. ${r.work_plan_tasks || 0} tasks, ${r.boq_items || 0} BoQ items, ${r.milestones_created || 0} milestones.`);
+      setWpDraft(null);
+      setBoqDraft(null);
+      loadIngestStatus(pid);
+    } catch (err: any) {
+      setIngestError(err.message || "Failed to commit ingestion.");
+    } finally {
+      setIngestUploading(false);
+    }
+  };
+
+  const handleCommitIngestion = () => {
+    if (!wpDraft && !boqDraft) return;
+    const existingTasks = (ingestStatus?.work_plan_tasks?.length ?? 0) > 0;
+    const existingBoq = (ingestStatus?.boq_items?.length ?? 0) > 0;
+    if ((wpDraft && existingTasks) || (boqDraft && existingBoq)) {
+      setShowUploadConfirm(true);
+      return;
+    }
+    doCommitIngestion();
+  };
 
   // Step 5: Team Members & Stakeholders
   const [members, setMembers] = useState<TeamMemberDraft[]>([]);
@@ -585,6 +753,291 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
               helperText="Evidence uploaded outside this radius is automatically flagged for review."
             />
           </Box>
+        </Section>
+
+        {/* Section: BoQ & Work Plan Ingestion */}
+        <Section id="ingestion" title="BoQ & Work Plan Ingestion">
+          <Box sx={{ mb: 2.5 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>
+              BoQ &amp; Work Plan Ingestion
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Upload your Work Plan and Bill of Quantities separately. Review and edit before committing.
+            </Typography>
+          </Box>
+
+          {ingestError && (
+            <Alert severity="error" onClose={() => setIngestError(null)} sx={{ mb: 2, borderRadius: 2 }}>
+              {ingestError}
+            </Alert>
+          )}
+          {ingestMsg && (
+            <Alert severity="success" onClose={() => setIngestMsg(null)} sx={{ mb: 2, borderRadius: 2 }}>
+              {ingestMsg}
+            </Alert>
+          )}
+
+          {queryType && (
+            <Box
+              sx={{
+                mb: 2.5,
+                p: 2,
+                borderRadius: 2,
+                bgcolor: "rgba(59,130,246,0.08)",
+                border: "1px solid var(--accent, #3b82f6)",
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+              }}
+            >
+              <Typography sx={{ fontSize: 22 }}>{queryType === "boq" ? "📐" : "⏱️"}</Typography>
+              <Typography variant="body2" sx={{ fontSize: 13 }}>
+                Direct setup active for <strong>{queryType === "boq" ? "Bill of Quantities (BoQ)" : "Work Programme Schedule"}</strong>. Upload your spreadsheet below or convert from a tender PDF document.
+              </Typography>
+            </Box>
+          )}
+
+          {/* AI Conversion Card */}
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2.5,
+              mb: 3,
+              borderRadius: 2.5,
+              bgcolor: "var(--surface-sunken, #f8fafc)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 2,
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: "rgba(37,99,235,0.1)", color: "#2563eb" }}>
+                <Bot size={26} />
+              </Box>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                  Convert an existing PDF with AI
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Upload a text-bearing BoQ or work plan PDF. The result opens below as an editable draft and is never saved until you review and commit it.
+                </Typography>
+              </Box>
+            </Box>
+
+            <Button
+              component="label"
+              variant="outlined"
+              startIcon={<Upload size={15} />}
+              disabled={ingestUploading}
+              sx={{ fontWeight: 600, textTransform: "none" }}
+            >
+              Convert PDF
+              <input hidden type="file" accept=".pdf,application/pdf" onChange={handlePdfConversion} disabled={ingestUploading} />
+            </Button>
+          </Paper>
+
+          {/* 2 Main Upload Cards */}
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 2.5, mb: 3 }}>
+            {/* Work Plan Card */}
+            <Card
+              variant="outlined"
+              sx={{
+                p: 2.5,
+                borderRadius: 2.5,
+                border: queryType === "workplan" ? "2px solid #3b82f6" : undefined,
+                boxShadow: queryType === "workplan" ? "0 0 0 3px rgba(59,130,246,0.15)" : undefined,
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
+                <ClipboardList size={20} color="var(--steel, #64748b)" />
+                <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16 }}>Work Plan</Typography>
+                {queryType === "workplan" && (
+                  <Chip size="small" label="Selected Target" color="primary" sx={{ ml: "auto", fontSize: 10, fontWeight: 700 }} />
+                )}
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: 13, minHeight: 36 }}>
+                Upload your Work Plan Excel file. Tasks are parsed and weekly milestones are generated.
+              </Typography>
+              <Box sx={{ border: "2px dashed var(--border, #cbd5e1)", borderRadius: 2, p: 3, textAlign: "center", bgcolor: "background.paper" }}>
+                {wpDraft ? (
+                  <Box>
+                    <Typography sx={{ fontSize: 28, fontWeight: 800, color: "var(--color-success, #10b981)" }}>{wpDraft.length}</Typography>
+                    <Typography variant="body2" color="text.secondary">tasks ready to commit</Typography>
+                    <Button size="small" color="error" variant="text" sx={{ mt: 1 }} onClick={() => { setWpDraft(null); setWorkplanFile(null); }}>Remove</Button>
+                  </Box>
+                ) : (
+                  <Box>
+                    <FileSpreadsheet size={32} style={{ opacity: 0.35, marginBottom: 8 }} />
+                    <div>
+                      <Button component="label" size="small" variant="contained" startIcon={<Upload size={14} />} sx={{ textTransform: "none", fontWeight: 600 }}>
+                        Upload Work Plan
+                        <input type="file" accept=".xlsx,.xls" onChange={handleWpUpload} style={{ display: "none" }} />
+                      </Button>
+                    </div>
+                    {workplanFile && <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>{workplanFile.name}</Typography>}
+                  </Box>
+                )}
+              </Box>
+              <Box sx={{ mt: 1.5 }}>
+                <Button component="a" href={workplanTemplateUrl} download variant="text" size="small" startIcon={<Download size={13} />} sx={{ fontSize: 12, textTransform: "none" }}>
+                  Download Template
+                </Button>
+              </Box>
+            </Card>
+
+            {/* BoQ Card */}
+            <Card
+              variant="outlined"
+              sx={{
+                p: 2.5,
+                borderRadius: 2.5,
+                border: queryType === "boq" ? "2px solid #8b5cf6" : undefined,
+                boxShadow: queryType === "boq" ? "0 0 0 3px rgba(139,92,246,0.15)" : undefined,
+              }}
+            >
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
+                <Scale size={20} color="#8b5cf6" />
+                <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16 }}>Bill of Quantities</Typography>
+                {queryType === "boq" && (
+                  <Chip size="small" label="Selected Target" sx={{ ml: "auto", fontSize: 10, fontWeight: 700, bgcolor: "#8b5cf6", color: "#fff" }} />
+                )}
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: 13, minHeight: 36 }}>
+                Upload your Bill of Quantities Excel file with sectioned items.
+              </Typography>
+              <Box sx={{ border: "2px dashed var(--border, #cbd5e1)", borderRadius: 2, p: 3, textAlign: "center", bgcolor: "background.paper" }}>
+                {boqDraft ? (
+                  <Box>
+                    <Typography sx={{ fontSize: 28, fontWeight: 800, color: "var(--color-success, #10b981)" }}>{boqDraft.length}</Typography>
+                    <Typography variant="body2" color="text.secondary">items ready to commit</Typography>
+                    <Button size="small" color="error" variant="text" sx={{ mt: 1 }} onClick={() => { setBoqDraft(null); setBoqFile(null); }}>Remove</Button>
+                  </Box>
+                ) : (
+                  <Box>
+                    <FileSpreadsheet size={32} style={{ opacity: 0.35, marginBottom: 8 }} />
+                    <div>
+                      <Button component="label" size="small" variant="contained" color="secondary" startIcon={<Upload size={14} />} sx={{ textTransform: "none", fontWeight: 600 }}>
+                        Upload BoQ
+                        <input type="file" accept=".xlsx,.xls" onChange={handleBoqUpload} style={{ display: "none" }} />
+                      </Button>
+                    </div>
+                    {boqFile && <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>{boqFile.name}</Typography>}
+                  </Box>
+                )}
+              </Box>
+              <Box sx={{ mt: 1.5 }}>
+                <Button component="a" href={boqTemplateUrl} download variant="text" size="small" startIcon={<Download size={13} />} sx={{ fontSize: 12, textTransform: "none" }}>
+                  Download Template
+                </Button>
+              </Box>
+            </Card>
+          </Box>
+
+          {/* Commit Action Bar */}
+          {(wpDraft || boqDraft) && (
+            <Paper variant="outlined" sx={{ p: 2.5, mb: 3, textAlign: "center", bgcolor: "rgba(16, 185, 129, 0.05)", borderColor: "success.main", borderRadius: 2.5 }}>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={handleCommitIngestion}
+                disabled={ingestUploading}
+                sx={{ fontSize: 14, px: 3, py: 1, fontWeight: 700 }}
+              >
+                {ingestUploading ? "Saving…" : "Commit & Generate Milestones"}
+              </Button>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                {wpDraft?.length || 0} Work Plan tasks · {boqDraft?.length || 0} BoQ items will be saved
+              </Typography>
+            </Paper>
+          )}
+
+          {/* Editable Work Plan Table */}
+          {wpDraft && wpDraft.length > 0 && (
+            <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
+                <Edit3 size={15} /> Work Plan Tasks — Review &amp; Edit
+              </Typography>
+              <Box sx={{ overflowX: "auto" }}>
+                <table className="fs-sm" style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--border, #cbd5e1)", textAlign: "left" }}>
+                      <th style={{ padding: "8px" }}>Task ID</th>
+                      <th style={{ padding: "8px" }}>Name</th>
+                      <th style={{ padding: "8px" }}>Start</th>
+                      <th style={{ padding: "8px" }}>End</th>
+                      <th style={{ padding: "8px" }}>Duration</th>
+                      <th style={{ padding: "8px" }}>Predecessors</th>
+                      <th style={{ padding: "8px" }}>Resource</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {wpDraft.map((t, i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                        <td style={{ padding: "6px" }}><input value={t.task_id || ""} onChange={e => updateWpItem(i, "task_id", e.target.value)} style={{ width: 60, padding: 4 }} /></td>
+                        <td style={{ padding: "6px" }}><input value={t.task_name || ""} onChange={e => updateWpItem(i, "task_name", e.target.value)} style={{ width: 180, padding: 4 }} /></td>
+                        <td style={{ padding: "6px" }}><input value={t.start_date || ""} onChange={e => updateWpItem(i, "start_date", e.target.value)} style={{ width: 90, padding: 4 }} /></td>
+                        <td style={{ padding: "6px" }}><input value={t.end_date || ""} onChange={e => updateWpItem(i, "end_date", e.target.value)} style={{ width: 90, padding: 4 }} /></td>
+                        <td style={{ padding: "6px" }}><input value={t.duration_days ?? ""} onChange={e => updateWpItem(i, "duration_days", e.target.value)} style={{ width: 50, padding: 4 }} type="number" /></td>
+                        <td style={{ padding: "6px" }}><input value={t.predecessors || ""} onChange={e => updateWpItem(i, "predecessors", e.target.value)} style={{ width: 80, padding: 4 }} /></td>
+                        <td style={{ padding: "6px" }}><input value={t.resource || ""} onChange={e => updateWpItem(i, "resource", e.target.value)} style={{ width: 100, padding: 4 }} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
+            </Paper>
+          )}
+
+          {/* Editable BoQ Table */}
+          {boqDraft && boqDraft.length > 0 && (
+            <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5, display: "flex", alignItems: "center", gap: 1 }}>
+                <Edit3 size={15} /> BoQ Items — Review &amp; Edit
+              </Typography>
+              <Box sx={{ overflowX: "auto" }}>
+                <table className="fs-sm" style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--border, #cbd5e1)", textAlign: "left" }}>
+                      <th style={{ padding: "8px" }}>Section</th>
+                      <th style={{ padding: "8px" }}>Item #</th>
+                      <th style={{ padding: "8px" }}>Description</th>
+                      <th style={{ padding: "8px" }}>Unit</th>
+                      <th style={{ padding: "8px" }}>Qty</th>
+                      <th style={{ padding: "8px" }}>Rate</th>
+                      <th style={{ padding: "8px" }}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {boqDraft.map((b, i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                        <td style={{ padding: "6px" }}><input value={b.section || ""} onChange={e => updateBoqItem(i, "section", e.target.value)} style={{ width: 100, padding: 4 }} /></td>
+                        <td style={{ padding: "6px" }}><input value={b.item_number || ""} onChange={e => updateBoqItem(i, "item_number", e.target.value)} style={{ width: 60, padding: 4 }} /></td>
+                        <td style={{ padding: "6px" }}><input value={b.description || ""} onChange={e => updateBoqItem(i, "description", e.target.value)} style={{ width: 220, padding: 4 }} /></td>
+                        <td style={{ padding: "6px" }}><input value={b.unit || ""} onChange={e => updateBoqItem(i, "unit", e.target.value)} style={{ width: 60, padding: 4 }} /></td>
+                        <td style={{ padding: "6px" }}><input value={b.quantity ?? ""} onChange={e => updateBoqItem(i, "quantity", e.target.value)} style={{ width: 70, padding: 4 }} type="number" /></td>
+                        <td style={{ padding: "6px" }}><input value={b.rate ?? ""} onChange={e => updateBoqItem(i, "rate", e.target.value)} style={{ width: 80, padding: 4 }} type="number" /></td>
+                        <td style={{ padding: "6px" }}><input value={b.amount ?? ""} onChange={e => updateBoqItem(i, "amount", e.target.value)} style={{ width: 90, padding: 4 }} type="number" /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
+            </Paper>
+          )}
+
+          <ConfirmModal
+            open={showUploadConfirm}
+            title="Replace existing data?"
+            message="This project already has existing BoQ items or tasks. Committing will overwrite them. Continue?"
+            confirmLabel="Replace &amp; Commit"
+            onConfirm={() => {
+              setShowUploadConfirm(false);
+              doCommitIngestion();
+            }}
+            onCancel={() => setShowUploadConfirm(false)}
+          />
         </Section>
 
         {/* Section 3: Timeline & Programme */}
@@ -1053,7 +1506,9 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
               }}
               onClick={() => {
                 setShowNextStepsDialog(false);
-                router.push(`/monitoring?tab=ingestion&type=boq&id=${createdProject?.id}`);
+                if (createdProject?.id) setActiveProjectId(createdProject.id);
+                setQueryType("boq");
+                jump("ingestion");
               }}
             >
               <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
@@ -1100,7 +1555,9 @@ export function ConstructionOnboardingForm({ onBack }: ConstructionOnboardingFor
               }}
               onClick={() => {
                 setShowNextStepsDialog(false);
-                router.push(`/monitoring?tab=ingestion&type=workplan&id=${createdProject?.id}`);
+                if (createdProject?.id) setActiveProjectId(createdProject.id);
+                setQueryType("workplan");
+                jump("ingestion");
               }}
             >
               <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>

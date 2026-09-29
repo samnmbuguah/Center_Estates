@@ -134,7 +134,7 @@ export function BoqCostStates() {
           >
             <Download size={14} /> Download Template
           </a>
-          <Link to={`/monitoring?tab=ingestion&type=boq&id=${id}`} className="btn primary sm" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <Link to={id ? `/property-onboarding?module=construction&step=ingestion&id=${id}&type=boq` : "/property-onboarding?module=construction&step=ingestion"} className="btn primary sm" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Upload size={14} /> Import BoQ
           </Link>
         </div>
@@ -275,7 +275,7 @@ export function BoqCostStates() {
             This project does not have a Bill of Quantities baseline yet. Upload your priced BoQ spreadsheet (.xlsx) to automatically generate line items and cost tracking states, or download the standard template to get started.
           </p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link to={`/monitoring?tab=ingestion&type=boq&id=${id}`} className="btn primary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Link to={id ? `/property-onboarding?module=construction&step=ingestion&id=${id}&type=boq` : "/property-onboarding?module=construction&step=ingestion"} className="btn primary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
               <Upload size={16} /> Upload & Ingest BoQ
             </Link>
             <a href={boqTemplateUrl} target="_blank" rel="noreferrer" className="btn ghost" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>

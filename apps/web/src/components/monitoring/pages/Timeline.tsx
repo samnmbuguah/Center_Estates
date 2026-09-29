@@ -645,7 +645,7 @@ export function Timeline() {
           </a>
           <button
             className="btn primary sm"
-            onClick={() => navigate(activeProjectId ? `/monitoring?tab=ingestion&type=workplan&id=${activeProjectId}` : "/monitoring?tab=ingestion")}
+            onClick={() => navigate(activeProjectId ? `/property-onboarding?module=construction&step=ingestion&id=${activeProjectId}&type=workplan` : "/property-onboarding?module=construction&step=ingestion")}
             style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
           >
             <Upload size={14} /> Import Work Plan
@@ -664,7 +664,7 @@ export function Timeline() {
           title="No programme activities"
           description="Ingest a master work plan (Excel) or create milestones for this project to visualize the schedule and critical path."
           icon={<Upload size={40} />}
-          action={{ label: "Import Work Programme (.xlsx)", onClick: () => navigate(activeProjectId ? `/monitoring?tab=ingestion&type=workplan&id=${activeProjectId}` : "/monitoring?tab=ingestion") }}
+          action={{ label: "Import Work Programme (.xlsx)", onClick: () => navigate(activeProjectId ? `/property-onboarding?module=construction&step=ingestion&id=${activeProjectId}&type=workplan` : "/property-onboarding?module=construction&step=ingestion") }}
         />
       ) : (
         <>

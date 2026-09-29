@@ -35,6 +35,7 @@ import {
   Tag,
   Users,
 } from "lucide-react";
+import { useAuth } from "@/components/auth-provider";
 import { PropertyOnboardingForm } from "@/components/property-onboarding-form";
 import { SalesOnboardingForm } from "./SalesOnboardingForm";
 import { ConstructionOnboardingForm } from "./ConstructionOnboardingForm";
@@ -43,20 +44,64 @@ import { AssetLifecycleExtensionView } from "./AssetLifecycleExtensionView";
 export function ModularOnboardingHub() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { session } = useAuth();
+
+  const isAdministrator = Boolean(
+    session?.user?.isSuperuser ||
+    session?.roles?.some((role) =>
+      ["admin", "platform-admin", "organization-admin"].includes(role.toLowerCase())
+    )
+  );
+
+  const canAccessProperty = Boolean(
+    isAdministrator || session?.modules?.some((m) => m.slug === "property")
+  );
+  const canAccessConstruction = Boolean(
+    isAdministrator || session?.modules?.some((m) => m.slug === "monitoring" || m.slug === "construction")
+  );
+  const canAccessSales = Boolean(
+    isAdministrator || session?.modules?.some((m) => m.slug === "sales")
+  );
+  const canAccessExtend = Boolean(
+    isAdministrator || ((canAccessProperty ? 1 : 0) + (canAccessConstruction ? 1 : 0) + (canAccessSales ? 1 : 0) >= 2)
+  );
+
+  const availableCount = (canAccessProperty ? 1 : 0) + (canAccessConstruction ? 1 : 0) + (canAccessSales ? 1 : 0);
+  const cardGridSize = availableCount === 1 ? 12 : availableCount === 2 ? 6 : 4;
 
   const editId = searchParams?.get("edit");
-  const initialModule = searchParams?.get("module") || (editId ? "property" : "");
+  const rawInitialModule = searchParams?.get("module") || (editId ? "property" : "");
+  
+  // Guard initial module: ensure user actually has permission to view it
+  const isModuleAllowed = (mod: string) => {
+    if (!mod) return true;
+    if (mod === "property") return canAccessProperty;
+    if (mod === "construction") return canAccessConstruction;
+    if (mod === "sales") return canAccessSales;
+    if (mod === "extend") return canAccessExtend;
+    return false;
+  };
+
+  const initialModule = isModuleAllowed(rawInitialModule) ? rawInitialModule : "";
 
   const [activeModule, setActiveModule] = useState<string>(initialModule);
 
   useEffect(() => {
     const mod = searchParams?.get("module");
     if (mod) {
-      setActiveModule(mod);
-    } else if (editId) {
+      if (isModuleAllowed(mod)) {
+        setActiveModule(mod);
+      } else {
+        // Fall back to first permitted module or hero
+        if (canAccessProperty) setActiveModule("property");
+        else if (canAccessConstruction) setActiveModule("construction");
+        else if (canAccessSales) setActiveModule("sales");
+        else setActiveModule("");
+      }
+    } else if (editId && canAccessProperty) {
       setActiveModule("property");
     }
-  }, [searchParams, editId]);
+  }, [searchParams, editId, canAccessProperty, canAccessConstruction, canAccessSales]);
 
   function handleSelectModule(mod: string) {
     setActiveModule(mod);
@@ -96,235 +141,243 @@ export function ModularOnboardingHub() {
             </Typography>
           </Box>
 
-          {/* 3 Main Choice Cards */}
+          {/* Choice Cards (Filtered by user module entitlements) */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {/* Card 1: Property Management */}
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Card
-                variant="outlined"
-                sx={{
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  borderRadius: 3,
-                  transition: "all 0.2s ease-in-out",
-                  "&:hover": {
-                    transform: "translateY(-4px)",
-                    boxShadow: "0 12px 24px -10px rgba(0, 0, 0, 0.12)",
-                    borderColor: "#2563eb",
-                  },
-                }}
-              >
-                <CardActionArea
-                  onClick={() => handleSelectModule("property")}
-                  sx={{ p: 3, height: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "space-between" }}
+            {canAccessProperty && (
+              <Grid size={{ xs: 12, md: cardGridSize }}>
+                <Card
+                  variant="outlined"
+                  sx={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    borderRadius: 3,
+                    transition: "all 0.2s ease-in-out",
+                    "&:hover": {
+                      transform: "translateY(-4px)",
+                      boxShadow: "0 12px 24px -10px rgba(0, 0, 0, 0.12)",
+                      borderColor: "#2563eb",
+                    },
+                  }}
                 >
-                  <Box sx={{ width: "100%" }}>
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                      <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(37, 99, 235, 0.1)", color: "#2563eb" }}>
-                        <Building2 size={28} />
-                      </Box>
-                      <Chip size="small" label="Leasing & Rentals" sx={{ fontWeight: 700, fontSize: 11 }} />
-                    </Box>
-
-                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-                      Property Management
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, minHeight: 40 }}>
-                      Onboard an existing building or sectional title scheme for tenant leasing, rent collections, and utility meters.
-                    </Typography>
-
-                    <Divider sx={{ my: 1.5 }} />
-
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1, my: 2 }}>
-                      <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-                        <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Physical building & Landlord mandate
-                      </Typography>
-                      <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-                        <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Rental units & service charges
-                      </Typography>
-                      <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-                        <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Utility sub-meters & paper lease import
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    sx={{ mt: 2, bgcolor: "#2563eb", "&:hover": { bgcolor: "#1d4ed8" } }}
-                    endIcon={<ChevronRight size={16} />}
+                  <CardActionArea
+                    onClick={() => handleSelectModule("property")}
+                    sx={{ p: 3, height: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "space-between" }}
                   >
-                    Onboard Property
-                  </Button>
-                </CardActionArea>
-              </Card>
-            </Grid>
+                    <Box sx={{ width: "100%" }}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                        <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(37, 99, 235, 0.1)", color: "#2563eb" }}>
+                          <Building2 size={28} />
+                        </Box>
+                        <Chip size="small" label="Leasing & Rentals" sx={{ fontWeight: 700, fontSize: 11 }} />
+                      </Box>
+
+                      <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                        Property Management
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, minHeight: 40 }}>
+                        Onboard an existing building or sectional title scheme for tenant leasing, rent collections, and utility meters.
+                      </Typography>
+
+                      <Divider sx={{ my: 1.5 }} />
+
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 1, my: 2 }}>
+                        <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
+                          <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Physical building & Landlord mandate
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
+                          <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Rental units & service charges
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
+                          <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Utility sub-meters & paper lease import
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      sx={{ mt: 2, bgcolor: "#2563eb", "&:hover": { bgcolor: "#1d4ed8" } }}
+                      endIcon={<ChevronRight size={16} />}
+                    >
+                      Onboard Property
+                    </Button>
+                  </CardActionArea>
+                </Card>
+              </Grid>
+            )}
 
             {/* Card 2: Construction Management */}
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Card
-                variant="outlined"
-                sx={{
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  borderRadius: 3,
-                  transition: "all 0.2s ease-in-out",
-                  "&:hover": {
-                    transform: "translateY(-4px)",
-                    boxShadow: "0 12px 24px -10px rgba(0, 0, 0, 0.12)",
-                    borderColor: "var(--color-amber-strong, #f59e0b)",
-                  },
-                }}
-              >
-                <CardActionArea
-                  onClick={() => handleSelectModule("construction")}
-                  sx={{ p: 3, height: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "space-between" }}
+            {canAccessConstruction && (
+              <Grid size={{ xs: 12, md: cardGridSize }}>
+                <Card
+                  variant="outlined"
+                  sx={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    borderRadius: 3,
+                    transition: "all 0.2s ease-in-out",
+                    "&:hover": {
+                      transform: "translateY(-4px)",
+                      boxShadow: "0 12px 24px -10px rgba(0, 0, 0, 0.12)",
+                      borderColor: "var(--color-amber-strong, #f59e0b)",
+                    },
+                  }}
                 >
-                  <Box sx={{ width: "100%" }}>
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                      <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(245, 158, 11, 0.1)", color: "var(--color-amber-strong, #f59e0b)" }}>
-                        <HardHat size={28} />
-                      </Box>
-                      <Chip size="small" label="Site & Civil Works" sx={{ fontWeight: 700, fontSize: 11 }} />
-                    </Box>
-
-                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-                      Construction Management
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, minHeight: 40 }}>
-                      Onboard a capital development project, contractor team, GIS site geofence, BOQ items, and milestone programme.
-                    </Typography>
-
-                    <Divider sx={{ my: 1.5 }} />
-
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1, my: 2 }}>
-                      <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-                        <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Site coordinates & evidence geofencing
-                      </Typography>
-                      <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-                        <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Main contractor & consultant directory
-                      </Typography>
-                      <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-                        <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> BOQ baseline & NEMA/approvals checklist
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    sx={{ mt: 2, bgcolor: "#d97706", "&:hover": { bgcolor: "#b45309" } }}
-                    endIcon={<ChevronRight size={16} />}
+                  <CardActionArea
+                    onClick={() => handleSelectModule("construction")}
+                    sx={{ p: 3, height: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "space-between" }}
                   >
-                    Onboard Construction
-                  </Button>
-                </CardActionArea>
-              </Card>
-            </Grid>
+                    <Box sx={{ width: "100%" }}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                        <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(245, 158, 11, 0.1)", color: "var(--color-amber-strong, #f59e0b)" }}>
+                          <HardHat size={28} />
+                        </Box>
+                        <Chip size="small" label="Site & Civil Works" sx={{ fontWeight: 700, fontSize: 11 }} />
+                      </Box>
+
+                      <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                        Construction Management
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, minHeight: 40 }}>
+                        Onboard a capital development project, contractor team, GIS site geofence, BOQ items, and milestone programme.
+                      </Typography>
+
+                      <Divider sx={{ my: 1.5 }} />
+
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 1, my: 2 }}>
+                        <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
+                          <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Site coordinates & evidence geofencing
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
+                          <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Main contractor & consultant directory
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
+                          <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> BOQ baseline & NEMA/approvals checklist
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      sx={{ mt: 2, bgcolor: "#d97706", "&:hover": { bgcolor: "#b45309" } }}
+                      endIcon={<ChevronRight size={16} />}
+                    >
+                      Onboard Construction
+                    </Button>
+                  </CardActionArea>
+                </Card>
+              </Grid>
+            )}
 
             {/* Card 3: Sales & Off-Plan */}
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Card
-                variant="outlined"
-                sx={{
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  borderRadius: 3,
-                  transition: "all 0.2s ease-in-out",
-                  "&:hover": {
-                    transform: "translateY(-4px)",
-                    boxShadow: "0 12px 24px -10px rgba(0, 0, 0, 0.12)",
-                    borderColor: "var(--primary, #2563eb)",
-                  },
-                }}
-              >
-                <CardActionArea
-                  onClick={() => handleSelectModule("sales")}
-                  sx={{ p: 3, height: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "space-between" }}
+            {canAccessSales && (
+              <Grid size={{ xs: 12, md: cardGridSize }}>
+                <Card
+                  variant="outlined"
+                  sx={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    borderRadius: 3,
+                    transition: "all 0.2s ease-in-out",
+                    "&:hover": {
+                      transform: "translateY(-4px)",
+                      boxShadow: "0 12px 24px -10px rgba(0, 0, 0, 0.12)",
+                      borderColor: "var(--primary, #2563eb)",
+                    },
+                  }}
                 >
-                  <Box sx={{ width: "100%" }}>
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                      <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(37, 99, 235, 0.1)", color: "var(--primary, #2563eb)" }}>
-                        <Tag size={28} />
-                      </Box>
-                      <Chip size="small" label="Commercial Sales" sx={{ fontWeight: 700, fontSize: 11 }} />
-                    </Box>
-
-                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
-                      Sales & Off-Plan Scheme
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, minHeight: 40 }}>
-                      Launch an off-plan development or unit sales campaign, set price tiers and deposit rules, and manage buyer leads.
-                    </Typography>
-
-                    <Divider sx={{ my: 1.5 }} />
-
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1, my: 2 }}>
-                      <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-                        <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Sales scheme branding & completion targets
-                      </Typography>
-                      <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-                        <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Unit mix, list prices & deposit gates
-                      </Typography>
-                      <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
-                        <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> 3D unit models & agent pipeline
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    sx={{ mt: 2, bgcolor: "var(--primary, #2563eb)", "&:hover": { bgcolor: "#1d4ed8" } }}
-                    endIcon={<ChevronRight size={16} />}
+                  <CardActionArea
+                    onClick={() => handleSelectModule("sales")}
+                    sx={{ p: 3, height: "100%", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "space-between" }}
                   >
-                    Onboard Sales Scheme
-                  </Button>
-                </CardActionArea>
-              </Card>
-            </Grid>
+                    <Box sx={{ width: "100%" }}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                        <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(37, 99, 235, 0.1)", color: "var(--primary, #2563eb)" }}>
+                          <Tag size={28} />
+                        </Box>
+                        <Chip size="small" label="Commercial Sales" sx={{ fontWeight: 700, fontSize: 11 }} />
+                      </Box>
+
+                      <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+                        Sales & Off-Plan Scheme
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, minHeight: 40 }}>
+                        Launch an off-plan development or unit sales campaign, set price tiers and deposit rules, and manage buyer leads.
+                      </Typography>
+
+                      <Divider sx={{ my: 1.5 }} />
+
+                      <Box sx={{ display: "flex", flexDirection: "column", gap: 1, my: 2 }}>
+                        <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
+                          <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Sales scheme branding & completion targets
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
+                          <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> Unit mix, list prices & deposit gates
+                        </Typography>
+                        <Typography variant="caption" sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary" }}>
+                          <CheckCircle2 size={14} color="var(--color-success, #10b981)" /> 3D unit models & agent pipeline
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      sx={{ mt: 2, bgcolor: "var(--primary, #2563eb)", "&:hover": { bgcolor: "#1d4ed8" } }}
+                      endIcon={<ChevronRight size={16} />}
+                    >
+                      Onboard Sales Scheme
+                    </Button>
+                  </CardActionArea>
+                </Card>
+              </Grid>
+            )}
           </Grid>
 
-          {/* Bottom Extension Bar */}
-          <Paper
-            variant="outlined"
-            sx={{
-              p: 3,
-              borderRadius: 3,
-              bgcolor: "var(--surface, #ffffff)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: 2,
-            }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(99, 102, 241, 0.1)", color: "#6366f1" }}>
-                <GitBranch size={24} />
-              </Box>
-              <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-                  Already have an existing project or property?
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Seamlessly extend an ongoing Construction site into Sales, or convert completed units into Property Management.
-                </Typography>
-              </Box>
-            </Box>
-
-            <Button
+          {/* Bottom Extension Bar (Only if user has access to multiple modules or is admin) */}
+          {canAccessExtend && (
+            <Paper
               variant="outlined"
-              onClick={() => handleSelectModule("extend")}
-              endIcon={<Rocket size={16} />}
-              sx={{ fontWeight: 700 }}
+              sx={{
+                p: 3,
+                borderRadius: 3,
+                bgcolor: "var(--surface, #ffffff)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 2,
+              }}
             >
-              Extend Existing Asset &rarr;
-            </Button>
-          </Paper>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(99, 102, 241, 0.1)", color: "#6366f1" }}>
+                  <GitBranch size={24} />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                    Already have an existing project or property?
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Seamlessly extend an ongoing Construction site into Sales, or convert completed units into Property Management.
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Button
+                variant="outlined"
+                onClick={() => handleSelectModule("extend")}
+                endIcon={<Rocket size={16} />}
+                sx={{ fontWeight: 700 }}
+              >
+                Extend Existing Asset &rarr;
+              </Button>
+            </Paper>
+          )}
         </Container>
       </Box>
     );
@@ -369,20 +422,20 @@ export function ModularOnboardingHub() {
             onChange={(_, val) => handleSelectModule(val)}
             sx={{ minHeight: 36, "& .MuiTab-root": { minHeight: 36, py: 0.5, px: 1.5, fontSize: 13, fontWeight: 700, textTransform: "none" } }}
           >
-            <Tab value="property" label="🏢 Property Mgmt" />
-            <Tab value="construction" label="🏗️ Construction" />
-            <Tab value="sales" label="🏷️ Sales Scheme" />
-            <Tab value="extend" label="⚡ Extend Asset" />
+            {canAccessProperty && <Tab value="property" label="🏢 Property Mgmt" />}
+            {canAccessConstruction && <Tab value="construction" label="🏗️ Construction" />}
+            {canAccessSales && <Tab value="sales" label="🏷️ Sales Scheme" />}
+            {canAccessExtend && <Tab value="extend" label="⚡ Extend Asset" />}
           </Tabs>
         </Box>
       </Paper>
 
       {/* Main Workflow Body */}
       <Box sx={{ py: 2 }}>
-        {activeModule === "property" && <PropertyOnboardingForm onBack={() => handleSelectModule("")} />}
-        {activeModule === "construction" && <ConstructionOnboardingForm onBack={() => handleSelectModule("")} />}
-        {activeModule === "sales" && <SalesOnboardingForm onBack={() => handleSelectModule("")} />}
-        {activeModule === "extend" && <AssetLifecycleExtensionView onBack={() => handleSelectModule("")} />}
+        {activeModule === "property" && canAccessProperty && <PropertyOnboardingForm onBack={() => handleSelectModule("")} />}
+        {activeModule === "construction" && canAccessConstruction && <ConstructionOnboardingForm onBack={() => handleSelectModule("")} />}
+        {activeModule === "sales" && canAccessSales && <SalesOnboardingForm onBack={() => handleSelectModule("")} />}
+        {activeModule === "extend" && canAccessExtend && <AssetLifecycleExtensionView onBack={() => handleSelectModule("")} />}
       </Box>
     </Box>
   );

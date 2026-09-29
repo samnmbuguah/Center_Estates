@@ -332,7 +332,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
 
   return (
     <TelemetryProvider>
-      <div className="platform" style={{ display: "flex", minHeight: "100vh", width: "100vw", overflowX: "hidden" }}>
+      <div className="platform" style={{ display: "flex", minHeight: "100vh", width: "100%", maxWidth: "100vw", overflowX: "clip" }}>
       {/* The command center owns the portfolio sidebar. Module workspaces use
           their horizontal navigation and property context instead. */}
       {!moduleWorkspaceActive && <AppSidebar
@@ -341,13 +341,16 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
       />}
 
       {moduleWorkspaceActive && (
-        <ModuleIconSidebar
-          activeModuleSlug={activeModuleSlug}
-          allowedSlugs={allowedSlugs}
-          activeProperty={activeProperty}
-          onSwitchPropertyClick={handleOpenDirectPropertySwitch}
-          onModuleClick={handleModuleClick}
-        />
+        <>
+          <Box sx={{ width: 60, minWidth: 60, flexShrink: 0, display: { xs: "none", sm: "block" } }} />
+          <ModuleIconSidebar
+            activeModuleSlug={activeModuleSlug}
+            allowedSlugs={allowedSlugs}
+            activeProperty={activeProperty}
+            onSwitchPropertyClick={handleOpenDirectPropertySwitch}
+            onModuleClick={handleModuleClick}
+          />
+        </>
       )}
 
       <div className="workspace" style={{ width: "100%", flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: 0, paddingBottom: "60px" }}>

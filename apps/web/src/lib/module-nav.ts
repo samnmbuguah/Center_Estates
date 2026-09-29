@@ -300,7 +300,6 @@ export const constructionNav: ModuleNavGroup[] = [
     icon: "◷",
     items: [
       { id: "work-plan", label: "Work Programme", icon: "⏱️" },
-      { id: "ingestion", label: "Import BoQ & Programme", icon: "📥" },
       { id: "milestone-verifications", label: "Progress Verification", icon: "✅" },
       { id: "requirement-waivers", label: "Requirement Waivers", icon: "📝" },
       { id: "approvals", label: "Approvals", icon: "✍️" },
