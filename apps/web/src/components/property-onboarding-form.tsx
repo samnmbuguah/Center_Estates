@@ -6,7 +6,7 @@ import {
   Alert, Box, Button, Chip, Divider, FormControlLabel, IconButton,
   LinearProgress, MenuItem, Paper, Switch, Tab, Tabs, TextField, Typography,
 } from "@mui/material";
-import { ArrowLeft, Download, Plus, Save, Trash2, Upload, Zap } from "lucide-react";
+import { ArrowLeft, ClipboardCheck, Download, ListChecks, Plus, Save, Trash2, Upload, Zap } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch } from "@/lib/api";
@@ -157,7 +157,13 @@ function RowList<T>({ rows, columns, render, onRemove, empty }: { rows: T[]; col
   return <Box sx={{ overflowX: "auto" }}><Box component="table" sx={{ width: "100%", borderCollapse: "collapse", "th,td": { textAlign: "left", p: 1, borderBottom: "1px solid", borderColor: "divider", fontSize: 12 } }}><thead><tr>{columns.map(c => <th key={c}>{c}</th>)}<th>Actions</th></tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{render(row).map((cell, i) => <td key={i}>{cell}</td>)}<td><IconButton size="small" aria-label="Remove" onClick={() => onRemove(index)}><Trash2 size={15} /></IconButton></td></tr>)}</tbody></Box></Box>;
 }
 
-export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {}) {
+export function PropertyOnboardingForm({
+  onBack,
+  onOpenChecklist,
+}: {
+  onBack?: () => void;
+  onOpenChecklist?: () => void;
+} = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams?.get("edit");
@@ -838,7 +844,20 @@ export function PropertyOnboardingForm({ onBack }: { onBack?: () => void } = {})
           <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Onboarding readiness</Typography>
           <Typography variant="body2" color="text.secondary">{readiness.completed} of {readiness.checks.length} setup areas complete. You can save a draft and continue later.</Typography>
         </Box>
-        <Chip label={`${readiness.score}%`} color={readiness.score === 100 ? "success" : readiness.score >= 60 ? "warning" : "default"} sx={{ fontWeight: 800, fontSize: 14 }} />
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          {onOpenChecklist && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={onOpenChecklist}
+              startIcon={<ListChecks size={15} />}
+              sx={{ textTransform: "none", fontWeight: 600, borderRadius: 2 }}
+            >
+              Interactive Checklist
+            </Button>
+          )}
+          <Chip label={`${readiness.score}%`} color={readiness.score === 100 ? "success" : readiness.score >= 60 ? "warning" : "default"} sx={{ fontWeight: 800, fontSize: 14 }} />
+        </Box>
       </Box>
       <LinearProgress variant="determinate" value={readiness.score} color={readiness.score === 100 ? "success" : "primary"} sx={{ height: 8, borderRadius: 99, mb: readiness.missing.length ? 1.5 : 0 }} />
       {readiness.missing.length > 0 && <Box sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>

@@ -50,16 +50,18 @@ const TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; className?
 };
 
 interface OnboardingChecklistModalProps {
-  open: boolean;
-  onClose: () => void;
+  open?: boolean;
+  onClose?: () => void;
+  inline?: boolean;
   defaultScope?: ManagementScope;
   defaultPropertyType?: PropertyTypeCode;
   initialPropertyName?: string;
 }
 
 export function OnboardingChecklistModal({
-  open,
+  open = false,
   onClose,
+  inline = false,
   defaultScope = "both",
   defaultPropertyType = "commercial_office",
   initialPropertyName = "",
@@ -209,42 +211,39 @@ export function OnboardingChecklistModal({
     }
   };
 
-  if (!open) return null;
+  if (!open && !inline) return null;
 
-  return (
-    <Modal
-      onClose={onClose}
-      maxWidth="xl"
-      title={
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div
-            style={{
-              background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-              border: "1px solid rgba(255,255,255,0.15)",
-              color: "#38bdf8",
-              borderRadius: 10,
-              width: 40,
-              height: 40,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 6px 16px rgba(0, 0, 0, 0.2)",
-            }}
-          >
-            <SlidersHorizontal size={20} />
-          </div>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 18, color: "var(--text-main)", letterSpacing: "-0.01em" }}>
-              Property & Facility Onboarding Checklist
-            </div>
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>
-              Tailored document matrix, statutory compliance requirements, and ready-to-print handover checklists
-            </div>
-          </div>
+  const headerTitle = (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div
+        style={{
+          background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
+          border: "1px solid rgba(255,255,255,0.15)",
+          color: "#38bdf8",
+          borderRadius: 10,
+          width: 42,
+          height: 42,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 6px 16px rgba(0, 0, 0, 0.2)",
+        }}
+      >
+        <SlidersHorizontal size={22} />
+      </div>
+      <div>
+        <div style={{ fontWeight: 800, fontSize: 18, color: "var(--text-main)", letterSpacing: "-0.01em" }}>
+          Property & Facility Onboarding Checklist
         </div>
-      }
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, paddingBottom: 16 }}>
+        <div style={{ fontSize: 12, color: "var(--muted)" }}>
+          Tailored document matrix, statutory compliance requirements, and ready-to-print handover checklists
+        </div>
+      </div>
+    </div>
+  );
+
+  const mainContent = (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24, paddingBottom: 16 }}>
         {/* Top Controls: Scope, Property Type, and Property Name */}
         <div
           style={{
@@ -973,6 +972,38 @@ export function OnboardingChecklistModal({
           )}
         </div>
       </div>
+  );
+
+  if (inline) {
+    return (
+      <div
+        className="onboarding-checklist-inline-panel"
+        style={{
+          width: "100%",
+          maxWidth: 1320,
+          margin: "0 auto",
+          padding: "24px 28px",
+          background: "var(--surface, #ffffff)",
+          borderRadius: 16,
+          border: "1px solid var(--border, #e2e8f0)",
+          boxShadow: "0 4px 20px -2px rgba(0, 0, 0, 0.05)",
+        }}
+      >
+        <div style={{ marginBottom: 24, paddingBottom: 16, borderBottom: "1px solid var(--border, #e2e8f0)" }}>
+          {headerTitle}
+        </div>
+        {mainContent}
+      </div>
+    );
+  }
+
+  return (
+    <Modal
+      onClose={onClose || (() => {})}
+      maxWidth="xl"
+      title={headerTitle}
+    >
+      {mainContent}
     </Modal>
   );
 }
