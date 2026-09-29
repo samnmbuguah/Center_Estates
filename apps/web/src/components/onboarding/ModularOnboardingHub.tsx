@@ -21,6 +21,7 @@ import {
   Building2,
   CheckCircle2,
   ChevronRight,
+  ClipboardCheck,
   Compass,
   FileSpreadsheet,
   GitBranch,
@@ -40,6 +41,7 @@ import { PropertyOnboardingForm } from "@/components/property-onboarding-form";
 import { SalesOnboardingForm } from "./SalesOnboardingForm";
 import { ConstructionOnboardingForm } from "./ConstructionOnboardingForm";
 import { AssetLifecycleExtensionView } from "./AssetLifecycleExtensionView";
+import { OnboardingChecklistModal } from "@/features/property/components/modals/OnboardingChecklistModal";
 
 export function ModularOnboardingHub() {
   const router = useRouter();
@@ -114,6 +116,8 @@ export function ModularOnboardingHub() {
     router.push(`${window.location.pathname}?${params.toString()}`);
   }
 
+  const [showChecklist, setShowChecklist] = useState(false);
+
   // 1. Selector Hero View (when no module is chosen yet)
   if (!activeModule) {
     return (
@@ -139,6 +143,31 @@ export function ModularOnboardingHub() {
             <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 640, mx: "auto" }}>
               Choose which operational module you are setting up for. Each module gathers specific artifacts, and assets can be extended across modules at any time.
             </Typography>
+
+            <Box sx={{ display: "flex", justifyContent: "center", gap: 1.5, mt: 2.5 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ClipboardCheck size={16} />}
+                onClick={() => setShowChecklist(true)}
+                sx={{
+                  borderRadius: 2,
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  borderColor: "var(--border, #cbd5e1)",
+                  color: "var(--text-main, #1e293b)",
+                  bgcolor: "var(--surface, #ffffff)",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                  "&:hover": {
+                    bgcolor: "var(--surface-hover, #f1f5f9)",
+                    borderColor: "var(--primary, #2563eb)",
+                  },
+                }}
+              >
+                Onboarding Checklist & Requirements Matrix
+              </Button>
+            </Box>
           </Box>
 
           {/* Choice Cards (Filtered by user module entitlements) */}
@@ -379,6 +408,13 @@ export function ModularOnboardingHub() {
             </Paper>
           )}
         </Container>
+
+        <OnboardingChecklistModal
+          open={showChecklist}
+          onClose={() => setShowChecklist(false)}
+          defaultScope="both"
+          defaultPropertyType="commercial_office"
+        />
       </Box>
     );
   }
@@ -428,6 +464,18 @@ export function ModularOnboardingHub() {
             {canAccessExtend && <Tab value="extend" label="⚡ Extend Asset" />}
           </Tabs>
         </Box>
+
+        {activeModule === "property" && (
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<ClipboardCheck size={14} />}
+            onClick={() => setShowChecklist(true)}
+            sx={{ fontWeight: 600, fontSize: 12, textTransform: "none", borderRadius: 1.5 }}
+          >
+            Onboarding Checklist
+          </Button>
+        )}
       </Paper>
 
       {/* Main Workflow Body */}
@@ -437,6 +485,13 @@ export function ModularOnboardingHub() {
         {activeModule === "sales" && canAccessSales && <SalesOnboardingForm onBack={() => handleSelectModule("")} />}
         {activeModule === "extend" && canAccessExtend && <AssetLifecycleExtensionView onBack={() => handleSelectModule("")} />}
       </Box>
+
+      <OnboardingChecklistModal
+        open={showChecklist}
+        onClose={() => setShowChecklist(false)}
+        defaultScope="both"
+        defaultPropertyType="commercial_office"
+      />
     </Box>
   );
 }
