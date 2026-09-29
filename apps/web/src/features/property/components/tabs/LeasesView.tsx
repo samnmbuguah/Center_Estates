@@ -947,12 +947,12 @@ export function LeasesView({
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)", display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>💧</span> Unit Utility & Water Payer ({editTarget.unit_code || "Unit"})
+                  <span>💧</span> Water & Utility Billing Setup ({editTarget.unit_code || "Unit"})
                 </span>
                 {editWaterLoading && <span style={{ fontSize: 11, color: "var(--muted)" }}>Loading unit settings…</span>}
               </div>
 
-              <Field label="Who Pays Water Meter Charges?">
+              <Field label="How are Water charges billed for this unit?">
                 <select
                   value={editWaterPayer}
                   onChange={(e) => setEditWaterPayer(e.target.value)}
@@ -966,15 +966,23 @@ export function LeasesView({
                     color: "var(--text-main)",
                   }}
                 >
-                  <option value="owner">Landlord / Owner (Landlord pays water — rent is NEVER blocked)</option>
-                  <option value="tenant">Tenant (Billed via Water Meter Readings — blocks rent until reading is logged)</option>
+                  <option value="owner">Included in Service Charge / Landlord Pays (No individual water meter needed — rent is NEVER held)</option>
+                  <option value="tenant">Tenant via Water Sub-Meter (Requires monthly meter reading — holds rent until reading is logged)</option>
                 </select>
               </Field>
 
-              <div style={{ fontSize: 11, color: editWaterPayer === "owner" ? "var(--color-emerald, #10b981)" : "var(--color-amber-deep, #b45309)" }}>
-                {editWaterPayer === "owner"
-                  ? "✓ Landlord pays water: Meter readings will NOT block monthly rent generation for this tenancy."
-                  : "⚠️ Tenant pays water: Under Consolidated Billing, monthly rent invoices will be put ON HOLD until this unit's water meter reading is recorded."}
+              <div style={{ fontSize: 11, lineHeight: 1.4, color: editWaterPayer === "owner" ? "var(--color-emerald, #10b981)" : "var(--color-amber-deep, #b45309)" }}>
+                {editWaterPayer === "owner" ? (
+                  <>
+                    <div>✓ <strong>Water covered in Service Charge or Landlord Account:</strong> Meter readings will NOT hold or block monthly rent generation.</div>
+                    <div style={{ marginTop: 3, opacity: 0.85 }}>⚡ <em>Note on Electricity:</em> Tenants continue to pay their own electricity directly (e.g. KPLC tokens/meters) without affecting rent billing.</div>
+                  </>
+                ) : (
+                  <>
+                    <div>⚠️ <strong>Tenant pays separate Water Sub-Meter:</strong> Rent invoices will be held until the unit's water meter reading is recorded.</div>
+                    <div style={{ marginTop: 3, opacity: 0.85 }}>💡 <em>Tip:</em> If water is paid by the landlord and recovered through the <strong>Service Charge</strong>, select <strong>"Included in Service Charge / Landlord Pays"</strong> above to unblock rent invoicing.</div>
+                  </>
+                )}
               </div>
             </div>
 

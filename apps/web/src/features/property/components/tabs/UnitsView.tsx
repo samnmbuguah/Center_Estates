@@ -1057,7 +1057,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                             />
                           )}
                           {u.water_payer === "owner" && (
-                            <Chip size="small" variant="outlined" label="💧 Water: Landlord Paid" sx={{ height: 18, fontSize: 10, color: "var(--color-cyan, #06b6d4)", borderColor: "var(--color-cyan, #06b6d4)", mt: 0.5 }} />
+                            <Chip size="small" variant="outlined" label="💧 Water in Service Charge" sx={{ height: 18, fontSize: 10, color: "var(--color-cyan, #06b6d4)", borderColor: "var(--color-cyan, #06b6d4)", mt: 0.5 }} />
                           )}
                         </TableCell>
                         <TableCell align="right">
@@ -1178,14 +1178,14 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                 select
                 fullWidth
                 size="small"
-                label="Water Payer"
+                label="Water Billing Arrangement"
                 value={singleWaterPayerInput}
                 onChange={(e) => setSingleWaterPayerInput(e.target.value)}
                 slotProps={{ select: { native: true } }}
-                helperText={singleWaterPayerInput === "owner" ? "💧 Landlord pays water. Tenant is NOT billed and meter readings never block rent." : "Tenant pays metered water."}
+                helperText={singleWaterPayerInput === "owner" ? "💧 Covered in Service Charge or Landlord Account. Meter readings never block rent." : "Tenant pays separate water sub-meter. Rent held until reading recorded."}
               >
-                <option value="owner">Landlord / Owner (Landlord pays water)</option>
-                <option value="tenant">Tenant (Billed to Tenant via Meter Readings)</option>
+                <option value="owner">Included in Service Charge / Landlord Pays (Never holds rent)</option>
+                <option value="tenant">Tenant via Water Sub-Meter (Requires monthly reading)</option>
               </TextField>
 
               <TextField
