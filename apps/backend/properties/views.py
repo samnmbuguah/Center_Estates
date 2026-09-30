@@ -5385,7 +5385,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                         # If no meter is installed for this unit, do not block the entire rent/billing run; emit as warning
                         issue_rows.append((
                             f'missing_{target_utility}_meter',
-                            f'No active {utility_name.lower()} meter configured for {lease.unit.unit_number if lease.unit else "unit"}.',
+                            f'No active {utility_name.lower()} meter configured for {lease.unit.code if lease.unit else "unit"}.',
                             profile,
                             BillingReadinessIssue.Severity.WARNING,
                         ))
@@ -6086,8 +6086,8 @@ class RentScheduleViewSet(OrganizationModelViewSet):
                     is_active=True,
                     calculation=BillingItem.Calculation.METERED,
                 ).filter(
-                    models.Q(billing_item__code__icontains='water') |
-                    models.Q(billing_item__name__icontains='water')
+                    Q(billing_item__code__icontains='water') |
+                    Q(billing_item__name__icontains='water')
                 ).exists()
                 or UtilityMeter.objects.filter(
                     organization=schedule.organization,
