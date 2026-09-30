@@ -4,6 +4,8 @@ Only AVAILABLE listings of the organization configured via
 PUBLIC_LISTINGS_ORG_SLUG are exposed, with a minimal safe field set.
 Enquiries create Buyer leads (status=lead) for the sales team.
 """
+import uuid
+
 from django.conf import settings
 from django.db.models import Q
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
@@ -12,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 
 from organizations.models import Organization
+from properties.models import Project
 
 from .models import Buyer, SaleListing
 
@@ -50,6 +53,11 @@ def _bedrooms(unit_type):
     return None
 
 
+def _location(prop):
+    """Human location string for a property (city, falling back to address)."""
+    return (getattr(prop, 'city', '') or '').strip() or (getattr(prop, 'address', '') or '').strip()
+
+
 def serialize_listing(listing, *, detail=False):
     unit = listing.unit
     project = listing.project
@@ -63,8 +71,7 @@ def serialize_listing(listing, *, detail=False):
         'id': str(listing.id),
         'project': {
             'name': project.name,
-            'location': (getattr(prop, 'city', '') or '').strip()
-            or (getattr(prop, 'address', '') or '').strip(),
+            'location': _location(prop),
         },
         'unit': {
             'code': unit.code,
@@ -81,7 +88,10 @@ def serialize_listing(listing, *, detail=False):
         'images': images,
     }
     if detail:
-        payload['project']['description'] = getattr(project, 'description', '')
+        # properties.Project carries no description of its own; the optional
+        # construction profile does (related_name='construction_profile').
+        profile = getattr(project, 'construction_profile', None)
+        payload['project']['description'] = (getattr(profile, 'description', '') or '').strip()
     return payload
 
 
@@ -113,6 +123,13 @@ def public_listings(request):
     unit_type = (request.query_params.get('type') or '').strip()
     if unit_type:
         queryset = queryset.filter(unit__unit_type__icontains=unit_type)
+    project_id = (request.query_params.get('project') or '').strip()
+    if project_id:
+        try:
+            uuid.UUID(project_id)
+        except (ValueError, TypeError):
+            return Response({'results': []})
+        queryset = queryset.filter(project_id=project_id)
     for key, lookup in (('min_price', 'list_price__gte'), ('max_price', 'list_price__lte')):
         bound = (request.query_params.get(key) or '').strip()
         if bound:
@@ -138,6 +155,49 @@ def public_listing_detail(request, pk):
     except (SaleListing.DoesNotExist, ValueError):
         return Response({'detail': 'Listing not found.'}, status=404)
     return Response(serialize_listing(listing, detail=True))
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_projects(request):
+    """Projects that currently have available listings, aggregated for the
+    public storefront: price range, counts, cover image, progress."""
+    organization = _public_org()
+    if organization is None:
+        return _no_storefront()
+    projects = Project.objects.filter(
+        organization=organization, sale_listings__status=SaleListing.Status.AVAILABLE,
+    ).select_related('property').distinct()
+    results = []
+    for project in projects:
+        available = SaleListing.objects.filter(
+            project=project, status=SaleListing.Status.AVAILABLE,
+        ).order_by('-is_featured', 'list_price')
+        cover = available.first()
+        image = ''
+        if cover is not None:
+            renders = [r for r in cover.renders.all() if _render_url(r)]
+            primary = next((r for r in renders if r.is_primary), None)
+            image = _render_url(primary or renders[0]) if renders else ''
+        prices = [listing.list_price for listing in available]
+        progress = [listing.construction_progress for listing in available]
+        profile = getattr(project, 'construction_profile', None)
+        results.append({
+            'id': str(project.id),
+            'code': project.code,
+            'name': project.name,
+            'status': project.status,
+            'location': _location(project.property),
+            'description': (getattr(profile, 'description', '') or '').strip(),
+            'listing_count': len(prices),
+            'min_price': str(min(prices)) if prices else None,
+            'max_price': str(max(prices)) if prices else None,
+            'construction_progress': str(round(sum(progress) / len(progress))) if progress else '0',
+            'is_featured': available.filter(is_featured=True).exists(),
+            'image': image,
+        })
+    results.sort(key=lambda item: (not item['is_featured'], item['name']))
+    return Response({'results': results})
 
 
 @api_view(['POST'])

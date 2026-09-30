@@ -468,6 +468,8 @@ class SalesPublicTests(TestCase):
         prop = Property.objects.create(organization=self.organization, code='P1', name='Riverside', city='Nairobi')
         unit = Unit.objects.create(organization=self.organization, property=prop, code='A-01', unit_type='2 Bedroom', area=Decimal('85'))
         project = Project.objects.create(organization=self.organization, property=prop, code='PR1', name='Riverside Heights')
+        self.project = project
+        self.prop = prop
         self.listing = SaleListing.objects.create(
             organization=self.organization, unit=unit, project=project, list_price=Decimal('12000000'),
         )
@@ -502,6 +504,53 @@ class SalesPublicTests(TestCase):
         self.assertEqual(len(by_location.data['results']), 1)
         miss_location = self.client.get('/api/v1/sales/public/listings/?location=Nowhere')
         self.assertEqual(miss_location.data['results'], [])
+
+    def test_public_projects_aggregation_and_scoping(self):
+        response = self.client.get('/api/v1/sales/public/projects/')
+        self.assertEqual(response.status_code, 200, response.data)
+        results = response.data['results']
+        # The other org's project has an available listing but must not leak.
+        self.assertEqual([item['name'] for item in results], ['Riverside Heights'])
+        project = results[0]
+        self.assertEqual(project['location'], 'Nairobi')
+        self.assertEqual(project['listing_count'], 1)
+        self.assertEqual(project['min_price'], '12000000.00')
+        self.assertEqual(project['max_price'], '12000000.00')
+        self.assertFalse(project['is_featured'])
+        # Projects without any available listing are excluded.
+        blocked_unit = Unit.objects.create(
+            organization=self.organization, property=self.prop, code='B-01', unit_type='Office',
+        )
+        blocked_project = Project.objects.create(
+            organization=self.organization, property=self.prop, code='PR2', name='No Stock',
+        )
+        SaleListing.objects.create(
+            organization=self.organization, unit=blocked_unit, project=blocked_project,
+            list_price=Decimal('5000000'), status=SaleListing.Status.BLOCKED,
+        )
+        response = self.client.get('/api/v1/sales/public/projects/')
+        self.assertEqual([item['name'] for item in response.data['results']], ['Riverside Heights'])
+
+    def test_public_listings_project_filter(self):
+        response = self.client.get(f'/api/v1/sales/public/listings/?project={self.project.id}')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(len(response.data['results']), 1)
+        other_project = Project.objects.get(organization=self.other, code='PR9')
+        response = self.client.get(f'/api/v1/sales/public/listings/?project={other_project.id}')
+        self.assertEqual(response.data['results'], [])
+        response = self.client.get('/api/v1/sales/public/listings/?project=not-a-uuid')
+        self.assertEqual(response.data['results'], [])
+
+    def test_public_listing_detail_uses_construction_description(self):
+        from construction.models import Project as ConstructionProject
+
+        ConstructionProject.objects.create(
+            organization=self.organization, portfolio_project=self.project,
+            name='Riverside Works', description='A riverside mixed-use development.',
+        )
+        response = self.client.get(f'/api/v1/sales/public/listings/{self.listing.id}/')
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data['project']['description'], 'A riverside mixed-use development.')
 
     def test_public_listing_detail_and_search(self):
         detail = self.client.get(f'/api/v1/sales/public/listings/{self.listing.id}/')
