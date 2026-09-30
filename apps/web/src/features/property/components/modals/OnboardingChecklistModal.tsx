@@ -25,8 +25,8 @@ import {
   Home,
   Landmark,
   Factory,
-  CheckCircle2,
-  Circle,
+  CheckSquare,
+  Square,
   ShieldCheck,
   AlertTriangle,
   SlidersHorizontal,
@@ -38,7 +38,25 @@ import {
   Printer,
   Info,
 } from "lucide-react";
-import { csrfFromCookie } from "@/lib/api";
+import { API_BASE_URL, csrfFromCookie } from "@/lib/api";
+
+/** Active organization id, mirroring apiFetch's localStorage fallback. */
+function activeOrganizationId(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem("ce_organization");
+}
+
+/** User-safe download failure message: never leak raw HTML error pages. */
+export function downloadErrorMessage(status: number, body: string, format: string): string {
+  const kind = format === "pdf" ? "PDF" : "Excel workbook";
+  if (status === 404) {
+    return `The ${kind} generator is not available right now (server 404). The CSV download below always works — please use it and retry later.`;
+  }
+  if (status === 401 || status === 403) {
+    return `Your session expired before the ${kind} could be generated. Please sign in again and retry.`;
+  }
+  return `The ${kind} could not be generated (server error ${status}). Please retry.`;
+}
 
 const TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string; style?: React.CSSProperties }>> = {
   Briefcase,
@@ -179,16 +197,21 @@ export function OnboardingChecklistModal({
         params.set(k, v ? "true" : "false");
       }
 
-      const res = await fetch(`/api/v1/property/properties/onboarding-checklist/?${params.toString()}`, {
+      // Absolute API base: a same-origin /api/* path would hit the Next.js
+      // frontend (which has no such route) and return an HTML 404 page.
+      const organizationId = activeOrganizationId();
+      const res = await fetch(`${API_BASE_URL}/property/properties/onboarding-checklist/?${params.toString()}`, {
         method: "GET",
+        credentials: "include",
         headers: {
           "X-CSRFToken": csrfFromCookie(),
+          ...(organizationId ? { "X-Organization-Id": organizationId } : {}),
         },
       });
 
       if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Server returned ${res.status}: ${text.slice(0, 150)}`);
+        await res.text().catch(() => "");
+        throw new Error(downloadErrorMessage(res.status, "", format));
       }
 
       const blob = await res.blob();
@@ -811,12 +834,14 @@ export function OnboardingChecklistModal({
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
+                      gap: 12,
+                      flexWrap: "wrap",
                       cursor: "pointer",
                       borderBottom: isCollapsed ? "none" : "1px solid var(--border)",
                       userSelect: "none",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0, flex: 1 }}>
                       <span style={{ fontSize: 14, fontWeight: 800, color: "var(--text-main)" }}>
                         {category}
                       </span>
@@ -848,7 +873,7 @@ export function OnboardingChecklistModal({
                       )}
                     </div>
 
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--muted)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--muted)", flexShrink: 0, whiteSpace: "nowrap" }}>
                       <span style={{ fontSize: 11 }}>{isCollapsed ? "Expand" : "Collapse"}</span>
                       {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
                     </div>
@@ -873,10 +898,13 @@ export function OnboardingChecklistModal({
                               transition: "background 0.15s ease",
                             }}
                           >
-                            {/* Interactive preparation checkbox */}
+                            {/* Interactive preparation checkbox (square = multi-select) */}
                             <button
                               type="button"
                               onClick={() => toggleItemCheck(item.id)}
+                              role="checkbox"
+                              aria-checked={isItemChecked}
+                              aria-label={`Mark "${item.title}" as ${isItemChecked ? "pending" : "prepared"}`}
                               style={{
                                 background: "none",
                                 border: "none",
@@ -888,7 +916,7 @@ export function OnboardingChecklistModal({
                               }}
                               title={isItemChecked ? "Mark as pending" : "Mark as prepared/received"}
                             >
-                              {isItemChecked ? <CheckCircle2 size={20} /> : <Circle size={20} />}
+                              {isItemChecked ? <CheckSquare size={20} /> : <Square size={20} />}
                             </button>
 
                             {/* Content & Details */}
@@ -1000,7 +1028,7 @@ export function OnboardingChecklistModal({
   return (
     <Modal
       onClose={onClose || (() => {})}
-      maxWidth="xl"
+      maxWidth="lg"
       title={headerTitle}
     >
       {mainContent}
