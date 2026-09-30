@@ -8,8 +8,9 @@ import {
   UploadCloud, X, ChevronRight, Share2, Copy, Check, ArrowRight,
   ShieldCheck, Wrench, Zap, Droplets, Flame, Key, Lock, Bell
 } from "lucide-react";
+import { resolveApiBaseUrl } from "@/lib/site-mode";
 
-const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace(/\/$/, "");
+const API_BASE = resolveApiBaseUrl();
 
 type CategoryItem = { id: string; label: string; icon: string; desc?: string };
 

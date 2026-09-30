@@ -1,3 +1,5 @@
+import { resolveApiBaseUrl } from "@/lib/site-mode";
+
 export type Organization = {
   id: string;
   name: string;
@@ -47,7 +49,7 @@ const GET_CACHE_MS = 30_000;
 const MAX_GET_CACHE_ENTRIES = 120;
 const READ_TIMEOUT_MS = 20_000;
 const READ_RETRY_DELAYS_MS = [350];
-export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace(/\/$/, "");
+export const API_BASE_URL = resolveApiBaseUrl();
 const getResponseCache = new Map<string, { expiresAt: number; response: Response }>();
 const inFlightGets = new Map<string, Promise<Response>>();
 let csrfTokenCache = "";
