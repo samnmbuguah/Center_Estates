@@ -7,11 +7,12 @@ import { MarketingLayout } from "@/components/monitoring/pages/MarketingLayout";
 export type PublicListing = {
   id: string;
   project: { name: string; location: string; description?: string };
-  unit: { code: string; type: string; floor: string; area: string | null; bedrooms: null };
+  unit: { code: string; type: string; floor: string; area: string | null; bedrooms: number | null };
   price: string;
   minimum_deposit_percent: string;
   construction_progress: string;
   status: string;
+  is_featured: boolean;
   images: { url: string; kind: string; title: string; primary: boolean }[];
 };
 
@@ -21,23 +22,37 @@ export function formatKES(value: string | number): string {
   return new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 }).format(amount);
 }
 
-async function fetchListings(params: { search?: string; max_price?: string }): Promise<PublicListing[]> {
+async function fetchListings(params: { search?: string; min_price?: string; max_price?: string; type?: string; location?: string }): Promise<PublicListing[]> {
   const query = new URLSearchParams();
   if (params.search) query.set("search", params.search);
+  if (params.min_price) query.set("min_price", params.min_price);
   if (params.max_price) query.set("max_price", params.max_price);
+  if (params.type) query.set("type", params.type);
+  if (params.location) query.set("location", params.location);
   const response = await fetch(`/api/v1/sales/public/listings/${query.toString() ? `?${query}` : ""}`);
   if (!response.ok) return [];
   const payload = await response.json().catch(() => ({}));
   return Array.isArray(payload.results) ? payload.results : [];
 }
 
+function bedroomLabel(count: number | null): string | null {
+  if (count === null || count === undefined) return null;
+  return count === 0 ? "Studio" : `${count} bed`;
+}
+
 function ListingCard({ listing }: { listing: PublicListing }) {
   const image = listing.images.find((img) => img.primary) ?? listing.images[0];
+  const beds = bedroomLabel(listing.unit.bedrooms);
   return (
     <Link
       href={`/listings/${listing.id}`}
-      style={{ display: "block", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", background: "var(--surface)", textDecoration: "none", color: "inherit" }}
+      style={{ display: "block", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", background: "var(--surface)", textDecoration: "none", color: "inherit", position: "relative" }}
     >
+      {listing.is_featured && (
+        <span style={{ position: "absolute", top: 10, left: 10, zIndex: 1, background: "var(--primary)", color: "#fff", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 20 }}>
+          ★ Featured
+        </span>
+      )}
       <div style={{ aspectRatio: "16/10", background: "var(--color-sky-bg, #e0f2fe)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -51,16 +66,21 @@ function ListingCard({ listing }: { listing: PublicListing }) {
         <div style={{ fontWeight: 700, marginTop: 4 }}>{listing.unit.type || "Unit"} · {listing.unit.code}</div>
         <div className="muted" style={{ fontSize: 13 }}>{listing.project.name}{listing.project.location ? ` · ${listing.project.location}` : ""}</div>
         <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-          {[listing.unit.area ? `${listing.unit.area} sqft` : null, listing.unit.floor ? `Floor ${listing.unit.floor}` : null].filter(Boolean).join(" · ") || "—"}
+          {[beds, listing.unit.area ? `${listing.unit.area} sqft` : null, listing.unit.floor ? `Floor ${listing.unit.floor}` : null].filter(Boolean).join(" · ") || "—"}
         </div>
       </div>
     </Link>
   );
 }
 
+const UNIT_TYPES = ["Apartment", "Bedsitter", "Studio", "Maisonette", "Villa", "Townhouse", "Office", "Retail", "Land"];
+
 export function StorefrontHome() {
   const [search, setSearch] = useState("");
+  const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [unitType, setUnitType] = useState("");
+  const [location, setLocation] = useState("");
   const [listings, setListings] = useState<PublicListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
@@ -68,7 +88,10 @@ export function StorefrontHome() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await fetchListings({ search: search.trim(), max_price: maxPrice.trim() });
+      const rows = await fetchListings({
+        search: search.trim(), min_price: minPrice.trim(), max_price: maxPrice.trim(),
+        type: unitType, location: location.trim(),
+      });
       setListings(rows);
       setUnavailable(false);
     } catch {
@@ -76,7 +99,7 @@ export function StorefrontHome() {
     } finally {
       setLoading(false);
     }
-  }, [search, maxPrice]);
+  }, [search, minPrice, maxPrice, unitType, location]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 350);
@@ -102,12 +125,36 @@ export function StorefrontHome() {
             style={{ flex: "2 1 240px", maxWidth: 380, padding: "12px 16px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 15 }}
           />
           <input
+            value={minPrice}
+            onChange={(event) => setMinPrice(event.target.value.replace(/[^0-9]/g, ""))}
+            placeholder="Min price (KES)"
+            aria-label="Minimum price"
+            inputMode="numeric"
+            style={{ flex: "1 1 130px", maxWidth: 170, padding: "12px 16px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 15 }}
+          />
+          <input
             value={maxPrice}
             onChange={(event) => setMaxPrice(event.target.value.replace(/[^0-9]/g, ""))}
             placeholder="Max price (KES)"
             aria-label="Maximum price"
             inputMode="numeric"
-            style={{ flex: "1 1 140px", maxWidth: 200, padding: "12px 16px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 15 }}
+            style={{ flex: "1 1 130px", maxWidth: 170, padding: "12px 16px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 15 }}
+          />
+          <select
+            value={unitType}
+            onChange={(event) => setUnitType(event.target.value)}
+            aria-label="Property type"
+            style={{ flex: "1 1 130px", maxWidth: 180, padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 15, background: "var(--surface)" }}
+          >
+            <option value="">All types</option>
+            {UNIT_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+          </select>
+          <input
+            value={location}
+            onChange={(event) => setLocation(event.target.value)}
+            placeholder="Location…"
+            aria-label="Location"
+            style={{ flex: "1 1 130px", maxWidth: 170, padding: "12px 16px", borderRadius: 10, border: "1px solid var(--border)", fontSize: 15 }}
           />
           <button type="submit" className="btn primary" style={{ padding: "12px 28px", fontSize: 15 }}>Search</button>
         </form>

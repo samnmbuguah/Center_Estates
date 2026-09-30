@@ -96,12 +96,21 @@ export function ListingDetail({ id }: { id: string }) {
                   ))}
                 </div>
               )}
-              <h1 style={{ fontSize: 30, fontWeight: 900, margin: "20px 0 4px" }}>{formatKES(listing.price)}</h1>
-              <p className="muted" style={{ margin: 0 }}>{listing.unit.type || "Unit"} {listing.unit.code} · {listing.project.name}{listing.project.location ? ` · ${listing.project.location}` : ""}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 20, flexWrap: "wrap" }}>
+                <h1 style={{ fontSize: 30, fontWeight: 900, margin: 0 }}>{formatKES(listing.price)}</h1>
+                {listing.is_featured && (
+                  <span style={{ background: "var(--primary)", color: "#fff", fontSize: 12, fontWeight: 800, padding: "4px 12px", borderRadius: 20 }}>★ Featured</span>
+                )}
+              </div>
+              <p className="muted" style={{ margin: "4px 0 0" }}>{listing.unit.type || "Unit"} {listing.unit.code} · {listing.project.name}{listing.project.location ? ` · ${listing.project.location}` : ""}</p>
               {listing.project.description && <p style={{ marginTop: 14, lineHeight: 1.6 }}>{listing.project.description}</p>}
               <div style={{ marginTop: 8 }}>
                 <DetailRow label="Unit" value={listing.unit.code} />
                 <DetailRow label="Type" value={listing.unit.type || "—"} />
+                <DetailRow
+                  label="Bedrooms"
+                  value={listing.unit.bedrooms === null || listing.unit.bedrooms === undefined ? "—" : listing.unit.bedrooms === 0 ? "Studio" : String(listing.unit.bedrooms)}
+                />
                 <DetailRow label="Floor" value={listing.unit.floor || "—"} />
                 <DetailRow label="Area" value={listing.unit.area ? `${listing.unit.area} sqft` : "—"} />
                 <DetailRow label="Minimum deposit" value={`${listing.minimum_deposit_percent}%`} />
