@@ -1,6 +1,11 @@
 export const PUBLIC_ROUTES = [
   "/",
   "/listings",
+  "/properties",
+  "/projects",
+  "/search",
+  "/privacy",
+  "/terms",
   "/login",
   "/sign-up",
   "/about",
