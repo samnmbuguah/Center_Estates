@@ -237,7 +237,7 @@ export function OnboardingChecklistModal({
   if (!open && !inline) return null;
 
   const headerTitle = (
-    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
       <div
         style={{
           background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
@@ -246,6 +246,7 @@ export function OnboardingChecklistModal({
           borderRadius: 10,
           width: 42,
           height: 42,
+          flexShrink: 0,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -254,11 +255,11 @@ export function OnboardingChecklistModal({
       >
         <SlidersHorizontal size={22} />
       </div>
-      <div>
+      <div style={{ minWidth: 0 }}>
         <div style={{ fontWeight: 800, fontSize: 18, color: "var(--text-main)", letterSpacing: "-0.01em" }}>
-          Property & Facility Onboarding Checklist
+          Property &amp; Facility Onboarding Checklist
         </div>
-        <div style={{ fontSize: 12, color: "var(--muted)" }}>
+        <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.4 }}>
           Tailored document matrix, statutory compliance requirements, and ready-to-print handover checklists
         </div>
       </div>

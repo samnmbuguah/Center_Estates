@@ -383,7 +383,22 @@ export function Modal({
 }) {
   const titleId = useId();
   const resolvedMaxWidth = maxWidth || (extraWide ? "xl" : wide ? "lg" : "sm");
-  const pixelMaxWidth = extraWide ? 1320 : wide ? 960 : 560;
+  // Honor an explicit maxWidth instead of collapsing every dialog to 560px.
+  // xs stays at 560 (historic width); wide/extraWide keep their own sizes.
+  const maxWidthPixels: Record<"xs" | "sm" | "md" | "lg" | "xl", number> = {
+    xs: 560,
+    sm: 600,
+    md: 900,
+    lg: 960,
+    xl: 1200,
+  };
+  const pixelMaxWidth = extraWide
+    ? 1320
+    : wide
+      ? 960
+      : maxWidth
+        ? maxWidthPixels[maxWidth]
+        : 560;
   return (
     <Dialog
       open
