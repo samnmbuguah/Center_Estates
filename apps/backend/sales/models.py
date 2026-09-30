@@ -19,6 +19,7 @@ class SaleListing(OrganizationOwnedModel):
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.AVAILABLE)
     construction_progress = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     reservation_expires_at = models.DateTimeField(null=True, blank=True)
+    is_featured = models.BooleanField(default=False, help_text='Featured listings pin to the top of the public storefront.')
 
     class Meta:
         ordering = ('project__name', 'unit__code')

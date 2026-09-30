@@ -36,6 +36,20 @@ def _render_url(render):
         return ''
 
 
+def _bedrooms(unit_type):
+    """Derive a bedroom count from free-text unit types ('2 Bedroom' -> 2).
+    Units carry no structured bedroom field, so parse the leading number;
+    non-residential types yield None."""
+    import re
+    match = re.match(r'\s*(\d+)\s*(?:bed(?:room)?s?|br)\b', str(unit_type or ''), re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    lowered = str(unit_type or '').lower()
+    if any(key in lowered for key in ('studio', 'bedsitter')):
+        return 0
+    return None
+
+
 def serialize_listing(listing, *, detail=False):
     unit = listing.unit
     project = listing.project
@@ -49,21 +63,21 @@ def serialize_listing(listing, *, detail=False):
         'id': str(listing.id),
         'project': {
             'name': project.name,
-            'location': ' '.join(str(v) for v in [
-                getattr(prop, 'town', '') or '', getattr(prop, 'county', '') or '',
-            ]).strip(),
+            'location': (getattr(prop, 'city', '') or '').strip()
+            or (getattr(prop, 'address', '') or '').strip(),
         },
         'unit': {
             'code': unit.code,
             'type': unit.unit_type,
             'floor': unit.floor,
             'area': str(unit.area) if unit.area is not None else None,
-            'bedrooms': None,
+            'bedrooms': _bedrooms(unit.unit_type),
         },
         'price': str(listing.list_price),
         'minimum_deposit_percent': str(listing.minimum_deposit_percent),
         'construction_progress': str(listing.construction_progress),
         'status': listing.status,
+        'is_featured': bool(listing.is_featured),
         'images': images,
     }
     if detail:
@@ -83,19 +97,29 @@ def public_listings(request):
         return _no_storefront()
     queryset = SaleListing.objects.filter(
         organization=organization, status=SaleListing.Status.AVAILABLE,
-    ).select_related('unit', 'project', 'project__property').prefetch_related('renders').order_by('list_price')
+    ).select_related('unit', 'project', 'project__property').prefetch_related('renders').order_by('-is_featured', 'list_price')
     query = (request.query_params.get('search') or '').strip()
     if query:
         queryset = queryset.filter(
             Q(unit__code__icontains=query) | Q(project__name__icontains=query)
             | Q(unit__unit_type__icontains=query),
         )
-    max_price = (request.query_params.get('max_price') or '').strip()
-    if max_price:
-        try:
-            queryset = queryset.filter(list_price__lte=max_price)
-        except Exception:
-            pass
+    location = (request.query_params.get('location') or '').strip()
+    if location:
+        queryset = queryset.filter(
+            Q(project__property__city__icontains=location)
+            | Q(project__property__address__icontains=location),
+        )
+    unit_type = (request.query_params.get('type') or '').strip()
+    if unit_type:
+        queryset = queryset.filter(unit__unit_type__icontains=unit_type)
+    for key, lookup in (('min_price', 'list_price__gte'), ('max_price', 'list_price__lte')):
+        bound = (request.query_params.get(key) or '').strip()
+        if bound:
+            try:
+                queryset = queryset.filter(**{lookup: bound})
+            except Exception:
+                pass
     return Response({'results': [serialize_listing(item) for item in queryset[:100]]})
 
 

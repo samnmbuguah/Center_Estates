@@ -465,7 +465,7 @@ class SalesPublicTests(TestCase):
     def setUp(self):
         self.organization = Organization.objects.create(name='Public Sales', slug='public-sales')
         self.other = Organization.objects.create(name='Hidden Sales', slug='hidden-sales')
-        prop = Property.objects.create(organization=self.organization, code='P1', name='Riverside')
+        prop = Property.objects.create(organization=self.organization, code='P1', name='Riverside', city='Nairobi')
         unit = Unit.objects.create(organization=self.organization, property=prop, code='A-01', unit_type='2 Bedroom', area=Decimal('85'))
         project = Project.objects.create(organization=self.organization, property=prop, code='PR1', name='Riverside Heights')
         self.listing = SaleListing.objects.create(
@@ -485,6 +485,23 @@ class SalesPublicTests(TestCase):
         self.assertEqual(results[0]['project']['name'], 'Riverside Heights')
         self.assertEqual(results[0]['price'], '12000000.00')
         self.assertNotIn('commission', str(results[0]).lower())
+
+    def test_public_listings_featured_first_bedrooms_and_filters(self):
+        self.listing.is_featured = True
+        self.listing.save(update_fields=('is_featured', 'updated_at'))
+        response = self.client.get('/api/v1/sales/public/listings/')
+        results = response.data['results']
+        self.assertTrue(results[0]['is_featured'])
+        self.assertEqual(results[0]['unit']['bedrooms'], 2)
+        self.assertEqual(results[0]['project']['location'], 'Nairobi')
+        by_price = self.client.get('/api/v1/sales/public/listings/?min_price=20000000')
+        self.assertEqual(by_price.data['results'], [])
+        by_type = self.client.get('/api/v1/sales/public/listings/?type=NoSuchType')
+        self.assertEqual(by_type.data['results'], [])
+        by_location = self.client.get('/api/v1/sales/public/listings/?location=Nairobi')
+        self.assertEqual(len(by_location.data['results']), 1)
+        miss_location = self.client.get('/api/v1/sales/public/listings/?location=Nowhere')
+        self.assertEqual(miss_location.data['results'], [])
 
     def test_public_listing_detail_and_search(self):
         detail = self.client.get(f'/api/v1/sales/public/listings/{self.listing.id}/')
