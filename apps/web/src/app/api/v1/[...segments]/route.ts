@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import {
   buildResponseHeaders,
+  buildUpstreamPath,
   forwardRequestHeaders,
   stripCookieDomain,
 } from "@/lib/api-proxy";
@@ -22,11 +23,7 @@ type HandlerContext = { params: Promise<{ segments: string[] }> };
 
 async function handle(request: NextRequest, ctx: HandlerContext): Promise<Response> {
   const { segments } = await ctx.params;
-  const path = segments
-    .filter((segment) => segment && segment !== "." && segment !== "..")
-    .map(encodeURIComponent)
-    .join("/");
-  const target = `${UPSTREAM_BASE}/${path}${request.nextUrl.search}`;
+  const target = `${UPSTREAM_BASE}/${buildUpstreamPath(segments)}${request.nextUrl.search}`;
   const method = request.method.toUpperCase();
 
   const init: RequestInit & { duplex?: "half" } = {

@@ -7,6 +7,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig = {
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../../"),
+  // Keep request paths verbatim for the /api/v1 proxy: Next's automatic
+  // trailing-slash redirect would strip the slash Django requires and its
+  // 308 adds a duplicate round-trip to every API call.
+  skipTrailingSlashRedirect: true,
   poweredByHeader: false,
   // Skip type-check during `next build` when SKIP_TYPE_CHECK=1 — run `npm run type-check` concurrently in CI
   typescript: process.env.SKIP_TYPE_CHECK === "1" ? { ignoreBuildErrors: true } : undefined,

@@ -51,3 +51,17 @@ export function buildResponseHeaders(upstream: Headers): Headers {
   });
   return outgoing;
 }
+
+/**
+ * Rebuild the upstream path from route segments, preserving the trailing
+ * slash Django/DRF endpoints require. A slash-less path falls through to an
+ * HTML catch-all (200 with no session), so add the slash back unless the
+ * last segment looks like a file (e.g. /docs/usability-testing.pdf).
+ */
+export function buildUpstreamPath(segments: string[]): string {
+  const cleaned = segments.filter((segment) => segment !== "." && segment !== "..");
+  const path = cleaned.map((segment) => encodeURIComponent(segment)).join("/");
+  const lastSegment = cleaned[cleaned.length - 1] ?? "";
+  if (path && !path.endsWith("/") && !lastSegment.includes(".")) return `${path}/`;
+  return path;
+}

@@ -1,8 +1,31 @@
 import {
   buildResponseHeaders,
+  buildUpstreamPath,
   forwardRequestHeaders,
   stripCookieDomain,
 } from "./api-proxy";
+
+describe("buildUpstreamPath", () => {
+  it("preserves an original trailing slash", () => {
+    expect(buildUpstreamPath(["auth", "login", ""])).toBe("auth/login/");
+    expect(buildUpstreamPath(["auth", "me", ""])).toBe("auth/me/");
+  });
+
+  it("appends the slash Django endpoints require when the client omitted it", () => {
+    expect(buildUpstreamPath(["auth", "login"])).toBe("auth/login/");
+    expect(buildUpstreamPath(["sales", "public", "listings"])).toBe("sales/public/listings/");
+  });
+
+  it("leaves file-like paths alone", () => {
+    expect(buildUpstreamPath(["docs", "usability-testing.pdf"])).toBe("docs/usability-testing.pdf");
+    expect(buildUpstreamPath(["docs", "usability-testing.pdf", ""])).toBe("docs/usability-testing.pdf/");
+  });
+
+  it("drops traversal segments and re-encodes the rest", () => {
+    expect(buildUpstreamPath(["..", "auth", "login"])).toBe("auth/login/");
+    expect(buildUpstreamPath(["auth", "user name", ""])).toBe("auth/user%20name/");
+  });
+});
 
 describe("stripCookieDomain", () => {
   it("removes the Domain attribute so cookies become host-only", () => {
