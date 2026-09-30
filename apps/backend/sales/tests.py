@@ -458,3 +458,56 @@ class SalesPortalTests(TestCase):
         self.assertEqual(response.status_code, 200, response.data)
         self.assertEqual(response.data['kpis']['pipelineDeals'], 1)
         self.assertEqual(response.data['agent']['username'], 'buyer-owner')
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False, PUBLIC_LISTINGS_ORG_SLUG='public-sales')
+class SalesPublicTests(TestCase):
+    def setUp(self):
+        self.organization = Organization.objects.create(name='Public Sales', slug='public-sales')
+        self.other = Organization.objects.create(name='Hidden Sales', slug='hidden-sales')
+        prop = Property.objects.create(organization=self.organization, code='P1', name='Riverside')
+        unit = Unit.objects.create(organization=self.organization, property=prop, code='A-01', unit_type='2 Bedroom', area=Decimal('85'))
+        project = Project.objects.create(organization=self.organization, property=prop, code='PR1', name='Riverside Heights')
+        self.listing = SaleListing.objects.create(
+            organization=self.organization, unit=unit, project=project, list_price=Decimal('12000000'),
+        )
+        hidden_prop = Property.objects.create(organization=self.other, code='P9', name='Hidden')
+        hidden_unit = Unit.objects.create(organization=self.other, property=hidden_prop, code='Z-99')
+        hidden_project = Project.objects.create(organization=self.other, property=hidden_prop, code='PR9', name='Hidden Project')
+        SaleListing.objects.create(organization=self.other, unit=hidden_unit, project=hidden_project, list_price=Decimal('1000000'))
+        self.client = APIClient()
+
+    def test_public_listings_expose_only_available_listings(self):
+        response = self.client.get('/api/v1/sales/public/listings/')
+        self.assertEqual(response.status_code, 200, response.data)
+        results = response.data['results']
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['project']['name'], 'Riverside Heights')
+        self.assertEqual(results[0]['price'], '12000000.00')
+        self.assertNotIn('commission', str(results[0]).lower())
+
+    def test_public_listing_detail_and_search(self):
+        detail = self.client.get(f'/api/v1/sales/public/listings/{self.listing.id}/')
+        self.assertEqual(detail.status_code, 200, detail.data)
+        self.assertEqual(detail.data['unit']['code'], 'A-01')
+        missing = self.client.get('/api/v1/sales/public/listings/00000000-0000-0000-0000-000000000000/')
+        self.assertEqual(missing.status_code, 404)
+        search = self.client.get('/api/v1/sales/public/listings/?search=Riverside')
+        self.assertEqual(len(search.data['results']), 1)
+        empty = self.client.get('/api/v1/sales/public/listings/?search=NoSuchPlace')
+        self.assertEqual(empty.data['results'], [])
+
+    def test_public_enquiry_creates_lead_and_dedupes(self):
+        payload = {'name': 'Jane Prospect', 'phone': '+254700000001', 'message': 'Interested in A-01',
+                   'listing': str(self.listing.id)}
+        created = self.client.post('/api/v1/sales/public/enquiries/', payload, format='json')
+        self.assertEqual(created.status_code, 201, created.data)
+        buyer = Buyer.objects.get(organization=self.organization, reference=created.data['reference'])
+        self.assertEqual(buyer.status, Buyer.Status.LEAD)
+        self.assertIn('A-01', buyer.notes)
+        again = self.client.post('/api/v1/sales/public/enquiries/', payload, format='json')
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(again.data['reference'], buyer.reference)
+        self.assertEqual(Buyer.objects.filter(organization=self.organization).count(), 1)
+        bad = self.client.post('/api/v1/sales/public/enquiries/', {'name': '', 'phone': ''}, format='json')
+        self.assertEqual(bad.status_code, 400)

@@ -5359,21 +5359,48 @@ class BillingRunViewSet(OrganizationModelViewSet):
                         continue
                     monthly_val = (profile.rate * lease.unit.area).quantize(Decimal('0.01'))
                 elif profile.calculation == BillingItem.Calculation.METERED:
+                    item_identifier = f"{profile.billing_item.code or ''} {profile.billing_item.name or ''}".lower()
+                    if any(k in item_identifier for k in ('electr', 'power', 'kwh')):
+                        target_utility = UtilityMeter.Utility.ELECTRICITY
+                        utility_name = 'Electricity'
+                    elif any(k in item_identifier for k in ('gas',)):
+                        target_utility = UtilityMeter.Utility.GAS
+                        utility_name = 'Gas'
+                    else:
+                        target_utility = UtilityMeter.Utility.WATER
+                        utility_name = 'Water'
+
                     # If landlord/owner pays water, do not bill tenant or generate missing water issue
-                    if lease.unit and getattr(lease.unit, 'water_payer', 'tenant') == 'owner':
+                    if target_utility == UtilityMeter.Utility.WATER and lease.unit and getattr(lease.unit, 'water_payer', 'tenant') == 'owner':
                         continue
-                    # For commercial properties, water meter readings must not block rent
+
+                    # For commercial properties, utility meter readings must not block rent
                     prop = lease.unit.property if lease.unit else None
                     is_comm = prop and (getattr(prop, 'property_type', '') == 'commercial' or getattr(prop, 'is_commercial', False))
+
+                    meter_exists = UtilityMeter.objects.for_organization(run.organization).filter(
+                        property_unit=lease.unit, utility_type=target_utility, is_active=True
+                    ).exists()
+                    if not meter_exists:
+                        # If no meter is installed for this unit, do not block the entire rent/billing run; emit as warning
+                        issue_rows.append((
+                            f'missing_{target_utility}_meter',
+                            f'No active {utility_name.lower()} meter configured for {lease.unit.unit_number if lease.unit else "unit"}.',
+                            profile,
+                            BillingReadinessIssue.Severity.WARNING,
+                        ))
+                        continue
+
                     readings = MeterReading.objects.for_organization(run.organization).filter(
-                        meter__property_unit=lease.unit, meter__utility_type=UtilityMeter.Utility.WATER,
+                        meter__property_unit=lease.unit, meter__utility_type=target_utility,
                         read_at__date__range=(run.period_start, run.period_end), status=MeterReading.Status.APPROVED,
                     ).select_related('meter')
                     if not readings.exists():
                         if is_comm:
                             # Commercial properties bill utilities separately or via landlord; do not block rent
                             continue
-                        issue_rows.append(('missing_water_reading', 'A valid water meter reading is required.', profile))
+                        severity = BillingReadinessIssue.Severity.WARNING if (invoice_types is not None and "utility" not in invoice_types) else BillingReadinessIssue.Severity.BLOCKING
+                        issue_rows.append((f'missing_{target_utility}_reading', f'A valid {utility_name.lower()} meter reading is required.', profile, severity))
                         continue
                     monthly_val = sum((row.cost for row in readings), Decimal('0'))
                 elif profile.billing_item.code.upper() == 'RENT':
@@ -6046,33 +6073,41 @@ class RentScheduleViewSet(OrganizationModelViewSet):
             raise ValidationError({'rent_schedule': 'The billing period falls outside the active lease term.'})
 
         # Enforce consolidated billing: Unit with metered water requires approved water reading before rent invoice
-        from facilities.models import MeterReading, UtilityMeter
-        has_metered_water = (
-            BillingProfile.objects.filter(
-                organization=schedule.organization,
-                lease=lease,
-                is_active=True,
-                calculation=BillingItem.Calculation.METERED,
-            ).exists()
-            or UtilityMeter.objects.filter(
-                organization=schedule.organization,
-                property_unit=lease.unit,
-                utility_type=UtilityMeter.Utility.WATER,
-                is_active=True,
-            ).exists()
-        )
-        if has_metered_water:
-            water_reading_exists = MeterReading.objects.filter(
-                organization=schedule.organization,
-                meter__property_unit=lease.unit,
-                meter__utility_type=UtilityMeter.Utility.WATER,
-                read_at__date__range=(schedule.period_start, schedule.period_end),
-                status=MeterReading.Status.APPROVED,
-            ).exists()
-            if not water_reading_exists:
-                raise ValidationError({
-                    'water_meter': f'Unit {lease.unit.code} requires metered water billing. You cannot bill rent until the water meter reading for {schedule.period_start:%B %Y} is recorded and approved.'
-                })
+        # If water is owner-paid / service charge included, or property is commercial, do not block rent
+        is_water_owner_paid = lease.unit and getattr(lease.unit, 'water_payer', 'tenant') == 'owner'
+        prop = lease.unit.property if lease.unit else None
+        is_comm = prop and (getattr(prop, 'property_type', '') == 'commercial' or getattr(prop, 'is_commercial', False))
+        if not is_water_owner_paid and not is_comm:
+            from facilities.models import MeterReading, UtilityMeter
+            has_metered_water = (
+                BillingProfile.objects.filter(
+                    organization=schedule.organization,
+                    lease=lease,
+                    is_active=True,
+                    calculation=BillingItem.Calculation.METERED,
+                ).filter(
+                    models.Q(billing_item__code__icontains='water') |
+                    models.Q(billing_item__name__icontains='water')
+                ).exists()
+                or UtilityMeter.objects.filter(
+                    organization=schedule.organization,
+                    property_unit=lease.unit,
+                    utility_type=UtilityMeter.Utility.WATER,
+                    is_active=True,
+                ).exists()
+            )
+            if has_metered_water:
+                water_reading_exists = MeterReading.objects.filter(
+                    organization=schedule.organization,
+                    meter__property_unit=lease.unit,
+                    meter__utility_type=UtilityMeter.Utility.WATER,
+                    read_at__date__range=(schedule.period_start, schedule.period_end),
+                    status=MeterReading.Status.APPROVED,
+                ).exists()
+                if not water_reading_exists:
+                    raise ValidationError({
+                        'water_meter': f'Unit {lease.unit.code} requires metered water billing. You cannot bill rent until the water meter reading for {schedule.period_start:%B %Y} is recorded and approved.'
+                    })
 
         refresh_schedule_amount(schedule)
         tax_amount = (schedule.total * tax_rate / Decimal('100')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)

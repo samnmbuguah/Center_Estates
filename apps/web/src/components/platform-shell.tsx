@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { modules, ACTIVE_MODULES } from "@/lib/modules";
+import { SALES_MODULE, isSalesOnlyHost } from "@/lib/site-mode";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie, type DemoIdentityGroup } from "@/lib/api";
 import { useCallback } from "react";
@@ -198,12 +199,14 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   } = useAuth();
   const { mode, toggleTheme } = useTheme();
 
-  const allowedSlugs = useMemo(
-    () => session?.user?.isSuperuser
+  const allowedSlugs = useMemo(() => {
+    // The sales storefront domain admits no other module — including for
+    // superusers, who retain full access via the main domain.
+    if (isSalesOnlyHost()) return [SALES_MODULE];
+    return session?.user?.isSuperuser
       ? modules.map((module) => module.slug)
-      : (session?.modules.map((module) => module.slug) ?? []).filter((slug) => ACTIVE_MODULES.includes(slug)),
-    [session?.modules, session?.user?.isSuperuser],
-  );
+      : (session?.modules.map((module) => module.slug) ?? []).filter((slug) => ACTIVE_MODULES.includes(slug));
+  }, [session?.modules, session?.user?.isSuperuser]);
 
   const filteredModules = useMemo(() => {
     const term = query.trim().toLowerCase();

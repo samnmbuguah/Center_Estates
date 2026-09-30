@@ -1,5 +1,7 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
+from .public_views import public_enquiry, public_listing_detail, public_listings
 from .views import (
     AgentPortalViewSet, BuyerViewSet, BuyerPortalAccessViewSet, BuyerPortalViewSet,
     CommissionViewSet, InstallmentViewSet, ListingRenderViewSet, ListingViewSet,
@@ -25,4 +27,8 @@ router.register('audit-events', SalesAuditEventViewSet)
 router.register('buyer-portal', BuyerPortalViewSet, basename='buyer-portal')
 router.register('agent-portal', AgentPortalViewSet, basename='agent-portal')
 
-urlpatterns = router.urls
+urlpatterns = router.urls + [
+    path('public/listings/', public_listings, name='sales-public-listings'),
+    path('public/listings/<uuid:pk>/', public_listing_detail, name='sales-public-listing-detail'),
+    path('public/enquiries/', public_enquiry, name='sales-public-enquiry'),
+]

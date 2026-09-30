@@ -1,9 +1,9 @@
 "use client";
 
 import { Box, Button, Checkbox, Chip, FormControlLabel, LinearProgress, MenuItem, Paper, Stack, TextField, Tooltip, Typography } from "@mui/material";
-import { Droplets, Eye, FileText, Gauge, Search, User } from "lucide-react";
+import { Droplets, Eye, FileText, Gauge, Search, User, Zap, Flame } from "lucide-react";
 import { EmptyState, money, StatusPill } from "@/components/module-ui";
-import { Candidate, statusToneMap, InvoiceChargeType, invoiceChargeType, isMissingWaterReading } from "./types";
+import { Candidate, statusToneMap, InvoiceChargeType, invoiceChargeType, isMissingWaterReading, missingMeterUtilityType } from "./types";
 import { useAuth } from "@/components/auth-provider";
 import { downloadApiPdf } from "@/lib/api";
 
@@ -158,6 +158,9 @@ export function CandidateTable({
                 const isSelected = selected.includes(c.id);
                 const unbilledItems = (c.billing_items || []).filter((it: any) => !it.billed);
                 const isMissingWater = isMissingWaterReading(c);
+                const missingUtility = missingMeterUtilityType(c);
+                const missingUtilityLabel = missingUtility === "electricity" ? "Electricity" : missingUtility === "gas" ? "Gas" : "Water";
+                const missingUtilityIcon = missingUtility === "electricity" ? <Zap size={12} color="var(--color-amber-deep)" /> : missingUtility === "gas" ? <Flame size={12} color="var(--color-amber-deep)" /> : <Droplets size={12} color="var(--color-amber-deep)" />;
                 const isReady = (c.status === "ready" || (unbilledItems.length > 0 && c.status !== "issue")) && !isMissingWater;
                 const unbilledTotal = unbilledItems.reduce((s: number, it: any) => s + Number(it.total || it.amount || 0), 0);
                 const billedTotal = (c.billing_items || []).filter((it: any) => it.billed).reduce((s: number, it: any) => s + Number(it.total || it.amount || 0), 0);
@@ -165,7 +168,7 @@ export function CandidateTable({
                 return (
                   <tr key={c.id} style={{ borderBottom: "1px solid var(--border)", background: isSelected ? "rgba(59,130,246,0.04)" : isMissingWater ? "rgba(245,158,11,0.02)" : "transparent" }}>
                     <td style={{ padding: "10px 12px" }}>
-                      <Tooltip title={isMissingWater ? `Water meter reading required for ${c.unit_code} before billing rent or utilities` : !isReady ? "Candidate has unresolved issues" : "Select candidate for billing"}>
+                      <Tooltip title={isMissingWater ? `${missingUtilityLabel} meter reading required for ${c.unit_code} before billing rent or utilities` : !isReady ? "Candidate has unresolved issues" : "Select candidate for billing"}>
                         <span>
                           <input
                             type="checkbox"
@@ -270,7 +273,7 @@ export function CandidateTable({
                           )}
                           {isMissingWater && (
                             <div style={{ fontSize: 9.5, color: "var(--color-amber-deep)", fontWeight: 600, marginTop: 1 }}>
-                              + pending water consumption
+                              + pending {missingUtilityLabel.toLowerCase()} consumption
                             </div>
                           )}
                         </>
@@ -282,12 +285,12 @@ export function CandidateTable({
                     </td>
                     <td style={{ padding: "10px 12px" }}>
                       {isMissingWater ? (
-                        <Tooltip title="Consolidated Billing Policy: Water meter reading for this period must be entered before generating rent or utility invoices.">
+                        <Tooltip title={`Consolidated Billing Policy: ${missingUtilityLabel} meter reading for this period must be entered before generating rent or utility invoices.`}>
                           <span>
                             <Chip
                               size="small"
-                              icon={<Droplets size={12} color="var(--color-amber-deep)" />}
-                              label="Needs Water Reading"
+                              icon={missingUtilityIcon}
+                              label={`Needs ${missingUtilityLabel} Reading`}
                               sx={{
                                 fontSize: 10.5,
                                 fontWeight: 700,

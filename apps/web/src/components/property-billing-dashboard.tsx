@@ -14,6 +14,7 @@ import { CandidateTable } from "./billing/CandidateTable";
 import { CandidatePreviewDrawer } from "./billing/CandidatePreviewDrawer";
 import { OverrideDialog } from "./billing/OverrideDialog";
 import { QuickRecordMeterModal } from "./billing/QuickRecordMeterModal";
+import { missingMeterUtilityType } from "./billing/types";
 import { LettingFeeModal } from "@/features/property/components/modals/LettingFeeModal";
 
 export type BillingContext = {
@@ -951,8 +952,9 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         periodEnd={run?.period_end ?? period_end}
         open={Boolean(recordMeterCandidate)}
         onClose={() => setRecordMeterCandidate(null)}
+        utilityType={recordMeterCandidate ? (missingMeterUtilityType(recordMeterCandidate) || "water") : "water"}
         onSuccess={async () => {
-          setNotice("Water meter reading recorded and approved! Refreshing billing queue…");
+          setNotice("Meter reading recorded and approved! Refreshing billing queue…");
           await mutate("prepare");
           await load();
         }}

@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { DetailDrawer, money } from "@/components/module-ui";
 import { useAuth } from "@/components/auth-provider";
-import { Candidate, issueResolution, isMissingWaterReading } from "./types";
+import { Candidate, issueResolution, isMissingWaterReading, missingMeterUtilityType } from "./types";
 import { printInvoiceDraft } from "./invoice-draft-print";
 import { downloadApiPdf } from "@/lib/api";
 
@@ -21,6 +21,9 @@ export function CandidatePreviewDrawer({
   const currentOrg = session?.organizations.find((o) => o.id === session?.activeOrganizationId) || session?.organizations[0];
   const orgName = currentOrg?.company_name || currentOrg?.name || "Legend Management";
   const isMissingWater = isMissingWaterReading(candidate);
+  const missingUtility = missingMeterUtilityType(candidate);
+  const utilityLabel = missingUtility === "electricity" ? "Electricity" : missingUtility === "gas" ? "Gas" : "Water";
+  const utilityEmoji = missingUtility === "electricity" ? "⚡" : missingUtility === "gas" ? "🔥" : "💧";
   const isReady = candidate.status === "ready" && !isMissingWater;
   const hasIssues = candidate.issue_summary && candidate.issue_summary.length > 0;
   const totalAmount = Number(candidate.total || 0);
@@ -87,8 +90,8 @@ export function CandidatePreviewDrawer({
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, color: isMissingWater ? "var(--color-amber-deep)" : "var(--color-danger)", fontWeight: 800, fontSize: 13 }}>
-                <span>{isMissingWater ? "💧" : "⚠️"}</span>
-                <span>{isMissingWater ? "Water Meter Reading Required — Consolidated Billing Hold" : "Billing Exception Detected"}</span>
+                <span>{isMissingWater ? utilityEmoji : "⚠️"}</span>
+                <span>{isMissingWater ? `${utilityLabel} Meter Reading Required — Consolidated Billing Hold` : "Billing Exception Detected"}</span>
               </div>
               {isMissingWater && onRecordMeter && (
                 <button
@@ -114,7 +117,7 @@ export function CandidatePreviewDrawer({
             {isMissingWater && (
               <p style={{ margin: 0, fontSize: 11.5, color: "var(--text)", lineHeight: 1.5, background: "rgba(255,255,255,0.6)", padding: "8px 10px", borderRadius: 6 }}>
                 <strong>Consolidated Billing Policy:</strong> Rent and utilities cannot be billed separately for this tenancy.
-                Record the water meter reading to automatically calculate consumption and unlock the single consolidated invoice.
+                Record the {utilityLabel.toLowerCase()} meter reading to automatically calculate consumption and unlock the single consolidated invoice.
               </p>
             )}
 

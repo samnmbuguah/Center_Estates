@@ -46,9 +46,9 @@ class Buyer(OrganizationOwnedModel):
 
     reference = models.CharField(max_length=50)
     full_name = models.CharField(max_length=180)
-    email = models.EmailField()
+    email = models.EmailField(blank=True, default='')
     phone = models.CharField(max_length=40)
-    id_number = models.CharField(max_length=60)
+    id_number = models.CharField(max_length=60, blank=True, default='')
     tax_number = models.CharField(max_length=60, blank=True)
     address = models.TextField(blank=True)
     financing_type = models.CharField(max_length=30, choices=(('self', 'Self-financed'), ('bank', 'Bank-financed')), default='self')
@@ -56,6 +56,7 @@ class Buyer(OrganizationOwnedModel):
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.LEAD)
     assigned_agent = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, related_name='assigned_sales_buyers', null=True, blank=True)
     confirmed_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True, default='')
 
     class Meta:
         ordering = ('full_name',)

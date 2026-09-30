@@ -15,7 +15,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { Droplets, Gauge, Sparkles } from "lucide-react";
+import { Droplets, Gauge, Sparkles, Zap, Flame } from "lucide-react";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 import { money } from "@/components/module-ui";
@@ -34,19 +34,28 @@ interface MeterOption {
   previous_reading?: number | null;
 }
 
+const UTILITY_META: Record<string, { icon: React.ReactNode; label: string; defaultUnit: string; gradient: string; iconColor: string }> = {
+  water: { icon: <Droplets size={22} color="#93c5fd" />, label: "Water", defaultUnit: "m³", gradient: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)", iconColor: "#93c5fd" },
+  electricity: { icon: <Zap size={22} color="#fbbf24" />, label: "Electricity", defaultUnit: "kWh", gradient: "linear-gradient(135deg, #78350f 0%, #d97706 100%)", iconColor: "#fbbf24" },
+  gas: { icon: <Flame size={22} color="#f97316" />, label: "Gas", defaultUnit: "m³", gradient: "linear-gradient(135deg, #7c2d12 0%, #ea580c 100%)", iconColor: "#f97316" },
+};
+
 export function QuickRecordMeterModal({
   candidate,
   periodEnd,
   open,
   onClose,
   onSuccess,
+  utilityType = "water",
 }: {
   candidate: Candidate | null;
   periodEnd?: string;
   open: boolean;
   onClose: () => void;
   onSuccess: () => Promise<void> | void;
+  utilityType?: "water" | "electricity" | "gas";
 }) {
+  const meta = UTILITY_META[utilityType] || UTILITY_META.water;
   const { session } = useAuth();
   const orgId = session?.activeOrganizationId ?? undefined;
 
@@ -76,19 +85,20 @@ export function QuickRecordMeterModal({
         const list: MeterOption[] = Array.isArray(data) ? data : data.results || [];
         
         const candidateUnit = candidate?.unit_code ? String(candidate.unit_code).toLowerCase() : "";
-        // Filter meters for this candidate's unit or property (water meters prioritized)
+        const targetType = utilityType.toLowerCase();
+        // Filter meters for this candidate's unit matching the target utility type
         const unitMeters = list.filter((m) => {
           const matchesUnit =
             (m.unit_code && m.unit_code.toLowerCase() === candidateUnit) ||
             (m.property_unit && String(m.property_unit).toLowerCase() === candidateUnit);
-          const isWater = (m.utility_type || "").toLowerCase() === "water";
-          return matchesUnit && isWater;
+          const matchesType = (m.utility_type || "").toLowerCase() === targetType;
+          return matchesUnit && matchesType;
         });
 
-        // Fallback: all water meters in property, or any meters matching unit
+        // Fallback: all meters of this type in the property
         const candidatesMeters = unitMeters.length > 0 
           ? unitMeters 
-          : list.filter(m => (m.utility_type || "").toLowerCase() === "water");
+          : list.filter(m => (m.utility_type || "").toLowerCase() === targetType);
 
         if (!cancelled) {
           setMeters(candidatesMeters);
@@ -123,7 +133,7 @@ export function QuickRecordMeterModal({
     if (!candidate || !orgId) return;
 
     if (!selectedMeterId && meters.length === 0) {
-      setError("No registered water meter found. Please configure a water meter in Facility > Meters first.");
+      setError(`No registered ${meta.label.toLowerCase()} meter found. Please configure a ${meta.label.toLowerCase()} meter in Facility > Meters first.`);
       return;
     }
 
@@ -213,7 +223,7 @@ export function QuickRecordMeterModal({
     >
       <Box
         sx={{
-          background: "linear-gradient(135deg, var(--color-info-dark) 0%, var(--color-info) 100%)",
+          background: meta.gradient,
           color: "#fff",
           p: 2.5,
         }}
@@ -230,11 +240,11 @@ export function QuickRecordMeterModal({
               justifyContent: "center",
             }}
           >
-            <Droplets size={22} color="#93c5fd" />
+            {meta.icon}
           </Box>
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 800, fontSize: 16, lineHeight: 1.2 }}>
-              Record Water Meter Reading
+              Record {meta.label} Meter Reading
             </Typography>
             <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.8)", fontSize: 11.5 }}>
               Required for {candidate.tenant_name} · Unit {candidate.unit_code}
@@ -264,7 +274,7 @@ export function QuickRecordMeterModal({
             }}
           >
             <strong>Consolidated Billing Rule:</strong> Saving and approving this meter reading will
-            automatically compute the water charges and unlock the consolidated invoice (Rent + Water)
+            automatically compute the {meta.label.toLowerCase()} charges and unlock the consolidated invoice (Rent + {meta.label})
             for this tenancy.
           </Alert>
 
@@ -317,7 +327,7 @@ export function QuickRecordMeterModal({
                         Previous Reading
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 800, fontSize: 14, color: "var(--primary)" }}>
-                        {previousReading.toLocaleString()} {selectedMeter.unit || "m³"}
+                        {previousReading.toLocaleString()} {selectedMeter.unit || meta.defaultUnit}
                       </Typography>
                     </Box>
                   </Box>
@@ -339,14 +349,14 @@ export function QuickRecordMeterModal({
                       startAdornment: <Gauge size={16} style={{ marginRight: 8, color: "var(--color-info)" }} />,
                       endAdornment: (
                         <Typography variant="caption" sx={{ color: "var(--text-secondary)", fontWeight: 700 }}>
-                          {selectedMeter?.unit || "m³"}
+                          {selectedMeter?.unit || meta.defaultUnit}
                         </Typography>
                       ),
                     },
                   }}
                   helperText={
                     enteredReading > previousReading
-                      ? `Consumption: ${consumption} ${selectedMeter?.unit || "m³"}`
+                      ? `Consumption: ${consumption} ${selectedMeter?.unit || meta.defaultUnit}`
                       : "Enter current index on the meter dial"
                   }
                 />
@@ -379,12 +389,12 @@ export function QuickRecordMeterModal({
                         CONSUMPTION PREVIEW
                       </Typography>
                       <Typography variant="body2" sx={{ color: "var(--text)", fontSize: 12.5 }}>
-                        {consumption} {selectedMeter?.unit || "m³"} × {money.format(tariff)}/unit
+                        {consumption} {selectedMeter?.unit || meta.defaultUnit} × {money.format(tariff)}/unit
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: "right" }}>
                       <Typography variant="caption" sx={{ color: "#065f46", fontWeight: 700 }}>
-                        ESTIMATED WATER CHARGE
+                        ESTIMATED {meta.label.toUpperCase()} CHARGE
                       </Typography>
                       <Typography variant="h6" sx={{ fontWeight: 800, color: "var(--color-emerald-deep)", fontSize: 16 }}>
                         {money.format(estimatedCost)}

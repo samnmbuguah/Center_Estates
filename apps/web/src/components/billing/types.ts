@@ -53,10 +53,28 @@ export const statusToneMap: Record<string, "green" | "red" | "yellow" | "blue" |
   issue: "red", overdue: "red", blocking: "red", review: "yellow", preparing: "yellow", warning: "yellow", excluded: "gray",
 };
 
+/** Returns true if a blocking or missing utility meter reading prevents billing */
 export function isMissingWaterReading(candidate: Candidate): boolean {
-  return (candidate.issue_summary || []).some(
-    (issue) => issue.code === "missing_water_reading" || ((issue.code || "").includes("water") && (issue.severity === "blocking" || issue.code.includes("missing")))
-  );
+  return (candidate.issue_summary || []).some((issue) => {
+    const c = (issue.code || "").toLowerCase();
+    // Match all utility meter reading/meter issues from backend
+    if (c.includes("missing") && (c.includes("water") || c.includes("electricity") || c.includes("gas") || c.includes("meter") || c.includes("reading"))) {
+      return true;
+    }
+    return false;
+  });
+}
+
+/** Returns the specific utility type that is missing a reading, or null */
+export function missingMeterUtilityType(candidate: Candidate): "water" | "electricity" | "gas" | null {
+  for (const issue of candidate.issue_summary || []) {
+    const c = (issue.code || "").toLowerCase();
+    if (!c.includes("missing")) continue;
+    if (c.includes("electricity") || c.includes("power")) return "electricity";
+    if (c.includes("gas")) return "gas";
+    if (c.includes("water") || c.includes("reading") || c.includes("meter")) return "water";
+  }
+  return null;
 }
 
 export function issueResolution(code: string): { label: string; href: string } | null {

@@ -272,6 +272,10 @@ CORS_ALLOWED_ORIGINS = [
     'https://api.centerestates.com',
     'http://centerestates.com',
     'http://www.centerestates.com',
+    'https://centerestates.co.ke',
+    'https://www.centerestates.co.ke',
+    'http://centerestates.co.ke',
+    'http://www.centerestates.co.ke',
     'http://localhost:3000',
     'http://localhost:4300',
 ] + [origin.strip() for origin in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if origin.strip()]
@@ -302,9 +306,17 @@ CSRF_TRUSTED_ORIGINS = [
     'https://api.centerestates.com',
     'http://centerestates.com',
     'http://www.centerestates.com',
+    'https://centerestates.co.ke',
+    'https://www.centerestates.co.ke',
+    'http://centerestates.co.ke',
+    'http://www.centerestates.co.ke',
     'http://localhost:3000',
     'http://localhost:4300',
 ] + [origin.strip() for origin in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()]
+
+# Organization whose AVAILABLE sale listings are publicly visible on the
+# sales storefront (centerestates.co.ke). Unset = public listings disabled.
+PUBLIC_LISTINGS_ORG_SLUG = os.environ.get('PUBLIC_LISTINGS_ORG_SLUG', '').strip()
 
 AUTHENTICATION_BACKENDS = [
     'core.authentication.EmailOrUsernameModelBackend',
