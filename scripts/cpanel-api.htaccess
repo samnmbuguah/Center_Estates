@@ -6,7 +6,7 @@ PassengerPython "/home2/monitori/virtualenv/api.centerestates.com/3.9/bin/python
 
 # CORS HEADERS (SERVER-LEVEL MULTI-ORIGIN FALLBACK)
 <IfModule mod_headers.c>
-    SetEnvIfNoCase Origin "^https?://(www\.)?centerestates\.com(:[0-9]+)?$" CORS_ALLOW_ORIGIN=$0
+    SetEnvIfNoCase Origin "^https?://(www\.)?centerestates\.(com|co\.ke)(:[0-9]+)?$" CORS_ALLOW_ORIGIN=$0
     Header always set Access-Control-Allow-Origin "%{CORS_ALLOW_ORIGIN}e" env=CORS_ALLOW_ORIGIN
     Header always set Access-Control-Allow-Credentials "true"
     Header always set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"

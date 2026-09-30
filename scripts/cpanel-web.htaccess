@@ -1,10 +1,14 @@
 RewriteEngine On
 
 # Authentication cookies are Secure and cannot work from an HTTP frontend.
-# Keep one canonical browser origin so bookmarks and cached www/http URLs are
-# repaired before the application loads.
-RewriteCond %{HTTPS} !=on [OR]
-RewriteCond %{HTTP_HOST} !^centerestates\.com$ [NC]
+# 1) Force HTTPS while preserving the hostname so each site keeps its own
+#    origin (centerestates.com and the sales-only centerestates.co.ke).
+RewriteCond %{HTTPS} !=on
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L,NE]
+
+# 2) Canonical host: only the primary .com and the .co.ke storefront are
+#    served; www or any other host is repaired to the primary domain.
+RewriteCond %{HTTP_HOST} !^(centerestates\.com|centerestates\.co\.ke)$ [NC]
 RewriteRule ^ https://centerestates.com%{REQUEST_URI} [R=301,L,NE]
 
 <IfModule mod_headers.c>
