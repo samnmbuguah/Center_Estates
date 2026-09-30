@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "@/components/monitoring/react-router-shim";
 import { ChevronDown, MessageCircle } from "lucide-react";
+import { isSalesOnlyHost } from "@/lib/site-mode";
 
 import "./marketing.css";
 
 const WHATSAPP_NUMBER = "254712345678";
 const WHATSAPP_MESSAGE = "Hi! I'm interested in CeEst ERP. Can we chat?";
+const WHATSAPP_MESSAGE_SALES = "Hi! I'm interested in a property listing. Can we chat?";
 
 const PAGE_LINKS = [
   { to: "/product", label: "Product" },
@@ -15,6 +17,22 @@ const PAGE_LINKS = [
   { to: "/blog", label: "Blog" },
   { to: "/faq", label: "FAQ" },
   { to: "/demo", label: "Book Demo" },
+];
+
+const SALES_NAV_LINKS = [
+  { to: "/properties", label: "Properties" },
+  { to: "/projects", label: "Projects" },
+  { to: "/search", label: "Search" },
+  { to: "/about", label: "About" },
+  { to: "/faq", label: "FAQ" },
+];
+
+const SALES_FOOTER_LINKS = [
+  ...SALES_NAV_LINKS,
+  { to: "/contact", label: "Contact" },
+  { to: "/privacy", label: "Privacy" },
+  { to: "/terms", label: "Terms" },
+  { to: "/login", label: "Staff sign-in" },
 ];
 
 const FOOTER_LINKS = [
@@ -63,14 +81,18 @@ function NavDropdown({ label, links, closeMobile }: { label: string; links: { to
 export function MarketingLayout({ children }: { children?: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { pathname } = useLocation();
 
   useEffect(() => {
+    setMounted(true);
     const onScroll = () => setScrolled(window.scrollY > 8);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Hostname detection is client-only; gate on mount to keep SSR markup stable.
+  const sales = mounted && isSalesOnlyHost();
   const closeMobile = () => setMobileOpen(false);
   const isHome = pathname === "/";
 
@@ -85,16 +107,24 @@ export function MarketingLayout({ children }: { children?: React.ReactNode }) {
       {/* ── Nav ─────────────────────────────────── */}
       <nav className={`marketing-nav${scrolled ? " scrolled" : ""}`}>
         <Link to="/" className="nav-brand" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-          <img src="/logo.png" alt="CeEst" style={{ height: 44, width: 38, objectFit: "cover", objectPosition: "top", background: "var(--surface)", borderRadius: 8 }} />
-          <span className="brand-text">CeEst <span>ERP</span></span>
+          <img src="/logo.png" alt={sales ? "Center Estates" : "CeEst"} style={{ height: 44, width: 38, objectFit: "cover", objectPosition: "top", background: "var(--surface)", borderRadius: 8 }} />
+          <span className="brand-text">{sales ? "Center Estates" : <>CeEst <span>ERP</span></>}</span>
         </Link>
 
         <div className="nav-links">
-          <NavLink to={isHome ? "/#products" : "/#products"} onClick={closeMobile}>Products</NavLink>
-          <NavLink to={isHome ? "/#solutions" : "/#solutions"} onClick={closeMobile}>Solutions</NavLink>
-          <NavLink to={isHome ? "/#how-it-works" : "/#how-it-works"} onClick={closeMobile}>How It Works</NavLink>
-          <NavLink to={"/pricing"} onClick={closeMobile}>Pricing</NavLink>
-          <NavDropdown label="Learn" links={PAGE_LINKS} closeMobile={closeMobile} />
+          {sales ? (
+            SALES_NAV_LINKS.map((link) => (
+              <NavLink key={link.to} to={link.to} onClick={closeMobile}>{link.label}</NavLink>
+            ))
+          ) : (
+            <>
+              <NavLink to={isHome ? "/#products" : "/#products"} onClick={closeMobile}>Products</NavLink>
+              <NavLink to={isHome ? "/#solutions" : "/#solutions"} onClick={closeMobile}>Solutions</NavLink>
+              <NavLink to={isHome ? "/#how-it-works" : "/#how-it-works"} onClick={closeMobile}>How It Works</NavLink>
+              <NavLink to={"/pricing"} onClick={closeMobile}>Pricing</NavLink>
+              <NavDropdown label="Learn" links={PAGE_LINKS} closeMobile={closeMobile} />
+            </>
+          )}
         </div>
 
         <div className="nav-actions">
@@ -118,12 +148,21 @@ export function MarketingLayout({ children }: { children?: React.ReactNode }) {
       </nav>
 
       <div className={`mobile-nav${mobileOpen ? " open" : ""}`}>
-        <Link to={isHome ? "/#products" : "/"} onClick={closeMobile}>Products</Link>
-        <Link to={isHome ? "/#solutions" : "/"} onClick={closeMobile}>Solutions</Link>
-        <Link to={isHome ? "/#how-it-works" : "/"} onClick={closeMobile}>How It Works</Link>
-        <Link to="/pricing" onClick={closeMobile}>Pricing</Link>
-        {PAGE_LINKS.map(l => <Link key={l.to} to={l.to} onClick={closeMobile}>{l.label}</Link>)}
-        <Link to="/contact" onClick={closeMobile}>Contact Us</Link>
+        {sales ? (
+          <>
+            {SALES_NAV_LINKS.map(l => <Link key={l.to} to={l.to} onClick={closeMobile}>{l.label}</Link>)}
+            <Link to="/contact" onClick={closeMobile}>Contact Us</Link>
+          </>
+        ) : (
+          <>
+            <Link to={isHome ? "/#products" : "/"} onClick={closeMobile}>Products</Link>
+            <Link to={isHome ? "/#solutions" : "/"} onClick={closeMobile}>Solutions</Link>
+            <Link to={isHome ? "/#how-it-works" : "/"} onClick={closeMobile}>How It Works</Link>
+            <Link to="/pricing" onClick={closeMobile}>Pricing</Link>
+            {PAGE_LINKS.map(l => <Link key={l.to} to={l.to} onClick={closeMobile}>{l.label}</Link>)}
+            <Link to="/contact" onClick={closeMobile}>Contact Us</Link>
+          </>
+        )}
       </div>
 
       {/* ── Content ────────────────────────────── */}
@@ -133,7 +172,7 @@ export function MarketingLayout({ children }: { children?: React.ReactNode }) {
 
       {/* WhatsApp floating widget */}
       <a
-        href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`}
+        href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(sales ? WHATSAPP_MESSAGE_SALES : WHATSAPP_MESSAGE)}`}
         target="_blank"
         rel="noopener noreferrer"
         style={{
@@ -163,21 +202,31 @@ export function MarketingLayout({ children }: { children?: React.ReactNode }) {
                     <polyline points="9 22 9 12 15 12 15 22" />
                   </svg>
                 </span>
-                <span className="footer-wordmark">CeEst <span>ERP</span></span>
+                <span className="footer-wordmark">{sales ? "Center Estates" : <>CeEst <span>ERP</span></>}</span>
               </div>
-              <div className="footer-tagline">One connected platform for property, facilities, construction, sales, tenders and valuation</div>
+              <div className="footer-tagline">
+                {sales
+                  ? "Verified homes, land and commercial property across Kenya."
+                  : "One connected platform for property, facilities, construction, sales, tenders and valuation"}
+              </div>
             </div>
             <div className="footer-links">
-              <Link to="/#products">Products</Link>
-              <Link to="/#solutions">Solutions</Link>
-              <Link to="/#how-it-works">How It Works</Link>
-              <Link to="/login">Sign In</Link>
-              <Link to="/contact">Contact</Link>
+              {sales ? (
+                SALES_FOOTER_LINKS.map((link) => <Link key={link.to} to={link.to}>{link.label}</Link>)
+              ) : (
+                <>
+                  <Link to="/#products">Products</Link>
+                  <Link to="/#solutions">Solutions</Link>
+                  <Link to="/#how-it-works">How It Works</Link>
+                  <Link to="/login">Sign In</Link>
+                  <Link to="/contact">Contact</Link>
+                </>
+              )}
             </div>
           </div>
           <div className="footer-bottom">
-            <span>&copy; {new Date().getFullYear()} CeEst ERP. All rights reserved.</span>
-            <span>Connected operations. Clear accountability.</span>
+            <span>&copy; {new Date().getFullYear()} {sales ? "Center Estates" : "CeEst ERP"}. All rights reserved.</span>
+            <span>{sales ? "Find it. Enquire. Own it." : "Connected operations. Clear accountability."}</span>
           </div>
         </div>
       </footer>
