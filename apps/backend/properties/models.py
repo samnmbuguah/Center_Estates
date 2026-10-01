@@ -183,6 +183,7 @@ class Unit(OrganizationOwnedModel):
     management_mandate = models.CharField(max_length=30, choices=ManagementMandate.choices, default=ManagementMandate.BOTH)
     service_charge_payer = models.CharField(max_length=20, choices=PayerChoice.choices, default=PayerChoice.OWNER)
     water_payer = models.CharField(max_length=20, choices=PayerChoice.choices, default=PayerChoice.TENANT)
+    electricity_payer = models.CharField(max_length=20, choices=PayerChoice.choices, default=PayerChoice.TENANT)
     rental_commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=10.00)
     common_area_fee_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0.00)
     letting_fee_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0.00)

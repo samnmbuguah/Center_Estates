@@ -1185,6 +1185,9 @@ class PropertyViewSet(OrganizationModelViewSet):
                 raise ValidationError({'units': f'Unit {code} has an invalid service charge rate.'})
             if service_rate < 0:
                 raise ValidationError({'units': f'Unit {code} service charge rate cannot be negative.'})
+            w_payer = raw_unit.get('water_payer') or Unit.PayerChoice.TENANT
+            e_payer = raw_unit.get('electricity_payer') or Unit.PayerChoice.TENANT
+            sc_payer = raw_unit.get('service_charge_payer') or Unit.PayerChoice.OWNER
             unit = Unit.objects.create(
                 organization=organization,
                 property=property_record,
@@ -1194,6 +1197,9 @@ class PropertyViewSet(OrganizationModelViewSet):
                 unit_type=str(raw_unit.get('unit_type') or '').strip(),
                 area=raw_unit.get('area') or None,
                 status=Unit.Status.AVAILABLE,
+                water_payer=w_payer,
+                electricity_payer=e_payer,
+                service_charge_payer=sc_payer,
                 metadata={
                     'use': str(raw_unit.get('use') or '').strip(),
                     'rateable_area': raw_unit.get('rateable_area') or None,
@@ -1413,6 +1419,7 @@ class PropertyViewSet(OrganizationModelViewSet):
                 mandate = u_item.get('management_mandate') or Unit.ManagementMandate.BOTH
                 sc_payer = u_item.get('service_charge_payer') or Unit.PayerChoice.OWNER
                 water_payer = u_item.get('water_payer') or Unit.PayerChoice.TENANT
+                electricity_payer = u_item.get('electricity_payer') or Unit.PayerChoice.TENANT
                 
                 commission_rate = Decimal(str(u_item.get('rental_commission_rate') or '10.00'))
                 common_area_fee = Decimal(str(u_item.get('common_area_fee_amount') or '0.00'))
@@ -1435,6 +1442,7 @@ class PropertyViewSet(OrganizationModelViewSet):
                     management_mandate=mandate,
                     service_charge_payer=sc_payer,
                     water_payer=water_payer,
+                    electricity_payer=electricity_payer,
                     rental_commission_rate=commission_rate,
                     common_area_fee_amount=common_area_fee,
                     letting_fee_amount=letting_fee,
@@ -5370,8 +5378,10 @@ class BillingRunViewSet(OrganizationModelViewSet):
                         target_utility = UtilityMeter.Utility.WATER
                         utility_name = 'Water'
 
-                    # If landlord/owner pays water, do not bill tenant or generate missing water issue
+                    # If landlord/owner pays this utility, do not bill tenant or generate missing reading issue
                     if target_utility == UtilityMeter.Utility.WATER and lease.unit and getattr(lease.unit, 'water_payer', 'tenant') == 'owner':
+                        continue
+                    if target_utility == UtilityMeter.Utility.ELECTRICITY and lease.unit and getattr(lease.unit, 'electricity_payer', 'tenant') == 'owner':
                         continue
 
                     # For commercial properties, utility meter readings must not block rent
@@ -6072,41 +6082,49 @@ class RentScheduleViewSet(OrganizationModelViewSet):
         if schedule.period_start < lease.starts_on or schedule.period_start >= lease.ends_on or schedule.period_end > lease.ends_on:
             raise ValidationError({'rent_schedule': 'The billing period falls outside the active lease term.'})
 
-        # Enforce consolidated billing: Unit with metered water requires approved water reading before rent invoice
-        # If water is owner-paid / service charge included, or property is commercial, do not block rent
+        # Enforce consolidated billing: Unit with metered utilities requires approved readings before rent invoice
+        # If utility is owner-paid / service charge included, or property is commercial, do not block rent
+        from facilities.models import MeterReading, UtilityMeter
         is_water_owner_paid = lease.unit and getattr(lease.unit, 'water_payer', 'tenant') == 'owner'
+        is_elec_owner_paid = lease.unit and getattr(lease.unit, 'electricity_payer', 'tenant') == 'owner'
         prop = lease.unit.property if lease.unit else None
         is_comm = prop and (getattr(prop, 'property_type', '') == 'commercial' or getattr(prop, 'is_commercial', False))
-        if not is_water_owner_paid and not is_comm:
-            from facilities.models import MeterReading, UtilityMeter
-            has_metered_water = (
+
+        # Check each utility type that tenant pays
+        for utility_type, utility_name, is_owner_paid, code_keywords in [
+            (UtilityMeter.Utility.WATER, 'water', is_water_owner_paid, ['water']),
+            (UtilityMeter.Utility.ELECTRICITY, 'electricity', is_elec_owner_paid, ['electr', 'power', 'kwh']),
+        ]:
+            if is_owner_paid or is_comm:
+                continue
+            has_metered = (
                 BillingProfile.objects.filter(
                     organization=schedule.organization,
                     lease=lease,
                     is_active=True,
                     calculation=BillingItem.Calculation.METERED,
                 ).filter(
-                    Q(billing_item__code__icontains='water') |
-                    Q(billing_item__name__icontains='water')
+                    Q(billing_item__code__icontains=utility_name) |
+                    Q(billing_item__name__icontains=utility_name)
                 ).exists()
                 or UtilityMeter.objects.filter(
                     organization=schedule.organization,
                     property_unit=lease.unit,
-                    utility_type=UtilityMeter.Utility.WATER,
+                    utility_type=utility_type,
                     is_active=True,
                 ).exists()
             )
-            if has_metered_water:
-                water_reading_exists = MeterReading.objects.filter(
+            if has_metered:
+                reading_exists = MeterReading.objects.filter(
                     organization=schedule.organization,
                     meter__property_unit=lease.unit,
-                    meter__utility_type=UtilityMeter.Utility.WATER,
+                    meter__utility_type=utility_type,
                     read_at__date__range=(schedule.period_start, schedule.period_end),
                     status=MeterReading.Status.APPROVED,
                 ).exists()
-                if not water_reading_exists:
+                if not reading_exists:
                     raise ValidationError({
-                        'water_meter': f'Unit {lease.unit.code} requires metered water billing. You cannot bill rent until the water meter reading for {schedule.period_start:%B %Y} is recorded and approved.'
+                        f'{utility_name}_meter': f'Unit {lease.unit.code} requires metered {utility_name} billing. You cannot bill rent until the {utility_name} meter reading for {schedule.period_start:%B %Y} is recorded and approved.'
                     })
 
         refresh_schedule_amount(schedule)
