@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Alert, Box } from "@mui/material";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
@@ -27,6 +28,7 @@ export type BillingContext = {
 };
 
 export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettingFeeInvoice }: { onNavigate: (tab: string) => void; onSingleInvoice: (ctx: BillingContext) => void; onLettingFeeInvoice?: () => void }) {
+  const router = useRouter();
   const { session, can } = useAuth();
   const organizationId = session?.activeOrganizationId ?? null;
   const now = new Date();
@@ -882,7 +884,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
               (invoiceChargeType(it.code) === "utility" && !it.billed && Number(it.total || 0) === 0)
           )
         ).length}
-        onLogMeters={() => onNavigate("meters")}
+        onLogMeters={() => router.push("/facility?tab=meters")}
         onBatchReadings={() => setBatchReadingsOpen(true)}
         onChargeTypeFilter={(t: InvoiceChargeType | "all") => {
           setChargeTypeFilter(t);

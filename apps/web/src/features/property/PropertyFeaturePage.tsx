@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { ModuleShell } from "@/components/module-shell";
 import { propertyNav } from "@/lib/module-nav";
 import { DetailDrawer, ErrorBanner, LoadingState } from "@/components/module-ui";
@@ -60,6 +61,7 @@ export function PropertyFeaturePage({
   initialTab?: string;
   standaloneOnboarding?: boolean;
 }) {
+  const router = useRouter();
   const logic = usePropertyLogic({ initialTab, standaloneOnboarding });
   const [showSectionalOnboarding, setShowSectionalOnboarding] = useState(false);
 
@@ -115,7 +117,13 @@ export function PropertyFeaturePage({
           <BillingInvoicesView
             billingSection={logic.billingSection}
             setBillingSection={logic.setBillingSection}
-            onNavigateBilling={(t) => logic.setTab(t as PropertyTab)}
+            onNavigateBilling={(t) => {
+              if (t === "meters" || t === "utilities") {
+                router.push("/facility?tab=meters");
+                return;
+              }
+              logic.setTab(t as PropertyTab);
+            }}
             onSingleInvoice={(ctx) => logic.openInvoiceComposer(ctx)}
             rows={logic.rows}
             rentInvoices={logic.rentInvoices}

@@ -18,6 +18,7 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
   const [tab, setTab] = useState<FacilityTab>(() => {
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search).get("tab") as FacilityTab | null;
+      if (q === ("utilities" as any) || q === ("utility" as any)) return "meters";
       if (q && facilityLabels[q]) return q;
     }
     return defaultTab;

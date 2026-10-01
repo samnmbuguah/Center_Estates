@@ -144,13 +144,13 @@ export function CandidateTable({
           <table className="fc-data-table billing-candidate-table">
             <thead>
               <tr style={{ background: "var(--surface-sunken)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
-                <th style={{ padding: "8px 12px", width: 36 }}></th>
-                <th style={{ padding: "8px 12px" }}>{billingTarget === "landlord" ? "Owner & Billing Reference" : "Tenant & Lease"}</th>
-                <th style={{ padding: "8px 12px" }}>Unit</th>
-                <th style={{ padding: "8px 12px" }}>Billable Items</th>
-                <th style={{ padding: "8px 12px" }}>Remaining Due</th>
-                <th style={{ padding: "8px 12px" }}>Status</th>
-                <th style={{ padding: "8px 12px", textAlign: "right" }}>Actions</th>
+                <th style={{ padding: "10px 12px", width: 40 }}></th>
+                <th style={{ padding: "10px 12px", minWidth: 200 }}>{billingTarget === "landlord" ? "Owner & Billing Reference" : "Tenant & Lease"}</th>
+                <th style={{ padding: "10px 12px", minWidth: 100 }}>Unit</th>
+                <th style={{ padding: "10px 12px", minWidth: 230 }}>Billable Items</th>
+                <th style={{ padding: "10px 12px", minWidth: 140 }}>Remaining Due</th>
+                <th style={{ padding: "10px 12px", minWidth: 160 }}>Status</th>
+                <th style={{ padding: "10px 12px", textAlign: "right", minWidth: 170 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -162,7 +162,7 @@ export function CandidateTable({
                   (it: any) => it.meter_reading_pending || (invoiceChargeType(it.code) === "utility" && Number(it.total || 0) === 0 && !it.billed)
                 );
                 const isHold = isMissingWater || hasPendingUtilityReading;
-                const missingUtility = missingMeterUtilityType(c) || ((c.billing_items || []).some((it: any) => (it.code || "").toLowerCase().includes("electr")) ? "electricity" : "water");
+                const missingUtility = missingMeterUtilityType(c) || ((c.billing_items || []).some((it: any) => (it.code || "").toLowerCase().includes("electr")) ? "electricity" : "electricity");
                 const missingUtilityLabel = missingUtility === "electricity" ? "Electricity" : missingUtility === "gas" ? "Gas" : "Water";
                 const missingUtilityIcon = missingUtility === "electricity" ? <Zap size={12} color="var(--color-amber-deep)" /> : missingUtility === "gas" ? <Flame size={12} color="var(--color-amber-deep)" /> : <Droplets size={12} color="var(--color-amber-deep)" />;
                 const isReady = (c.status === "ready" || (unbilledItems.length > 0 && c.status !== "issue")) && !isHold;
@@ -253,12 +253,12 @@ export function CandidateTable({
                             );
                           });
                         })()}
-                        {isMissingWater && !candidates.some((cand) => cand.id === c.id && cand.billing_items?.some((it: any) => invoiceChargeType(it.code) === "utility")) && (
+                        {isHold && !(c.billing_items || []).some((it: any) => invoiceChargeType(it.code) === "utility") && (
                           <Tooltip title={`Metered ${missingUtilityLabel.toLowerCase()} is required for this tenancy. Reading must be recorded before generating the consolidated bill.`}>
                             <Chip
                               size="small"
                               icon={missingUtilityIcon}
-                              label={`${missingUtilityLabel.toUpperCase()}: Reading Req.`}
+                              label={`${missingUtilityLabel.toUpperCase()} · Reading Required`}
                               variant="outlined"
                               sx={{
                                 fontSize: 9.5,
@@ -304,11 +304,12 @@ export function CandidateTable({
                             <Chip
                               size="small"
                               icon={missingUtilityIcon}
-                              label={`Hold: ${missingUtilityLabel} Reading Req.`}
+                              label={`Hold: ${missingUtilityLabel} Req.`}
                               sx={{
                                 fontSize: 10,
                                 fontWeight: 700,
                                 height: 23,
+                                whiteSpace: "nowrap",
                                 background: "rgba(245, 158, 11, 0.12)",
                                 color: "var(--color-amber-deep)",
                                 border: "1px solid rgba(245, 158, 11, 0.35)",
