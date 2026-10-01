@@ -586,22 +586,27 @@ def generate_checklist_pdf(
 ) -> HttpResponse:
     """Generates an official, beautifully styled Center Estates Onboarding Checklist PDF."""
     s = _styles()
-    title = "Property & Facility Onboarding Checklist"
-    period = f"Scope: {checklist_data['scope_label']} · {checklist_data['property_type_label']}"
+    title = "Onboarding Checklist"
+    prop_display = (
+        property_name
+        if property_name and property_name not in ("Property Onboarding", "Target Property", "New Property Onboarding")
+        else checklist_data["property_type_label"]
+    )
+    period = f"Scope: {checklist_data['scope_label']}"
     filename = f"onboarding-checklist-{checklist_data['property_type']}.pdf"
 
-    # Add custom styles for checklist
+    # Refined typography for checklist
     title_bold = ParagraphStyle(name="ChecklistTitle", parent=s["DocTitle"], fontSize=13, leading=16, textColor=NAVY)
     badge_style = ParagraphStyle(name="ScopeBadge", parent=s["Small"], fontSize=8.5, leading=12, textColor=MUTED)
-    item_title_style = ParagraphStyle(name="ChecklistItemTitle", parent=s["Small"], fontName="Helvetica-Bold", fontSize=8.5, leading=11, textColor=NAVY)
-    item_desc_style = ParagraphStyle(name="ChecklistItemDesc", parent=s["Small"], fontSize=7.5, leading=9.5, textColor=MUTED)
-    mand_badge = ParagraphStyle(name="MandatoryBadge", parent=s["Small"], fontName="Helvetica-Bold", fontSize=7.5, leading=9, textColor=colors.HexColor("#dc2626"), alignment=1)
-    opt_badge = ParagraphStyle(name="OptionalBadge", parent=s["Small"], fontSize=7.5, leading=9, textColor=colors.HexColor("#475569"), alignment=1)
-    checkbox_style = ParagraphStyle(name="CheckboxStyle", parent=s["Small"], fontName="Helvetica-Bold", fontSize=11, leading=11, textColor=NAVY, alignment=1)
+    item_title_style = ParagraphStyle(name="ChecklistItemTitle", parent=s["Small"], fontName="Helvetica-Bold", fontSize=8.2, leading=10.5, textColor=NAVY)
+    item_desc_style = ParagraphStyle(name="ChecklistItemDesc", parent=s["Small"], fontSize=7.2, leading=9.2, textColor=MUTED)
+    mand_badge = ParagraphStyle(name="MandatoryBadge", parent=s["Small"], fontName="Helvetica-Bold", fontSize=7.2, leading=9, textColor=colors.HexColor("#dc2626"), alignment=1)
+    opt_badge = ParagraphStyle(name="OptionalBadge", parent=s["Small"], fontName="Helvetica-Bold", fontSize=7.2, leading=9, textColor=colors.HexColor("#475569"), alignment=1)
+    checkbox_style = ParagraphStyle(name="CheckboxStyle", parent=s["Small"], fontName="Helvetica-Bold", fontSize=10, leading=10, textColor=colors.HexColor("#64748b"), alignment=1)
 
     story: list[Any] = []
 
-    # 1. Summary Callout Box
+    # 1. Summary Callout Box (exact 182mm width matching margins)
     summary_data = [
         [
             Paragraph(f"<b>Target Property:</b> {property_name}", s["Small"]),
@@ -614,21 +619,21 @@ def generate_checklist_pdf(
             Paragraph(f"<b>Date:</b> {timezone.localdate():%d %B %Y}", s["Small"]),
         ],
     ]
-    summary_table = Table(summary_data, colWidths=[65 * mm, 75 * mm, 45 * mm], hAlign="LEFT")
+    summary_table = Table(summary_data, colWidths=[60 * mm, 78 * mm, 44 * mm], hAlign="LEFT")
     summary_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
-        ("BOX", (0, 0), (-1, -1), 0.5, LINE),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 7),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 7),
     ]))
     story.append(summary_table)
     story.append(Spacer(1, 4 * mm))
 
-    # 2. Checklist Categories
-    col_widths = [12 * mm, 58 * mm, 20 * mm, 60 * mm, 35 * mm]
+    # 2. Checklist Categories (exact 182mm total: 16 + 52 + 24 + 56 + 34 = 182mm)
+    col_widths = [16 * mm, 52 * mm, 24 * mm, 56 * mm, 34 * mm]
 
     for category, items in checklist_data["categories"].items():
         # Section Header
@@ -658,19 +663,23 @@ def generate_checklist_pdf(
         cat_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), NAVY),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("GRID", (0, 0), (-1, -1), 0.3, LINE),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("ALIGN", (0, 1), (0, -1), "CENTER"),
-            ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#cbd5e1")),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, colors.HexColor("#f8fafc"))),
+            ("VALIGN", (0, 0), (-1, 0), "MIDDLE"),
+            ("VALIGN", (0, 1), (-1, -1), "TOP"),
+            ("ALIGN", (0, 0), (0, -1), "CENTER"),
+            ("ALIGN", (2, 0), (2, -1), "CENTER"),
+            ("TOPPADDING", (0, 0), (-1, 0), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, 0), 4),
+            ("TOPPADDING", (0, 1), (-1, -1), 3.5),
+            ("BOTTOMPADDING", (0, 1), (-1, -1), 3.5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
         ]))
         story.append(cat_table)
         story.append(Spacer(1, 3.5 * mm))
 
-    # 3. Execution / Sign-off Block
+    # 3. Execution / Sign-off Block (exact 182mm width)
     story.append(Spacer(1, 4 * mm))
     story.append(Paragraph("<b>ONBOARDING VERIFICATION & HANDOVER SIGN-OFF</b>", s["Section"]))
     sign_data = [
@@ -691,15 +700,15 @@ def generate_checklist_pdf(
             Paragraph(f"Date: {timezone.localdate():%d / %m / %Y}", s["Small"]),
         ],
     ]
-    sign_table = Table(sign_data, colWidths=[92 * mm, 93 * mm], hAlign="LEFT")
+    sign_table = Table(sign_data, colWidths=[91 * mm, 91 * mm], hAlign="LEFT")
     sign_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
-        ("BOX", (0, 0), (-1, -1), 0.5, LINE),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4.5),
+        ("LEFTPADDING", (0, 0), (-1, -1), 7),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 7),
     ]))
     story.append(sign_table)
 
@@ -709,7 +718,7 @@ def generate_checklist_pdf(
         story=story,
         wide=False,  # Portrait A4 for clean checklists
         title=title,
-        property_name=property_name,
+        property_name=prop_display,
         period=period,
         generated_by=generated_by,
     )

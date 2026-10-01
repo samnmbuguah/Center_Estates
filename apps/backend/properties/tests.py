@@ -3671,3 +3671,33 @@ class PropertyModuleScopeTests(TestCase):
         self.assertEqual(response.data['modules'], ['monitoring'])
         self.assertEqual(len(response.data['module_assignments']), 1)
         self.assertEqual(response.data['module_assignments'][0]['module'], 'monitoring')
+
+    def test_onboarding_checklist_pdf_generation(self):
+        """Verify onboarding checklist generates valid PDF without header or table wrapping errors."""
+        from .checklist_engine import filter_checklist, generate_checklist_pdf
+        checklist_data = filter_checklist(scope='both', property_type='commercial_office')
+        self.assertIn('categories', checklist_data)
+        self.assertGreater(checklist_data['total_count'], 0)
+
+        pdf_response = generate_checklist_pdf(
+            self.organization,
+            checklist_data,
+            property_name='Commercial Tower',
+            generated_by='Test Runner',
+        )
+        self.assertEqual(pdf_response.status_code, 200)
+        self.assertEqual(pdf_response['Content-Type'], 'application/pdf')
+        self.assertTrue(len(pdf_response.content) > 1000)
+        self.assertTrue(pdf_response.content.startswith(b'%PDF'))
+
+    def test_onboarding_checklist_endpoint_pdf(self):
+        """Verify the API action /api/v1/property/properties/onboarding-checklist/ returns PDF."""
+        response = self.client.get(
+            '/api/v1/property/properties/onboarding-checklist/?output=pdf&property_type=commercial_office&scope=both',
+            **self.headers,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertTrue(len(response.content) > 1000)
+        self.assertTrue(response.content.startswith(b'%PDF'))
+
