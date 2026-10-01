@@ -5554,18 +5554,34 @@ class BillingRunViewSet(OrganizationModelViewSet):
                         read_at__date__range=(run.period_start, run.period_end), status=MeterReading.Status.APPROVED,
                     ).select_related('meter')
                     if not readings.exists():
-                        if is_comm:
-                            # Commercial properties bill utilities separately or via landlord; do not block rent
-                            continue
-                        severity = BillingReadinessIssue.Severity.WARNING if (invoice_types is not None and "utility" not in invoice_types) else BillingReadinessIssue.Severity.BLOCKING
-                        issue_rows.append((f'missing_{target_utility}_reading', f'A valid {utility_name.lower()} meter reading is required.', profile, severity))
+                        # Meter reading pending for this period: include the billable item with status pending
+                        # so that Utilities charge completion, candidate chips, and filters clearly reflect
+                        # scheduled electricity/water consumption.
+                        items.append({
+                            'billing_item': str(profile.billing_item_id),
+                            'code': profile.billing_item.code,
+                            'description': f"{profile.billing_item.name} (Reading pending)",
+                            'quantity': '0',
+                            'unit_rate': str(profile.rate or '0.00'),
+                            'subtotal': '0.00',
+                            'tax_code': '',
+                            'tax_rate': '0',
+                            'tax_amount': '0',
+                            'total': '0.00',
+                            'source_type': 'billing_profile',
+                            'source_id': str(profile.id),
+                            'payer': 'tenant',
+                            'meter_reading_pending': True,
+                        })
+                        severity = BillingReadinessIssue.Severity.WARNING if (is_comm or (invoice_types is not None and "utility" not in invoice_types)) else BillingReadinessIssue.Severity.BLOCKING
+                        issue_rows.append((f'missing_{target_utility}_reading', f'{utility_name} meter reading is required for {lease.unit.code if lease.unit else "unit"}.', profile, severity))
                         continue
                     monthly_val = sum((row.cost for row in readings), Decimal('0'))
                 elif profile.billing_item.code.upper() == 'RENT':
                     monthly_val = lease.effective_rent(run.period_start)
                 elif profile.calculation == BillingItem.Calculation.PERCENTAGE:
                     monthly_val = (lease.effective_rent(run.period_start) * profile.rate / Decimal('100')).quantize(Decimal('0.01'))
-                if monthly_val <= 0:
+                if monthly_val <= 0 and profile.calculation != BillingItem.Calculation.METERED:
                     issue_rows.append(('missing_rate', f'{profile.billing_item.name} has no billable amount.', profile))
                     continue
                 
@@ -5907,6 +5923,9 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 ).exclude(status=Invoice.Status.VOID).exists():
                     skipped_duplicate += 1
                     item['billed'] = True
+                    continue
+                if Decimal(str(item.get('total') or '0')) <= Decimal('0') and item.get('meter_reading_pending'):
+                    # Skip generating 0-cost invoice when meter reading is still pending
                     continue
                 line_subtotal = Decimal(item['subtotal'])
                 line_tax = Decimal(item['tax_amount'])

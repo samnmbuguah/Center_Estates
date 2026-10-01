@@ -198,16 +198,19 @@ export function CandidateTable({
                     <td style={{ padding: "10px 12px" }}>
                       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
                         {(() => {
-                          const grouped = new Map<string, { code: string; rawCode: string; billedCount: number; totalCount: number; unbilledAmount: number }>();
+                          const grouped = new Map<string, { code: string; rawCode: string; billedCount: number; totalCount: number; unbilledAmount: number; isPendingReading: boolean }>();
                           for (const it of c.billing_items || []) {
                             const rawCode = String(it.code || "charge");
                             const displayCode = rawCode.replace(/_/g, " ").toUpperCase();
-                            const entry = grouped.get(displayCode) || { code: displayCode, rawCode, billedCount: 0, totalCount: 0, unbilledAmount: 0 };
+                            const entry = grouped.get(displayCode) || { code: displayCode, rawCode, billedCount: 0, totalCount: 0, unbilledAmount: 0, isPendingReading: false };
                             entry.totalCount += 1;
                             if (it.billed) {
                               entry.billedCount += 1;
                             } else {
                               entry.unbilledAmount += Number(it.total || it.amount || 0);
+                            }
+                            if ((it as any).meter_reading_pending || (invoiceChargeType(rawCode) === "utility" && Number(it.total || 0) === 0 && !it.billed)) {
+                              entry.isPendingReading = true;
                             }
                             grouped.set(displayCode, entry);
                           }
@@ -216,24 +219,31 @@ export function CandidateTable({
                             const t = invoiceChargeType(grp.rawCode);
                             const isMatch = chargeTypeFilter === "all" || t === chargeTypeFilter || (chargeTypeFilter === "utility" && t === "utility");
                             const isAllBilled = grp.billedCount === grp.totalCount;
+                            const isUtility = t === "utility";
+                            const isElectricity = isUtility && (grp.rawCode.toLowerCase().includes("electr") || grp.code.includes("ELEC"));
+                            const isPending = grp.isPendingReading && grp.unbilledAmount === 0 && !isAllBilled;
                             const label = isAllBilled
                               ? `${grp.code} ✓`
+                              : isPending
+                              ? `${grp.code} · Reading Pending`
                               : `${grp.code} · ${money.format(grp.unbilledAmount)}`;
 
                             return (
                               <Chip
                                 key={i}
                                 size="small"
+                                icon={isPending && isElectricity ? <Zap size={11} color="var(--color-amber-deep)" /> : isPending && isUtility ? <Droplets size={11} color="var(--color-amber-deep)" /> : undefined}
                                 label={label}
-                                variant={isAllBilled ? "outlined" : isMatch ? "filled" : "outlined"}
-                                color={isAllBilled ? "success" : isMatch ? "primary" : "default"}
+                                variant={isAllBilled ? "outlined" : isPending ? "outlined" : isMatch ? "filled" : "outlined"}
+                                color={isAllBilled ? "success" : isPending ? "default" : isMatch ? "primary" : "default"}
                                 sx={{
                                   fontSize: 9.5,
                                   height: 20,
-                                  fontWeight: isMatch ? 700 : 500,
-                                  opacity: isMatch ? 1 : 0.6,
-                                  bgcolor: isAllBilled ? "rgba(34,197,94,0.08)" : undefined,
-                                  borderColor: isAllBilled ? "rgba(34,197,94,0.4)" : undefined,
+                                  fontWeight: isMatch || isPending ? 700 : 500,
+                                  opacity: isMatch ? 1 : 0.7,
+                                  bgcolor: isAllBilled ? "rgba(34,197,94,0.08)" : isPending ? "rgba(245,158,11,0.08)" : undefined,
+                                  borderColor: isAllBilled ? "rgba(34,197,94,0.4)" : isPending ? "rgba(245,158,11,0.45)" : undefined,
+                                  color: isPending ? "var(--color-amber-deep)" : undefined,
                                 }}
                               />
                             );

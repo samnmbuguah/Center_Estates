@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 import { Box, Paper, Typography, Chip, Stack } from "@mui/material";
-import { AlertCircle, Building2, CheckCircle2, Droplets, ListChecks, ReceiptText } from "lucide-react";
+import { AlertCircle, Building2, CheckCircle2, Droplets, ListChecks, ReceiptText, Zap } from "lucide-react";
 import { Candidate, InvoiceChargeType, invoiceChargeType } from "./types";
 import { money } from "@/components/module-ui";
 
@@ -64,10 +64,14 @@ export function BillingChargeRollup({
       ];
     }
 
+    const hasElectricity = candidates.some((cand) =>
+      (cand.billing_items || []).some((it) => (it.code || "").toLowerCase().includes("electr"))
+    );
+
     const typeConfigs: Array<{ type: InvoiceChargeType; label: string; icon: ReactNode; color: string }> = [
       { type: "rent", label: "Rent", icon: <Building2 size={17} />, color: "var(--color-blue)" },
       { type: "service_charge", label: "Service charge", icon: <ReceiptText size={17} />, color: "var(--color-violet-strong)" },
-      { type: "utility", label: "Utilities", icon: <Droplets size={17} />, color: "#06b6d4" },
+      { type: "utility", label: hasElectricity ? "Utilities (Electricity)" : "Utilities", icon: hasElectricity ? <Zap size={17} /> : <Droplets size={17} />, color: hasElectricity ? "#d97706" : "#06b6d4" },
       { type: "other", label: "Other charges", icon: <ListChecks size={17} />, color: "var(--text-faint)" },
     ];
 
@@ -187,8 +191,8 @@ export function BillingChargeRollup({
                 ) : (
                   <Chip
                     size="small"
-                    icon={<AlertCircle size={11} color="var(--color-orange)" />}
-                    label={`${sum.pendingCount} Pending`}
+                    icon={sum.type === "utility" ? <Zap size={11} color="var(--color-orange)" /> : <AlertCircle size={11} color="var(--color-orange)" />}
+                    label={sum.type === "utility" && sum.totalAmount === 0 ? `${sum.pendingCount} Pending Readings` : `${sum.pendingCount} Pending`}
                     sx={{ fontSize: 9.5, height: 20, bgcolor: "rgba(234, 88, 12, 0.1)", color: "var(--color-orange)", fontWeight: 700 }}
                   />
                 )}
@@ -217,7 +221,7 @@ export function BillingChargeRollup({
                           Remaining: {sum.pendingCount} tenants
                         </Typography>
                         <Typography variant="caption" sx={{ color: "var(--color-orange)", fontWeight: 700, fontSize: 11 }}>
-                          {money.format(sum.pendingAmount)}
+                          {sum.pendingAmount > 0 ? money.format(sum.pendingAmount) : (sum.type === "utility" ? "Awaiting readings" : money.format(0))}
                         </Typography>
                       </Box>
                     )}

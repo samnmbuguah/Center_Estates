@@ -869,6 +869,13 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         billingTarget={billingTarget}
         typeCounts={typeCounts}
         pendingWaterCount={rawCandidates.filter((c) => isMissingWaterReading(c)).length}
+        pendingUtilityCount={rawCandidates.filter((c) =>
+          (c.billing_items || []).some(
+            (it: any) =>
+              it.meter_reading_pending ||
+              (invoiceChargeType(it.code) === "utility" && !it.billed && Number(it.total || 0) === 0)
+          )
+        ).length}
         onLogMeters={() => onNavigate("meters")}
         onBatchReadings={() => setBatchReadingsOpen(true)}
         onChargeTypeFilter={(t: InvoiceChargeType | "all") => {

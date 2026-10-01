@@ -8,7 +8,7 @@ import { CHARGE_TYPE_LABEL, InvoiceChargeType } from "./types";
 export function BillingActionBanner({
   hasRun, isPreparing, isReview, formattedMonth, ready, selectedCount,
   chargeTypeFilter = "all", billingTarget = "tenant", blockingOpen, busy,
-  pendingWaterCount = 0, onLogMeters, onBatchReadings,
+  pendingWaterCount = 0, pendingUtilityCount = 0, onLogMeters, onBatchReadings,
   canFinance, onInitialize, onRecheck, onGenerate, onSingleInvoice, onLettingFeeInvoice,
 }: {
   hasRun: boolean; isPreparing: boolean; isReview: boolean; isApproved: boolean;
@@ -16,7 +16,7 @@ export function BillingActionBanner({
   chargeTypeFilter?: InvoiceChargeType | "all"; billingTarget?: "tenant" | "landlord";
   typeCounts?: Record<string, number>; onChargeTypeFilter?: (t: InvoiceChargeType | "all") => void;
   blockingOpen: boolean; busy: string; canFinance: boolean; canApprove: boolean;
-  pendingWaterCount?: number; onLogMeters?: () => void; onBatchReadings?: () => void;
+  pendingWaterCount?: number; pendingUtilityCount?: number; onLogMeters?: () => void; onBatchReadings?: () => void;
   onInitialize: () => void; onRecheck: () => void; onApprove: () => void;
   onGenerate: () => void; onSingleInvoice: () => void;
   onLettingFeeInvoice?: () => void;
@@ -74,7 +74,7 @@ export function BillingActionBanner({
         </Menu>
       </Box>
 
-      {pendingWaterCount > 0 && (
+      {pendingWaterCount > 0 ? (
         <Box
           sx={{
             mt: 1.5,
@@ -125,7 +125,58 @@ export function BillingActionBanner({
             )}
           </Box>
         </Box>
-      )}
+      ) : pendingUtilityCount > 0 ? (
+        <Box
+          sx={{
+            mt: 1.5,
+            p: "8px 14px",
+            borderRadius: 1.5,
+            background: "rgba(245, 158, 11, 0.08)",
+            border: "1px solid rgba(245, 158, 11, 0.25)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 1,
+            fontSize: 12,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "var(--color-amber-deep)" }}>
+            <Zap size={16} color="var(--color-warning)" />
+            <span>
+              <strong>{pendingUtilityCount} unit{pendingUtilityCount === 1 ? "" : "s"} scheduled for Electricity billing:</strong> Meter readings are needed to calculate consumption at Ksh 35/kWh and invoice electricity.
+            </span>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {onBatchReadings && (
+              <Button
+                size="small"
+                variant="contained"
+                onClick={onBatchReadings}
+                startIcon={<Zap size={14} />}
+                sx={{
+                  fontSize: 11,
+                  py: 0.3,
+                  px: 1.5,
+                  fontWeight: 700,
+                  background: "linear-gradient(135deg, #d97706 0%, #f59e0b 100%)",
+                  color: "#fff",
+                  textTransform: "none",
+                  boxShadow: "0 2px 4px rgba(245,158,11,0.25)",
+                  "&:hover": { background: "#d97706" },
+                }}
+              >
+                Record Electricity Readings
+              </Button>
+            )}
+            {onLogMeters && (
+              <Button size="small" onClick={onLogMeters} sx={{ fontSize: 11, py: 0.2, fontWeight: 700, color: "var(--color-amber-deep)", textTransform: "none" }}>
+                Facility Meters →
+              </Button>
+            )}
+          </Box>
+        </Box>
+      ) : null}
     </Paper>
   );
 }

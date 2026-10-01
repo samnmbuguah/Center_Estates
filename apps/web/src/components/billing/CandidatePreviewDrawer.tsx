@@ -264,11 +264,15 @@ export function CandidatePreviewDrawer({
                           borderRadius: 6,
                           background: codeUpper.includes("RENT")
                             ? "rgba(59, 130, 246, 0.1)"
+                            : codeUpper.includes("ELECTR")
+                            ? "rgba(245, 158, 11, 0.1)"
                             : codeUpper.includes("WATER")
                             ? "rgba(6, 182, 212, 0.1)"
                             : "rgba(107, 114, 128, 0.1)",
                           color: codeUpper.includes("RENT")
                             ? "var(--color-info)"
+                            : codeUpper.includes("ELECTR")
+                            ? "var(--color-amber-deep)"
                             : codeUpper.includes("WATER")
                             ? "var(--color-cyan)"
                             : "#4b5563",
@@ -279,7 +283,9 @@ export function CandidatePreviewDrawer({
                       </span>
                     </td>
                     <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, color: "var(--text)" }}>
-                      {money.format(amount)}
+                      {(item as any).meter_reading_pending || (amount === 0 && (codeUpper.includes("ELECTR") || codeUpper.includes("WATER")))
+                        ? <span style={{ color: "var(--color-amber-deep)", fontSize: 11, fontWeight: 700 }}>Reading Pending</span>
+                        : money.format(amount)}
                     </td>
                   </tr>
                 );
