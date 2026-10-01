@@ -5573,8 +5573,9 @@ class BillingRunViewSet(OrganizationModelViewSet):
                             'payer': 'tenant',
                             'meter_reading_pending': True,
                         })
-                        severity = BillingReadinessIssue.Severity.WARNING if (is_comm or (invoice_types is not None and "utility" not in invoice_types)) else BillingReadinessIssue.Severity.BLOCKING
-                        issue_rows.append((f'missing_{target_utility}_reading', f'{utility_name} meter reading is required for {lease.unit.code if lease.unit else "unit"}.', profile, severity))
+                        # Consolidated Invoicing Policy: Metered electricity and water MUST block rent invoicing until readings are recorded
+                        severity = BillingReadinessIssue.Severity.WARNING if (invoice_types is not None and "utility" not in invoice_types) else BillingReadinessIssue.Severity.BLOCKING
+                        issue_rows.append((f'missing_{target_utility}_reading', f'{utility_name} meter reading is required for {lease.unit.code if lease.unit else "unit"} before billing rent and utilities.', profile, severity))
                         continue
                     monthly_val = sum((row.cost for row in readings), Decimal('0'))
                 elif profile.billing_item.code.upper() == 'RENT':
@@ -5853,15 +5854,22 @@ class BillingRunViewSet(OrganizationModelViewSet):
         if not candidates:
             raise ValidationError({'candidates': 'Select at least one ready billing candidate.'})
 
-        # Enforce consolidated billing: Only enforce water hold if tenant pays water and property is residential
+        # Enforce consolidated billing: Metered electricity and water readings must be recorded before rent can be billed
         for cand in candidates:
-            # Skip water hold if unit's water is paid by landlord/owner
             unit_obj = cand.lease.unit if cand.lease else None
-            prop_obj = unit_obj.property if unit_obj else None
-            is_comm = prop_obj and (getattr(prop_obj, 'property_type', '') == 'commercial' or getattr(prop_obj, 'is_commercial', False))
             landlord_pays_water = unit_obj and getattr(unit_obj, 'water_payer', 'tenant') == 'owner'
+            landlord_pays_elec = unit_obj and getattr(unit_obj, 'electricity_payer', 'tenant') == 'owner'
             
-            if not is_comm and not landlord_pays_water:
+            if not landlord_pays_elec:
+                elec_issues = [iss for iss in (cand.issue_summary or []) if iss.get('code') in ('missing_electricity_reading', 'missing_power_reading')]
+                if elec_issues:
+                    t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
+                    u_code = cand.lease.unit.code if cand.lease and cand.lease.unit else 'Unit'
+                    raise ValidationError({
+                        'candidates': f"Cannot generate invoice for {t_name} ({u_code}): Electricity meter reading is required before billing rent and utilities (Consolidated Invoicing Policy)."
+                    })
+
+            if not landlord_pays_water:
                 water_issues = [iss for iss in (cand.issue_summary or []) if iss.get('code') == 'missing_water_reading']
                 if water_issues:
                     t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
@@ -5869,17 +5877,13 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     raise ValidationError({
                         'candidates': f"Cannot generate invoice for {t_name} ({u_code}): A valid water meter reading is required before billing rent and utilities."
                     })
+
             if cand.status == BillingCandidate.Status.ISSUE:
-                non_water_issues = [
-                    iss for iss in (cand.issue_summary or [])
-                    if iss.get('code') != 'missing_water_reading' or (not is_comm and not landlord_pays_water)
-                ]
-                if non_water_issues:
-                    t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
-                    u_code = cand.lease.unit.code if cand.lease and cand.lease.unit else 'Unit'
-                    raise ValidationError({
-                        'candidates': f"Cannot generate invoice for {t_name} ({u_code}): Resolve open billing issues before generating invoices."
-                    })
+                t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
+                u_code = cand.lease.unit.code if cand.lease and cand.lease.unit else 'Unit'
+                raise ValidationError({
+                    'candidates': f"Cannot generate invoice for {t_name} ({u_code}): Resolve open billing issues before generating invoices."
+                })
 
         year = run.period_start.year
         raw_types = request.data.get('invoice_types')

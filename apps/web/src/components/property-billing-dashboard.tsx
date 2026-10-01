@@ -660,6 +660,12 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     if (billingTarget === "landlord") {
       return (c.billing_items || []).some((it: any) => !it.billed);
     }
+    // Consolidated Billing Policy: Rent and other charges cannot be billed until utility readings are recorded
+    const hasPendingReading = isMissingWaterReading(c) || (c.billing_items || []).some(
+      (it: any) => it.meter_reading_pending || (invoiceChargeType(it.code) === "utility" && Number(it.total || 0) === 0 && !it.billed)
+    );
+    if (hasPendingReading) return false;
+
     if (filter === "all") {
       return (c.billing_items || []).some((it: any) => !it.billed);
     }

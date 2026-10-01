@@ -158,22 +158,26 @@ export function CandidateTable({
                 const isSelected = selected.includes(c.id);
                 const unbilledItems = (c.billing_items || []).filter((it: any) => !it.billed);
                 const isMissingWater = isMissingWaterReading(c);
-                const missingUtility = missingMeterUtilityType(c);
+                const hasPendingUtilityReading = (c.billing_items || []).some(
+                  (it: any) => it.meter_reading_pending || (invoiceChargeType(it.code) === "utility" && Number(it.total || 0) === 0 && !it.billed)
+                );
+                const isHold = isMissingWater || hasPendingUtilityReading;
+                const missingUtility = missingMeterUtilityType(c) || ((c.billing_items || []).some((it: any) => (it.code || "").toLowerCase().includes("electr")) ? "electricity" : "water");
                 const missingUtilityLabel = missingUtility === "electricity" ? "Electricity" : missingUtility === "gas" ? "Gas" : "Water";
                 const missingUtilityIcon = missingUtility === "electricity" ? <Zap size={12} color="var(--color-amber-deep)" /> : missingUtility === "gas" ? <Flame size={12} color="var(--color-amber-deep)" /> : <Droplets size={12} color="var(--color-amber-deep)" />;
-                const isReady = (c.status === "ready" || (unbilledItems.length > 0 && c.status !== "issue")) && !isMissingWater;
+                const isReady = (c.status === "ready" || (unbilledItems.length > 0 && c.status !== "issue")) && !isHold;
                 const unbilledTotal = unbilledItems.reduce((s: number, it: any) => s + Number(it.total || it.amount || 0), 0);
                 const billedTotal = (c.billing_items || []).filter((it: any) => it.billed).reduce((s: number, it: any) => s + Number(it.total || it.amount || 0), 0);
 
                 return (
-                  <tr key={c.id} style={{ borderBottom: "1px solid var(--border)", background: isSelected ? "rgba(59,130,246,0.04)" : isMissingWater ? "rgba(245,158,11,0.02)" : "transparent" }}>
+                  <tr key={c.id} style={{ borderBottom: "1px solid var(--border)", background: isSelected ? "rgba(59,130,246,0.04)" : isHold ? "rgba(245,158,11,0.03)" : "transparent" }}>
                     <td style={{ padding: "10px 12px" }}>
-                      <Tooltip title={isMissingWater ? `${missingUtilityLabel} meter reading required for ${c.unit_code} before billing rent or utilities` : !isReady ? "Candidate has unresolved issues" : "Select candidate for billing"}>
+                      <Tooltip title={isHold ? `${missingUtilityLabel} meter reading required for ${c.unit_code} before billing rent or utilities` : !isReady ? "Candidate has unresolved issues" : "Select candidate for billing"}>
                         <span>
                           <input
                             type="checkbox"
                             disabled={!isReady}
-                            checked={isSelected}
+                            checked={isSelected && isReady}
                             onChange={() => onSelect(c.id)}
                             style={{ cursor: isReady ? "pointer" : "not-allowed", width: 15, height: 15 }}
                           />
@@ -221,11 +225,11 @@ export function CandidateTable({
                             const isAllBilled = grp.billedCount === grp.totalCount;
                             const isUtility = t === "utility";
                             const isElectricity = isUtility && (grp.rawCode.toLowerCase().includes("electr") || grp.code.includes("ELEC"));
-                            const isPending = grp.isPendingReading && grp.unbilledAmount === 0 && !isAllBilled;
+                            const isPending = (grp.isPendingReading || (isUtility && grp.unbilledAmount === 0)) && !isAllBilled;
                             const label = isAllBilled
                               ? `${grp.code} ✓`
                               : isPending
-                              ? `${grp.code} · Reading Pending`
+                              ? `${grp.code} · Reading Required`
                               : `${grp.code} · ${money.format(grp.unbilledAmount)}`;
 
                             return (
@@ -249,12 +253,12 @@ export function CandidateTable({
                             );
                           });
                         })()}
-                        {isMissingWater && (
-                          <Tooltip title="Metered water is required for this tenancy. Reading must be recorded before generating the consolidated bill.">
+                        {isMissingWater && !candidates.some((cand) => cand.id === c.id && cand.billing_items?.some((it: any) => invoiceChargeType(it.code) === "utility")) && (
+                          <Tooltip title={`Metered ${missingUtilityLabel.toLowerCase()} is required for this tenancy. Reading must be recorded before generating the consolidated bill.`}>
                             <Chip
                               size="small"
-                              icon={<Droplets size={11} color="var(--color-warning)" />}
-                              label="WATER: Reading Req."
+                              icon={missingUtilityIcon}
+                              label={`${missingUtilityLabel.toUpperCase()}: Reading Req.`}
                               variant="outlined"
                               sx={{
                                 fontSize: 9.5,
@@ -281,7 +285,7 @@ export function CandidateTable({
                               ({money.format(billedTotal)} billed ✓)
                             </div>
                           )}
-                          {isMissingWater && (
+                          {isHold && (
                             <div style={{ fontSize: 9.5, color: "var(--color-amber-deep)", fontWeight: 600, marginTop: 1 }}>
                               + pending {missingUtilityLabel.toLowerCase()} consumption
                             </div>
@@ -294,20 +298,20 @@ export function CandidateTable({
                       )}
                     </td>
                     <td style={{ padding: "10px 12px" }}>
-                      {isMissingWater ? (
+                      {isHold ? (
                         <Tooltip title={`Consolidated Billing Policy: ${missingUtilityLabel} meter reading for this period must be entered before generating rent or utility invoices.`}>
                           <span>
                             <Chip
                               size="small"
                               icon={missingUtilityIcon}
-                              label={`Needs ${missingUtilityLabel} Reading`}
+                              label={`Hold: ${missingUtilityLabel} Reading Req.`}
                               sx={{
-                                fontSize: 10.5,
+                                fontSize: 10,
                                 fontWeight: 700,
-                                height: 24,
+                                height: 23,
                                 background: "rgba(245, 158, 11, 0.12)",
                                 color: "var(--color-amber-deep)",
-                                border: "1px solid rgba(245, 158, 11, 0.3)",
+                                border: "1px solid rgba(245, 158, 11, 0.35)",
                                 "& .MuiChip-icon": { ml: 0.8 },
                               }}
                             />
@@ -321,7 +325,7 @@ export function CandidateTable({
                     </td>
                     <td style={{ padding: "10px 12px", textAlign: "right" }}>
                       <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", alignItems: "center" }}>
-                        {isMissingWater && (
+                        {isHold && (
                           <Button
                             size="small"
                             variant="contained"

@@ -93,7 +93,7 @@ export function BillingActionBanner({
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "var(--color-amber-deep)" }}>
             <Gauge size={16} color="var(--color-warning)" />
             <span>
-              <strong>{pendingWaterCount} candidate{pendingWaterCount === 1 ? "" : "s"} on hold:</strong> Utility meter readings must be recorded before rent or utilities can be billed (Consolidated Invoicing Policy).
+              <strong>{pendingWaterCount} candidate{pendingWaterCount === 1 ? "" : "s"} on hold:</strong> Electricity and utility meter readings must be recorded before rent or utilities can be billed (Consolidated Invoicing Policy).
             </span>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -102,7 +102,7 @@ export function BillingActionBanner({
                 size="small"
                 variant="contained"
                 onClick={onBatchReadings}
-                startIcon={<Gauge size={14} />}
+                startIcon={<Zap size={14} />}
                 sx={{
                   fontSize: 11,
                   py: 0.3,
@@ -115,7 +115,7 @@ export function BillingActionBanner({
                   "&:hover": { background: "#d97706" },
                 }}
               >
-                Record All Readings
+                Record Electricity Readings
               </Button>
             )}
             {onLogMeters && (
