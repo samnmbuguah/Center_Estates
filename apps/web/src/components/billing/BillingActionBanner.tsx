@@ -93,7 +93,7 @@ export function BillingActionBanner({
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "var(--color-amber-deep)" }}>
             <Gauge size={16} color="var(--color-warning)" />
             <span>
-              <strong>{pendingWaterCount} candidate{pendingWaterCount === 1 ? "" : "s"} on hold:</strong> Utility meter readings (water 💧 / electricity ⚡) must be recorded before rent or utilities can be billed (Consolidated Invoicing Policy).
+              <strong>{pendingWaterCount} candidate{pendingWaterCount === 1 ? "" : "s"} on hold:</strong> Utility meter readings must be recorded before rent or utilities can be billed (Consolidated Invoicing Policy).
             </span>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
