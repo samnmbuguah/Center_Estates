@@ -128,15 +128,54 @@ export function MarketingLayout({ children }: { children?: React.ReactNode }) {
         </div>
 
         <div className="nav-actions">
-          <Link to="/contact" className="btn-nav-outline">Contact Us</Link>
-          <Link to="/login" className="btn-nav-primary">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" />
-              <polyline points="10 17 15 12 10 7" />
-              <line x1="15" y1="12" x2="3" y2="12" />
-            </svg>
-            Log In
-          </Link>
+          {sales ? (
+            <>
+              <a
+                href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE_SALES)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "7px 14px",
+                  borderRadius: 20,
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  color: "#166534",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  textDecoration: "none",
+                }}
+              >
+                <MessageCircle size={15} color="#22c55e" />
+                <span>Sales Desk</span>
+              </a>
+              <Link to="/contact" className="btn-nav-outline" style={{ fontSize: 13, padding: "8px 14px" }}>
+                List Property
+              </Link>
+              <Link to="/login" className="btn-nav-primary" style={{ fontSize: 13, padding: "8px 14px" }} title="Staff & Agent Sign In">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" />
+                  <polyline points="10 17 15 12 10 7" />
+                  <line x1="15" y1="12" x2="3" y2="12" />
+                </svg>
+                Portal
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link to="/contact" className="btn-nav-outline">Contact Us</Link>
+              <Link to="/login" className="btn-nav-primary">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" />
+                  <polyline points="10 17 15 12 10 7" />
+                  <line x1="15" y1="12" x2="3" y2="12" />
+                </svg>
+                Log In
+              </Link>
+            </>
+          )}
           <button
             className={`nav-burger${mobileOpen ? " open" : ""}`}
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -150,8 +189,30 @@ export function MarketingLayout({ children }: { children?: React.ReactNode }) {
       <div className={`mobile-nav${mobileOpen ? " open" : ""}`}>
         {sales ? (
           <>
+            <a
+              href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE_SALES)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={closeMobile}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 14px",
+                borderRadius: 10,
+                background: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                color: "#166534",
+                fontWeight: 700,
+                fontSize: 14,
+                marginBottom: 8,
+              }}
+            >
+              <MessageCircle size={18} color="#22c55e" /> WhatsApp Sales Desk
+            </a>
             {SALES_NAV_LINKS.map(l => <Link key={l.to} to={l.to} onClick={closeMobile}>{l.label}</Link>)}
-            <Link to="/contact" onClick={closeMobile}>Contact Us</Link>
+            <Link to="/contact" onClick={closeMobile}>List Property / Advisory</Link>
+            <Link to="/login" onClick={closeMobile}>Staff & Agent Portal</Link>
           </>
         ) : (
           <>

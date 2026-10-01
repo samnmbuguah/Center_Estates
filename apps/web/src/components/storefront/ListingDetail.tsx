@@ -27,7 +27,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { MarketingLayout } from "@/components/monitoring/pages/MarketingLayout";
-import { formatKES, type PublicListing } from "./StorefrontHome";
+import { formatKES, formatUSD, type PublicListing } from "./StorefrontHome";
 
 const WHATSAPP_SALES_PHONE = "254712345678";
 
@@ -467,17 +467,24 @@ export function ListingDetail({ id }: { id: string }) {
               <div style={{ marginTop: 28 }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
                   <div>
-                    <h1
-                      style={{
-                        fontSize: 34,
-                        fontWeight: 900,
-                        color: "var(--ink, #0f172a)",
-                        margin: 0,
-                        letterSpacing: "-0.5px",
-                      }}
-                    >
-                      {formatKES(listing.price)}
-                    </h1>
+                    <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
+                      <h1
+                        style={{
+                          fontSize: 34,
+                          fontWeight: 900,
+                          color: "var(--ink, #0f172a)",
+                          margin: 0,
+                          letterSpacing: "-0.5px",
+                        }}
+                      >
+                        {formatKES(listing.price)}
+                      </h1>
+                      {Number(listing.price) > 0 && (
+                        <span style={{ fontSize: 16, fontWeight: 700, color: "var(--ink3, #64748b)" }}>
+                          (~{formatUSD(listing.price)})
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: 13, color: "var(--ink3, #64748b)", marginTop: 2 }}>
                       Direct Developer Pricing · Zero Intermediary Markup
                     </div>

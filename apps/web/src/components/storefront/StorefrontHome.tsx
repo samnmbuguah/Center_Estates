@@ -21,7 +21,7 @@ import { MarketingLayout } from "@/components/monitoring/pages/MarketingLayout";
 import { ListingsBrowser, UNIT_TYPES, formatKES } from "./ListingsBrowser";
 import type { PublicProject } from "./ProjectsPage";
 
-export { formatKES } from "./ListingsBrowser";
+export { formatKES, formatUSD } from "./ListingsBrowser";
 export type { PublicListing } from "./ListingsBrowser";
 
 const CATEGORIES = [

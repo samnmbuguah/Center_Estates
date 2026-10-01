@@ -31,6 +31,12 @@ export function formatKES(value: string | number): string {
   return new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 }).format(amount);
 }
 
+export function formatUSD(value: string | number): string {
+  const amount = Number(value ?? 0);
+  if (!Number.isFinite(amount) || amount <= 0) return "—";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(Math.round(amount / 129));
+}
+
 export async function fetchListings(params: ListingFilters): Promise<PublicListing[]> {
   const query = new URLSearchParams();
   const search = (params.search ?? "").trim();
@@ -141,8 +147,15 @@ export function ListingCard({ listing }: { listing: PublicListing }) {
 
       {/* Content */}
       <div style={{ padding: 18, flex: 1, display: "flex", flexDirection: "column" }}>
-        <div style={{ fontWeight: 900, fontSize: 20, color: "var(--brand, #b91c1c)", letterSpacing: "-0.5px" }}>
-          {formatKES(listing.price)}
+        <div style={{ display: "flex", alignItems: "baseline", flexWrap: "wrap", gap: 6 }}>
+          <span style={{ fontWeight: 900, fontSize: 20, color: "var(--brand, #b91c1c)", letterSpacing: "-0.5px" }}>
+            {formatKES(listing.price)}
+          </span>
+          {Number(listing.price) > 0 && (
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink3, #64748b)" }}>
+              (~{formatUSD(listing.price)})
+            </span>
+          )}
         </div>
 
         <div style={{ fontWeight: 800, fontSize: 16, marginTop: 4, color: "var(--ink, #0f172a)" }}>
