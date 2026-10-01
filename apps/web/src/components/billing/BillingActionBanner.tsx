@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { Box, Button, IconButton, Menu, MenuItem, Paper, Step, StepLabel, Stepper, Tooltip, Typography } from "@mui/material";
-import { Droplets, FilePlus2, HandCoins, MoreHorizontal, RotateCcw, Send } from "lucide-react";
+import { Droplets, FilePlus2, Gauge, HandCoins, MoreHorizontal, RotateCcw, Send, Zap } from "lucide-react";
 import { CHARGE_TYPE_LABEL, InvoiceChargeType } from "./types";
 
 export function BillingActionBanner({
   hasRun, isPreparing, isReview, formattedMonth, ready, selectedCount,
   chargeTypeFilter = "all", billingTarget = "tenant", blockingOpen, busy,
-  pendingWaterCount = 0, onLogMeters,
+  pendingWaterCount = 0, onLogMeters, onBatchReadings,
   canFinance, onInitialize, onRecheck, onGenerate, onSingleInvoice, onLettingFeeInvoice,
 }: {
   hasRun: boolean; isPreparing: boolean; isReview: boolean; isApproved: boolean;
@@ -16,7 +16,7 @@ export function BillingActionBanner({
   chargeTypeFilter?: InvoiceChargeType | "all"; billingTarget?: "tenant" | "landlord";
   typeCounts?: Record<string, number>; onChargeTypeFilter?: (t: InvoiceChargeType | "all") => void;
   blockingOpen: boolean; busy: string; canFinance: boolean; canApprove: boolean;
-  pendingWaterCount?: number; onLogMeters?: () => void;
+  pendingWaterCount?: number; onLogMeters?: () => void; onBatchReadings?: () => void;
   onInitialize: () => void; onRecheck: () => void; onApprove: () => void;
   onGenerate: () => void; onSingleInvoice: () => void;
   onLettingFeeInvoice?: () => void;
@@ -91,16 +91,39 @@ export function BillingActionBanner({
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "var(--color-amber-deep)" }}>
-            <Droplets size={15} color="var(--color-warning)" />
+            <Gauge size={16} color="var(--color-warning)" />
             <span>
-              <strong>{pendingWaterCount} candidate{pendingWaterCount === 1 ? "" : "s"} on hold:</strong> Utility meter readings must be recorded before rent or utilities can be billed (Consolidated Invoicing Policy).
+              <strong>{pendingWaterCount} candidate{pendingWaterCount === 1 ? "" : "s"} on hold:</strong> Utility meter readings (water 💧 / electricity ⚡) must be recorded before rent or utilities can be billed (Consolidated Invoicing Policy).
             </span>
           </Box>
-          {onLogMeters && (
-            <Button size="small" onClick={onLogMeters} sx={{ fontSize: 11, py: 0.2, fontWeight: 700, color: "var(--color-amber-deep)", textTransform: "none" }}>
-              Log in Facility →
-            </Button>
-          )}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {onBatchReadings && (
+              <Button
+                size="small"
+                variant="contained"
+                onClick={onBatchReadings}
+                startIcon={<Gauge size={14} />}
+                sx={{
+                  fontSize: 11,
+                  py: 0.3,
+                  px: 1.5,
+                  fontWeight: 700,
+                  background: "linear-gradient(135deg, #d97706 0%, #f59e0b 100%)",
+                  color: "#fff",
+                  textTransform: "none",
+                  boxShadow: "0 2px 4px rgba(245,158,11,0.25)",
+                  "&:hover": { background: "#d97706" },
+                }}
+              >
+                Record All Readings
+              </Button>
+            )}
+            {onLogMeters && (
+              <Button size="small" onClick={onLogMeters} sx={{ fontSize: 11, py: 0.2, fontWeight: 700, color: "var(--color-amber-deep)", textTransform: "none" }}>
+                Log in Facility →
+              </Button>
+            )}
+          </Box>
         </Box>
       )}
     </Paper>

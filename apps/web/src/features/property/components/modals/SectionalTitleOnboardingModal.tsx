@@ -42,6 +42,7 @@ interface UnitItem {
   management_mandate: "both" | "rental_management" | "common_area_only" | "none";
   service_charge_payer: "owner" | "tenant";
   water_payer: "tenant" | "owner";
+  electricity_payer?: "tenant" | "owner";
   rental_commission_rate: string;
   common_area_fee_amount: string;
   letting_fee_amount: string;
@@ -161,6 +162,7 @@ export function SectionalTitleOnboardingModal({
       management_mandate: "both",
       service_charge_payer: "owner",
       water_payer: "tenant",
+      electricity_payer: "tenant",
       rental_commission_rate: "10.00",
       common_area_fee_amount: "5000.00",
       letting_fee_amount: "0.00",
@@ -268,6 +270,7 @@ export function SectionalTitleOnboardingModal({
         management_mandate: quickMandate,
         service_charge_payer: "owner",
         water_payer: "tenant",
+        electricity_payer: "tenant",
         rental_commission_rate: "10.00",
         common_area_fee_amount: "5000.00",
         letting_fee_amount: "0.00",
@@ -379,6 +382,7 @@ export function SectionalTitleOnboardingModal({
           management_mandate: u.management_mandate,
           service_charge_payer: u.service_charge_payer,
           water_payer: u.water_payer,
+          electricity_payer: u.electricity_payer || "tenant",
           rental_commission_rate: u.rental_commission_rate || "10.00",
           common_area_fee_amount: u.common_area_fee_amount || "0.00",
           letting_fee_amount: u.letting_fee_amount || "0.00",

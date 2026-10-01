@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, FormEvent } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import { usePropertyContext } from "@/lib/property-context";
+import { BatchMeterReadingWizard } from "@/components/billing/BatchMeterReadingWizard";
 import {
   Alert,
   Button,
@@ -218,6 +219,7 @@ export function CaretakerPortalPage() {
 
   // Dialog states
   const [activeModal, setActiveModal] = useState<"job-card" | "appraisal" | "handover" | "incident" | "meter-reading" | null>(null);
+  const [batchWizardOpen, setBatchWizardOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Row | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
 
@@ -1115,6 +1117,14 @@ export function CaretakerPortalPage() {
                     }}
                     sx={{ width: 220 }}
                   />
+                  <Button
+                    variant="contained"
+                    startIcon={<Gauge size={15} />}
+                    onClick={() => setBatchWizardOpen(true)}
+                    sx={{ fontWeight: 800, background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)", textTransform: "none" }}
+                  >
+                    Batch Walkthrough
+                  </Button>
                   <Button
                     variant="contained"
                     startIcon={<Plus size={15} />}
@@ -2139,6 +2149,15 @@ export function CaretakerPortalPage() {
           </DialogActions>
         </form>
       </Dialog>
+
+      <BatchMeterReadingWizard
+        open={batchWizardOpen}
+        onClose={() => setBatchWizardOpen(false)}
+        propertyId={activeProperty?.id}
+        onComplete={async () => {
+          await loadData();
+        }}
+      />
     </div>
   );
 }

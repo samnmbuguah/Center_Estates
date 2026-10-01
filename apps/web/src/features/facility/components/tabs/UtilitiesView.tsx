@@ -2,15 +2,18 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Box, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
+import { Gauge } from "lucide-react";
 import { Field, Modal } from "@/components/module-ui";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
+import { BatchMeterReadingWizard } from "@/components/billing/BatchMeterReadingWizard";
 import { Row } from "../../types/facility.types";
 import { FcStatus } from "../FacilityToolbar";
 
-function PanelHeader({ title }: { title: string }) {
+function PanelHeader({ title, action }: { title: string; action?: React.ReactNode }) {
   return (
-    <Box sx={{ p: "12px 18px", borderBottom: "1px solid var(--border)", background: "#f8fafc" }}>
+    <Box sx={{ p: "12px 18px", borderBottom: "1px solid var(--border)", background: "#f8fafc", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "var(--text-primary)" }}>{title}</Typography>
+      {action}
     </Box>
   );
 }
@@ -51,6 +54,7 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
   rows: Row[]; kpis: Record<string, string | number>; organizationId: string | null; canWork: boolean; canApprove: boolean; canAdminister: boolean; reload: () => Promise<void>;
 }) {
   const [subTab, setSubTab] = useState("overview");
+  const [batchWizardOpen, setBatchWizardOpen] = useState(false);
   const [readingMeter, setReadingMeter] = useState<Row | null>(null);
   const [reviewTarget, setReviewTarget] = useState<{ reading: Row; decision: "approve" | "reject" } | null>(null);
   const [rateMeter, setRateMeter] = useState<Row | null>(null);
@@ -361,7 +365,32 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
         <div style={{ display: "grid", gap: 16 }}>
           {/* Meter readings table */}
           <article className="data-panel">
-            <PanelHeader title="Latest Meter Readings" />
+            <PanelHeader
+              title="Latest Meter Readings"
+              action={
+                canWork ? (
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => setBatchWizardOpen(true)}
+                    startIcon={<Gauge size={14} />}
+                    sx={{
+                      fontSize: 11,
+                      py: 0.3,
+                      px: 1.5,
+                      fontWeight: 700,
+                      background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)",
+                      color: "#fff",
+                      textTransform: "none",
+                      boxShadow: "0 2px 4px rgba(37,99,235,0.2)",
+                      "&:hover": { background: "#1e3a5f" },
+                    }}
+                  >
+                    Batch Reading Wizard
+                  </Button>
+                ) : undefined
+              }
+            />
             <TableContainer>
               <Table size="small">
                 <TableHead>
@@ -561,6 +590,13 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
           </form>
         </Modal>
       )}
+      <BatchMeterReadingWizard
+        open={batchWizardOpen}
+        onClose={() => setBatchWizardOpen(false)}
+        onComplete={async () => {
+          await reload();
+        }}
+      />
     </>
   );
 }

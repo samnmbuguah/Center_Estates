@@ -14,6 +14,7 @@ import { CandidateTable } from "./billing/CandidateTable";
 import { CandidatePreviewDrawer } from "./billing/CandidatePreviewDrawer";
 import { OverrideDialog } from "./billing/OverrideDialog";
 import { QuickRecordMeterModal } from "./billing/QuickRecordMeterModal";
+import { BatchMeterReadingWizard } from "./billing/BatchMeterReadingWizard";
 import { missingMeterUtilityType } from "./billing/types";
 import { LettingFeeModal } from "@/features/property/components/modals/LettingFeeModal";
 
@@ -59,6 +60,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
   const [overrideIssue, setOverrideIssue] = useState<BillingIssue | null>(null);
   const [overrideNotes, setOverrideNotes] = useState("");
   const [lettingModalOpen, setLettingModalOpen] = useState(false);
+  const [batchReadingsOpen, setBatchReadingsOpen] = useState(false);
 
   const canFinance = can("property.finance");
   const canApprove = can("property.approve");
@@ -868,6 +870,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         typeCounts={typeCounts}
         pendingWaterCount={rawCandidates.filter((c) => isMissingWaterReading(c)).length}
         onLogMeters={() => onNavigate("meters")}
+        onBatchReadings={() => setBatchReadingsOpen(true)}
         onChargeTypeFilter={(t: InvoiceChargeType | "all") => {
           setChargeTypeFilter(t);
           const matching = rawCandidates.filter((c) => isCandidateReady(c, t)).map((c) => c.id);
@@ -968,6 +971,19 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         onSuccess={() => {
           setLandlordFeeType("letting");
           void load();
+        }}
+      />
+
+      <BatchMeterReadingWizard
+        open={batchReadingsOpen}
+        onClose={() => setBatchReadingsOpen(false)}
+        periodStart={run?.period_start ?? period_start}
+        periodEnd={run?.period_end ?? period_end}
+        propertyId={properties[0]?.id}
+        onComplete={async () => {
+          setNotice("All meter readings recorded! Refreshing billing queue…");
+          await mutate("prepare");
+          await load();
         }}
       />
     </Box>

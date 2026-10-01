@@ -109,6 +109,7 @@ export function LeasesView({
   const [editInterval, setEditInterval] = useState("12");
   const [editBillingDay, setEditBillingDay] = useState("1");
   const [editWaterPayer, setEditWaterPayer] = useState("tenant");
+  const [editElecPayer, setEditElecPayer] = useState("tenant");
   const [editWaterLoading, setEditWaterLoading] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState("");
@@ -170,6 +171,8 @@ export function LeasesView({
 
     const initialWaterPayer = (l as any).unit_water_payer || (l as any).unit?.water_payer || (l as any).water_payer || "tenant";
     setEditWaterPayer(String(initialWaterPayer));
+    const initialElecPayer = (l as any).unit_electricity_payer || (l as any).unit?.electricity_payer || (l as any).electricity_payer || "tenant";
+    setEditElecPayer(String(initialElecPayer));
     if (l.unit) {
       setEditWaterLoading(true);
       apiFetch(`/property/units/${l.unit}/`, {}, org)
@@ -177,6 +180,9 @@ export function LeasesView({
         .then((data) => {
           if (data?.water_payer) {
             setEditWaterPayer(String(data.water_payer));
+          }
+          if (data?.electricity_payer) {
+            setEditElecPayer(String(data.electricity_payer));
           }
         })
         .catch(() => null)
@@ -225,7 +231,7 @@ export function LeasesView({
           await apiFetch(`/property/units/${editTarget.unit}/`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ water_payer: editWaterPayer }),
+            body: JSON.stringify({ water_payer: editWaterPayer, electricity_payer: editElecPayer }),
           }, org).catch(() => null);
         }
         setEditTarget(null);
@@ -947,7 +953,7 @@ export function LeasesView({
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)", display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>💧</span> Water & Utility Billing Setup ({editTarget.unit_code || "Unit"})
+                  <span>💧</span> Water Billing ({editTarget.unit_code || "Unit"})
                 </span>
                 {editWaterLoading && <span style={{ fontSize: 11, color: "var(--muted)" }}>Loading unit settings…</span>}
               </div>
@@ -973,14 +979,58 @@ export function LeasesView({
 
               <div style={{ fontSize: 11, lineHeight: 1.4, color: editWaterPayer === "owner" ? "var(--color-emerald, #10b981)" : "var(--color-amber-deep, #b45309)" }}>
                 {editWaterPayer === "owner" ? (
-                  <>
-                    <div>✓ <strong>Water covered in Service Charge or Landlord Account:</strong> Meter readings will NOT hold or block monthly rent generation.</div>
-                    <div style={{ marginTop: 3, opacity: 0.85 }}>⚡ <em>Note on Electricity:</em> Tenants continue to pay their own electricity directly (e.g. KPLC tokens/meters) without affecting rent billing.</div>
-                  </>
+                  <div>✓ <strong>Water covered in Service Charge or Landlord Account:</strong> Meter readings will NOT hold or block monthly rent generation.</div>
                 ) : (
                   <>
                     <div>⚠️ <strong>Tenant pays separate Water Sub-Meter:</strong> Rent invoices will be held until the unit's water meter reading is recorded.</div>
                     <div style={{ marginTop: 3, opacity: 0.85 }}>💡 <em>Tip:</em> If water is paid by the landlord and recovered through the <strong>Service Charge</strong>, select <strong>"Included in Service Charge / Landlord Pays"</strong> above to unblock rent invoicing.</div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Electricity Billing Responsibility */}
+            <div
+              style={{
+                padding: "12px 14px",
+                borderRadius: 8,
+                background: editElecPayer === "owner" ? "rgba(16, 185, 129, 0.08)" : "rgba(251, 191, 36, 0.08)",
+                border: editElecPayer === "owner" ? "1px solid rgba(16, 185, 129, 0.3)" : "1px solid rgba(251, 191, 36, 0.3)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+              }}
+            >
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)", display: "flex", alignItems: "center", gap: 6 }}>
+                <span>⚡</span> Electricity Billing ({editTarget.unit_code || "Unit"})
+              </span>
+
+              <Field label="How are Electricity charges billed for this unit?">
+                <select
+                  value={editElecPayer}
+                  onChange={(e) => setEditElecPayer(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 10px",
+                    borderRadius: 6,
+                    border: "1px solid var(--border)",
+                    background: "var(--surface)",
+                    fontSize: 13,
+                    color: "var(--text-main)",
+                  }}
+                >
+                  <option value="tenant">Tenant via Electricity Sub-Meter (Old manual meter — requires monthly reading, holds rent)</option>
+                  <option value="owner">Tenant pays directly / KPLC Token / Landlord Pays (No reading needed — rent is NEVER held)</option>
+                </select>
+              </Field>
+
+              <div style={{ fontSize: 11, lineHeight: 1.4, color: editElecPayer === "owner" ? "var(--color-emerald, #10b981)" : "var(--color-amber-deep, #b45309)" }}>
+                {editElecPayer === "owner" ? (
+                  <div>✓ <strong>Electricity is prepaid (KPLC tokens) or included in Service Charge:</strong> No electricity meter reading needed. Rent will NOT be held.</div>
+                ) : (
+                  <>
+                    <div>⚠️ <strong>Tenant pays via old postpaid electricity sub-meter:</strong> Rent invoices will be held until the electricity meter reading is recorded and approved.</div>
+                    <div style={{ marginTop: 3, opacity: 0.85 }}>💡 <em>Tip:</em> If tenants buy their own KPLC tokens (prepaid), select <strong>"Tenant pays directly / KPLC Token"</strong> above — no readings needed.</div>
                   </>
                 )}
               </div>
