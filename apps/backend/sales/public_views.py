@@ -70,6 +70,7 @@ def serialize_listing(listing, *, detail=False):
     payload = {
         'id': str(listing.id),
         'project': {
+            'id': str(project.id),
             'name': project.name,
             'location': _location(prop),
         },

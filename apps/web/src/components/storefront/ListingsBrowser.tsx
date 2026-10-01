@@ -6,7 +6,7 @@ import { Bed, Layers, MapPin, Maximize2, Sparkles, Building2 } from "lucide-reac
 
 export type PublicListing = {
   id: string;
-  project: { name: string; location: string; description?: string };
+  project: { id?: string; name: string; location: string; description?: string };
   unit: { code: string; type: string; floor: string; area: string | null; bedrooms: number | null };
   price: string;
   minimum_deposit_percent: string;
