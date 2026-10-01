@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { Bed, Layers, MapPin, Maximize2, Sparkles, Building2 } from "lucide-react";
 
 export type PublicListing = {
   id: string;
@@ -30,7 +31,7 @@ export function formatKES(value: string | number): string {
   return new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 }).format(amount);
 }
 
-async function fetchListings(params: ListingFilters): Promise<PublicListing[]> {
+export async function fetchListings(params: ListingFilters): Promise<PublicListing[]> {
   const query = new URLSearchParams();
   const search = (params.search ?? "").trim();
   const minPrice = (params.minPrice ?? "").trim();
@@ -50,45 +51,167 @@ async function fetchListings(params: ListingFilters): Promise<PublicListing[]> {
 
 function bedroomLabel(count: number | null): string | null {
   if (count === null || count === undefined) return null;
-  return count === 0 ? "Studio" : `${count} bed`;
+  return count === 0 ? "Studio" : `${count} Bed${count === 1 ? "" : "s"}`;
 }
 
-function ListingCard({ listing }: { listing: PublicListing }) {
+export function ListingCard({ listing }: { listing: PublicListing }) {
   const image = listing.images.find((img) => img.primary) ?? listing.images[0];
   const beds = bedroomLabel(listing.unit.bedrooms);
   return (
     <Link
       href={`/listings/${listing.id}`}
-      style={{ display: "block", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", background: "var(--surface)", textDecoration: "none", color: "inherit", position: "relative" }}
+      className="storefront-listing-card"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        border: "1px solid var(--border)",
+        borderRadius: 16,
+        overflow: "hidden",
+        background: "var(--surface)",
+        textDecoration: "none",
+        color: "inherit",
+        position: "relative",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease",
+      }}
     >
-      {listing.is_featured && (
-        <span style={{ position: "absolute", top: 10, left: 10, zIndex: 1, background: "var(--primary)", color: "#fff", fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 20 }}>
-          ★ Featured
+      {/* Badges */}
+      <div style={{ position: "absolute", top: 12, left: 12, zIndex: 2, display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {listing.is_featured && (
+          <span
+            style={{
+              background: "linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)",
+              color: "#fff",
+              fontSize: 11,
+              fontWeight: 800,
+              padding: "4px 10px",
+              borderRadius: 20,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              boxShadow: "0 2px 6px rgba(185,28,28,0.3)",
+            }}
+          >
+            <Sparkles size={11} /> Featured
+          </span>
+        )}
+        <span
+          style={{
+            background: "rgba(15, 23, 42, 0.75)",
+            backdropFilter: "blur(6px)",
+            color: "#fff",
+            fontSize: 11,
+            fontWeight: 700,
+            padding: "4px 10px",
+            borderRadius: 20,
+          }}
+        >
+          {listing.status === "available" ? "For Sale" : listing.status.replace(/_/g, " ").toUpperCase()}
         </span>
-      )}
-      <div style={{ aspectRatio: "16/10", background: "var(--color-sky-bg, #e0f2fe)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+      </div>
+
+      {/* Image container */}
+      <div
+        style={{
+          aspectRatio: "16/10",
+          background: "linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={image.url} alt={listing.unit.code} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <img
+            src={image.url}
+            alt={listing.unit.code}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              transition: "transform 0.3s ease",
+            }}
+          />
         ) : (
-          <span style={{ fontSize: 40 }}>🏢</span>
+          <Building2 size={44} color="#94a3b8" />
         )}
       </div>
-      <div style={{ padding: 16 }}>
-        <div style={{ fontWeight: 800, fontSize: 18, color: "var(--primary)" }}>{formatKES(listing.price)}</div>
-        <div style={{ fontWeight: 700, marginTop: 4 }}>{listing.unit.type || "Unit"} · {listing.unit.code}</div>
-        <div className="muted" style={{ fontSize: 13 }}>{listing.project.name}{listing.project.location ? ` · ${listing.project.location}` : ""}</div>
-        <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-          {[beds, listing.unit.area ? `${listing.unit.area} sqft` : null, listing.unit.floor ? `Floor ${listing.unit.floor}` : null].filter(Boolean).join(" · ") || "—"}
+
+      {/* Content */}
+      <div style={{ padding: 18, flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={{ fontWeight: 900, fontSize: 20, color: "var(--brand, #b91c1c)", letterSpacing: "-0.5px" }}>
+          {formatKES(listing.price)}
+        </div>
+
+        <div style={{ fontWeight: 800, fontSize: 16, marginTop: 4, color: "var(--ink, #0f172a)" }}>
+          {listing.unit.type || "Unit"} · {listing.unit.code}
+        </div>
+
+        <div
+          style={{
+            fontSize: 13,
+            color: "var(--ink3, #64748b)",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            marginTop: 4,
+          }}
+        >
+          <MapPin size={13} style={{ flexShrink: 0 }} />
+          <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {listing.project.name}
+            {listing.project.location ? ` · ${listing.project.location}` : ""}
+          </span>
+        </div>
+
+        {/* Specs bar */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            marginTop: 14,
+            paddingTop: 12,
+            borderTop: "1px solid var(--border)",
+            fontSize: 12,
+            color: "var(--ink2, #334155)",
+            flexWrap: "wrap",
+          }}
+        >
+          {beds && (
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <Bed size={14} color="#64748b" /> {beds}
+            </span>
+          )}
+          {listing.unit.area && (
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <Maximize2 size={13} color="#64748b" /> {listing.unit.area} sqft
+            </span>
+          )}
+          {listing.unit.floor && (
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <Layers size={13} color="#64748b" /> Fl. {listing.unit.floor}
+            </span>
+          )}
         </div>
       </div>
     </Link>
   );
 }
 
-const UNIT_TYPES = ["Apartment", "Bedsitter", "Studio", "Maisonette", "Villa", "Townhouse", "Office", "Retail", "Land"];
+export const UNIT_TYPES = ["Apartment", "Bedsitter", "Studio", "Maisonette", "Villa", "Townhouse", "Office", "Retail", "Land"];
 
-export function ListingsBrowser({ initial = {}, autoFocus = false }: { initial?: ListingFilters; autoFocus?: boolean }) {
+export function ListingsBrowser({
+  initial = {},
+  autoFocus = false,
+  hideFilters = false,
+}: {
+  initial?: ListingFilters;
+  autoFocus?: boolean;
+  hideFilters?: boolean;
+}) {
   const [search, setSearch] = useState(initial.search ?? "");
   const [minPrice, setMinPrice] = useState(initial.minPrice ?? "");
   const [maxPrice, setMaxPrice] = useState(initial.maxPrice ?? "");
@@ -98,6 +221,14 @@ export function ListingsBrowser({ initial = {}, autoFocus = false }: { initial?:
   const [listings, setListings] = useState<PublicListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
+
+  // Sync state if initial props change
+  useEffect(() => {
+    if (initial.type !== undefined) setUnitType(initial.type);
+    if (initial.location !== undefined) setLocation(initial.location);
+    if (initial.search !== undefined) setSearch(initial.search);
+    if (initial.project !== undefined) setProject(initial.project);
+  }, [initial.type, initial.location, initial.search, initial.project]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,11 +253,12 @@ export function ListingsBrowser({ initial = {}, autoFocus = false }: { initial?:
 
   return (
     <>
-      <section style={{ padding: "0 20px 8px", display: "flex", justifyContent: "center" }}>
-        <form
-          onSubmit={(event) => { event.preventDefault(); void load(); }}
-          style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", width: "100%", maxWidth: 980 }}
-        >
+      {!hideFilters && (
+        <section style={{ padding: "0 20px 8px", display: "flex", justifyContent: "center" }}>
+          <form
+            onSubmit={(event) => { event.preventDefault(); void load(); }}
+            style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", width: "100%", maxWidth: 980 }}
+          >
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -175,6 +307,7 @@ export function ListingsBrowser({ initial = {}, autoFocus = false }: { initial?:
           </p>
         )}
       </section>
+      )}
 
       <section style={{ maxWidth: 1180, margin: "0 auto", padding: "8px 20px 64px" }}>
         {loading ? (
