@@ -2,10 +2,12 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Box, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@mui/material";
-import { Gauge } from "lucide-react";
+import { Gauge, Plus, Upload } from "lucide-react";
 import { Field, Modal } from "@/components/module-ui";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { BatchMeterReadingWizard } from "@/components/billing/BatchMeterReadingWizard";
+import { LinkMeterModal } from "@/components/billing/LinkMeterModal";
+import { BulkMeterUploadModal } from "@/components/billing/BulkMeterUploadModal";
 import { Row } from "../../types/facility.types";
 import { FcStatus } from "../FacilityToolbar";
 
@@ -55,6 +57,8 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
 }) {
   const [subTab, setSubTab] = useState("overview");
   const [batchWizardOpen, setBatchWizardOpen] = useState(false);
+  const [linkMeterOpen, setLinkMeterOpen] = useState(false);
+  const [bulkMeterOpen, setBulkMeterOpen] = useState(false);
   const [readingMeter, setReadingMeter] = useState<Row | null>(null);
   const [reviewTarget, setReviewTarget] = useState<{ reading: Row; decision: "approve" | "reject" } | null>(null);
   const [rateMeter, setRateMeter] = useState<Row | null>(null);
@@ -368,27 +372,66 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
             <PanelHeader
               title="Latest Meter Readings"
               action={
-                canWork ? (
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={() => setBatchWizardOpen(true)}
-                    startIcon={<Gauge size={14} />}
-                    sx={{
-                      fontSize: 11,
-                      py: 0.3,
-                      px: 1.5,
-                      fontWeight: 700,
-                      background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)",
-                      color: "#fff",
-                      textTransform: "none",
-                      boxShadow: "0 2px 4px rgba(37,99,235,0.2)",
-                      "&:hover": { background: "#1e3a5f" },
-                    }}
-                  >
-                    Batch Reading Wizard
-                  </Button>
-                ) : undefined
+                <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+                  {canAdminister && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setLinkMeterOpen(true)}
+                      startIcon={<Plus size={14} />}
+                      sx={{
+                        fontSize: 11,
+                        py: 0.3,
+                        px: 1.2,
+                        fontWeight: 700,
+                        textTransform: "none",
+                        borderColor: "var(--brand, #b91c1c)",
+                        color: "var(--brand, #b91c1c)",
+                        "&:hover": { background: "var(--brand-light, #fce8e8)", borderColor: "var(--brand, #b91c1c)" },
+                      }}
+                    >
+                      + Link Meter
+                    </Button>
+                  )}
+                  {canAdminister && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setBulkMeterOpen(true)}
+                      startIcon={<Upload size={14} />}
+                      sx={{
+                        fontSize: 11,
+                        py: 0.3,
+                        px: 1.2,
+                        fontWeight: 700,
+                        textTransform: "none",
+                      }}
+                    >
+                      Bulk CSV
+                    </Button>
+                  )}
+                  {canWork && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={() => setBatchWizardOpen(true)}
+                      startIcon={<Gauge size={14} />}
+                      sx={{
+                        fontSize: 11,
+                        py: 0.3,
+                        px: 1.5,
+                        fontWeight: 700,
+                        background: "linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)",
+                        color: "#fff",
+                        textTransform: "none",
+                        boxShadow: "0 2px 4px rgba(37,99,235,0.2)",
+                        "&:hover": { background: "#1e3a5f" },
+                      }}
+                    >
+                      Batch Reading Wizard
+                    </Button>
+                  )}
+                </Box>
               }
             />
             <TableContainer>
@@ -596,6 +639,16 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
         onComplete={async () => {
           await reload();
         }}
+      />
+      <LinkMeterModal
+        open={linkMeterOpen}
+        onClose={() => setLinkMeterOpen(false)}
+        onSuccess={() => void reload()}
+      />
+      <BulkMeterUploadModal
+        open={bulkMeterOpen}
+        onClose={() => setBulkMeterOpen(false)}
+        onSuccess={() => void reload()}
       />
     </>
   );

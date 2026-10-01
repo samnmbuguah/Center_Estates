@@ -2085,6 +2085,154 @@ class UnitViewSet(OrganizationModelViewSet):
         updated = qs.update(unit_type=unit_type)
         return Response({'updated': updated, 'unit_type': unit_type})
 
+    @action(detail=True, methods=('post', 'patch'), url_path='link-meter')
+    @transaction.atomic
+    def link_meter(self, request, pk=None):
+        """Link or update an electricity or water meter for this unit."""
+        unit = self.get_object()
+        from facilities.models import UtilityMeter, MeterReading
+        meter_code = str(request.data.get('meter_code') or request.data.get('code') or '').strip()
+        utility_type = str(request.data.get('utility_type') or 'electricity').strip().lower()
+        if not meter_code:
+            raise ValidationError({'meter_code': 'Meter serial number or code is required.'})
+
+        tariff = request.data.get('tariff')
+        if tariff is None or str(tariff).strip() == '':
+            tariff = Decimal('24.50') if utility_type == 'electricity' else Decimal('150.00')
+        else:
+            tariff = Decimal(str(tariff))
+
+        meter_name = str(request.data.get('name') or f"Unit {unit.code} {utility_type.title()} Meter").strip()
+        location = str(request.data.get('location') or f"Unit {unit.code}").strip()
+        initial_reading = request.data.get('initial_reading')
+
+        meter, created = UtilityMeter.objects.update_or_create(
+            organization=unit.organization,
+            code=meter_code,
+            defaults={
+                'name': meter_name,
+                'property': unit.property,
+                'property_unit': unit,
+                'utility_type': utility_type,
+                'tariff': tariff,
+                'location': location,
+                'is_active': True,
+                'unit': 'kWh' if utility_type == 'electricity' else 'm³',
+            }
+        )
+
+        if initial_reading is not None and str(initial_reading).strip() != '':
+            read_val = Decimal(str(initial_reading))
+            now = timezone.now()
+            MeterReading.objects.get_or_create(
+                organization=unit.organization,
+                meter=meter,
+                read_at=now,
+                defaults={
+                    'value': read_val,
+                    'previous_value': read_val,
+                    'consumption': Decimal(0),
+                    'cost': Decimal(0),
+                    'status': MeterReading.Status.APPROVED,
+                    'notes': 'Baseline onboarding meter reading',
+                }
+            )
+
+        return Response({
+            'status': 'ok',
+            'created': created,
+            'meter': {
+                'id': str(meter.id),
+                'code': meter.code,
+                'name': meter.name,
+                'utility_type': meter.utility_type,
+                'tariff': str(meter.tariff),
+                'unit_code': unit.code,
+            }
+        })
+
+    @action(detail=False, methods=('post',), url_path='bulk-meters')
+    @transaction.atomic
+    def bulk_meters(self, request):
+        """Bulk link electricity/water meters to units by unit_code."""
+        from facilities.models import UtilityMeter, MeterReading
+        organization = get_active_organization(request)
+        property_record = get_active_property(request, organization)
+        if not property_record:
+            raise ValidationError({'property': 'Please select an active property.'})
+
+        rows = request.data.get('rows')
+        if not isinstance(rows, list) or not rows:
+            raise ValidationError({'rows': 'Provide a list of meter rows.'})
+
+        unit_map = {u.code.upper(): u for u in property_record.units.all()}
+        created_count = 0
+        updated_count = 0
+        now = timezone.now()
+
+        for row in rows:
+            unit_code = str((row or {}).get('unit_code') or '').strip().upper()
+            meter_code = str((row or {}).get('meter_number') or (row or {}).get('meter_code') or '').strip()
+            utility_type = str((row or {}).get('utility_type') or 'electricity').strip().lower()
+            if not unit_code or not meter_code:
+                continue
+
+            unit = unit_map.get(unit_code)
+            if not unit:
+                continue
+
+            raw_tariff = (row or {}).get('tariff')
+            if raw_tariff is None or str(raw_tariff).strip() == '':
+                tariff = Decimal('24.50') if utility_type == 'electricity' else Decimal('150.00')
+            else:
+                tariff = Decimal(str(raw_tariff))
+
+            meter_name = str((row or {}).get('name') or f"Unit {unit.code} {utility_type.title()} Meter").strip()
+            location = str((row or {}).get('location') or f"Unit {unit.code}").strip()
+
+            meter, created = UtilityMeter.objects.update_or_create(
+                organization=organization,
+                code=meter_code,
+                defaults={
+                    'name': meter_name,
+                    'property': property_record,
+                    'property_unit': unit,
+                    'utility_type': utility_type,
+                    'tariff': tariff,
+                    'location': location,
+                    'is_active': True,
+                    'unit': 'kWh' if utility_type == 'electricity' else 'm³',
+                }
+            )
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+
+            initial_reading = (row or {}).get('initial_reading')
+            if initial_reading is not None and str(initial_reading).strip() != '':
+                read_val = Decimal(str(initial_reading))
+                MeterReading.objects.get_or_create(
+                    organization=organization,
+                    meter=meter,
+                    read_at=now,
+                    defaults={
+                        'value': read_val,
+                        'previous_value': read_val,
+                        'consumption': Decimal(0),
+                        'cost': Decimal(0),
+                        'status': MeterReading.Status.APPROVED,
+                        'notes': 'Baseline onboarding meter reading',
+                    }
+                )
+
+        return Response({
+            'status': 'ok',
+            'created_count': created_count,
+            'updated_count': updated_count,
+            'total': created_count + updated_count,
+        })
+
     @action(detail=False, methods=('post',), url_path='bulk-service-charges')
     @transaction.atomic
     def bulk_service_charges(self, request):

@@ -339,6 +339,16 @@ class UnitSerializer(serializers.ModelSerializer):
     occupancy_state = serializers.SerializerMethodField()
     occupancy_state_display = serializers.SerializerMethodField()
     billing_isolation = serializers.SerializerMethodField()
+    electricity_meter = serializers.SerializerMethodField()
+    water_meter = serializers.SerializerMethodField()
+
+    def get_electricity_meter(self, obj):
+        meter = obj.utility_meters.filter(utility_type='electricity', is_active=True).first()
+        return {'id': str(meter.id), 'code': meter.code, 'name': meter.name, 'tariff': str(meter.tariff)} if meter else None
+
+    def get_water_meter(self, obj):
+        meter = obj.utility_meters.filter(utility_type='water', is_active=True).first()
+        return {'id': str(meter.id), 'code': meter.code, 'name': meter.name, 'tariff': str(meter.tariff)} if meter else None
 
     class Meta:
         model = Unit

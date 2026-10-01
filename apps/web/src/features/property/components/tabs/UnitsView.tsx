@@ -66,6 +66,9 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
   const [singleTypologyInput, setSingleTypologyInput] = useState<string>("");
   const [singleAreaInput, setSingleAreaInput] = useState<string>("");
   const [singleWaterPayerInput, setSingleWaterPayerInput] = useState<string>("tenant");
+  const [singleElecPayerInput, setSingleElecPayerInput] = useState<string>("tenant");
+  const [singleElecMeterInput, setSingleElecMeterInput] = useState<string>("");
+  const [singleWaterMeterInput, setSingleWaterMeterInput] = useState<string>("");
   const [singleScPayerInput, setSingleScPayerInput] = useState<string>("owner");
   const [isSingleUpdating, setIsSingleUpdating] = useState<boolean>(false);
   const [chargeImportOpen, setChargeImportOpen] = useState(false);
@@ -371,6 +374,9 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
     setSingleTypologyInput(String(u.unit_type || ""));
     setSingleAreaInput(u.area !== undefined && u.area !== null ? String(u.area) : "");
     setSingleWaterPayerInput(String(u.water_payer || "tenant"));
+    setSingleElecPayerInput(String((u as any).electricity_payer || "tenant"));
+    setSingleElecMeterInput(String((u as any).electricity_meter?.code || ""));
+    setSingleWaterMeterInput(String((u as any).water_meter?.code || ""));
     setSingleScPayerInput(String(u.service_charge_payer || "owner"));
   };
 
@@ -387,6 +393,7 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
       const payload: Record<string, any> = {
         unit_type: finalType,
         water_payer: singleWaterPayerInput,
+        electricity_payer: singleElecPayerInput,
         service_charge_payer: singleScPayerInput,
       };
       if (singleAreaInput.trim()) {
@@ -400,12 +407,43 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
         headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
         body: JSON.stringify(payload),
       });
+
+      // Link or update electricity meter if entered
+      if (singleElecMeterInput.trim()) {
+        await apiFetch(`/properties/units/${editingSingleUnit.id}/link-meter/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({
+            meter_code: singleElecMeterInput.trim(),
+            utility_type: "electricity",
+          }),
+        });
+      }
+
+      // Link or update water meter if entered
+      if (singleWaterMeterInput.trim()) {
+        await apiFetch(`/properties/units/${editingSingleUnit.id}/link-meter/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({
+            meter_code: singleWaterMeterInput.trim(),
+            utility_type: "water",
+          }),
+        });
+      }
+
       if (res.ok) {
         const updated = await res.json().catch(() => null);
         setLocalUnits((prev) =>
-          prev.map((u) => (u.id === editingSingleUnit.id ? { ...u, ...payload, ...(updated || {}) } : u))
+          prev.map((u) => (u.id === editingSingleUnit.id ? {
+            ...u,
+            ...payload,
+            ...(updated || {}),
+            electricity_meter: singleElecMeterInput.trim() ? { code: singleElecMeterInput.trim() } : (u as any).electricity_meter,
+            water_meter: singleWaterMeterInput.trim() ? { code: singleWaterMeterInput.trim() } : (u as any).water_meter,
+          } : u))
         );
-        toast.success(`Unit ${editingSingleUnit.code} settings updated successfully.`);
+        toast.success(`Unit ${editingSingleUnit.code} settings and meters updated successfully.`);
         setEditingSingleUnit(null);
       } else {
         const data = await res.json().catch(() => ({}));
@@ -1170,10 +1208,36 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
             <Divider />
 
             <Typography variant="subtitle2" sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 1 }}>
-              ⚡ Utility & Charge Responsibility
+              ⚡ Utility Meters & Responsibility
             </Typography>
 
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Electricity Billing Arrangement"
+                value={singleElecPayerInput}
+                onChange={(e) => setSingleElecPayerInput(e.target.value)}
+                slotProps={{ select: { native: true } }}
+                helperText={singleElecPayerInput === "owner" ? "⚡ Included in Rent / Landlord Pays" : "Tenant pays via electricity meter"}
+              >
+                <option value="tenant">Tenant pays via Meter (Billed to Tenant)</option>
+                <option value="owner">Included in Rent / Landlord Pays</option>
+              </TextField>
+
+              <TextField
+                fullWidth
+                size="small"
+                label="Attached Electricity Meter #"
+                placeholder="e.g. KPLC-4892019"
+                value={singleElecMeterInput}
+                onChange={(e) => setSingleElecMeterInput(e.target.value)}
+                helperText="Physical electricity meter serial number"
+              />
+            </Box>
+
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2, mt: 1 }}>
               <TextField
                 select
                 fullWidth
@@ -1182,12 +1246,24 @@ export function UnitsView({ rows, loading, search, setSearch, setTab, onSelectRo
                 value={singleWaterPayerInput}
                 onChange={(e) => setSingleWaterPayerInput(e.target.value)}
                 slotProps={{ select: { native: true } }}
-                helperText={singleWaterPayerInput === "owner" ? "💧 Covered in Service Charge or Landlord Account. Meter readings never block rent." : "Tenant pays separate water sub-meter. Rent held until reading recorded."}
+                helperText={singleWaterPayerInput === "owner" ? "💧 Covered in Service Charge / Landlord" : "Tenant pays separate water sub-meter"}
               >
-                <option value="owner">Included in Service Charge / Landlord Pays (Never holds rent)</option>
-                <option value="tenant">Tenant via Water Sub-Meter (Requires monthly reading)</option>
+                <option value="tenant">Tenant via Water Sub-Meter (Requires reading)</option>
+                <option value="owner">Included in Service Charge / Landlord Pays</option>
               </TextField>
 
+              <TextField
+                fullWidth
+                size="small"
+                label="Attached Water Meter #"
+                placeholder="e.g. WTR-00412"
+                value={singleWaterMeterInput}
+                onChange={(e) => setSingleWaterMeterInput(e.target.value)}
+                helperText="Physical water meter serial number"
+              />
+            </Box>
+
+            <Box sx={{ mt: 1 }}>
               <TextField
                 select
                 fullWidth
