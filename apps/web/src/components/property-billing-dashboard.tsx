@@ -18,6 +18,8 @@ import { QuickRecordMeterModal } from "./billing/QuickRecordMeterModal";
 import { BatchMeterReadingWizard } from "./billing/BatchMeterReadingWizard";
 import { missingMeterUtilityType } from "./billing/types";
 import { LettingFeeModal } from "@/features/property/components/modals/LettingFeeModal";
+import { BillingPolicyModal } from "./billing/BillingPolicyModal";
+import { usePropertyContext } from "@/lib/property-context";
 
 export type BillingContext = {
   mode: string;
@@ -63,6 +65,55 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
   const [overrideNotes, setOverrideNotes] = useState("");
   const [lettingModalOpen, setLettingModalOpen] = useState(false);
   const [batchReadingsOpen, setBatchReadingsOpen] = useState(false);
+  const [policyModalOpen, setPolicyModalOpen] = useState(false);
+
+  const { activeProperty } = usePropertyContext();
+
+  const activeProp = useMemo(() => {
+    if (activeProperty?.id) {
+      const found = properties.find((p) => String(p.id) === String(activeProperty.id));
+      if (found) return found;
+    }
+    return properties[0] || null;
+  }, [properties, activeProperty]);
+
+  const requireUtilityReadings = useMemo(() => {
+    if (!activeProp) return true;
+    const meta = activeProp.metadata;
+    if (!meta || typeof meta !== "object") return true;
+    if (meta.require_utility_readings_before_rent !== undefined) {
+      return Boolean(meta.require_utility_readings_before_rent);
+    }
+    if (meta.billing_settings && typeof meta.billing_settings === "object" && meta.billing_settings.require_utility_readings_before_rent !== undefined) {
+      return Boolean(meta.billing_settings.require_utility_readings_before_rent);
+    }
+    return true;
+  }, [activeProp]);
+
+  const handlePolicyChange = async (enabled: boolean) => {
+    if (!activeProp?.id) return;
+    const res = await apiFetch(`/property/properties/${activeProp.id}/billing-policy/`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ require_utility_readings_before_rent: enabled }),
+    }, organizationId);
+    if (!res.ok) {
+      throw new Error(await apiErrorMessage(res, "Failed to update billing policy"));
+    }
+    setProperties((prev) =>
+      prev.map((p) => {
+        if (p.id === activeProp.id) {
+          const meta = { ...(p.metadata || {}) };
+          meta.require_utility_readings_before_rent = enabled;
+          meta.billing_settings = { ...(meta.billing_settings || {}), require_utility_readings_before_rent: enabled };
+          return { ...p, metadata: meta };
+        }
+        return p;
+      })
+    );
+    setNotice(`Billing policy updated: ${enabled ? "Utility readings required before rent" : "Independent rent invoicing enabled (Meter gate OFF)"}`);
+    await mutate("prepare");
+  };
 
   const canFinance = can("property.finance");
   const canApprove = can("property.approve");
@@ -666,10 +717,10 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     const hasPendingReading = isMissingWaterReading(c) || (c.billing_items || []).some(
       (it: any) => it.meter_reading_pending || (invoiceChargeType(it.code) === "utility" && Number(it.total || 0) === 0 && !it.billed)
     );
-    if (hasPendingReading) return false;
+    if (requireUtilityReadings && hasPendingReading) return false;
 
     if (filter === "all") {
-      return (c.billing_items || []).some((it: any) => !it.billed);
+      return (c.billing_items || []).some((it: any) => !it.billed && (!requireUtilityReadings ? !it.meter_reading_pending && Number(it.total || 0) > 0 : true));
     }
     return (c.billing_items || []).some((it: any) => {
       const t = invoiceChargeType(it.code);
@@ -905,6 +956,9 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
           return Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
         })(), label: formattedPeriod })}
         onLettingFeeInvoice={landlordFeeType === "letting" ? () => setLettingModalOpen(true) : undefined}
+        requireUtilityReadings={requireUtilityReadings}
+        onOpenPolicyModal={() => setPolicyModalOpen(true)}
+        propertyName={activeProp?.name}
       />
 
       <CandidateTable
@@ -1000,6 +1054,15 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
           await mutate("prepare");
           await load();
         }}
+      />
+
+      <BillingPolicyModal
+        open={policyModalOpen}
+        onClose={() => setPolicyModalOpen(false)}
+        propertyId={activeProp?.id}
+        propertyName={activeProp?.name}
+        requireUtilityReadings={requireUtilityReadings}
+        onPolicyChange={handlePolicyChange}
       />
     </Box>
   );

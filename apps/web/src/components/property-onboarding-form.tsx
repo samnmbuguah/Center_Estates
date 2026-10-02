@@ -27,6 +27,7 @@ type UtilityDraft = {
   bill_cycle: string;
   status: string;
   meter_code: string;
+  hardware_serial?: string;
   supply_mode: string;
   tariff: string;
   unit: string;
@@ -77,6 +78,7 @@ const blankUtility: UtilityDraft = {
   bill_cycle: "monthly",
   status: "active",
   meter_code: "",
+  hardware_serial: "",
   supply_mode: "postpaid",
   tariff: "0",
   unit: "m³",
@@ -666,6 +668,7 @@ export function PropertyOnboardingForm({
         const typeIdx = headers.indexOf("utility_type") !== -1 ? headers.indexOf("utility_type") : 0;
         const unitIdx = headers.indexOf("unit_code") !== -1 ? headers.indexOf("unit_code") : headers.indexOf("unit") !== -1 ? headers.indexOf("unit") : 1;
         const meterIdx = headers.indexOf("meter_number") !== -1 ? headers.indexOf("meter_number") : headers.indexOf("meter_code") !== -1 ? headers.indexOf("meter_code") : 2;
+        const serialIdx = headers.indexOf("hardware_serial") !== -1 ? headers.indexOf("hardware_serial") : headers.indexOf("serial_number") !== -1 ? headers.indexOf("serial_number") : headers.indexOf("serial") !== -1 ? headers.indexOf("serial") : headers.indexOf("sn") !== -1 ? headers.indexOf("sn") : -1;
         const locIdx = headers.indexOf("meter_location") !== -1 ? headers.indexOf("meter_location") : headers.indexOf("location") !== -1 ? headers.indexOf("location") : 3;
         const accIdx = headers.indexOf("account_number") !== -1 ? headers.indexOf("account_number") : headers.indexOf("account_no") !== -1 ? headers.indexOf("account_no") : 4;
         const tariffIdx = headers.indexOf("tariff") !== -1 ? headers.indexOf("tariff") : 5;
@@ -683,6 +686,7 @@ export function PropertyOnboardingForm({
           type: uType,
           unit_code: row[unitIdx] || "",
           meter_code: row[meterIdx] || "",
+          hardware_serial: serialIdx !== -1 ? row[serialIdx] || "" : "",
           location: row[locIdx] || "",
           account_no: row[accIdx] || "",
           tariff: row[tariffIdx] || "0",
@@ -833,7 +837,7 @@ export function PropertyOnboardingForm({
     <Box sx={{ display: "flex", alignItems: { xs: "flex-start", sm: "center" }, justifyContent: "space-between", gap: 2, mb: 2, flexDirection: { xs: "column", sm: "row" } }}>
       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}><IconButton aria-label="Back" onClick={() => (onBack ? onBack() : router.push("/overview"))}><ArrowLeft /></IconButton><Box><Typography variant="h4" sx={{ fontWeight: 800, fontSize: { xs: "1.25rem", md: "1.5rem" } }}>{editId ? `Edit Property: ${values.name || "Loading..."}` : "Property Onboarding"}</Typography><Typography color="text.secondary" variant="body2">{editId ? "Update property details." : "Fill in property details, then add buildings and units."}</Typography></Box></Box>
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: { xs: "stretch", sm: "flex-end" }, width: { xs: "100%", sm: "auto" } }}>
-        {section === "utilities" && <><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-utility-meters-template.csv", [["utility_type","unit_code","meter_number","meter_location","account_number","tariff","bill_cycle","supply_mode","status"],["water","A-101","MTR-WTR-A101","Outside Door A-101","WTR-001","200","monthly","postpaid","active"],["water","A-102","MTR-WTR-A102","Outside Door A-102","WTR-002","200","monthly","postpaid","active"],["electricity","A-101","MTR-ELEC-A101","Basement Meter Board","ELEC-001","25","monthly","prepaid","active"],["water","B-201","MTR-WTR-B201","Outside Door B-201","WTR-003","200","monthly","postpaid","active"],["electricity","G-01","MTR-ELEC-G01","Main Commercial Board","ELEC-COMM-01","28","monthly","postpaid","active"]])}>Template</Button><Button size="small" variant="outlined" component="label" startIcon={<Upload size={15} />}>Upload<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUtilities(event.target.files?.[0]); event.target.value = ""; }} /></Button></>}
+        {section === "utilities" && <><Button size="small" variant="outlined" startIcon={<Download size={15} />} onClick={() => downloadCsv("center-estates-utility-meters-template.csv", [["utility_type","unit_code","meter_number","hardware_serial","meter_location","account_number","tariff","bill_cycle","supply_mode","status"],["water","A-101","MTR-WTR-A101","01429384729","Outside Door A-101","WTR-001","200","monthly","postpaid","active"],["water","A-102","MTR-WTR-A102","01429384730","Outside Door A-102","WTR-002","200","monthly","postpaid","active"],["electricity","A-101","MTR-ELEC-A101","24089123","Basement Meter Board","ELEC-001","25","monthly","prepaid","active"],["water","B-201","MTR-WTR-B201","01429384731","Outside Door B-201","WTR-003","200","monthly","postpaid","active"],["electricity","G-01","MTR-ELEC-G01","24089124","Main Commercial Board","ELEC-COMM-01","28","monthly","postpaid","active"]])}>Template</Button><Button size="small" variant="outlined" component="label" startIcon={<Upload size={15} />}>Upload<input hidden type="file" accept=".csv,text/csv" onChange={event => { void importUtilities(event.target.files?.[0]); event.target.value = ""; }} /></Button></>}
 
         <Button fullWidth={false} variant="contained" startIcon={<Save size={17} />} disabled={saving} onClick={() => void save()} sx={{ minWidth: { xs: "100%", sm: 120 } }}>{saving ? "Saving…" : "Save & Close"}</Button>
       </Box>
@@ -1268,6 +1272,13 @@ export function PropertyOnboardingForm({
           />
 
           <TextField
+            label="Hardware Serial No (Faceplate)"
+            placeholder="e.g. 01429384729"
+            value={utilityDraft.hardware_serial || ""}
+            onChange={e => setUtilityDraft({ ...utilityDraft, hardware_serial: e.target.value })}
+          />
+
+          <TextField
             label="Meter location"
             placeholder="e.g. Tower 1 Main Plant, Outside Door 101"
             value={utilityDraft.location}
@@ -1320,6 +1331,11 @@ export function PropertyOnboardingForm({
               u.unit_code ? `Unit ${u.unit_code}` : <span style={{ color: "var(--text-secondary)", fontStyle: "italic" }}>Building Bulk</span>,
               <Box key="mcode" sx={{ display: "flex", flexDirection: "column" }}>
                 <span style={{ fontWeight: 700 }}>{u.meter_code || "—"}</span>
+                {u.hardware_serial && (
+                  <span style={{ fontSize: 9.5, color: "#1d4ed8", fontWeight: 700 }}>
+                    SN: {u.hardware_serial}
+                  </span>
+                )}
                 {u.parent_meter_code && (
                   <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>
                     Parent: <strong>{u.parent_meter_code}</strong>

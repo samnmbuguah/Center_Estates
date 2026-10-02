@@ -1260,11 +1260,16 @@ class PropertyViewSet(OrganizationModelViewSet):
             if parent_code:
                 parent_obj = UtilityMeter.objects.filter(organization=organization, property=property_record, code=parent_code).first()
 
+            location = str(utility.get('location') or '').strip()
+            serial_number = str(utility.get('hardware_serial') or utility.get('serial_number') or utility.get('serial') or '').strip()
+            if serial_number and f"SN: {serial_number}" not in location:
+                location = f"SN: {serial_number} • {location}" if location else f"SN: {serial_number}"
+
             meter = UtilityMeter.objects.create(
                 organization=organization, property=property_record, property_unit=assigned_unit, code=meter_code,
                 name=f"{property_record.name} {utility_type.title()} {meter_code}", utility_type=utility_type,
                 meter_role=m_role, parent_meter=parent_obj,
-                location=str(utility.get('location') or '').strip(),
+                location=location,
                 unit=str(utility.get('unit') or ('kWh' if utility_type == 'electricity' else 'm³'))[:20],
                 tariff=tariff, is_active=str(utility.get('status', 'active')).lower() == 'active',
             )
@@ -1681,6 +1686,33 @@ class PropertyViewSet(OrganizationModelViewSet):
             return generate_checklist_csv(checklist_data)
 
         return Response(checklist_data)
+
+    @action(detail=True, methods=('get', 'post', 'patch'), url_path='billing-policy')
+    def billing_policy(self, request, pk=None):
+        """Get or update property billing policy settings (e.g. require utilities before rent)."""
+        prop = self.get_object()
+        meta = prop.metadata if isinstance(prop.metadata, dict) else {}
+        billing_settings = meta.get('billing_settings', {})
+        if not isinstance(billing_settings, dict):
+            billing_settings = {}
+
+        if request.method in ('POST', 'PATCH'):
+            req_util = request.data.get('require_utility_readings_before_rent')
+            if req_util is not None:
+                val = bool(req_util)
+                billing_settings['require_utility_readings_before_rent'] = val
+                meta['require_utility_readings_before_rent'] = val
+                meta['billing_settings'] = billing_settings
+                prop.metadata = meta
+                prop.save(update_fields=('metadata', 'updated_at'))
+
+        require_util = meta.get('require_utility_readings_before_rent', billing_settings.get('require_utility_readings_before_rent', True))
+        return Response({
+            'property_id': str(prop.id),
+            'property_name': prop.name,
+            'require_utility_readings_before_rent': require_util,
+            'billing_settings': billing_settings,
+        })
 
 
 
@@ -5579,8 +5611,17 @@ class BillingRunViewSet(OrganizationModelViewSet):
                             'payer': 'tenant',
                             'meter_reading_pending': True,
                         })
-                        # Consolidated Invoicing Policy: Metered electricity and water MUST block rent invoicing until readings are recorded
-                        severity = BillingReadinessIssue.Severity.WARNING if (invoice_types is not None and "utility" not in invoice_types) else BillingReadinessIssue.Severity.BLOCKING
+                        # Consolidated Invoicing Policy: Check if property requires utility readings before billing rent
+                        prop_require_util = True
+                        if prop and isinstance(prop.metadata, dict):
+                            prop_require_util = prop.metadata.get(
+                                'require_utility_readings_before_rent',
+                                prop.metadata.get('billing_settings', {}).get('require_utility_readings_before_rent', True)
+                            )
+                        if not prop_require_util or (invoice_types is not None and "utility" not in invoice_types):
+                            severity = BillingReadinessIssue.Severity.WARNING
+                        else:
+                            severity = BillingReadinessIssue.Severity.BLOCKING
                         issue_rows.append((f'missing_{target_utility}_reading', f'{utility_name} meter reading is required for {lease.unit.code if lease.unit else "unit"} before billing rent and utilities.', profile, severity))
                         continue
                     monthly_val = sum((row.cost for row in readings), Decimal('0'))
@@ -5860,29 +5901,38 @@ class BillingRunViewSet(OrganizationModelViewSet):
         if not candidates:
             raise ValidationError({'candidates': 'Select at least one ready billing candidate.'})
 
-        # Enforce consolidated billing: Metered electricity and water readings must be recorded before rent can be billed
-        for cand in candidates:
-            unit_obj = cand.lease.unit if cand.lease else None
-            landlord_pays_water = unit_obj and getattr(unit_obj, 'water_payer', 'tenant') == 'owner'
-            landlord_pays_elec = unit_obj and getattr(unit_obj, 'electricity_payer', 'tenant') == 'owner'
-            
-            if not landlord_pays_elec:
-                elec_issues = [iss for iss in (cand.issue_summary or []) if iss.get('code') in ('missing_electricity_reading', 'missing_power_reading')]
-                if elec_issues:
-                    t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
-                    u_code = cand.lease.unit.code if cand.lease and cand.lease.unit else 'Unit'
-                    raise ValidationError({
-                        'candidates': f"Cannot generate invoice for {t_name} ({u_code}): Electricity meter reading is required before billing rent and utilities (Consolidated Invoicing Policy)."
-                    })
+        # Enforce consolidated billing if property requires utility readings before rent
+        prop_rec = run.property if hasattr(run, 'property') and run.property else (candidates[0].lease.unit.property if candidates and candidates[0].lease and candidates[0].lease.unit else None)
+        require_util_gate = True
+        if prop_rec and isinstance(prop_rec.metadata, dict):
+            require_util_gate = prop_rec.metadata.get(
+                'require_utility_readings_before_rent',
+                prop_rec.metadata.get('billing_settings', {}).get('require_utility_readings_before_rent', True)
+            )
 
-            if not landlord_pays_water:
-                water_issues = [iss for iss in (cand.issue_summary or []) if iss.get('code') == 'missing_water_reading']
-                if water_issues:
-                    t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
-                    u_code = cand.lease.unit.code if cand.lease and cand.lease.unit else 'Unit'
-                    raise ValidationError({
-                        'candidates': f"Cannot generate invoice for {t_name} ({u_code}): A valid water meter reading is required before billing rent and utilities."
-                    })
+        if require_util_gate:
+            for cand in candidates:
+                unit_obj = cand.lease.unit if cand.lease else None
+                landlord_pays_water = unit_obj and getattr(unit_obj, 'water_payer', 'tenant') == 'owner'
+                landlord_pays_elec = unit_obj and getattr(unit_obj, 'electricity_payer', 'tenant') == 'owner'
+                
+                if not landlord_pays_elec:
+                    elec_issues = [iss for iss in (cand.issue_summary or []) if iss.get('code') in ('missing_electricity_reading', 'missing_power_reading')]
+                    if elec_issues:
+                        t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
+                        u_code = cand.lease.unit.code if cand.lease and cand.lease.unit else 'Unit'
+                        raise ValidationError({
+                            'candidates': f"Cannot generate invoice for {t_name} ({u_code}): Electricity meter reading is required before billing rent and utilities (Consolidated Invoicing Policy)."
+                        })
+
+                if not landlord_pays_water:
+                    water_issues = [iss for iss in (cand.issue_summary or []) if iss.get('code') == 'missing_water_reading']
+                    if water_issues:
+                        t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'
+                        u_code = cand.lease.unit.code if cand.lease and cand.lease.unit else 'Unit'
+                        raise ValidationError({
+                            'candidates': f"Cannot generate invoice for {t_name} ({u_code}): A valid water meter reading is required before billing rent and utilities."
+                        })
 
             if cand.status == BillingCandidate.Status.ISSUE:
                 t_name = cand.lease.tenant.name if cand.lease and cand.lease.tenant else 'Tenant'

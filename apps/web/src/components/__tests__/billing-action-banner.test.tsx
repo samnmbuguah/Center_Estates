@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { BillingActionBanner } from "@/components/billing/BillingActionBanner";
 
+jest.mock("next/navigation", () => ({ useRouter: () => ({ push: jest.fn() }) }));
+
 describe("BillingActionBanner", () => {
   it("renders scan step and triggers refresh/rescan", () => {
     const onRecheck = jest.fn();
@@ -111,4 +113,27 @@ describe("BillingActionBanner", () => {
     );
     expect(screen.queryByRole("button", { name: /letting-fee invoice/i })).not.toBeInTheDocument();
   });
+
+  it("displays independent rent invoicing mode when utility readings requirement is OFF", () => {
+    const onOpenPolicyModal = jest.fn();
+    render(
+      <BillingActionBanner
+        hasRun isPreparing={false} isReview isApproved={false}
+        formattedMonth="July 2026" ready={5} issues={0} selectedCount={5}
+        billingTarget="tenant"
+        pendingUtilityCount={3}
+        requireUtilityReadings={false}
+        onOpenPolicyModal={onOpenPolicyModal}
+        blockingOpen={false} busy="" canFinance canApprove
+        onInitialize={jest.fn()} onRecheck={jest.fn()} onApprove={jest.fn()}
+        onGenerate={jest.fn()} onSingleInvoice={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Independent Rent Invoicing Active/i)).toBeInTheDocument();
+    expect(screen.getByText(/Independent Invoicing Policy/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Invoicing Policy/i }));
+    expect(onOpenPolicyModal).toHaveBeenCalledTimes(1);
+  });
 });
+
