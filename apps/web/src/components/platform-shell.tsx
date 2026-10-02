@@ -403,10 +403,13 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
                 inputRef={searchInputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent("open-command-palette"));
+                }}
                 onKeyDown={(e) => {
-                  if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+                  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
                     e.preventDefault();
-                    searchInputRef.current?.focus();
+                    window.dispatchEvent(new CustomEvent("open-command-palette"));
                   }
                 }}
               />

@@ -226,28 +226,70 @@ export function CandidateTable({
                             const isUtility = t === "utility";
                             const isElectricity = isUtility && (grp.rawCode.toLowerCase().includes("electr") || grp.code.includes("ELEC"));
                             const isPending = (grp.isPendingReading || (isUtility && grp.unbilledAmount === 0)) && !isAllBilled;
+                            const isRent = t === "rent" || grp.rawCode.toLowerCase().includes("rent");
+                            const isServiceCharge = t === "service_charge" || grp.rawCode.toLowerCase().includes("service");
                             const label = isAllBilled
                               ? `${grp.code} ✓`
                               : isPending
                               ? `${grp.code} · Reading Required`
                               : `${grp.code} · ${money.format(grp.unbilledAmount)}`;
 
+                            const chipBg = isAllBilled
+                              ? "rgba(16, 185, 129, 0.1)"
+                              : isPending
+                              ? "rgba(245, 158, 11, 0.12)"
+                              : isElectricity
+                              ? "rgba(217, 119, 6, 0.09)"
+                              : isServiceCharge
+                              ? "rgba(13, 148, 136, 0.09)"
+                              : isRent
+                              ? "rgba(37, 99, 235, 0.08)"
+                              : undefined;
+
+                            const chipBorder = isAllBilled
+                              ? "rgba(16, 185, 129, 0.4)"
+                              : isPending
+                              ? "rgba(245, 158, 11, 0.5)"
+                              : isElectricity
+                              ? "rgba(217, 119, 6, 0.35)"
+                              : isServiceCharge
+                              ? "rgba(13, 148, 136, 0.35)"
+                              : isRent
+                              ? "rgba(37, 99, 235, 0.35)"
+                              : undefined;
+
+                            const chipColor = isAllBilled
+                              ? "#047857"
+                              : isPending
+                              ? "#b45309"
+                              : isElectricity
+                              ? "#92400e"
+                              : isServiceCharge
+                              ? "#0f766e"
+                              : isRent
+                              ? "#1d4ed8"
+                              : undefined;
+
                             return (
                               <Chip
                                 key={i}
                                 size="small"
-                                icon={isPending && isElectricity ? <Zap size={11} color="var(--color-amber-deep)" /> : isPending && isUtility ? <Droplets size={11} color="var(--color-amber-deep)" /> : undefined}
+                                icon={
+                                  isElectricity ? (
+                                    <Zap size={11} color={chipColor} />
+                                  ) : isPending && isUtility ? (
+                                    <Droplets size={11} color={chipColor} />
+                                  ) : undefined
+                                }
                                 label={label}
-                                variant={isAllBilled ? "outlined" : isPending ? "outlined" : isMatch ? "filled" : "outlined"}
-                                color={isAllBilled ? "success" : isPending ? "default" : isMatch ? "primary" : "default"}
+                                variant="outlined"
                                 sx={{
-                                  fontSize: 9.5,
-                                  height: 20,
-                                  fontWeight: isMatch || isPending ? 700 : 500,
-                                  opacity: isMatch ? 1 : 0.7,
-                                  bgcolor: isAllBilled ? "rgba(34,197,94,0.08)" : isPending ? "rgba(245,158,11,0.08)" : undefined,
-                                  borderColor: isAllBilled ? "rgba(34,197,94,0.4)" : isPending ? "rgba(245,158,11,0.45)" : undefined,
-                                  color: isPending ? "var(--color-amber-deep)" : undefined,
+                                  fontSize: 10,
+                                  height: 22,
+                                  fontWeight: 700,
+                                  bgcolor: chipBg,
+                                  borderColor: chipBorder,
+                                  color: chipColor,
                                 }}
                               />
                             );

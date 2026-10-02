@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, CornerDownLeft, Building2, Users, FileText, Compass, Wrench, Home, History } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch } from "@/lib/api";
+import { money } from "@/components/module-ui";
 
 type Recent = { id: string; label: string; hint: string; group: string; path: string };
 type Command = {
@@ -123,7 +124,7 @@ export function CommandPalette() {
       };
       const get = (path: string) => apiFetch(`${path}?search=${encodeURIComponent(q)}`, {}, organizationId);
       try {
-        const [buyers, sales, listings, tenants, leases, assets, workOrders] = await Promise.all([
+        const [buyers, sales, listings, tenants, leases, assets, workOrders, propertyUnits, invoices] = await Promise.all([
           get("/sales/buyers/").then(toRows),
           get("/sales/sales/").then(toRows),
           get("/sales/inventory/").then(toRows),
@@ -131,32 +132,30 @@ export function CommandPalette() {
           get("/property/leases/").then(toRows),
           get("/facility/assets/").then(toRows),
           get("/facility/work-orders/").then(toRows),
+          get("/properties/units/").then(toRows),
+          get("/billing/invoices/").then(toRows),
         ]);
         if (cancelled) return;
         const cmds: Command[] = [];
         const push = (cmd: Command) => cmds.push(cmd);
 
-        buyers.slice(0, 4).forEach((b) => push({
-          id: `buyer:${b.id}`, label: String(b.full_name ?? b.reference ?? "Buyer"),
-          hint: `${String(b.reference ?? "")} · ${String(b.status ?? "")}`, group: "Buyers",
-          icon: <Users size={15} />, action: () => router.push(`/sales/buyers/${String(b.id)}`),
-          recent: { id: `buyer:${b.id}`, label: String(b.full_name ?? "Buyer"), hint: "Buyer", group: "Buyers", path: `/sales/buyers/${String(b.id)}` },
-        }));
-        sales.slice(0, 4).forEach((s) => push({
-          id: `sale:${s.id}`, label: String(s.reference ?? "Sale"),
-          hint: `${String(s.buyer_name ?? "")} · ${String(s.unit_code ?? "")}`, group: "Sales",
-          icon: <FileText size={15} />, action: () => router.push("/sales?tab=sales"),
-        }));
-        listings.slice(0, 4).forEach((l) => push({
-          id: `listing:${l.id}`, label: `Unit ${String(l.unit_code ?? l.code ?? "")}`,
-          hint: `${String(l.project_name ?? "")} · ${String(l.status ?? "")}`, group: "Units",
-          icon: <Building2 size={15} />, action: () => router.push("/sales?tab=inventory"),
+        propertyUnits.slice(0, 4).forEach((u) => push({
+          id: `unit:${u.id}`, label: `Unit ${String(u.code ?? u.unit_number ?? "")}`,
+          hint: `${String(u.property_name ?? "Unit")} · ${String(u.status ?? "")}`, group: "Units",
+          icon: <Building2 size={15} />, action: () => router.push("/property?tab=units"),
+          recent: { id: `unit:${u.id}`, label: `Unit ${String(u.code ?? "")}`, hint: "Unit", group: "Units", path: "/property?tab=units" },
         }));
         tenants.slice(0, 4).forEach((t) => push({
           id: `tenant:${t.id}`, label: String(t.name ?? t.code ?? "Tenant"),
           hint: `${String(t.code ?? "")} · ${String(t.status ?? "")}`, group: "Tenants",
           icon: <Home size={15} />, action: () => router.push("/property?tab=tenants"),
           recent: { id: `tenant:${t.id}`, label: String(t.name ?? "Tenant"), hint: "Tenant", group: "Tenants", path: "/property?tab=tenants" },
+        }));
+        invoices.slice(0, 4).forEach((inv) => push({
+          id: `inv:${inv.id}`, label: `Invoice ${String(inv.invoice_number ?? inv.reference ?? inv.id)}`,
+          hint: `${String(inv.tenant_name ?? inv.property_name ?? "")} · ${String(inv.total_amount ? money.format(Number(inv.total_amount)) : "")}`, group: "Invoices",
+          icon: <FileText size={15} />, action: () => router.push("/property?tab=billing"),
+          recent: { id: `inv:${inv.id}`, label: `Invoice ${String(inv.invoice_number ?? "")}`, hint: "Invoice", group: "Invoices", path: "/property?tab=billing" },
         }));
         leases.slice(0, 4).forEach((l) => push({
           id: `lease:${l.id}`, label: `Lease ${String(l.reference ?? "")}`,
@@ -172,6 +171,22 @@ export function CommandPalette() {
           id: `wo:${w.id}`, label: String(w.number ?? w.title ?? "Work order"),
           hint: `${String(w.title ?? "")} · ${String(w.status ?? "")}`, group: "Work Orders",
           icon: <Wrench size={15} />, action: () => router.push("/facility?tab=work-orders"),
+        }));
+        buyers.slice(0, 4).forEach((b) => push({
+          id: `buyer:${b.id}`, label: String(b.full_name ?? b.reference ?? "Buyer"),
+          hint: `${String(b.reference ?? "")} · ${String(b.status ?? "")}`, group: "Buyers",
+          icon: <Users size={15} />, action: () => router.push(`/sales/buyers/${String(b.id)}`),
+          recent: { id: `buyer:${b.id}`, label: String(b.full_name ?? "Buyer"), hint: "Buyer", group: "Buyers", path: `/sales/buyers/${String(b.id)}` },
+        }));
+        sales.slice(0, 4).forEach((s) => push({
+          id: `sale:${s.id}`, label: String(s.reference ?? "Sale"),
+          hint: `${String(s.buyer_name ?? "")} · ${String(s.unit_code ?? "")}`, group: "Sales",
+          icon: <FileText size={15} />, action: () => router.push("/sales?tab=sales"),
+        }));
+        listings.slice(0, 4).forEach((l) => push({
+          id: `listing:${l.id}`, label: `Sales Unit ${String(l.unit_code ?? l.code ?? "")}`,
+          hint: `${String(l.project_name ?? "")} · ${String(l.status ?? "")}`, group: "Units",
+          icon: <Building2 size={15} />, action: () => router.push("/sales?tab=inventory"),
         }));
         setResults(cmds);
       } catch {

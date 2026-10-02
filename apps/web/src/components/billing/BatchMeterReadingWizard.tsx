@@ -41,6 +41,8 @@ import {
   Zap,
   RotateCcw,
   AlertTriangle,
+  Download,
+  Upload,
 } from "lucide-react";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
@@ -364,6 +366,82 @@ export function BatchMeterReadingWizard({
     setNotice("Populated previous readings for vacant/unchanged units (0 consumption). Review and click Save.");
   };
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleDownloadCsv = () => {
+    const headers = ["unit_code", "meter_code", "meter_name", "utility_type", "previous_reading", "current_reading", "tariff"];
+    const rows = meters.map((m) => [
+      m.unitCode,
+      m.meterCode,
+      `"${m.meterName.replace(/"/g, '""')}"`,
+      m.utilityType,
+      m.previousReading,
+      values[m.meterId] ?? "",
+      m.tariff > 0 ? m.tariff : 35,
+    ]);
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `meter_readings_${periodEnd || new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleUploadCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+      const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+      if (lines.length < 2) {
+        setError("The uploaded CSV is empty or missing data rows.");
+        return;
+      }
+      const headerLine = lines[0].toLowerCase();
+      const headers = headerLine.split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
+      const unitIdx = headers.findIndex((h) => h.includes("unit"));
+      const meterIdx = headers.findIndex((h) => h.includes("meter"));
+      const readingIdx = headers.findIndex((h) => h.includes("current") || h.includes("reading") || h.includes("value"));
+
+      if (readingIdx === -1 || (unitIdx === -1 && meterIdx === -1)) {
+        setError("CSV header must contain 'unit_code' (or 'meter_code') and 'current_reading'.");
+        return;
+      }
+
+      let importedCount = 0;
+      const newValues = { ...values };
+
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
+        const unitVal = unitIdx !== -1 ? cols[unitIdx]?.toLowerCase() : "";
+        const meterVal = meterIdx !== -1 ? cols[meterIdx]?.toLowerCase() : "";
+        const readingVal = cols[readingIdx];
+
+        if (!readingVal || isNaN(parseFloat(readingVal))) continue;
+
+        const matched = meters.find(
+          (m) =>
+            (unitVal && m.unitCode.toLowerCase() === unitVal) ||
+            (meterVal && m.meterCode.toLowerCase() === meterVal)
+        );
+
+        if (matched) {
+          newValues[matched.meterId] = readingVal;
+          importedCount++;
+        }
+      }
+
+      setValues(newValues);
+      setNotice(`✓ Successfully imported readings for ${importedCount} units from CSV. Review values and click Save.`);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+    reader.readAsText(file);
+  };
+
   const handleFinish = async () => {
     await onComplete();
     onClose();
@@ -577,7 +655,7 @@ export function BatchMeterReadingWizard({
                   border: "1px solid rgba(0,0,0,0.06)",
                 }}
               >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: "text.secondary" }}>
                     Quick Tools:
                   </Typography>
@@ -595,7 +673,46 @@ export function BatchMeterReadingWizard({
                       "&:hover": { borderColor: "#d97706", bgcolor: "rgba(217, 119, 6, 0.04)" },
                     }}
                   >
-                    Copy Previous for Vacant Units (0 kWh)
+                    Copy Previous (Vacant Units)
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<Download size={13} />}
+                    onClick={handleDownloadCsv}
+                    sx={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: "none",
+                      borderColor: "rgba(0,0,0,0.15)",
+                      color: "#0369a1",
+                      "&:hover": { borderColor: "#0284c7", bgcolor: "rgba(2, 132, 199, 0.05)" },
+                    }}
+                  >
+                    Download CSV Template
+                  </Button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleUploadCsv}
+                    accept=".csv,text/csv"
+                    style={{ display: "none" }}
+                  />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<Upload size={13} />}
+                    onClick={() => fileInputRef.current?.click()}
+                    sx={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: "none",
+                      borderColor: "rgba(0,0,0,0.15)",
+                      color: "#047857",
+                      "&:hover": { borderColor: "#059669", bgcolor: "rgba(5, 150, 105, 0.05)" },
+                    }}
+                  >
+                    Import CSV Sheet
                   </Button>
                 </Box>
 
@@ -640,13 +757,20 @@ export function BatchMeterReadingWizard({
                       const isInvalid = hasVal && numVal < m.previousReading;
                       const cons = hasVal && !isInvalid ? Math.max(0, numVal - m.previousReading) : 0;
                       const cost = cons * (m.tariff > 0 ? m.tariff : 35);
+                      const isAnomaly = hasVal && !isInvalid && (cons > 1000 || (m.previousReading > 25 && cons > m.previousReading * 3));
 
                       return (
                         <TableRow
                           key={m.meterId}
                           hover
                           sx={{
-                            bgcolor: isDone ? "rgba(16, 185, 129, 0.04)" : isInvalid ? "rgba(239, 68, 68, 0.04)" : "#fff",
+                            bgcolor: isDone
+                              ? "rgba(16, 185, 129, 0.04)"
+                              : isInvalid
+                              ? "rgba(239, 68, 68, 0.05)"
+                              : isAnomaly
+                              ? "rgba(245, 158, 11, 0.05)"
+                              : "#fff",
                             "&:last-child td, &:last-child th": { border: 0 },
                           }}
                         >
@@ -720,9 +844,28 @@ export function BatchMeterReadingWizard({
 
                           <TableCell sx={{ textAlign: "right" }}>
                             {isInvalid ? (
-                              <Typography variant="caption" sx={{ color: "#dc2626", fontWeight: 700 }}>
-                                &lt; Previous!
-                              </Typography>
+                              <Tooltip title="Current dial reading cannot be less than previous reading. Verify physical meter.">
+                                <Chip
+                                  size="small"
+                                  icon={<AlertTriangle size={11} color="#dc2626" />}
+                                  label="< Prev"
+                                  sx={{ height: 20, fontSize: 9.5, bgcolor: "#fee2e2", color: "#dc2626", fontWeight: 800 }}
+                                />
+                              </Tooltip>
+                            ) : isAnomaly ? (
+                              <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.3 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: "#d97706" }}>
+                                  {cons.toLocaleString()} {m.unit}
+                                </Typography>
+                                <Tooltip title="Unusual consumption spike (>3x previous). Please confirm meter reading.">
+                                  <Chip
+                                    size="small"
+                                    icon={<AlertTriangle size={10} color="#b45309" />}
+                                    label="Spike"
+                                    sx={{ height: 16, fontSize: 9, bgcolor: "#fef3c7", color: "#b45309", fontWeight: 800 }}
+                                  />
+                                </Tooltip>
+                              </Box>
                             ) : hasVal ? (
                               <Typography variant="body2" sx={{ fontWeight: 800, color: cons > 0 ? "#059669" : "#64748b" }}>
                                 {cons.toLocaleString()} {m.unit}
