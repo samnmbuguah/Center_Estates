@@ -49,19 +49,28 @@ import {
   Tooltip,
 } from "@mui/material";
 
-const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; icon: string; detail: string; permission?: string }> = [
-  { name: "Property overview", href: "/overview", module: "property", icon: "◉", detail: "View accessible property portfolio" },
-  { name: "Onboard property", href: "/property-onboarding", module: "property", icon: "🏛️", detail: "Create a property; code generated automatically", permission: "property.operations" },
-  { name: "Add tenant", href: "/property?tab=tenants", module: "property", icon: "👥", detail: "Create a tenant profile", permission: "property.leasing" },
-  { name: "Tickets", href: "/tickets", module: "monitoring", icon: "🎫", detail: "View portfolio tickets" },
-  { name: "Calendar", href: "/calendar", module: "monitoring", icon: "📅", detail: "View portfolio calendar" },
-  { name: "New work order", href: "/facility?tab=work-orders", module: "facility", icon: "🔧", detail: "Create a maintenance work order", permission: "facility.operations" },
-  { name: "Caretaker meter portal", href: "/caretaker-portal", module: "facility", icon: "💧", detail: "Capture property meter readings for approval", permission: "facility.work" },
-  { name: "Register buyer", href: "/sales?tab=buyers", module: "sales", icon: "💰", detail: "Create a buyer profile", permission: "sales.sell" },
-  { name: "Tenant portal", href: "/tenant-portal", module: "property", icon: "🔑", detail: "Self-service tenant billing, payments and service requests" },
-  { name: "Buyer portal", href: "/buyer-portal", module: "sales", icon: "🛒", detail: "Self-service sale agreement, installments and payments" },
-  { name: "Agent portal", href: "/agent-portal", module: "sales", icon: "🧑‍💼", detail: "Sales agent pipeline, visits and commissions" },
-  { name: "New valuation instruction", href: "/valuation?tab=instructions", module: "valuation", icon: "📜", detail: "Create a valuation instruction", permission: "valuation.instructions" },
+const QUICK_JUMP_ROUTES: Array<{ name: string; href: string; module: string; icon: string; detail: string; keywords?: string; permission?: string }> = [
+  { name: "Billing & Invoices", href: "/property?tab=billing", module: "property", icon: "🧾", detail: "Generate and dispatch monthly rent, service charge & electricity bills", keywords: "bills invoicing dispatch electricity rent hold readings candidate", permission: "property.finance" },
+  { name: "Energy & Utilities (Meters)", href: "/facility?tab=meters", module: "facility", icon: "⚡", detail: "Electricity and water meters, dial readings, tariffs and bulk reconciliations", keywords: "meters electricity water power utility readings tariff kwh submeter", permission: "facility.work" },
+  { name: "Property overview", href: "/overview", module: "property", icon: "◉", detail: "View accessible property portfolio and key metrics", keywords: "portfolio buildings units occupancy" },
+  { name: "Onboard property", href: "/property-onboarding", module: "property", icon: "🏛️", detail: "Create a property; code generated automatically", keywords: "new building add onboarding", permission: "property.operations" },
+  { name: "Add tenant", href: "/property?tab=tenants", module: "property", icon: "👥", detail: "Create a tenant profile and assign lease", keywords: "tenants leasing occupancy add lease agreement", permission: "property.leasing" },
+  { name: "Tenant Register & Leases", href: "/property?tab=tenants", module: "property", icon: "📄", detail: "Active tenant records, unit occupancy and lease terms", keywords: "tenants leases agreements contracts", permission: "property.leasing" },
+  { name: "Receipting & Allocations", href: "/property?tab=receipting", module: "property", icon: "💰", detail: "Log tenant payments, receipt vouchers and allocate to invoices", keywords: "receipts payments money collections deposits allocations", permission: "property.finance" },
+  { name: "Arrears & Recovery", href: "/property?tab=arrears", module: "property", icon: "⚠️", detail: "Overdue debt, aging analysis and debt collection reminders", keywords: "arrears debt overdue unpaid collection reminders aging", permission: "property.finance" },
+  { name: "Service Charge Schemes", href: "/property?tab=service-charges", module: "property", icon: "⚡", detail: "Apportionment schemes, service charge allocations and budgets", keywords: "service charge common area maintenance apportionment", permission: "property.finance" },
+  { name: "New work order", href: "/facility?tab=work-orders", module: "facility", icon: "🔧", detail: "Create a maintenance or repair work order", keywords: "repairs maintenance jobs work orders", permission: "facility.operations" },
+  { name: "Planned Maintenance (PPM)", href: "/facility?tab=planned-maintenance", module: "facility", icon: "📅", detail: "Preventative maintenance schedules and servicing calendars", keywords: "ppm preventive maintenance servicing inspection", permission: "facility.operations" },
+  { name: "Vendors & Contractors", href: "/facility?tab=contractors", module: "facility", icon: "🤝", detail: "Manage facility service providers, SLAs and scorecards", keywords: "vendors contractors suppliers scorecards appraisals", permission: "facility.operations" },
+  { name: "Statutory Compliance", href: "/facility?tab=compliance", module: "facility", icon: "🛡️", detail: "Fire safety, lift licenses, NEMA and OSHA compliance registers", keywords: "compliance statutory fire safety permits licenses", permission: "facility.operations" },
+  { name: "Caretaker meter portal", href: "/caretaker-portal", module: "facility", icon: "💧", detail: "Mobile portal for caretakers to capture unit meter readings", keywords: "caretaker meter readings mobile field", permission: "facility.work" },
+  { name: "Tickets & Issues", href: "/tickets", module: "monitoring", icon: "🎫", detail: "View and assign portfolio helpdesk tickets", keywords: "tickets issues helpdesk complaints" },
+  { name: "Calendar", href: "/calendar", module: "monitoring", icon: "📅", detail: "View portfolio events, leases and inspections calendar", keywords: "calendar events dates schedules" },
+  { name: "Register buyer", href: "/sales?tab=buyers", module: "sales", icon: "💼", detail: "Create a buyer profile and pipeline record", keywords: "buyers leads sales crm", permission: "sales.sell" },
+  { name: "Tenant portal", href: "/tenant-portal", module: "property", icon: "🔑", detail: "Self-service tenant billing, payments and service requests", keywords: "tenant self service portal statements" },
+  { name: "Buyer portal", href: "/buyer-portal", module: "sales", icon: "🛒", detail: "Self-service sale agreement, installments and payments", keywords: "buyer self service installments" },
+  { name: "Agent portal", href: "/agent-portal", module: "sales", icon: "🧑‍💼", detail: "Sales agent pipeline, property visits and commissions", keywords: "agents commissions sales" },
+  { name: "New valuation instruction", href: "/valuation?tab=instructions", module: "valuation", icon: "📜", detail: "Create a property valuation instruction", keywords: "valuation appraisal inspection", permission: "valuation.instructions" },
 ];
 
 export default function PlatformShell({ children }: { children: React.ReactNode }) {
@@ -224,7 +233,7 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
     const permissions = new Set(session?.permissions ?? []);
     const base = QUICK_JUMP_ROUTES.filter((r) => allowedSet.has(r.module) && (!r.permission || permissions.has("*") || permissions.has(r.permission)));
     if (!term) return base;
-    return base.filter((r) => `${r.name} ${r.detail}`.toLowerCase().includes(term));
+    return base.filter((r) => `${r.name} ${r.detail} ${r.keywords ?? ""}`.toLowerCase().includes(term));
   }, [allowedSlugs, query, session?.permissions]);
 
   const activeIdentityGroups = useMemo(() => {

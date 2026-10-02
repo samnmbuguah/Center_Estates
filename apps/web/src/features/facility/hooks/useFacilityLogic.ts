@@ -1,14 +1,28 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { usePropertyContext } from "@/lib/property-context";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
 import { ActionModal, FacilityDashboard, FacilityTab, Row, facilityLabels } from "../types/facility.types";
 
+export const normalizeFacilityTab = (value: string | null | undefined): FacilityTab | null => {
+  if (!value) return null;
+  const lower = String(value).trim().toLowerCase();
+  if (lower === "utilities" || lower === "utility" || lower === "energy" || lower === "meter" || lower === "meters" || lower === "meter-readings") return "meters";
+  if (lower === "vendors") return "contractors";
+  if (lower === "maintenance" || lower === "ppm") return "planned-maintenance";
+  if (lower === "requests") return "service-requests";
+  if (facilityLabels[lower as FacilityTab]) return lower as FacilityTab;
+  return null;
+};
+
 export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
   const { session, can } = useAuth();
   const { activeProperty } = usePropertyContext();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const organizationId = session?.activeOrganizationId ?? null;
   const canWork = can("facility.work") || can("facility.manage");
   const canInspect = can("facility.inspect") || can("facility.manage");
@@ -17,12 +31,23 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
 
   const [tab, setTab] = useState<FacilityTab>(() => {
     if (typeof window !== "undefined") {
-      const q = new URLSearchParams(window.location.search).get("tab") as FacilityTab | null;
-      if (q === ("utilities" as any) || q === ("utility" as any)) return "meters";
-      if (q && facilityLabels[q]) return q;
+      const q = new URLSearchParams(window.location.search).get("tab");
+      const normalized = normalizeFacilityTab(q);
+      if (normalized) return normalized;
     }
     return defaultTab;
   });
+
+  // Keep local tab state synchronized when URL query parameters change
+  useEffect(() => {
+    const raw = searchParams?.get("tab");
+    const requested = normalizeFacilityTab(raw);
+    if (requested && requested !== tab) {
+      setSearch("");
+      setRows([]);
+      setTab(requested);
+    }
+  }, [searchParams]);
 
   const [dashboard, setDashboard] = useState<FacilityDashboard | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
@@ -346,19 +371,20 @@ export function useFacilityLogic(defaultTab: FacilityTab = "overview") {
   }
 
   const selectTab = (id: string) => {
-    if (id === tab) return;
+    const target = normalizeFacilityTab(id) ?? (id as FacilityTab);
+    if (target === tab) return;
     setSearch("");
     setRows([]);
-    setTab(id as FacilityTab);
+    setTab(target);
     const params = new URLSearchParams(window.location.search);
-    params.set("tab", id);
-    window.history.pushState({}, "", `${window.location.pathname}?${params.toString()}`);
+    params.set("tab", target);
+    router.replace(`${window.location.pathname}?${params.toString()}`);
   };
 
   useEffect(() => {
     const onPopState = () => {
-      const next = new URLSearchParams(window.location.search).get("tab") as FacilityTab | null;
-      if (next && facilityLabels[next]) setTab(next);
+      const next = normalizeFacilityTab(new URLSearchParams(window.location.search).get("tab"));
+      if (next) setTab(next);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
