@@ -192,7 +192,7 @@ export function BillingChargeRollup({
                   <Chip
                     size="small"
                     icon={sum.type === "utility" ? <Zap size={11} color="var(--color-orange)" /> : <AlertCircle size={11} color="var(--color-orange)" />}
-                    label={sum.type === "utility" && sum.totalAmount === 0 ? `${sum.pendingCount} Pending Readings` : `${sum.pendingCount} Pending`}
+                    label={sum.type === "utility" && sum.totalAmount === 0 ? `${sum.pendingCount} Readings Req.` : `${sum.pendingCount} Pending`}
                     sx={{ fontSize: 9.5, height: 20, bgcolor: "rgba(234, 88, 12, 0.1)", color: "var(--color-orange)", fontWeight: 700 }}
                   />
                 )}
@@ -216,11 +216,11 @@ export function BillingChargeRollup({
                     </Box>
 
                     {sum.pendingCount > 0 && (
-                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mt: 0.5 }}>
-                        <Typography variant="caption" sx={{ color: "var(--color-orange)", fontWeight: 600, fontSize: 10.5 }}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mt: 0.5, gap: 1 }}>
+                        <Typography variant="caption" sx={{ color: "var(--color-orange)", fontWeight: 600, fontSize: 10.5, whiteSpace: "nowrap" }}>
                           Remaining: {sum.pendingCount} tenants
                         </Typography>
-                        <Typography variant="caption" sx={{ color: "var(--color-orange)", fontWeight: 700, fontSize: 11 }}>
+                        <Typography variant="caption" sx={{ color: "var(--color-orange)", fontWeight: 700, fontSize: 11, textAlign: "right", whiteSpace: "nowrap" }}>
                           {sum.pendingAmount > 0 ? money.format(sum.pendingAmount) : (sum.type === "utility" ? "Awaiting readings" : money.format(0))}
                         </Typography>
                       </Box>
