@@ -47,6 +47,7 @@ export function LinkMeterModal({
   const [selectedUnitId, setSelectedUnitId] = useState(initialUnitId ?? "");
   const [utilityType, setUtilityType] = useState<"electricity" | "water" | "gas">("electricity");
   const [meterCode, setMeterCode] = useState("");
+  const [hardwareSerial, setHardwareSerial] = useState("");
   const [meterName, setMeterName] = useState("");
   const [location, setLocation] = useState("");
   const [tariff, setTariff] = useState("24.50");
@@ -83,14 +84,28 @@ export function LinkMeterModal({
 
   const selectedUnit = units.find((u) => u.id === selectedUnitId);
 
+  // Auto-fill suggested code and name when unit is selected
+  useEffect(() => {
+    if (selectedUnit) {
+      const prefix = utilityType === "electricity" ? "ELEC" : utilityType === "water" ? "WTR" : "GAS";
+      if (!meterCode || meterCode.startsWith("ELEC-") || meterCode.startsWith("WTR-") || meterCode.startsWith("GAS-")) {
+        setMeterCode(`${prefix}-${selectedUnit.code}`);
+      }
+      if (!meterName || meterName.includes("Meter") || meterName.includes("Sub-meter")) {
+        setMeterName(`Unit ${selectedUnit.code} ${utilityType === "electricity" ? "Electricity" : "Water"} Sub-meter`);
+      }
+    }
+  }, [selectedUnitId, utilityType]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUnitId) {
       setError("Please select a unit to link this meter to.");
       return;
     }
-    if (!meterCode.trim()) {
-      setError("Please enter the physical meter serial number or code.");
+    const finalCode = meterCode.trim() || (selectedUnit ? `ELEC-${selectedUnit.code}` : "");
+    if (!finalCode) {
+      setError("Please enter a meter code or unit identifier.");
       return;
     }
 
@@ -107,11 +122,12 @@ export function LinkMeterModal({
             "X-CSRFToken": csrfFromCookie(),
           },
           body: JSON.stringify({
-            meter_code: meterCode.trim(),
+            meter_code: finalCode,
             utility_type: utilityType,
             tariff: tariff ? Number(tariff) : undefined,
             name: meterName.trim() || undefined,
             location: location.trim() || undefined,
+            serial_number: hardwareSerial.trim() || undefined,
             initial_reading: initialReading ? Number(initialReading) : undefined,
           }),
         },
@@ -251,9 +267,14 @@ export function LinkMeterModal({
 
         {/* Meter Details */}
         <Box>
-          <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", color: "text.secondary" }}>
-            3. Physical Meter Specifications
-          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
+            <Typography variant="caption" sx={{ fontWeight: 800, textTransform: "uppercase", color: "text.secondary" }}>
+              3. Meter Identity (Hybrid Model)
+            </Typography>
+            <Typography variant="caption" sx={{ color: "primary.main", fontWeight: 700, fontSize: 11 }}>
+              Unit Code + Hardware Serial
+            </Typography>
+          </Box>
 
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1.2fr 1fr" }, gap: 1.5 }}>
@@ -261,16 +282,33 @@ export function LinkMeterModal({
                 required
                 fullWidth
                 size="small"
-                label="Meter Serial Number / Code"
-                placeholder={utilityType === "electricity" ? "e.g. KPLC-4892019" : "e.g. WTR-00412"}
+                label="Meter Operational Code"
+                placeholder={utilityType === "electricity" ? "e.g. ELEC-KASNEB-F1-1" : "e.g. WTR-KASNEB-F1-1"}
                 value={meterCode}
-                onChange={(e) => {
-                  setMeterCode(e.target.value);
-                  if (!meterName && selectedUnit) {
-                    setMeterName(`Unit ${selectedUnit.code} ${utilityType === "electricity" ? "Electricity" : "Water"} Meter`);
-                  }
-                }}
-                helperText="Physical serial number on the meter faceplate"
+                onChange={(e) => setMeterCode(e.target.value)}
+                helperText="Identifier for caretakers during physical reading walkthroughs"
+              />
+
+              <TextField
+                fullWidth
+                size="small"
+                label="Hardware Serial No (Faceplate)"
+                placeholder="e.g. 01429384729"
+                value={hardwareSerial}
+                onChange={(e) => setHardwareSerial(e.target.value)}
+                helperText="Physical manufacturer serial stamped on meter dial"
+              />
+            </Box>
+
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1.2fr 1fr" }, gap: 1.5 }}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Distribution Board / Physical Location"
+                placeholder={selectedUnit ? `Floor ${selectedUnit.floor || "1"} DB Panel, Breaker 4` : "e.g. Electrical Riser"}
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                helperText="Exact panel/riser location where technician finds the meter"
               />
 
               <TextField
@@ -294,18 +332,18 @@ export function LinkMeterModal({
                 placeholder="0.0"
                 value={initialReading}
                 onChange={(e) => setInitialReading(e.target.value)}
-                helperText="Current reading on meter as of today (optional baseline)"
+                helperText="Current dial reading as of today (optional baseline)"
               />
 
-              <TextField
-                fullWidth
-                size="small"
-                label="Physical Location"
-                placeholder={selectedUnit ? `Floor ${selectedUnit.floor || "1"} Riser` : "e.g. Service Duct"}
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                helperText="Where technician/caretaker finds the meter"
-              />
+              <Box sx={{ p: 1.25, borderRadius: 1.5, bgcolor: "rgba(37, 99, 235, 0.05)", border: "1px dashed rgba(37, 99, 235, 0.25)", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: "#1e40af" }}>
+                  💡 Hybrid Verification Preview:
+                </Typography>
+                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: 11 }}>
+                  Unit {selectedUnit?.code || "..."} • Code: <strong>{meterCode || "—"}</strong>
+                  {hardwareSerial ? <> • SN: <strong>{hardwareSerial}</strong></> : ""}
+                </Typography>
+              </Box>
             </Box>
           </Stack>
         </Box>

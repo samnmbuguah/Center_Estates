@@ -22,6 +22,8 @@ import { useAuth } from "@/components/auth-provider";
 type ParsedMeterRow = {
   unit_code: string;
   meter_number: string;
+  hardware_serial?: string;
+  location?: string;
   utility_type: string;
   tariff?: string;
   initial_reading?: string;
@@ -47,6 +49,23 @@ export function BulkMeterUploadModal({
   const [error, setError] = useState<string | null>(null);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
 
+  const handleDownloadTemplate = () => {
+    const headers = ["unit_code", "meter_number", "hardware_serial", "location", "utility_type", "tariff", "initial_reading"];
+    const sampleRows = [
+      ["F1-1", "ELEC-KASNEB-F1-1", "01429384729", "Floor 1 DB-1 Breaker 4", "electricity", "35.00", "0.0"],
+      ["F1-2", "ELEC-KASNEB-F1-2", "01429384730", "Floor 1 DB-1 Breaker 5", "electricity", "35.00", "0.0"],
+      ["G-01", "WTR-KASNEB-G01", "WTR-99210", "Ground Floor Water Duct", "water", "150.00", "0.0"],
+    ];
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...sampleRows.map((r) => r.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "bulk_meter_onboarding_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleFileUpload = (file?: File) => {
     if (!file) return;
     setError(null);
@@ -66,6 +85,8 @@ export function BulkMeterUploadModal({
         const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/[\s_-]+/g, "_"));
         const unitIdx = headers.findIndex((h) => h.includes("unit"));
         const meterIdx = headers.findIndex((h) => h.includes("meter"));
+        const serialIdx = headers.findIndex((h) => h.includes("serial") || h.includes("hardware") || h.includes("sn"));
+        const locIdx = headers.findIndex((h) => h.includes("location") || h.includes("panel") || h.includes("board"));
         const typeIdx = headers.findIndex((h) => h.includes("type") || h.includes("utility"));
         const tariffIdx = headers.findIndex((h) => h.includes("tariff") || h.includes("rate"));
         const readingIdx = headers.findIndex((h) => h.includes("reading") || h.includes("baseline") || h.includes("initial"));
@@ -84,6 +105,8 @@ export function BulkMeterUploadModal({
           parsed.push({
             unit_code,
             meter_number,
+            hardware_serial: serialIdx !== -1 ? cols[serialIdx] : undefined,
+            location: locIdx !== -1 ? cols[locIdx] : undefined,
             utility_type: (typeIdx !== -1 && cols[typeIdx]) ? cols[typeIdx].toLowerCase() : "electricity",
             tariff: tariffIdx !== -1 ? cols[tariffIdx] : undefined,
             initial_reading: readingIdx !== -1 ? cols[readingIdx] : undefined,
@@ -171,15 +194,15 @@ export function BulkMeterUploadModal({
     >
       <Stack spacing={2}>
         <Alert severity="info">
-          Link electricity or water meters across all units in this property in one go. Expected CSV columns:{" "}
-          <strong>unit_code, meter_number, utility_type, tariff, initial_reading</strong>
+          Link electricity or water meters across all units in this property using the <strong>Hybrid Model</strong> (Operational Unit Code + Physical Hardware Serial Number). Expected CSV columns:{" "}
+          <strong>unit_code, meter_number, hardware_serial, location, utility_type, tariff, initial_reading</strong>
         </Alert>
 
         {error && <Alert severity="error">{error}</Alert>}
         {resultMessage && <Alert severity="success">{resultMessage}</Alert>}
 
-        {/* Upload Button */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        {/* Upload & Template Buttons */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
           <Button variant="outlined" component="label" sx={{ textTransform: "none", fontWeight: 700 }}>
             Choose Meter CSV File
             <input
@@ -192,8 +215,17 @@ export function BulkMeterUploadModal({
               }}
             />
           </Button>
+
+          <Button
+            variant="text"
+            onClick={handleDownloadTemplate}
+            sx={{ textTransform: "none", fontWeight: 700, fontSize: 12, color: "primary.main" }}
+          >
+            📥 Download Sample CSV Template
+          </Button>
+
           {fileName && (
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, color: "text.secondary" }}>
               {fileName} ({rows.length} rows parsed)
             </Typography>
           )}
@@ -206,7 +238,9 @@ export function BulkMeterUploadModal({
               <TableHead>
                 <TableRow sx={{ bgcolor: "action.hover" }}>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Unit Code</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Meter Number</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Operational Meter Code</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Hardware Serial (SN)</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Location / DB Panel</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Utility Type</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Tariff (KES)</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12 }}>Baseline Reading</TableCell>
@@ -216,7 +250,11 @@ export function BulkMeterUploadModal({
                 {rows.map((row, idx) => (
                   <TableRow key={`${row.unit_code}-${idx}`}>
                     <TableCell sx={{ fontSize: 12, fontWeight: 700 }}>Unit {row.unit_code}</TableCell>
-                    <TableCell sx={{ fontSize: 12 }}>{row.meter_number}</TableCell>
+                    <TableCell sx={{ fontSize: 12, fontWeight: 600 }}>{row.meter_number}</TableCell>
+                    <TableCell sx={{ fontSize: 12, color: row.hardware_serial ? "primary.main" : "text.secondary" }}>
+                      {row.hardware_serial || "—"}
+                    </TableCell>
+                    <TableCell sx={{ fontSize: 11, color: "text.secondary" }}>{row.location || "—"}</TableCell>
                     <TableCell sx={{ fontSize: 12, textTransform: "capitalize" }}>
                       {row.utility_type === "water" ? "💧 Water" : "⚡ Electricity"}
                     </TableCell>

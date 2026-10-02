@@ -57,6 +57,8 @@ export type MeterEntry = {
   previousReading: number;
   tariff: number;
   unit: string;
+  location?: string;
+  hardwareSerial?: string;
 };
 
 const UTILITY_META: Record<
@@ -160,6 +162,10 @@ export function BatchMeterReadingWizard({
 
         if (!hasApprovedReading) {
           const uType = (m.utility_type || "water").toLowerCase() as "water" | "electricity" | "gas";
+          const loc = String(m.location || "").trim();
+          const snMatch = loc.match(/(?:SN|Serial|S\/N|HW)[:\s#]+([A-Za-z0-9_-]+)/i);
+          const hwSerial = snMatch ? snMatch[1] : String(m.serial_number || "").trim();
+
           needsReading.push({
             meterId: m.id,
             meterCode: m.code || m.number || "",
@@ -169,6 +175,8 @@ export function BatchMeterReadingWizard({
             previousReading: Number(m.previous_reading ?? m.last_reading_value ?? 0),
             tariff: Number(m.tariff ?? 0),
             unit: m.unit || (uType === "electricity" ? "kWh" : "m³"),
+            location: loc || undefined,
+            hardwareSerial: hwSerial || undefined,
           });
         }
       }
@@ -369,11 +377,12 @@ export function BatchMeterReadingWizard({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleDownloadCsv = () => {
-    const headers = ["unit_code", "meter_code", "meter_name", "utility_type", "previous_reading", "current_reading", "tariff"];
+    const headers = ["unit_code", "meter_code", "hardware_serial", "location", "utility_type", "previous_reading", "current_reading", "tariff"];
     const rows = meters.map((m) => [
       m.unitCode,
       m.meterCode,
-      `"${m.meterName.replace(/"/g, '""')}"`,
+      m.hardwareSerial || "",
+      `"${(m.location || "").replace(/"/g, '""')}"`,
       m.utilityType,
       m.previousReading,
       values[m.meterId] ?? "",
@@ -405,10 +414,11 @@ export function BatchMeterReadingWizard({
       const headers = headerLine.split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
       const unitIdx = headers.findIndex((h) => h.includes("unit"));
       const meterIdx = headers.findIndex((h) => h.includes("meter"));
+      const serialIdx = headers.findIndex((h) => h.includes("serial") || h.includes("hardware") || h.includes("sn"));
       const readingIdx = headers.findIndex((h) => h.includes("current") || h.includes("reading") || h.includes("value"));
 
-      if (readingIdx === -1 || (unitIdx === -1 && meterIdx === -1)) {
-        setError("CSV header must contain 'unit_code' (or 'meter_code') and 'current_reading'.");
+      if (readingIdx === -1 || (unitIdx === -1 && meterIdx === -1 && serialIdx === -1)) {
+        setError("CSV header must contain 'unit_code' (or 'meter_code' / 'hardware_serial') and 'current_reading'.");
         return;
       }
 
@@ -419,6 +429,7 @@ export function BatchMeterReadingWizard({
         const cols = lines[i].split(",").map((c) => c.trim().replace(/^"|"$/g, ""));
         const unitVal = unitIdx !== -1 ? cols[unitIdx]?.toLowerCase() : "";
         const meterVal = meterIdx !== -1 ? cols[meterIdx]?.toLowerCase() : "";
+        const serialVal = serialIdx !== -1 ? cols[serialIdx]?.toLowerCase() : "";
         const readingVal = cols[readingIdx];
 
         if (!readingVal || isNaN(parseFloat(readingVal))) continue;
@@ -426,7 +437,8 @@ export function BatchMeterReadingWizard({
         const matched = meters.find(
           (m) =>
             (unitVal && m.unitCode.toLowerCase() === unitVal) ||
-            (meterVal && m.meterCode.toLowerCase() === meterVal)
+            (meterVal && m.meterCode.toLowerCase() === meterVal) ||
+            (serialVal && m.hardwareSerial && m.hardwareSerial.toLowerCase() === serialVal)
         );
 
         if (matched) {
@@ -778,11 +790,20 @@ export function BatchMeterReadingWizard({
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                               <Box sx={{ color: "#d97706" }}><Zap size={15} /></Box>
                               <Box>
-                                <Typography variant="body2" sx={{ fontWeight: 800, fontSize: 13, color: "#1e293b" }}>
-                                  {m.unitCode}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: 10.5 }}>
-                                  {m.meterCode}
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 800, fontSize: 13, color: "#1e293b" }}>
+                                    {m.unitCode}
+                                  </Typography>
+                                  {m.hardwareSerial && (
+                                    <Chip
+                                      label={`SN: ${m.hardwareSerial}`}
+                                      size="small"
+                                      sx={{ height: 16, fontSize: 9.5, fontWeight: 700, bgcolor: "rgba(37, 99, 235, 0.08)", color: "#1d4ed8" }}
+                                    />
+                                  )}
+                                </Box>
+                                <Typography variant="caption" sx={{ color: "text.secondary", fontSize: 10.5, display: "block" }}>
+                                  {m.meterCode} {m.location ? `• 📍 ${m.location}` : ""}
                                 </Typography>
                               </Box>
                             </Box>
@@ -931,11 +952,20 @@ export function BatchMeterReadingWizard({
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
                     <Box sx={{ color: currentMeta.color }}>{currentMeta.icon}</Box>
                     <Box>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: currentMeta.color, fontSize: 14 }}>
-                        {currentMeter.unitCode} — {currentMeta.label} Sub-meter
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: "text.secondary", fontSize: 11 }}>
-                        {currentMeter.meterCode}
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: currentMeta.color, fontSize: 14 }}>
+                          {currentMeter.unitCode} — {currentMeta.label} Sub-meter
+                        </Typography>
+                        {currentMeter.hardwareSerial && (
+                          <Chip
+                            label={`SN: ${currentMeter.hardwareSerial}`}
+                            size="small"
+                            sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: "rgba(37, 99, 235, 0.12)", color: "#1d4ed8" }}
+                          />
+                        )}
+                      </Box>
+                      <Typography variant="caption" sx={{ color: "text.secondary", fontSize: 11, display: "block" }}>
+                        {currentMeter.meterCode} {currentMeter.location ? `• 📍 ${currentMeter.location}` : ""}
                       </Typography>
                     </Box>
                   </Box>

@@ -459,7 +459,29 @@ export function UtilitiesView({ rows, kpis, organizationId, canWork, canApprove,
                               <span style={{ fontSize: 12, textTransform: "capitalize" }}>{String(row.utility_type ?? "—")} ({String(row.unit ?? "")})</span>
                             </div>
                           </TableCell>
-                          <TableCell sx={{ fontSize: 12 }}>{String(row.name ?? "—")}<br /><span style={{ color: "var(--text-secondary)", fontSize: 10 }}>{String(row.property_name ?? "")}{row.unit_code ? ` · Unit ${String(row.unit_code)}` : ""}</span></TableCell>
+                          <TableCell sx={{ fontSize: 12 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                              <strong style={{ color: "var(--text-primary)" }}>{String(row.name ?? "—")}</strong>
+                              {Boolean(row.code) && (
+                                <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 6px", borderRadius: 4, background: "rgba(0,0,0,0.06)", color: "var(--text-secondary)" }}>
+                                  {String(row.code)}
+                                </span>
+                              )}
+                              {(() => {
+                                const locStr = String(row.location ?? "");
+                                const sn = locStr.match(/(?:SN|Serial|S\/N|HW)[:\s#]+([A-Za-z0-9_-]+)/i)?.[1];
+                                return sn ? (
+                                  <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: "rgba(37,99,235,0.08)", color: "#1d4ed8" }}>
+                                    SN: {sn}
+                                  </span>
+                                ) : null;
+                              })()}
+                            </div>
+                            <div style={{ color: "var(--text-secondary)", fontSize: 10.5, marginTop: 2 }}>
+                              {String(row.property_name ?? "")}{row.unit_code ? ` · Unit ${String(row.unit_code)}` : ""}
+                              {row.location ? ` · 📍 ${String(row.location)}` : ""}
+                            </div>
+                          </TableCell>
                           <TableCell sx={{ fontSize: 12, fontWeight: 700 }}>{String(row.current_reading ?? "—")}</TableCell>
                           <TableCell sx={{ fontSize: 12, color: "text.secondary" }}>{String(row.previous_reading ?? "—")}</TableCell>
                           <TableCell sx={{ fontSize: 12, fontWeight: 700 }}>{String(row.consumption ?? "—")} {String(row.unit ?? "")}</TableCell>

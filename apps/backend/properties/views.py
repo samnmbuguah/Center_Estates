@@ -2104,6 +2104,9 @@ class UnitViewSet(OrganizationModelViewSet):
 
         meter_name = str(request.data.get('name') or f"Unit {unit.code} {utility_type.title()} Meter").strip()
         location = str(request.data.get('location') or f"Unit {unit.code}").strip()
+        serial_number = str(request.data.get('serial_number') or request.data.get('hardware_serial') or '').strip()
+        if serial_number and f"SN: {serial_number}" not in location:
+            location = f"SN: {serial_number} • {location}" if location else f"SN: {serial_number}"
         initial_reading = request.data.get('initial_reading')
 
         meter, created = UtilityMeter.objects.update_or_create(
@@ -2189,6 +2192,9 @@ class UnitViewSet(OrganizationModelViewSet):
 
             meter_name = str((row or {}).get('name') or f"Unit {unit.code} {utility_type.title()} Meter").strip()
             location = str((row or {}).get('location') or f"Unit {unit.code}").strip()
+            serial_number = str((row or {}).get('serial_number') or (row or {}).get('hardware_serial') or '').strip()
+            if serial_number and f"SN: {serial_number}" not in location:
+                location = f"SN: {serial_number} • {location}" if location else f"SN: {serial_number}"
 
             meter, created = UtilityMeter.objects.update_or_create(
                 organization=organization,
