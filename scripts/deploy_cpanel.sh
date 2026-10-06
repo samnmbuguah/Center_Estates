@@ -246,6 +246,13 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     cp "\${release_root}/app.js" app.js
     mkdir -p tmp
     touch tmp/restart.txt
+    # When deploying centerestates.com, cPanel binds the main domain to public_html.
+    # Keep public_html synchronized with .htaccess, _next static assets, and public files.
+    if [ "${FRONTEND_PATH}" = "/home2/monitori/centerestates.com" ] && [ -d "/home2/monitori/public_html" ]; then
+      cp -a .htaccess /home2/monitori/public_html/.htaccess 2>/dev/null || true
+      ln -sfn "${FRONTEND_PATH}/_next" /home2/monitori/public_html/_next 2>/dev/null || true
+      cp -an "${standalone}/public/." /home2/monitori/public_html/ 2>/dev/null || true
+    fi
     # Kill stale Next.js workers matching this application's path.
     # A worker whose release directory has been replaced reports its cwd with a
     # " (deleted)" suffix, so strip it before matching; otherwise the previous
