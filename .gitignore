@@ -29,6 +29,7 @@ Visitor_Management/
 # Client confidential documents and operational records
 docs/client-artifacts/
 docs/client-meetings/
+docs/meetings/
 docs/proposals/
 scripts/setup_primeland.py
 scripts/update_roles_production.sh
