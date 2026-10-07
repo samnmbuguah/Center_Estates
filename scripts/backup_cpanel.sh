@@ -8,8 +8,10 @@ set -euo pipefail
 REMOTE_HOST="${1:-host}"
 DOMAIN="${2:-centerestates.com}"
 API_DOMAIN="${3:-api.centerestates.com}"
-BACKUP_DIR="/home2/monitori/backups"
-API_PATH="/home2/monitori/${API_DOMAIN}"
+CPANEL_USER="${CPANEL_USER:-$USER}"
+CPANEL_HOME="${CPANEL_HOME:-/home2/${CPANEL_USER}}"
+BACKUP_DIR="${CPANEL_HOME}/backups"
+API_PATH="${CPANEL_HOME}/${API_DOMAIN}"
 
 # Optional SSH port override (mirrors deploy_cpanel.sh).
 SSH_PORT="${SSH_PORT:-}"

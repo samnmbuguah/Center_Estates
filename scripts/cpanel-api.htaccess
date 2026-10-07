@@ -1,7 +1,7 @@
 # DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
-PassengerAppRoot "/home2/monitori/api.centerestates.com"
+PassengerAppRoot "/home2/username/api.centerestates.com"
 PassengerBaseURI "/"
-PassengerPython "/home2/monitori/virtualenv/api.centerestates.com/3.9/bin/python"
+PassengerPython "/home2/username/virtualenv/api.centerestates.com/3.9/bin/python"
 # DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
 
 # CORS HEADERS (SERVER-LEVEL MULTI-ORIGIN FALLBACK)

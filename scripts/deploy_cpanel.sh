@@ -21,10 +21,12 @@ for arg in "$@"; do
   esac
 done
 API_DOMAIN="${API_DOMAIN:-api.centerestates.com}"
-FRONTEND_PATH="/home2/monitori/${DOMAIN}"
-API_PATH="/home2/monitori/${API_DOMAIN}"
-PYTHON_VENV="/home2/monitori/virtualenv/${API_DOMAIN}/3.9/bin/activate"
-NODE_VENV="/home2/monitori/nodevenv/${DOMAIN}/24/bin/activate"
+CPANEL_USER="${CPANEL_USER:-$USER}"
+CPANEL_HOME="${CPANEL_HOME:-/home2/${CPANEL_USER}}"
+FRONTEND_PATH="${CPANEL_HOME}/${DOMAIN}"
+API_PATH="${CPANEL_HOME}/${API_DOMAIN}"
+PYTHON_VENV="${CPANEL_HOME}/virtualenv/${API_DOMAIN}/3.9/bin/activate"
+NODE_VENV="${CPANEL_HOME}/nodevenv/${DOMAIN}/24/bin/activate"
 BACKEND_ARCHIVE="$(mktemp /tmp/center-estates-api.XXXXXX.tar.gz)"
 FRONTEND_ARCHIVE="$(mktemp /tmp/center-estates-web.XXXXXX.tar.gz)"
 DEPLOY_SCOPE="${DEPLOY_SCOPE:-full}"
@@ -104,7 +106,10 @@ tar -czf "$BACKEND_ARCHIVE" \
   passenger_wsgi.py apps/backend apps/web/public/center-estates-logo.png
 
 scp "${SCP_OPTS[@]}" "$BACKEND_ARCHIVE" "${REMOTE_HOST}:${API_PATH}/deploy-api.tar.gz"
-scp "${SCP_OPTS[@]}" "scripts/cpanel-api.htaccess" "${REMOTE_HOST}:${API_PATH}/.htaccess"
+api_htaccess="$(mktemp /tmp/cpanel-api.XXXXXX.htaccess)"
+sed "s|/home2/username|${CPANEL_HOME}|g" "scripts/cpanel-api.htaccess" > "${api_htaccess}"
+scp "${SCP_OPTS[@]}" "${api_htaccess}" "${REMOTE_HOST}:${API_PATH}/.htaccess"
+rm -f "${api_htaccess}"
 
 ssh "${SSH_OPTS[@]}" "$REMOTE_HOST" "bash -s" <<EOF
   set -e
@@ -124,10 +129,10 @@ ssh "${SSH_OPTS[@]}" "$REMOTE_HOST" "bash -s" <<EOF
   fi
   python apps/backend/manage.py migrate --noinput
   python apps/backend/manage.py collectstatic --noinput
-  (crontab -l 2>/dev/null | grep -vF '# center-estates-scheduled-reports'; echo "*/15 * * * * cd ${API_PATH} && /home2/monitori/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py run_scheduled_reports >> ${API_PATH}/scheduled-reports.log 2>&1 # center-estates-scheduled-reports") | crontab -
-  (crontab -l 2>/dev/null | grep -vF '# center-estates-calendar-notifications'; echo "17 * * * * cd ${API_PATH} && /home2/monitori/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py sync_calendar_notifications >> ${API_PATH}/calendar-notifications.log 2>&1 # center-estates-calendar-notifications") | crontab -
-  (crontab -l 2>/dev/null | grep -vF '# center-estates-sales-reservations'; echo "*/30 * * * * cd ${API_PATH} && /home2/monitori/virtualenv/${API_DOMAIN}/3.9/bin/python apps/backend/manage.py sync_sales_reservations >> ${API_PATH}/sales-reservations.log 2>&1 # center-estates-sales-reservations") | crontab -
-  (crontab -l 2>/dev/null | grep -vF '# center-estates-daily-backup'; echo "30 2 * * * /home2/monitori/scripts/backup_database.sh >> /home2/monitori/backups/backup.log 2>&1 # center-estates-daily-backup") | crontab -
+  (crontab -l 2>/dev/null | grep -vF '# center-estates-scheduled-reports'; echo "*/15 * * * * cd ${API_PATH} && ${PYTHON_VENV%/*}/python apps/backend/manage.py run_scheduled_reports >> ${API_PATH}/scheduled-reports.log 2>&1 # center-estates-scheduled-reports") | crontab -
+  (crontab -l 2>/dev/null | grep -vF '# center-estates-calendar-notifications'; echo "17 * * * * cd ${API_PATH} && ${PYTHON_VENV%/*}/python apps/backend/manage.py sync_calendar_notifications >> ${API_PATH}/calendar-notifications.log 2>&1 # center-estates-calendar-notifications") | crontab -
+  (crontab -l 2>/dev/null | grep -vF '# center-estates-sales-reservations'; echo "*/30 * * * * cd ${API_PATH} && ${PYTHON_VENV%/*}/python apps/backend/manage.py sync_sales_reservations >> ${API_PATH}/sales-reservations.log 2>&1 # center-estates-sales-reservations") | crontab -
+  (crontab -l 2>/dev/null | grep -vF '# center-estates-daily-backup'; echo "30 2 * * * ${CPANEL_HOME}/scripts/backup_database.sh >> ${CPANEL_HOME}/backups/backup.log 2>&1 # center-estates-daily-backup") | crontab -
 
   killall -9 lswsgi 2>/dev/null || true
   mkdir -p tmp
@@ -185,7 +190,10 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
   tar -czf "$FRONTEND_ARCHIVE" \
     app.js apps/web/.next/standalone apps/web/.next/static apps/web/public
   scp "${SCP_OPTS[@]}" "$FRONTEND_ARCHIVE" "${REMOTE_HOST}:${FRONTEND_PATH}/deploy-web.tar.gz"
-  scp "${SCP_OPTS[@]}" "scripts/cpanel-web.htaccess" "${REMOTE_HOST}:${FRONTEND_PATH}/.htaccess"
+  web_htaccess="$(mktemp /tmp/cpanel-web.XXXXXX.htaccess)"
+  sed "s|/home2/username|${CPANEL_HOME}|g" "scripts/cpanel-web.htaccess" > "${web_htaccess}"
+  scp "${SCP_OPTS[@]}" "${web_htaccess}" "${REMOTE_HOST}:${FRONTEND_PATH}/.htaccess"
+  rm -f "${web_htaccess}"
   ssh "${SSH_OPTS[@]}" "$REMOTE_HOST" "bash -s" <<EOF
     set -e
     source '${NODE_VENV}'
@@ -248,10 +256,10 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     touch tmp/restart.txt
     # When deploying centerestates.com, cPanel binds the main domain to public_html.
     # Keep public_html synchronized with .htaccess, _next static assets, and public files.
-    if [ "${FRONTEND_PATH}" = "/home2/monitori/centerestates.com" ] && [ -d "/home2/monitori/public_html" ]; then
-      cp -a .htaccess /home2/monitori/public_html/.htaccess 2>/dev/null || true
-      ln -sfn "${FRONTEND_PATH}/_next" /home2/monitori/public_html/_next 2>/dev/null || true
-      cp -an "${standalone}/public/." /home2/monitori/public_html/ 2>/dev/null || true
+    if [ "${FRONTEND_PATH}" = "${CPANEL_HOME}/centerestates.com" ] && [ -d "${CPANEL_HOME}/public_html" ]; then
+      cp -a .htaccess "${CPANEL_HOME}/public_html/.htaccess" 2>/dev/null || true
+      ln -sfn "${FRONTEND_PATH}/_next" "${CPANEL_HOME}/public_html/_next" 2>/dev/null || true
+      cp -an "${standalone}/public/." "${CPANEL_HOME}/public_html/" 2>/dev/null || true
     fi
     # Kill stale Next.js workers matching this application's path.
     # A worker whose release directory has been replaced reports its cwd with a

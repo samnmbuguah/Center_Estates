@@ -24,8 +24,9 @@ warnings.filterwarnings('ignore', message=r'.*allowed_objects.*')
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 load_dotenv(BASE_DIR.parent.parent / '.env')
-load_dotenv(Path('/home2/monitori/api.centerestates.com/.env'))
-load_dotenv(Path('/home2/monitori/.env'))
+extra_env = os.environ.get('EXTRA_ENV_PATH')
+if extra_env and Path(extra_env).is_file():
+    load_dotenv(Path(extra_env))
 
 
 
@@ -52,7 +53,10 @@ SECRET_KEY = secret_setting(
 DEBUG = os.environ.get('DJANGO_DEBUG', 'false').lower() in {'1', 'true', 'yes'}
 
 env_hosts = [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()]
-ALLOWED_HOSTS = list(set(['*', 'localhost', '127.0.0.1', 'centerestates.com', 'www.centerestates.com', 'erp.169-58-102-217.sslip.io'] + env_hosts))
+default_hosts = ['localhost', '127.0.0.1', 'centerestates.com', 'www.centerestates.com', 'api.centerestates.com']
+ALLOWED_HOSTS = list(set(default_hosts + env_hosts))
+if DEBUG and not env_hosts:
+    ALLOWED_HOSTS = list(set(ALLOWED_HOSTS + ['*']))
 
 
 # Application definition

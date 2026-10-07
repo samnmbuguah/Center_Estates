@@ -152,7 +152,7 @@ UNIVERSAL_MODULES = {
 ### Running Database Updates
 ```bash
 # On production server
-cd /home2/monitori/api.centerestates.com/apps/backend
+cd /path/to/api.centerestates.com/apps/backend
 python3 manage.py update_organization_roles
 ```
 

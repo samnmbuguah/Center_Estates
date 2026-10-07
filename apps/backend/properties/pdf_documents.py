@@ -127,8 +127,6 @@ def _logo_path(configured_logo: str, organization=None) -> Path | None:
             Path(django_settings.BASE_DIR) / "core" / "static" / "legend-site-logo.png",
             Path(django_settings.BASE_DIR).parent / "web" / "public" / "legend-site-logo.png",
             Path(django_settings.MEDIA_ROOT) / "legend-site-logo.png",
-            Path("/home2/monitori/centerestates.com/legend-site-logo.png"),
-            Path("/home2/monitori/centerestates.com/public/legend-site-logo.png"),
         ])
 
     if configured_logo and not configured_logo.startswith(("http://", "https://", "data:")):
@@ -140,15 +138,14 @@ def _logo_path(configured_logo: str, organization=None) -> Path | None:
             Path(django_settings.BASE_DIR) / "core" / "static" / relative,
             Path(django_settings.BASE_DIR) / relative,
             Path(django_settings.BASE_DIR).parent / "web" / "public" / relative,
-            Path("/home2/monitori/centerestates.com") / relative,
             Path(configured_logo),
         ))
 
     candidates.extend([
         Path(django_settings.BASE_DIR) / "core" / "static" / "center-estates-logo.png",
         Path(django_settings.BASE_DIR).parent / "web" / "public" / "center-estates-logo.png",
-        Path("/home2/monitori/centerestates.com/center-estates-logo.png"),
-        Path("/home2/monitori/centerestates.com/logo.png"),
+        Path(django_settings.MEDIA_ROOT) / "center-estates-logo.png",
+        Path(django_settings.MEDIA_ROOT) / "logo.png",
     ])
     return next((path for path in candidates if path.is_file()), None)
 

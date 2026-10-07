@@ -1,8 +1,7 @@
-# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
-PassengerAppRoot "/home2/monitori/centerestates.com"
-PassengerBaseURI "/"
-PassengerPython "/home2/monitori/virtualenv/centerestates.com/3.9/bin/python"
-# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
+# CLOUDLINUX PASSENGER CONFIGURATION TEMPLATE
+# PassengerAppRoot "/path/to/centerestates.com"
+# PassengerBaseURI "/"
+# PassengerPython "/path/to/virtualenv/centerestates.com/3.9/bin/python"
 
 # Force HTTPS
 RewriteEngine On

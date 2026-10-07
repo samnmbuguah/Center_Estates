@@ -25,3 +25,12 @@ infrastructure/docker/secrets/
 MonitoringERP/
 Visitor_Management/
 937126954-*.pdf
+
+# Client confidential documents and operational records
+docs/client-artifacts/
+docs/client-meetings/
+docs/proposals/
+scripts/setup_primeland.py
+scripts/update_roles_production.sh
+*.bundle
+*_backup/
