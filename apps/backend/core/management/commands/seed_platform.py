@@ -57,7 +57,7 @@ class Command(BaseCommand):
 
         organization, _ = Organization.objects.update_or_create(
             slug='center-estates-demo',
-            defaults={'name': 'Center Estates Demo', 'is_active': True, 'domain': 'erp.169-58-102-217.sslip.io'},
+            defaults={'name': 'Center Estates Demo', 'is_active': True, 'domain': os.environ.get('DEMO_DOMAIN', 'centerestates.com')},
         )
         organization_settings = organization.settings or {}
         branding = organization_settings.get('branding') if isinstance(organization_settings.get('branding'), dict) else {}

@@ -42,14 +42,14 @@ Run the automated cPanel deployment from the repository root:
 curl -fsS https://api.centerestates.com/api/v1/health/
 ```
 
-The script builds the Next.js bundle locally, packages backend + frontend, uploads to `/home2/monitori/centerestates.com`, runs `migrate`/`collectstatic`/`check --deploy`, touches `tmp/restart.txt` and terminates stale LiteSpeed workers.
+The script builds the Next.js bundle locally, packages backend + frontend, uploads to the target application directory, runs `migrate`/`collectstatic`/`check --deploy`, touches `tmp/restart.txt` and terminates stale LiteSpeed workers.
 
 Seed demo data (roles, properties, tenants, telemetry fixture) is refreshed explicitly:
 
 ```bash
-cd /home2/monitori/api.centerestates.com/apps/backend
+cd /path/to/api.centerestates.com/apps/backend
 SEED_ADMIN_PASSWORD='<admin>' SEED_ROLE_PASSWORD='<role>' \
-  /home2/monitori/virtualenv/api.centerestates.com/3.9/bin/python manage.py seed_platform
+  python manage.py seed_platform
 ```
 
 ## 3. Release verification
@@ -89,4 +89,4 @@ The backup captures the database dump, uploaded media and frontend bundle with c
 - Authentication is JWT in HttpOnly cookies (15-minute access, 7-day refresh), CSRF-protected and rate limited.
 - Rotate the Django signing key only during announced maintenance (existing sessions become invalid).
 - Replace the acceptance admin password and remove unused memberships before live client data.
-- See the [Production runbook](PRODUCTION_RUNBOOK.md) for routine operations, backup cadence and release checks.
+- See the [Production runbook](../operations/PRODUCTION_RUNBOOK.md) for routine operations, backup cadence and release checks.

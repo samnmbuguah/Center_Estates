@@ -40,7 +40,7 @@ All three are enforced by Django. Next.js mirrors the result for navigation and 
 
 ## Deployment
 
-- `erp.169-58-102-217.sslip.io`: current command center and canonical module routes.
+- `erp.example.com` (or configured host): command center and canonical module routes.
 - `property`, `facility`, `sales`, `tender`, `valuation`, `monitoring`: aliases/proxies to the same web app.
 - `/api/v1`: the same-domain Django API, proxied by shared Caddy.
 - Static and uploaded files: web-server paths or external object storage.

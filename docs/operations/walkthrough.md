@@ -28,7 +28,7 @@
 ---
 
 ### 2. Property Onboarding Enhancement: Letting & Tenant Sourcing Rates
-- In [apps/web/src/components/property-onboarding-form.tsx](file:///root/Dev/Center_Estates/apps/web/src/components/property-onboarding-form.tsx):
+- In [`apps/web/src/components/property-onboarding-form.tsx`](../../apps/web/src/components/property-onboarding-form.tsx):
   - Added **Letting / tenant sourcing fee basis** (`1 Month Rent [100%]`, `Half Month Rent [50%]`, `% of Annual Lease Value`, `Fixed Flat Amount`)
   - Added **Letting fee rate / amount** input field
   - Added payment terms & remittance instructions

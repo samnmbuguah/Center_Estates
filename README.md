@@ -66,8 +66,8 @@ The Docker VM remains the pre-production/fallback environment.
 
 The production-like VM stack is defined in `docker-compose.yml`: PostgreSQL 17,
 one Django API and one route-split Next.js application. It joins the existing
-`caddy_default` network; shared Caddy terminates TLS for
-`https://erp.169-58-102-217.sslip.io`.
+`caddy_default` network; shared Caddy terminates TLS for your configured domain
+(e.g., `https://erp.example.com` or local reverse proxy).
 
 Production deployment, verification, backup, restore and rollback procedures are documented in [the production runbook](docs/operations/PRODUCTION_RUNBOOK.md) and [Docker deployment guide](infrastructure/docker/README.md).
 

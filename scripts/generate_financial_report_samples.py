@@ -11,7 +11,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-OUT = ROOT / "docs" / "client-artifacts" / "financial-documents" / "samples"
+OUT = ROOT / "docs" / "quality" / "golden-reports" / "samples"
 OUT.mkdir(parents=True, exist_ok=True)
 LOGO = ROOT / "apps" / "web" / "public" / "center-estates-logo.png"
 INK = colors.HexColor("#111827")

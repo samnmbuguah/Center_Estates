@@ -1,5 +1,5 @@
 # Copy this site block into the VM's shared Caddyfile.
-erp.169-58-102-217.sslip.io {
+{$SITE_DOMAIN:erp.example.com} {
 	encode gzip zstd
 
 	header {

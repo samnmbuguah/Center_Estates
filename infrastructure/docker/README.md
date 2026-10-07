@@ -5,7 +5,7 @@ The production-like VM deployment uses PostgreSQL, Gunicorn/Django and the Next.
 ```bash
 docker compose up -d --build
 docker compose ps
-curl https://erp.169-58-102-217.sslip.io/api/v1/health/
+curl https://erp.example.com/api/v1/health/
 ```
 
 Secrets are generated locally in `infrastructure/docker/secrets/` and ignored by Git. The seed command is idempotent and runs at startup while `SEED_DEMO_DATA=true`; disable it after acceptance fixtures are no longer wanted.
