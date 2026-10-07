@@ -20,6 +20,8 @@ playwright/.cache/
 .docker-secrets/
 infrastructure/docker/secrets/
 .DS_Store
+schema.yml
+
 
 # Retained standalone migration sources; do not absorb their histories/files yet.
 MonitoringERP/

@@ -2434,7 +2434,7 @@ class TenantViewSet(OrganizationModelViewSet):
     search_fields = ('name', 'code', 'email', 'phone', 'leases__unit__code')
 
     def get_queryset(self):
-        return super().get_queryset().prefetch_related('leases__unit').distinct()
+        return super().get_queryset().select_related('property').prefetch_related('leases__unit').distinct()
 
     def perform_create(self, serializer):
         organization = self._validate_organization(serializer)
@@ -4044,7 +4044,13 @@ class InvoiceViewSet(OrganizationModelViewSet):
         'submit_review': 'property.finance', 'approve': 'property.approve',
         'reject': 'property.approve', 'issue': 'property.approve',
     }
-    queryset = Invoice.objects.select_related('lease__tenant')
+    queryset = Invoice.objects.select_related(
+        'lease__tenant',
+        'lease__unit__property',
+        'owner',
+        'unit__property',
+        'collection_account',
+    ).prefetch_related('lines')
     serializer_class = InvoiceSerializer
     search_fields = ('number', 'lease__tenant__name')
 
