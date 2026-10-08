@@ -35,7 +35,7 @@ describe("ModuleShell navigation", () => {
       </ModuleShell>,
     );
 
-    expect(screen.getByRole("combobox", { name: "Module page" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Test module navigation" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
 

@@ -1024,16 +1024,16 @@ class BuyerPortalViewSet(ViewSet):
 
     def _access(self, buyer_id=None):
         organization = get_active_organization(self.request)
+        membership = get_active_membership(self.request, organization)
+        can_support = (
+            self.request.user.is_staff or self.request.user.is_superuser
+            or bool(membership and (
+                membership.is_organization_admin
+                or membership.has_permission('sales.selling')
+                or membership.has_permission('sales.view')
+            ))
+        )
         if buyer_id:
-            membership = get_active_membership(self.request, organization)
-            can_support = (
-                self.request.user.is_staff or self.request.user.is_superuser
-                or bool(membership and (
-                    membership.is_organization_admin
-                    or membership.has_permission('sales.selling')
-                    or membership.has_permission('sales.view')
-                ))
-            )
             if not can_support:
                 raise PermissionDenied('Buyer portal support view requires sales selling permission.')
             buyer = Buyer.objects.for_organization(organization).filter(pk=buyer_id).first()
@@ -1044,14 +1044,35 @@ class BuyerPortalViewSet(ViewSet):
             user=self.request.user, is_active=True,
         ).select_related('buyer').first()
         if not access:
+            # 1. Auto-link if user email or phone matches a registered buyer
+            user_email = (getattr(self.request.user, 'email', '') or '').strip()
+            user_phone = getattr(getattr(self.request.user, 'profile', None), 'phone', '') or ''
+            matched_buyer = None
+            if user_email:
+                matched_buyer = Buyer.objects.for_organization(organization).filter(email__iexact=user_email).first()
+            if not matched_buyer and user_phone:
+                matched_buyer = Buyer.objects.for_organization(organization).filter(phone__iexact=user_phone).first()
+            if matched_buyer:
+                BuyerPortalAccess.objects.get_or_create(
+                    organization=organization, user=self.request.user,
+                    defaults={'buyer': matched_buyer, 'is_active': True}
+                )
+                return matched_buyer
+
+            # 2. Staff/admin preview fallback if requested
+            if can_support and self.request.query_params.get('preview') in ('1', 'true'):
+                first_buyer = Buyer.objects.for_organization(organization).exclude(status=Buyer.Status.CANCELLED).first()
+                if first_buyer:
+                    return first_buyer
+
             raise PermissionDenied('No active buyer portal profile is linked to this account.')
         return access.buyer
 
     def _build_portal_data(self, buyer, request):
         organization = buyer.organization
         sales = PropertySale.objects.for_organization(organization).filter(buyer=buyer).select_related(
-            'listing__unit', 'listing__project', 'agent',
-        ).prefetch_related('payments', 'installments').order_by('-created_at')
+            'listing__unit', 'listing__project', 'listing__project__property', 'agent',
+        ).prefetch_related('payments', 'installments', 'listing__renders').order_by('-created_at')
         current_sale = next((s for s in sales if s.status not in (PropertySale.Status.CANCELLED,)), sales.first())
         installments = []
         payments = []
@@ -1062,9 +1083,51 @@ class BuyerPortalViewSet(ViewSet):
             sale_documents = SaleDocument.objects.for_organization(organization).filter(sale=current_sale).order_by('document_type', 'title')
 
         gateway_listings = SaleListing.objects.for_organization(organization).filter(
-            project_id__in=[s.listing.project_id for s in sales if s.listing_id],
             status=SaleListing.Status.AVAILABLE,
-        ).select_related('project', 'unit').order_by('project__name', 'unit__code')[:20]
+        ).select_related('project', 'project__property', 'unit').prefetch_related('renders').order_by('project__name', 'unit__code')[:20]
+
+        # Site visits / viewings for this buyer
+        site_visits_filter = Q(converted_buyer=buyer)
+        if buyer.email:
+            site_visits_filter |= Q(email__iexact=buyer.email)
+        if buyer.phone:
+            site_visits_filter |= Q(phone__iexact=buyer.phone)
+        site_visits = SiteVisit.objects.for_organization(organization).filter(
+            site_visits_filter
+        ).select_related('project', 'introducing_agent').order_by('-visited_at')
+
+        # Determine 7-Stage Customer Journey (as per Integrated Digital Ecosystem architecture)
+        # 1. Awareness -> 2. Interest -> 3. Enquiry -> 4. Follow Up -> 5. Viewing/Site Visit -> 6. Conversion -> 7. After-Sales
+        if sales.filter(status=PropertySale.Status.COMPLETED).exists():
+            journey_stage = 7
+            journey_label = "After-Sales Service & Handover"
+        elif sales.filter(status__in=(PropertySale.Status.CONTRACTED, PropertySale.Status.RESERVED)).exists():
+            journey_stage = 6
+            journey_label = "Conversion & Contracted Sale"
+        elif site_visits.exists():
+            journey_stage = 5
+            journey_label = "Viewing & Site Visit Engagement"
+        elif buyer.status in (Buyer.Status.QUALIFIED, Buyer.Status.ACTIVE):
+            journey_stage = 4
+            journey_label = "Follow-Up & Requirement Matching"
+        elif buyer.status == Buyer.Status.LEAD:
+            journey_stage = 3
+            journey_label = "Enquiry Submitted"
+        else:
+            journey_stage = 2
+            journey_label = "Property Interest"
+
+        assigned = buyer.assigned_agent or (current_sale.agent if current_sale else None)
+        agent_info = None
+        if assigned:
+            agent_phone = getattr(getattr(assigned, 'profile', None), 'phone', '') or getattr(assigned, 'phone', '') or '+254 700 000 000'
+            agent_info = {
+                'id': str(assigned.id),
+                'name': assigned.get_full_name() or assigned.username,
+                'email': assigned.email or '',
+                'phone': agent_phone,
+            }
+
         return {
             'buyer': BuyerSerializer(buyer).data,
             'sales': PropertySaleSerializer(sales, many=True).data,
@@ -1072,13 +1135,30 @@ class BuyerPortalViewSet(ViewSet):
             'installments': InstallmentSerializer(installments, many=True).data,
             'payments': SalePaymentSerializer(payments, many=True).data,
             'documents': SaleDocumentSerializer(sale_documents, many=True).data,
+            'siteVisits': SiteVisitSerializer(site_visits, many=True).data,
             'availableUnits': SaleListingSerializer(gateway_listings, many=True).data,
+            'journey': {
+                'stage': journey_stage,
+                'label': journey_label,
+                'maxStages': 7,
+                'stages': [
+                    {'step': 1, 'name': 'Awareness', 'channel': 'Social Media', 'detail': 'Discovering developments on Instagram, TikTok, LinkedIn, FB'},
+                    {'step': 2, 'name': 'Interest', 'channel': 'Website', 'detail': 'Browsing unit listings, 3D floor plans and pricing'},
+                    {'step': 3, 'name': 'Enquiry', 'channel': 'Enquiry Form', 'detail': 'Enquiry captured & logged into ERP system'},
+                    {'step': 4, 'name': 'Follow Up', 'channel': 'ERP CRM', 'detail': 'Dedicated sales agent assigned with tailored proposals'},
+                    {'step': 5, 'name': 'Viewing', 'channel': 'Site Visit', 'detail': 'Guided site inspection and architectural walk-through'},
+                    {'step': 6, 'name': 'Conversion', 'channel': 'Sale Agreement', 'detail': 'Unit reservation, contracts and milestone installment plan'},
+                    {'step': 7, 'name': 'After Sales', 'channel': 'Service & Support', 'detail': 'Handover, service charge, maintenance and property management'},
+                ]
+            },
+            'agent': agent_info,
             'kpis': {
                 'totalSales': sales.exclude(status=PropertySale.Status.CANCELLED).count(),
                 'outstanding': sum((s.agreed_price for s in sales if s.status not in (PropertySale.Status.COMPLETED, PropertySale.Status.CANCELLED)), Decimal('0')),
                 'verifiedPayments': sum(
                     (p.amount for p in SalePayment.objects.for_organization(organization).filter(sale__buyer=buyer, status=SalePayment.Status.VERIFIED)), Decimal('0'),
                 ),
+                'scheduledVisits': site_visits.count(),
             },
         }
 
@@ -1092,6 +1172,94 @@ class BuyerPortalViewSet(ViewSet):
     def retrieve(self, request, pk=None):
         buyer = self._access(buyer_id=pk)
         return Response(self._build_portal_data(buyer, request))
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='viewings/request')
+    def request_viewing(self, request):
+        buyer = self._access()
+        project_id = str(request.data.get('project') or request.data.get('project_id') or '').strip()
+        listing_id = str(request.data.get('listing_id') or request.data.get('listing') or '').strip()
+        if not project_id and listing_id:
+            from .models import SaleListing
+            listing = SaleListing.objects.for_organization(buyer.organization).filter(pk=listing_id).first()
+            if listing and listing.project_id:
+                project_id = str(listing.project_id)
+
+        visited_at_str = str(request.data.get('visited_at') or request.data.get('preferred_date') or '').strip()
+        unit_type = str(request.data.get('unit_type') or request.data.get('preferred_time') or '').strip()
+        notes = str(request.data.get('notes') or '').strip()
+        if not project_id:
+            raise ValidationError({'project': 'Please select a project or property listing to visit.'})
+        from properties.models import Project
+        project = Project.objects.for_organization(buyer.organization).filter(pk=project_id).first()
+        if not project:
+            raise ValidationError({'project': 'Selected project was not found.'})
+        try:
+            if visited_at_str:
+                from django.utils.dateparse import parse_datetime, parse_date
+                parsed = parse_datetime(visited_at_str)
+                if not parsed:
+                    d = parse_date(visited_at_str)
+                    if d:
+                        import datetime
+                        parsed = timezone.make_aware(datetime.datetime.combine(d, datetime.time(10, 0)))
+                visited_at = parsed or (timezone.now() + timezone.timedelta(days=2))
+            else:
+                visited_at = timezone.now() + timezone.timedelta(days=2)
+        except Exception:
+            visited_at = timezone.now() + timezone.timedelta(days=2)
+        year = timezone.now().year
+        count = SiteVisit.objects.filter(organization=buyer.organization).count() + 1
+        ref = f"VS-{year}-{count:04d}"
+        while SiteVisit.objects.filter(organization=buyer.organization, reference=ref).exists():
+            count += 1
+            ref = f"VS-{year}-{count:04d}"
+        visit = SiteVisit.objects.create(
+            organization=buyer.organization,
+            reference=ref,
+            visitor_name=buyer.full_name,
+            email=buyer.email,
+            phone=buyer.phone,
+            project=project,
+            interested_unit_type=unit_type,
+            introducing_agent=buyer.assigned_agent,
+            visited_at=visited_at,
+            notes=notes,
+            converted_buyer=buyer,
+        )
+        return Response(SiteVisitSerializer(visit).data, status=201)
+
+    @transaction.atomic
+    @action(detail=False, methods=('post',), url_path='support/request')
+    def request_support(self, request):
+        buyer = self._access()
+        category = str(request.data.get('category') or 'Service Charge / Maintenance').strip()
+        subject = str(request.data.get('subject') or request.data.get('title') or '').strip()
+        details = str(request.data.get('details') or request.data.get('description') or '').strip()
+        if not subject:
+            subject = f"{category} Request - {details[:40]}" if details else f"{category} Request"
+        timestamp = timezone.localtime().strftime('%Y-%m-%d %H:%M')
+        ticket_note = f"\n[Client Portal Request - {timestamp} | {category}]\nSubject: {subject}\n{details}"
+        buyer.notes = f"{(buyer.notes or '').strip()}\n{ticket_note}".strip()
+        buyer.save(update_fields=('notes', 'updated_at'))
+
+        sale_id = request.data.get('sale_id') or request.data.get('sale')
+        sale = None
+        if sale_id:
+            sale = PropertySale.objects.for_organization(buyer.organization).filter(pk=sale_id, buyer=buyer).first()
+        if not sale:
+            sale = PropertySale.objects.for_organization(buyer.organization).filter(buyer=buyer).first()
+
+        if sale:
+            SalesAuditEvent.objects.create(
+                organization=buyer.organization,
+                sale=sale,
+                event_type='support_ticket_created',
+                details={'category': category, 'subject': subject, 'details': details},
+                actor=request.user,
+            )
+
+        return Response({'status': 'ok', 'message': 'Your request has been submitted to the property management team.'}, status=201)
 
     @transaction.atomic
     @action(detail=False, methods=('post',), url_path='payments/record')

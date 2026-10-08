@@ -459,6 +459,54 @@ class SalesPortalTests(TestCase):
         self.assertEqual(response.data['kpis']['pipelineDeals'], 1)
         self.assertEqual(response.data['agent']['username'], 'buyer-owner')
 
+    def test_buyer_portal_customer_journey_and_viewing_request(self):
+        from .models import BuyerPortalAccess, SiteVisit
+        BuyerPortalAccess.objects.create(organization=self.organization, user=self.user, buyer=self.buyer)
+        response = self.client.get('/api/v1/sales/buyer-portal/', **self.headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('journey', response.data)
+        self.assertEqual(response.data['journey']['maxStages'], 7)
+        self.assertEqual(len(response.data['journey']['stages']), 7)
+
+        # Book site visit
+        booking_resp = self.client.post(
+            '/api/v1/sales/buyer-portal/viewings/request/',
+            {
+                'listing_id': str(self.listing.id),
+                'preferred_date': '2026-10-15',
+                'preferred_time': '10:00 AM',
+                'attendees': 2,
+                'notes': 'Interested in top floor views',
+            },
+            format='json',
+            **self.headers,
+        )
+        self.assertEqual(booking_resp.status_code, 201)
+        self.assertTrue(SiteVisit.objects.filter(organization=self.organization, converted_buyer=self.buyer).exists())
+
+    def test_buyer_portal_after_sales_support_request(self):
+        from .models import BuyerPortalAccess
+        BuyerPortalAccess.objects.create(organization=self.organization, user=self.user, buyer=self.buyer)
+        support_resp = self.client.post(
+            '/api/v1/sales/buyer-portal/support/request/',
+            {
+                'sale_id': str(self.sale.id),
+                'category': 'maintenance',
+                'description': 'Main door lock fitting adjustment required',
+                'urgency': 'high',
+            },
+            format='json',
+            **self.headers,
+        )
+        self.assertEqual(support_resp.status_code, 201)
+        self.assertTrue(SalesAuditEvent.objects.filter(sale=self.sale, event_type='support_ticket_created').exists())
+
+    def test_staff_preview_mode(self):
+        # Staff can preview portal with ?preview=1 even without BuyerPortalAccess
+        preview_resp = self.client.get('/api/v1/sales/buyer-portal/?preview=1', **self.headers)
+        self.assertEqual(preview_resp.status_code, 200)
+        self.assertEqual(preview_resp.data['buyer']['reference'], 'B1')
+
 
 @override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False, PUBLIC_LISTINGS_ORG_SLUG='public-sales')
 class SalesPublicTests(TestCase):

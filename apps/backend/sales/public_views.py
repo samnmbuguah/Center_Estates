@@ -213,7 +213,7 @@ def public_enquiry(request):
     phone = str(data.get('phone') or '').strip()
     email = str(data.get('email') or '').strip()
     message = str(data.get('message') or '').strip()
-    listing_id = data.get('listing')
+    source = str(data.get('source') or 'website').strip()
     errors = {}
     if not name:
         errors['name'] = 'Your name is required.'
@@ -237,12 +237,13 @@ def public_enquiry(request):
     if email:
         identity |= Q(email__iexact=email)
     existing = Buyer.objects.filter(organization=organization).filter(identity).first() if identity else None
-    notes = message
+    channel_tag = f"[Source: {source.title()}]"
+    notes = f"{channel_tag} {message}".strip()
     if listing:
-        notes = f'Interested in {listing.project.name} unit {listing.unit.code} ({listing.list_price}).\n{message}'.strip()
+        notes = f"{channel_tag} Interested in {listing.project.name} unit {listing.unit.code} ({listing.list_price}).\n{message}".strip()
     if existing:
         if notes and notes not in (existing.notes or ''):
-            existing.notes = f'{(existing.notes or "").strip()}\n{notes}'.strip()
+            existing.notes = f"{(existing.notes or '').strip()}\n{notes}".strip()
             existing.save(update_fields=('notes', 'updated_at'))
         return Response({'status': 'ok', 'reference': existing.reference}, status=200)
     count = Buyer.objects.filter(organization=organization, reference__startswith='BUY-').count()

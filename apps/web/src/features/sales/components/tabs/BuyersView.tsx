@@ -107,6 +107,26 @@ export function BuyerProfileView({
         <Badge tone={buyer.financing_type === "bank" ? "blue" : "green"}>
           {buyer.financing_type === "bank" ? "Bank Financed" : "Self Financed"}
         </Badge>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <button
+            className="btn sm"
+            onClick={() => window.open(`/buyer-portal?buyer=${buyer.id}`, "_blank")}
+            style={{
+              background: "#3b82f6",
+              color: "#fff",
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              borderRadius: 8,
+              border: "none",
+              cursor: "pointer",
+              padding: "6px 12px",
+            }}
+          >
+            <span>📱</span> Open Client Portal
+          </button>
+        </div>
       </div>
 
       <div className="row" style={{ gap: 4, marginBottom: 18, borderBottom: "1px solid var(--border)", paddingBottom: 8 }}>
