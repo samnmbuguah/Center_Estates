@@ -455,4 +455,79 @@ registerTour({
   ],
 });
 
+registerTour({
+  id: "tenant-portal-tour",
+  label: "Tenant Self-Service Portal Tour",
+  steps: [
+    {
+      testid: "tenant-portal-header",
+      title: "Tenant Portal Overview",
+      description:
+        "Welcome to your tenant self-service workspace. View your active lease, unit details, and primary management contacts at a glance.",
+    },
+    {
+      testid: "tenant-portal-next-action",
+      title: "Next Best Action Alert",
+      description:
+        "Always know what requires your immediate attention—such as clearing outstanding rent, confirming move-in checklists, or tracking maintenance work orders.",
+    },
+    {
+      testid: "tenant-portal-tab-overview",
+      title: "Account Portfolio & Wallet Balance",
+      description:
+        "Check your current ledger balance, prepaid wallet credits, and recent transactions.",
+    },
+    {
+      testid: "tenant-portal-tab-invoices",
+      title: "Invoices & Instant M-Pesa STK Push",
+      description:
+        "Inspect itemized rent and utility invoices, with instant M-Pesa STK push prompts sent directly to your phone.",
+    },
+    {
+      testid: "tenant-portal-tab-maintenance",
+      title: "Report Issues & Track Technicians",
+      description:
+        "Log maintenance requests with photos, track work order SLAs, and confirm technician resolution before closing tickets.",
+    },
+    {
+      testid: "tenant-portal-tab-documents",
+      title: "Document Vault & Receipts",
+      description:
+        "Download signed lease agreements, rent receipts, and formal property notices anytime.",
+    },
+  ],
+});
+
+registerTour({
+  id: "owner-portal-tour",
+  label: "Property Owner / Landlord Portal Tour",
+  steps: [
+    {
+      testid: "owner-portal-header",
+      title: "Landlord Asset Portfolio",
+      description:
+        "Welcome to the property owner portal. Monitor real-time rental yield, occupancy rates, and remittances across all your units.",
+    },
+    {
+      testid: "owner-portal-next-action",
+      title: "Executive Action Summary",
+      description:
+        "Contextual alerts on pending contractor expense appraisals, upcoming payout disbursements, and tenant renewal decisions.",
+    },
+    {
+      testid: "owner-portal-tab-overview",
+      title: "Portfolio Yield & Net Cash Flow",
+      description:
+        "Track gross collections, operational expenditures, management fees, and net disbursable funds.",
+    },
+    {
+      testid: "owner-portal-tab-statements",
+      title: "Monthly Remittance Statements",
+      description:
+        "Download audit-ready monthly statements and bank transfer remittance vouchers.",
+    },
+  ],
+});
+
 export {};
+

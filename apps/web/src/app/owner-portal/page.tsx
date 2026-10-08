@@ -26,8 +26,11 @@ import {
   Menu,
   X,
   Share2,
+  ArrowRight,
+  Sparkles,
 } from "lucide-react";
-import { Button, Chip } from "@mui/material";
+import { Button, Chip, Skeleton, Stack } from "@mui/material";
+import { startTour } from "@/lib/tours/tourService";
 
 type Owner = {
   id: string;
@@ -305,12 +308,20 @@ ${portalUrl}`;
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--color-slate-50)" }}>
-        <div style={{ textAlign: "center" }}>
-          <div className="spinner" style={{ width: 40, height: 40, margin: "0 auto 14px", borderTopColor: "var(--color-info)" }} />
-          <div style={{ fontSize: 14, color: "var(--text-primary)", fontWeight: 750 }}>Opening Unit Owner & Landlord Portal…</div>
-          <div style={{ fontSize: 12, color: "var(--text-soft)", marginTop: 4 }}>Loading property mandates and live financial ledgers</div>
-        </div>
+      <div className="tenant-portal-page" data-testid="owner-portal-skeleton" style={{ minHeight: "100vh", background: "var(--color-slate-50)", padding: "24px 20px 60px", maxWidth: 1380, margin: "0 auto" }}>
+        {/* Top Banner Skeleton */}
+        <Skeleton variant="rectangular" height={160} sx={{ borderRadius: "16px", marginBottom: "20px" }} animation="wave" />
+        {/* Next Best Action Skeleton */}
+        <Skeleton variant="rectangular" height={80} sx={{ borderRadius: "14px", marginBottom: "20px" }} animation="wave" />
+        {/* KPI Cards Skeleton */}
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ marginBottom: 3 }}>
+          <Skeleton variant="rectangular" height={110} sx={{ borderRadius: "14px", flex: 1 }} animation="wave" />
+          <Skeleton variant="rectangular" height={110} sx={{ borderRadius: "14px", flex: 1 }} animation="wave" />
+          <Skeleton variant="rectangular" height={110} sx={{ borderRadius: "14px", flex: 1 }} animation="wave" />
+          <Skeleton variant="rectangular" height={110} sx={{ borderRadius: "14px", flex: 1 }} animation="wave" />
+        </Stack>
+        {/* Main Stage Skeleton */}
+        <Skeleton variant="rectangular" height={420} sx={{ borderRadius: "16px" }} animation="wave" />
       </div>
     );
   }
@@ -318,6 +329,56 @@ ${portalUrl}`;
   const firstName = activeOwner?.name ? activeOwner.name.split(" ")[0] : "Landlord";
   const unitsCount = units.length || activeOwner?.units_count || 0;
   const propertyName = units[0]?.property_name || "Managed Estates";
+
+  const nextAction = useMemo(() => {
+    const pendingBalance = Number(financialSummary?.outstanding_balance ?? 0);
+    if (remittanceData?.net_payout && Number(remittanceData.net_payout) > 0) {
+      return {
+        stageBadge: "Stage 01 · Remittance & Disbursement",
+        title: `Monthly Net Remittance Ready: ${cash.format(remittanceData.net_payout)}`,
+        description: `Bank disbursement prepared for ${activeOwner?.settlement_bank_name || "Settlement Account"} (${activeOwner?.settlement_bank_account || "Verified"}). Download your official statement.`,
+        actionText: "View Remittance",
+        icon: "🏦",
+        bgColor: "rgba(37, 99, 235, 0.05)",
+        borderColor: "rgba(37, 99, 235, 0.25)",
+        badgeBg: "rgba(37, 99, 235, 0.12)",
+        badgeColor: "#2563eb",
+        buttonBg: "#2563eb",
+        buttonHoverBg: "#1d4ed8",
+        onAction: () => setActiveTab("remittances"),
+      };
+    }
+    if (pendingBalance > 0) {
+      return {
+        stageBadge: "Stage 02 · Arrears & Collections",
+        title: `Pending Rent Collections: ${cash.format(pendingBalance)} Across Managed Units`,
+        description: `${unitsCount} units generating ${cash.format(financialSummary?.active_rent_roll ?? 0)} monthly. Follow up on active tenant settlement ledgers.`,
+        actionText: "Inspect Collection Ledger",
+        icon: "📊",
+        bgColor: "rgba(245, 158, 11, 0.05)",
+        borderColor: "rgba(245, 158, 11, 0.25)",
+        badgeBg: "rgba(245, 158, 11, 0.12)",
+        badgeColor: "#d97706",
+        buttonBg: "#d97706",
+        buttonHoverBg: "#b45309",
+        onAction: () => setActiveTab("estate"),
+      };
+    }
+    return {
+      stageBadge: "Stage 03 · Portfolio Optimization",
+      title: "Portfolio Collections 100% Reconciled & Up to Date",
+      description: "All tenant accounts and management charges are settled. View unit tenancy contracts or bank payout preferences.",
+      actionText: "Inspect Payout Accounts",
+      icon: "👑",
+      bgColor: "rgba(16, 185, 129, 0.05)",
+      borderColor: "rgba(16, 185, 129, 0.25)",
+      badgeBg: "rgba(16, 185, 129, 0.12)",
+      badgeColor: "#059669",
+      buttonBg: "#059669",
+      buttonHoverBg: "#047857",
+      onAction: () => setActiveTab("settlement"),
+    };
+  }, [remittanceData, financialSummary, activeOwner, unitsCount]);
 
   return (
     <div className="tenant-portal-page" style={{ minHeight: "100vh", background: "var(--color-slate-50)", color: "var(--text-primary)" }}>
@@ -433,9 +494,11 @@ ${portalUrl}`;
               { id: "settlement", label: "Bank & Payout Accounts", icon: <Landmark size={17} /> },
             ].map((item) => {
               const isActive = activeTab === item.id;
+              const testid = item.id === "estate" ? "owner-portal-tab-overview" : item.id === "remittances" ? "owner-portal-tab-statements" : undefined;
               return (
                 <button
                   key={item.id}
+                  data-testid={testid}
                   type="button"
                   className={`tenant-sidebar-nav-item ${isActive ? "active" : ""}`}
                   onClick={() => {
@@ -497,6 +560,7 @@ ${portalUrl}`;
           {/* Hero Section */}
           <section
             className="tenant-portal-hero"
+            data-testid="owner-portal-header"
             style={{
               background: "var(--surface)",
               border: "1px solid var(--color-slate-200)",
@@ -523,6 +587,21 @@ ${portalUrl}`;
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <Button
+                variant="outlined"
+                startIcon={<Sparkles size={16} />}
+                onClick={() => startTour("owner-portal-tour")}
+                sx={{
+                  color: "var(--text-primary)",
+                  borderColor: "var(--color-slate-300)",
+                  "&:hover": { borderColor: "var(--color-info)", bgcolor: "var(--color-blue-soft)" },
+                  fontWeight: 750,
+                  textTransform: "none",
+                  borderRadius: "8px",
+                }}
+              >
+                Interactive Tour
+              </Button>
               <Button
                 variant="contained"
                 startIcon={<Download size={16} />}
@@ -586,6 +665,82 @@ ${portalUrl}`;
               </Button>
             </div>
           </section>
+
+          {/* Landlord Next-Best-Action Banner */}
+          <div
+            data-testid="owner-portal-next-action"
+            style={{
+              background: nextAction.bgColor,
+              border: `1px solid ${nextAction.borderColor}`,
+              borderRadius: 14,
+              padding: "16px 20px",
+              marginBottom: 20,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 16,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 10,
+                  background: nextAction.badgeBg,
+                  color: nextAction.badgeColor,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 20,
+                  flexShrink: 0,
+                }}
+              >
+                {nextAction.icon}
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      color: nextAction.badgeColor,
+                    }}
+                  >
+                    {nextAction.stageBadge}
+                  </span>
+                </div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: "var(--text-primary)" }}>
+                  {nextAction.title}
+                </div>
+                <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>
+                  {nextAction.description}
+                </div>
+              </div>
+            </div>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={nextAction.onAction}
+              endIcon={<ArrowRight size={15} />}
+              sx={{
+                background: nextAction.buttonBg,
+                color: "#ffffff",
+                fontWeight: 700,
+                borderRadius: 2,
+                textTransform: "none",
+                px: 2,
+                py: 0.8,
+                "&:hover": { background: nextAction.buttonHoverBg },
+              }}
+            >
+              {nextAction.actionText}
+            </Button>
+          </div>
 
           {error && (
             <div style={{ padding: "14px 18px", borderRadius: 10, background: "var(--color-red-soft)", border: "1px solid var(--color-red-200)", color: "var(--color-danger)", marginBottom: 20, fontSize: 13, fontWeight: 700 }}>

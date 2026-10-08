@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch, csrfFromCookie } from "@/lib/api";
-import { Alert, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Rating, TextField, Typography } from "@mui/material";
-import { Bell, Building2, CreditCard, FileCheck2, FileText, Gauge, Menu, ReceiptText, UserRound, Wrench, X } from "lucide-react";
+import { Alert, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Rating, Skeleton, Stack, TextField, Typography } from "@mui/material";
+import { ArrowRight, Bell, Building2, CreditCard, FileCheck2, FileText, Gauge, Menu, ReceiptText, Sparkles, UserRound, Wrench, X } from "lucide-react";
+import { startTour } from "@/lib/tours/tourService";
 
 type Row = Record<string, string | number | boolean | null>;
 type Portal = {
@@ -428,8 +429,19 @@ export default function TenantPortalPage() {
   }
   if (loading)
     return (
-      <div className="page-wrap tenant-portal-page">
-        <div className="tenant-portal-loading"><CircularProgress size={34} /><strong>Preparing your account</strong><span>Bringing your lease, payments and requests together…</span></div>
+      <div className="page-wrap property-app tenant-portal-page" data-testid="tenant-portal-skeleton" style={{ padding: "24px 20px 60px", maxWidth: 1380, margin: "0 auto" }}>
+        {/* Banner Skeleton */}
+        <Skeleton variant="rectangular" height={160} sx={{ borderRadius: "16px", marginBottom: "20px" }} animation="wave" />
+        {/* Next Best Action Skeleton */}
+        <Skeleton variant="rectangular" height={80} sx={{ borderRadius: "14px", marginBottom: "20px" }} animation="wave" />
+        {/* Metric Cards Skeleton */}
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ marginBottom: 3 }}>
+          <Skeleton variant="rectangular" height={100} sx={{ borderRadius: "14px", flex: 1 }} animation="wave" />
+          <Skeleton variant="rectangular" height={100} sx={{ borderRadius: "14px", flex: 1 }} animation="wave" />
+          <Skeleton variant="rectangular" height={100} sx={{ borderRadius: "14px", flex: 1 }} animation="wave" />
+        </Stack>
+        {/* Main Workspace Skeleton */}
+        <Skeleton variant="rectangular" height={420} sx={{ borderRadius: "16px" }} animation="wave" />
       </div>
     );
   if (!data || !data.tenant)
@@ -451,6 +463,74 @@ export default function TenantPortalPage() {
   const lease = data.currentLease;
   const isImpersonating = typeof window !== "undefined" && Boolean(new URLSearchParams(window.location.search).get("tenant"));
   const isPreviewMode = isImpersonating || previewTenants.length > 0;
+
+  const nextAction = useMemo(() => {
+    if (data.offerLetter && data.offerLetter.status === "issued") {
+      return {
+        stageBadge: "Stage 01 · Move-In Intake",
+        title: "Your Lease Offer Letter is Ready for Review & Acceptance",
+        description: `Review offer terms for ${data.offerLetter.terms.property_name} (${data.offerLetter.terms.unit_code}) and accept digitally to activate your lease.`,
+        actionText: "Review & Sign Offer",
+        icon: "📝",
+        bgColor: "rgba(59, 130, 246, 0.05)",
+        borderColor: "rgba(59, 130, 246, 0.25)",
+        badgeBg: "rgba(59, 130, 246, 0.12)",
+        badgeColor: "#2563eb",
+        buttonBg: "#2563eb",
+        buttonHoverBg: "#1d4ed8",
+        onAction: () => selectTab("offer"),
+      };
+    }
+    const totalBalanceNum = Number(data.balance || 0);
+    const unpaidInvoices = data.invoices.filter((row) => Number(row.balance) > 0);
+    if (totalBalanceNum > 0 || unpaidInvoices.length > 0) {
+      return {
+        stageBadge: "Stage 02 · Settlement",
+        title: `Outstanding Account Balance: ${cash.format(totalBalanceNum > 0 ? totalBalanceNum : unpaidInvoices.reduce((acc, i) => acc + Number(i.balance), 0))}`,
+        description: `You have ${unpaidInvoices.length} pending invoice${unpaidInvoices.length === 1 ? "" : "s"}. Settle seamlessly via instant M-Pesa STK Push or card.`,
+        actionText: "Settle Balance via M-Pesa",
+        icon: "💳",
+        bgColor: "rgba(239, 68, 68, 0.05)",
+        borderColor: "rgba(239, 68, 68, 0.25)",
+        badgeBg: "rgba(239, 68, 68, 0.12)",
+        badgeColor: "#dc2626",
+        buttonBg: "#dc2626",
+        buttonHoverBg: "#b91c1c",
+        onAction: () => selectTab("invoices"),
+      };
+    }
+    const openTickets = data.serviceRequests.filter((row) => !["resolved", "closed"].includes(String(row.status)));
+    if (openTickets.length > 0) {
+      return {
+        stageBadge: "Stage 03 · Facility Maintenance",
+        title: `${openTickets.length} Active Maintenance Request${openTickets.length === 1 ? "" : "s"} in Progress`,
+        description: `Your ticket "${String(openTickets[0].category || "Repair")}" is being handled by property facility technicians.`,
+        actionText: "Track Request Progress",
+        icon: "🔧",
+        bgColor: "rgba(245, 158, 11, 0.05)",
+        borderColor: "rgba(245, 158, 11, 0.25)",
+        badgeBg: "rgba(245, 158, 11, 0.12)",
+        badgeColor: "#d97706",
+        buttonBg: "#d97706",
+        buttonHoverBg: "#b45309",
+        onAction: () => selectTab("maintenance"),
+      };
+    }
+    return {
+      stageBadge: "Stage 04 · Active Residency",
+      title: "Account in Good Standing · Zero Outstanding Arrears",
+      description: "All payments are up to date. Access estate circulars, notices, and tenancy documents anytime.",
+      actionText: "View Notices & Vault",
+      icon: "✨",
+      bgColor: "rgba(16, 185, 129, 0.05)",
+      borderColor: "rgba(16, 185, 129, 0.25)",
+      badgeBg: "rgba(16, 185, 129, 0.12)",
+      badgeColor: "#059669",
+      buttonBg: "#059669",
+      buttonHoverBg: "#047857",
+      onAction: () => selectTab("notices"),
+    };
+  }, [data, selectTab]);
 
   return (
     <div className="page-wrap property-app tenant-portal-page">
@@ -566,6 +646,7 @@ export default function TenantPortalPage() {
               return (
                 <button
                   key={item}
+                  data-testid={`tenant-portal-tab-${item}`}
                   type="button"
                   className={`tenant-sidebar-nav-item ${isActive ? "active" : ""}`}
                   onClick={() => { selectTab(item); setMobileDrawerOpen(false); }}
@@ -601,7 +682,7 @@ export default function TenantPortalPage() {
         )}
 
         <main className="tenant-portal-main">
-          <section className="tenant-portal-hero">
+          <section className="tenant-portal-hero" data-testid="tenant-portal-header">
             <div>
               <p className="eyebrow">Tenant self-service</p>
               <h1>Good day, {data.tenant.name.split(" ")[0]}.</h1>
@@ -611,10 +692,102 @@ export default function TenantPortalPage() {
               </p>
               {lease && <div className="tenant-premises"><Building2 size={16} /> {lease.property_name} · {lease.unit_code} <Chip size="small" label={lease.status || "Active lease"} color="success" /></div>}
             </div>
-            <Button variant="contained" color="error" startIcon={<Wrench size={17} />} onClick={() => { setRequestError(""); setModal(true); }}>
-              Report an issue
-            </Button>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <Button
+                variant="outlined"
+                startIcon={<Sparkles size={16} />}
+                onClick={() => startTour("tenant-portal-tour")}
+                sx={{
+                  fontWeight: 700,
+                  borderRadius: 2,
+                  textTransform: "none",
+                  borderColor: "rgba(0,0,0,0.2)",
+                  "&:hover": { borderColor: "var(--brand, #b91c1c)" },
+                }}
+              >
+                Interactive Tour
+              </Button>
+              <Button variant="contained" color="error" startIcon={<Wrench size={17} />} onClick={() => { setRequestError(""); setModal(true); }}>
+                Report an issue
+              </Button>
+            </div>
           </section>
+
+          {/* Tenant Next-Best-Action Banner */}
+          <div
+            data-testid="tenant-portal-next-action"
+            style={{
+              background: nextAction.bgColor,
+              border: `1px solid ${nextAction.borderColor}`,
+              borderRadius: 14,
+              padding: "16px 20px",
+              marginBottom: 24,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 16,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 10,
+                  background: nextAction.badgeBg,
+                  color: nextAction.badgeColor,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 20,
+                  flexShrink: 0,
+                }}
+              >
+                {nextAction.icon}
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      color: nextAction.badgeColor,
+                    }}
+                  >
+                    {nextAction.stageBadge}
+                  </span>
+                </div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: "var(--text-primary)" }}>
+                  {nextAction.title}
+                </div>
+                <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>
+                  {nextAction.description}
+                </div>
+              </div>
+            </div>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={nextAction.onAction}
+              endIcon={<ArrowRight size={15} />}
+              sx={{
+                background: nextAction.buttonBg,
+                color: "#ffffff",
+                fontWeight: 700,
+                borderRadius: 2,
+                textTransform: "none",
+                px: 2,
+                py: 0.8,
+                "&:hover": { background: nextAction.buttonHoverBg },
+              }}
+            >
+              {nextAction.actionText}
+            </Button>
+          </div>
       {error && <div className="form-error">{error}</div>}
       {requestSuccess && <Alert severity="success" onClose={() => setRequestSuccess("")} sx={{ mb: 2 }}>{requestSuccess}</Alert>}
       {pendingPayInvoices && (

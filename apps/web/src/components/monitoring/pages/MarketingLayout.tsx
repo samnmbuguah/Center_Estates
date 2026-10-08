@@ -23,12 +23,15 @@ const SALES_NAV_LINKS = [
   { to: "/properties", label: "Properties" },
   { to: "/projects", label: "Projects" },
   { to: "/search", label: "Search" },
+  { to: "/buyer-portal", label: "Client Portal" },
   { to: "/about", label: "About" },
   { to: "/faq", label: "FAQ" },
 ];
 
 const SALES_FOOTER_LINKS = [
   ...SALES_NAV_LINKS,
+  { to: "/tenant-portal", label: "Tenant Portal" },
+  { to: "/owner-portal", label: "Owner Portal" },
   { to: "/contact", label: "Contact" },
   { to: "/privacy", label: "Privacy" },
   { to: "/terms", label: "Terms" },
@@ -42,6 +45,9 @@ const FOOTER_LINKS = [
   { to: "/docs", label: "Documentation" },
   { to: "/product", label: "Product" },
   { to: "/pricing", label: "Pricing" },
+  { to: "/buyer-portal", label: "Client Portal" },
+  { to: "/tenant-portal", label: "Tenant Portal" },
+  { to: "/owner-portal", label: "Owner Portal" },
   { to: "/about", label: "About" },
   { to: "/blog", label: "Blog" },
   { to: "/faq", label: "FAQ" },
@@ -81,18 +87,16 @@ function NavDropdown({ label, links, closeMobile }: { label: string; links: { to
 export function MarketingLayout({ children }: { children?: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [sales, setSales] = useState(() => (typeof window !== "undefined" ? isSalesOnlyHost() : false));
   const { pathname } = useLocation();
 
   useEffect(() => {
-    setMounted(true);
+    setSales(isSalesOnlyHost());
     const onScroll = () => setScrolled(window.scrollY > 8);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Hostname detection is client-only; gate on mount to keep SSR markup stable.
-  const sales = mounted && isSalesOnlyHost();
   const closeMobile = () => setMobileOpen(false);
   const isHome = pathname === "/";
 

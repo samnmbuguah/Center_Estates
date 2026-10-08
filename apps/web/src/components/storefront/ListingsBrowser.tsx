@@ -161,6 +161,22 @@ export function ListingCard({
         )}
         <span
           style={{
+            background: "rgba(16, 185, 129, 0.9)",
+            backdropFilter: "blur(6px)",
+            color: "#fff",
+            fontSize: 10.5,
+            fontWeight: 800,
+            padding: "3px 8px",
+            borderRadius: 20,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 3,
+          }}
+        >
+          ● 3D Available
+        </span>
+        <span
+          style={{
             background: "rgba(15, 23, 42, 0.75)",
             backdropFilter: "blur(6px)",
             color: "#fff",
@@ -277,6 +293,35 @@ export function ListingCard({
                 <Layers size={13} color="#64748b" /> Fl. {listing.unit.floor}
               </span>
             )}
+          </div>
+
+          {/* VIP Viewing Action Footer */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              marginTop: 12,
+              paddingTop: 10,
+              borderTop: "1px dashed var(--border)",
+            }}
+          >
+            <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--brand, #b91c1c)" }}>
+              VIP Viewing Available
+            </span>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 800,
+                color: "var(--brand, #b91c1c)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              Explore Unit →
+            </span>
           </div>
         </div>
       </Link>
