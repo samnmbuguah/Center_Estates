@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "@/components/monitoring/react-router-shim";
 import { ChevronDown, MessageCircle } from "lucide-react";
