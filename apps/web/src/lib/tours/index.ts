@@ -406,4 +406,53 @@ registerTour({
   ],
 });
 
+registerTour({
+  id: "client-portal-journey",
+  label: "Client Portal & 7-Stage Customer Journey Tour",
+  steps: [
+    {
+      testid: "buyer-portal-journey-tracker",
+      title: "Connected 7-Stage Customer Journey",
+      description:
+        "Track your real-time progress across all 7 stages—from Social Media discovery, Website listings, and Enquiry to Site Viewings, Contract Conversion, and Lifetime After-Sales Service.",
+    },
+    {
+      testid: "buyer-portal-next-action",
+      title: "Next Best Action Intelligence",
+      description:
+        "Based on your current stage, this banner provides the immediate priority action—such as booking a VIP site visit or viewing your next installment milestone.",
+    },
+    {
+      testid: "buyer-portal-specialist-card",
+      title: "Dedicated Property Specialist",
+      description:
+        "Your personal property consultant is always 1 click away. Reach out directly via WhatsApp, Phone, or Email for instant assistance.",
+    },
+    {
+      testid: "buyer-portal-tab-overview",
+      title: "Executive Portfolio & Financials",
+      description:
+        "Review your property portfolio KPIs: current agreed purchase price, total amount paid, remaining balance, and site visits.",
+    },
+    {
+      testid: "buyer-portal-tab-agreement",
+      title: "Contract & 3D WebGL Architectural Viewer",
+      description:
+        "Examine your legal sale agreement terms and view interactive 3D floor plans and renders directly inside the browser.",
+    },
+    {
+      testid: "buyer-portal-tab-installments",
+      title: "Express Installments & Payments",
+      description:
+        "View upcoming payment milestones, official M-Pesa Paybill / Bank account details, and record transaction confirmation codes.",
+    },
+    {
+      testid: "buyer-portal-tab-support",
+      title: "After-Sales Care & Support",
+      description:
+        "Submit maintenance work orders, handover queries, or service charge assistance directly to the property management team.",
+    },
+  ],
+});
+
 export {};

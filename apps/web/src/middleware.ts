@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { resolveDomainRule } from "./lib/domain-registry";
 
 export function middleware(request: NextRequest) {
   const host = (request.headers.get("host") || "").toLowerCase();
@@ -15,37 +16,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Multi-tenant subdomain routing
-  // 1. Tenant Portal Subdomain (e.g. tenant.centerestates.com)
-  if (host.startsWith("tenant.") || host.startsWith("tenants.")) {
-    if (pathname === "/" || pathname === "") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/tenant-portal";
-      return NextResponse.rewrite(url);
-    }
-  }
-
-  // 2. Unit Owner / Landlord Subdomain (e.g. owner.centerestates.com or landlord.centerestates.com)
-  if (
-    host.startsWith("owner.") ||
-    host.startsWith("owners.") ||
-    host.startsWith("landlord.") ||
-    host.startsWith("landlords.")
-  ) {
-    if (pathname === "/" || pathname === "") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/owner-portal";
-      return NextResponse.rewrite(url);
-    }
-  }
-
-  // 3. Manager / ERP Dashboard Subdomain (e.g. dashboard.centerestates.com or app.centerestates.com)
-  if (host.startsWith("dashboard.") || host.startsWith("app.")) {
-    if (pathname === "/" || pathname === "") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/workspaces";
-      return NextResponse.rewrite(url);
-    }
+  // Extensible domain and subdomain routing (SOLID Open/Closed Principle)
+  const matchedRule = resolveDomainRule(host);
+  if (matchedRule?.defaultRewritePath && (pathname === "/" || pathname === "")) {
+    const url = request.nextUrl.clone();
+    url.pathname = matchedRule.defaultRewritePath;
+    return NextResponse.rewrite(url);
   }
 
   const response = NextResponse.next();

@@ -151,3 +151,14 @@ export function listTours() {
 export function getTour(id: string) {
   return TOUR_REGISTRY.get(id);
 }
+
+export function startTour(id: string) {
+  const def = getTour(id);
+  if (!def) {
+    console.warn(`Tour "${id}" not found in registry.`);
+    return null;
+  }
+  const tour = createTour(def);
+  return tour.start();
+}
+

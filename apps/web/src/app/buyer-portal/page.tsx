@@ -14,11 +14,13 @@ import {
   DialogContent,
   DialogTitle,
   MenuItem,
+  Skeleton,
   Stack,
   TextField,
   Tooltip,
 } from "@mui/material";
 import {
+  ArrowRight,
   Building2,
   CalendarDays,
   CheckCircle2,
@@ -53,6 +55,8 @@ import {
   X,
 } from "lucide-react";
 import Unit3DViewer from "@/components/sales-unit3d/Unit3DViewer";
+import { startTour } from "@/lib/tours/tourService";
+import "@/lib/tours";
 
 type Row = Record<string, any>;
 type JourneyStage = {
@@ -368,13 +372,30 @@ function BuyerPortalContent() {
 
   if (loading) {
     return (
-      <div className="page-wrap" style={{ minHeight: "80vh", display: "grid", placeItems: "center" }}>
-        <div style={{ textAlign: "center" }}>
-          <CircularProgress size={38} sx={{ color: "var(--color-brand-blue, #1d4ed8)" }} />
-          <p style={{ marginTop: 16, fontWeight: 700, color: "var(--text-secondary)" }}>
-            Synchronizing client portal from ERP system…
-          </p>
-        </div>
+      <div className="page-wrap tenant-portal-page" style={{ paddingBottom: 60 }} data-testid="buyer-portal-skeleton">
+        {/* Banner Skeleton */}
+        <Skeleton
+          variant="rectangular"
+          height={240}
+          sx={{ borderRadius: "20px", marginBottom: "20px" }}
+          animation="wave"
+        />
+        {/* Next Best Action Skeleton */}
+        <Skeleton
+          variant="rectangular"
+          height={90}
+          sx={{ borderRadius: "14px", marginBottom: "20px" }}
+          animation="wave"
+        />
+        {/* Metric Cards Skeleton */}
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ marginBottom: 3 }}>
+          <Skeleton variant="rectangular" height={100} sx={{ borderRadius: "14px", flex: 1 }} animation="wave" />
+          <Skeleton variant="rectangular" height={100} sx={{ borderRadius: "14px", flex: 1 }} animation="wave" />
+          <Skeleton variant="rectangular" height={100} sx={{ borderRadius: "14px", flex: 1 }} animation="wave" />
+          <Skeleton variant="rectangular" height={100} sx={{ borderRadius: "14px", flex: 1 }} animation="wave" />
+        </Stack>
+        {/* Workspace Skeleton */}
+        <Skeleton variant="rectangular" height={380} sx={{ borderRadius: "16px" }} animation="wave" />
       </div>
     );
   }
@@ -407,6 +428,81 @@ function BuyerPortalContent() {
         `Hello ${agent.name}, I am reaching out from Center Estates client portal regarding my account ${buyer.reference || ""}.`
       )}`
     : "";
+
+  const nextBestAction = useMemo(() => {
+    switch (currentStageNum) {
+      case 1:
+      case 2:
+        return {
+          stageBadge: "Stage 02 · Exploration",
+          title: "Browse Available Units & 3D Interactive Floor Plans",
+          description:
+            "Take an architectural walk-through of current development projects with live unit prices and layouts.",
+          actionText: "Explore Units (3D)",
+          actionIcon: <Compass size={16} />,
+          onClick: () => setTab("showcase"),
+          badgeColor: "#3b82f6",
+        };
+      case 3:
+        return {
+          stageBadge: "Stage 03 · Lead Intake",
+          title: "Your Property Brief is Being Reviewed",
+          description:
+            "Our property consultants are reviewing your requirements. Connect with your dedicated specialist directly.",
+          actionText: "Chat with Specialist",
+          actionIcon: <MessageCircle size={16} />,
+          onClick: () => {
+            if (whatsappLink) window.open(whatsappLink, "_blank");
+          },
+          badgeColor: "#f59e0b",
+        };
+      case 4:
+        return {
+          stageBadge: "Stage 04 · Priority Action",
+          title: "Schedule Your VIP Site Visit & Walkthrough",
+          description:
+            "Experience the development on-site. Book a personal guided tour with our architectural engineering team.",
+          actionText: "Book Site Visit",
+          actionIcon: <CalendarDays size={16} />,
+          onClick: () => setViewingOpen(true),
+          badgeColor: "#6366f1",
+        };
+      case 5:
+        return {
+          stageBadge: "Stage 05 · Site Visit Engagement",
+          title: "Site Visit Scheduled • Select Your Unit",
+          description:
+            "Review your scheduled appointment details or reserve your selected unit before allotment closes.",
+          actionText: "View Site Visits",
+          actionIcon: <Eye size={16} />,
+          onClick: () => setTab("viewings"),
+          badgeColor: "#0ea5e9",
+        };
+      case 6:
+        return {
+          stageBadge: "Stage 06 · Conversion Milestone",
+          title: "Sale Agreement Active • Milestone Payment Due",
+          description:
+            "Review your installment plan and submit your official M-Pesa Paybill or Bank transfer confirmation reference.",
+          actionText: "Record Payment Reference",
+          actionIcon: <CreditCard size={16} />,
+          onClick: () => setRecordOpen(true),
+          badgeColor: "#10b981",
+        };
+      case 7:
+      default:
+        return {
+          stageBadge: "Stage 07 · After-Sales Care",
+          title: "Handover & Lifetime Ownership Support",
+          description:
+            "Log maintenance requests, check service charge status, and access all legal title documents for your unit.",
+          actionText: "Raise Support Ticket",
+          actionIcon: <Wrench size={16} />,
+          onClick: () => setSupportOpen(true),
+          badgeColor: "#8b5cf6",
+        };
+    }
+  }, [currentStageNum, whatsappLink]);
 
   return (
     <div className="page-wrap tenant-portal-page" style={{ paddingBottom: 60 }}>
@@ -498,6 +594,26 @@ function BuyerPortalContent() {
               >
                 ● Connected to ERP
               </span>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => startTour("client-portal-journey")}
+                sx={{
+                  color: "#ffffff",
+                  borderColor: "rgba(255, 255, 255, 0.35)",
+                  "&:hover": { borderColor: "#ffffff", bgcolor: "rgba(255, 255, 255, 0.15)" },
+                  textTransform: "none",
+                  fontWeight: 700,
+                  fontSize: 11,
+                  height: 24,
+                  borderRadius: 12,
+                  padding: "0 10px",
+                }}
+                startIcon={<HelpCircle size={13} />}
+                data-testid="buyer-portal-tour-btn"
+              >
+                Interactive Tour
+              </Button>
             </div>
             <h1
               style={{
@@ -526,6 +642,7 @@ function BuyerPortalContent() {
           {/* Dedicated Relationship Manager Card */}
           {agent && (
             <div
+              data-testid="buyer-portal-specialist-card"
               style={{
                 background: "rgba(255, 255, 255, 0.12)",
                 backdropFilter: "blur(12px)",
@@ -622,7 +739,10 @@ function BuyerPortalContent() {
         </div>
 
         {/* 7-Stage Customer Journey Stepper (Direct from Architecture Diagram) */}
-        <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.15)" }}>
+        <div
+          data-testid="buyer-portal-journey-tracker"
+          style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.15)" }}
+        >
           <div
             style={{
               display: "flex",
@@ -729,6 +849,88 @@ function BuyerPortalContent() {
         </div>
       </header>
 
+      {/* Next-Best-Action Workflow Banner (Dynamic Journey Intelligence) */}
+      {nextBestAction && (
+        <section
+          data-testid="buyer-portal-next-action"
+          style={{
+            background: "linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98))",
+            color: "#ffffff",
+            borderRadius: 16,
+            padding: "18px 24px",
+            marginBottom: 24,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 16,
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.18)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1, minWidth: 260 }}>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: nextBestAction.badgeColor,
+                display: "grid",
+                placeItems: "center",
+                color: "#ffffff",
+                boxShadow: `0 4px 14px ${nextBestAction.badgeColor}66`,
+                flexShrink: 0,
+              }}
+            >
+              {nextBestAction.actionIcon}
+            </div>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    color: nextBestAction.badgeColor,
+                    background: "rgba(255, 255, 255, 0.08)",
+                    padding: "2px 8px",
+                    borderRadius: 6,
+                  }}
+                >
+                  {nextBestAction.stageBadge}
+                </span>
+                <span style={{ fontSize: 11, color: "#94a3b8" }}>• Recommended Next Step</span>
+              </div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#f8fafc" }}>
+                {nextBestAction.title}
+              </h3>
+              <p style={{ margin: "4px 0 0", fontSize: 13, color: "#cbd5e1", lineHeight: 1.4 }}>
+                {nextBestAction.description}
+              </p>
+            </div>
+          </div>
+
+          <Button
+            variant="contained"
+            onClick={nextBestAction.onClick}
+            sx={{
+              bgcolor: nextBestAction.badgeColor,
+              "&:hover": { bgcolor: nextBestAction.badgeColor, filter: "brightness(1.15)" },
+              textTransform: "none",
+              fontWeight: 800,
+              fontSize: 13,
+              borderRadius: 2.5,
+              padding: "10px 20px",
+              boxShadow: `0 4px 16px ${nextBestAction.badgeColor}55`,
+            }}
+            endIcon={<ArrowRight size={16} />}
+          >
+            {nextBestAction.actionText}
+          </Button>
+        </section>
+      )}
+
       {/* Main Layout Area */}
       <div className="tenant-portal-layout">
         {/* Navigation Sidebar */}
@@ -764,6 +966,7 @@ function BuyerPortalContent() {
               <button
                 key={item}
                 type="button"
+                data-testid={`buyer-portal-tab-${item}`}
                 className={`tenant-sidebar-nav-item ${tab === item ? "active" : ""}`}
                 onClick={() => setTab(item)}
               >
