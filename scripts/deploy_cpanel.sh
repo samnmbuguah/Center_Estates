@@ -259,7 +259,7 @@ if [[ "$DEPLOY_SCOPE" == "full" || "$DEPLOY_SCOPE" == "frontend" ]]; then
     if [ "${FRONTEND_PATH}" = "${CPANEL_HOME}/centerestates.com" ] && [ -d "${CPANEL_HOME}/public_html" ]; then
       cp -a .htaccess "${CPANEL_HOME}/public_html/.htaccess" 2>/dev/null || true
       ln -sfn "${FRONTEND_PATH}/_next" "${CPANEL_HOME}/public_html/_next" 2>/dev/null || true
-      cp -an "${standalone}/public/." "${CPANEL_HOME}/public_html/" 2>/dev/null || true
+      cp -an "\${standalone}/public/." "${CPANEL_HOME}/public_html/" 2>/dev/null || true
     fi
     # Kill stale Next.js workers matching this application's path.
     # A worker whose release directory has been replaced reports its cwd with a
