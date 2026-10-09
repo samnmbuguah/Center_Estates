@@ -471,12 +471,44 @@ class Command(BaseCommand):
                     )
                     total_renders += 1
 
-        # Delete any legacy dummy listings for this org that were not in the catalog
-        orphans = SaleListing.objects.filter(organization=org).exclude(id__in=seeded_listing_ids)
-        if orphans.exists():
-            orphan_count = orphans.count()
-            orphans.delete()
-            self.stdout.write(f"Removed {orphan_count} legacy dummy listings.")
+        # Guarantee that every single available listing in the org has valid high-res renders
+        fallback_renders = {
+            "Office": [
+                {"kind": "render", "url": "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80", "title": "Corporate Office Suite"},
+                {"kind": "render", "url": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80", "title": "Commercial Tower Facade"},
+            ],
+            "Apartment": [
+                {"kind": "render", "url": "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&q=80", "title": "Apartment Building Facade"},
+                {"kind": "render", "url": "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=1200&q=80", "title": "Contemporary Living Space"},
+            ],
+            "Villa": [
+                {"kind": "render", "url": "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1200&q=80", "title": "Executive Villa Frontage"},
+            ],
+            "Studio": [
+                {"kind": "render", "url": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=1200&q=80", "title": "Furnished Studio Suite"},
+            ],
+            "Land": [
+                {"kind": "render", "url": "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80", "title": "Masterplan Land Parcel"},
+            ],
+        }
+
+        all_available = SaleListing.objects.filter(organization=org, status=SaleListing.Status.AVAILABLE)
+        for item in all_available:
+            valid_renders = item.renders.exclude(file_url="").exclude(file_url__isnull=True)
+            if not valid_renders.exists():
+                utype = (item.unit.unit_type if item.unit else "") or "Apartment"
+                matched = fallback_renders.get(utype, fallback_renders["Apartment"])
+                for idx, r in enumerate(matched):
+                    ListingRender.objects.create(
+                        organization=org,
+                        listing=item,
+                        render_kind=r["kind"],
+                        title=f"{item.unit.code if item.unit else ''} {r['title']}".strip(),
+                        file_url=r["url"],
+                        is_primary=(idx == 0),
+                        sort_order=idx,
+                    )
+                    total_renders += 1
 
         self.stdout.write(
             f"Created/updated {total_listings} sale listings with {total_renders} rich photo renders."
