@@ -221,6 +221,7 @@ def public_enquiry(request):
         errors['contact'] = 'A phone number or email is required.'
     if email and '@' not in email:
         errors['email'] = 'Enter a valid email address.'
+    listing_id = data.get('listing') or data.get('listing_id')
     listing = None
     if listing_id:
         try:
