@@ -53,7 +53,15 @@ SECRET_KEY = secret_setting(
 DEBUG = os.environ.get('DJANGO_DEBUG', 'false').lower() in {'1', 'true', 'yes'}
 
 env_hosts = [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()]
-default_hosts = ['localhost', '127.0.0.1', 'centerestates.com', 'www.centerestates.com', 'api.centerestates.com']
+default_hosts = [
+    'localhost',
+    '127.0.0.1',
+    'centerestates.com',
+    'www.centerestates.com',
+    'api.centerestates.com',
+    'centerestates.co.ke',
+    'www.centerestates.co.ke',
+]
 ALLOWED_HOSTS = list(set(default_hosts + env_hosts))
 if DEBUG and not env_hosts:
     ALLOWED_HOSTS = list(set(ALLOWED_HOSTS + ['*']))

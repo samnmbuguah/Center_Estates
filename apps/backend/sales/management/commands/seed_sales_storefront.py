@@ -42,6 +42,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Successfully seeded comprehensive storefront data!"))
 
     def _seed_storefront_data(self, org):
+        seeded_listing_ids = []
         # 1. Properties & Developments Catalog
         catalog = [
             {
@@ -453,6 +454,7 @@ class Command(BaseCommand):
                         "is_featured": u_data["featured"],
                     },
                 )
+                seeded_listing_ids.append(listing.id)
                 total_listings += 1
 
                 # Clean old renders and recreate fresh rich renders
@@ -468,6 +470,13 @@ class Command(BaseCommand):
                         sort_order=idx,
                     )
                     total_renders += 1
+
+        # Delete any legacy dummy listings for this org that were not in the catalog
+        orphans = SaleListing.objects.filter(organization=org).exclude(id__in=seeded_listing_ids)
+        if orphans.exists():
+            orphan_count = orphans.count()
+            orphans.delete()
+            self.stdout.write(f"Removed {orphan_count} legacy dummy listings.")
 
         self.stdout.write(
             f"Created/updated {total_listings} sale listings with {total_renders} rich photo renders."

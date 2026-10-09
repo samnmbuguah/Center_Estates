@@ -8,6 +8,8 @@
 /** Hop-by-hop / recomputed headers that must not pass through verbatim. */
 const SKIP_HEADERS = new Set([
   "host",
+  "x-forwarded-host",
+  "x-forwarded-proto",
   "connection",
   "keep-alive",
   "proxy-authenticate",
