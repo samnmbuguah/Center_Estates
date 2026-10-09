@@ -86,18 +86,23 @@ function NavDropdown({ label, links, closeMobile }: { label: string; links: { to
   );
 }
 
-export function MarketingLayout({ children }: { children?: React.ReactNode }) {
+export function MarketingLayout({ children, isSales }: { children?: React.ReactNode; isSales?: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [sales, setSales] = useState(() => (typeof window !== "undefined" ? isSalesOnlyHost() : false));
+  const [sales, setSales] = useState(() => {
+    if (typeof isSales === "boolean") return isSales;
+    return typeof window !== "undefined" ? isSalesOnlyHost() : false;
+  });
   const { pathname } = useLocation();
 
   useEffect(() => {
-    setSales(isSalesOnlyHost());
+    if (typeof isSales !== "boolean") {
+      setSales(isSalesOnlyHost());
+    }
     const onScroll = () => setScrolled(window.scrollY > 8);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [isSales]);
 
   const closeMobile = () => setMobileOpen(false);
   const isHome = pathname === "/";

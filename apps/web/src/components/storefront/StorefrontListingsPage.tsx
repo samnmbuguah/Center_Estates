@@ -15,7 +15,7 @@ export function StorefrontListingsPage({
   autoFocus?: boolean;
 }) {
   return (
-    <MarketingLayout>
+    <MarketingLayout isSales={true}>
       <section style={{ maxWidth: 1180, margin: "0 auto", padding: "44px 20px 18px" }}>
         <h1 style={{ fontSize: 34, fontWeight: 900, margin: "0 0 8px" }}>{heading}</h1>
         {blurb && <p className="muted" style={{ fontSize: 16, margin: 0, maxWidth: 720 }}>{blurb}</p>}

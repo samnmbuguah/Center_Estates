@@ -110,7 +110,7 @@ export function StorefrontHome() {
   };
 
   return (
-    <MarketingLayout>
+    <MarketingLayout isSales={true}>
       {/* ── 1. HERO SECTION WITH TABBED SEARCH CONSOLE ────────────────── */}
       <section
         style={{

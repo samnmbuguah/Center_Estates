@@ -345,7 +345,7 @@ export function ProjectsPage() {
   }, [projects, stageFilter, searchQuery]);
 
   return (
-    <MarketingLayout>
+    <MarketingLayout isSales={true}>
       {/* Hero Header */}
       <section
         style={{

@@ -173,7 +173,7 @@ export function ListingDetail({ id }: { id: string }) {
     : `https://wa.me/${WHATSAPP_SALES_PHONE}`;
 
   return (
-    <MarketingLayout>
+    <MarketingLayout isSales={true}>
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "28px 20px 80px" }}>
         {/* Breadcrumb Navigation */}
         <div
