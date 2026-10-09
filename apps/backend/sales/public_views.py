@@ -248,9 +248,10 @@ def public_enquiry(request):
             existing.save(update_fields=('notes', 'updated_at'))
         return Response({'status': 'ok', 'reference': existing.reference}, status=200)
     count = Buyer.objects.filter(organization=organization, reference__startswith='BUY-').count()
+    buyer_ref = f'BUY-{(count + 1):04d}'
     buyer = Buyer.objects.create(
-        organization=organization, reference=f'BUY-{(count + 1):04d}',
+        organization=organization, reference=buyer_ref,
         full_name=name[:180], email=email[:254], phone=phone[:40],
-        id_number='', status=Buyer.Status.LEAD, notes=notes,
+        id_number=f'PENDING-{buyer_ref}', status=Buyer.Status.LEAD, notes=notes,
     )
     return Response({'status': 'ok', 'reference': buyer.reference}, status=201)
