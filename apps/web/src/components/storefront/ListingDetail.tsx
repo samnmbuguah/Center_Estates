@@ -1,18 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Building2,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Clock,
   Coins,
   FileCheck2,
   HardHat,
   Home,
+  Image as ImageIcon,
   Key,
   Layers,
   MapPin,
@@ -25,6 +27,7 @@ import {
   Square,
   TrendingUp,
   UserCheck,
+  X,
 } from "lucide-react";
 import { MarketingLayout } from "@/components/monitoring/pages/MarketingLayout";
 import { formatKES, formatUSD, type PublicListing } from "./StorefrontHome";
@@ -100,6 +103,61 @@ export function ListingDetail({ id }: { id: string }) {
   const [reference, setReference] = useState("");
   const [activeImage, setActiveImage] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const thumbnailRailRef = useRef<HTMLDivElement>(null);
+
+  const imagesCount = listing?.images?.length ?? 0;
+
+  const goToPrevImage = useCallback(() => {
+    if (imagesCount <= 1) return;
+    setActiveImage((prev) => (prev - 1 + imagesCount) % imagesCount);
+  }, [imagesCount]);
+
+  const goToNextImage = useCallback(() => {
+    if (imagesCount <= 1) return;
+    setActiveImage((prev) => (prev + 1) % imagesCount);
+  }, [imagesCount]);
+
+  // Auto-scroll active thumbnail into view
+  useEffect(() => {
+    if (!thumbnailRailRef.current) return;
+    const activeEl = thumbnailRailRef.current.children[activeImage] as HTMLElement | undefined;
+    if (activeEl) {
+      activeEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
+  }, [activeImage]);
+
+  // Keyboard navigation for gallery & lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return;
+      }
+
+      if (e.key === "ArrowLeft") {
+        goToPrevImage();
+      } else if (e.key === "ArrowRight") {
+        goToNextImage();
+      } else if (e.key === "Escape" && lightboxOpen) {
+        setLightboxOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [goToPrevImage, goToNextImage, lightboxOpen]);
+
+  // Lock body scroll when lightbox is open
+  useEffect(() => {
+    if (lightboxOpen) {
+      const origOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = origOverflow;
+      };
+    }
+  }, [lightboxOpen]);
 
   useEffect(() => {
     fetch(`/api/v1/sales/public/listings/${id}/`)
@@ -330,28 +388,124 @@ export function ListingDetail({ id }: { id: string }) {
                   position: "relative",
                   borderRadius: 20,
                   overflow: "hidden",
-                  background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                  background: "var(--bg, #f8fafc)",
+                  border: "1px solid var(--border)",
                   aspectRatio: "16/10",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  boxShadow: "var(--shadow-md, 0 4px 14px rgba(0,0,0,0.08))",
+                  boxShadow: "0 10px 30px -10px rgba(15, 23, 42, 0.08)",
+                  cursor: listing.images && listing.images.length > 0 ? "zoom-in" : "default",
+                  userSelect: "none",
+                }}
+                onClick={() => {
+                  if (listing.images && listing.images.length > 0) {
+                    setLightboxOpen(true);
+                  }
                 }}
               >
                 {listing.images && listing.images[activeImage] ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
+                    key={listing.images[activeImage].url}
                     src={listing.images[activeImage].url}
-                    alt={listing.unit.code}
+                    alt={listing.images[activeImage].title || listing.unit.code}
                     style={{
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
-                      transition: "transform 0.4s ease",
+                      transition: "opacity 0.25s ease",
                     }}
                   />
                 ) : (
                   <Building2 size={72} color="#94a3b8" />
+                )}
+
+                {/* Floating Previous & Next Chevrons */}
+                {listing.images && listing.images.length > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Previous photo (Left Arrow)"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        goToPrevImage();
+                      }}
+                      style={{
+                        position: "absolute",
+                        left: 14,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        width: 42,
+                        height: 42,
+                        borderRadius: "50%",
+                        background: "rgba(255, 255, 255, 0.92)",
+                        backdropFilter: "blur(8px)",
+                        border: "1px solid rgba(255, 255, 255, 0.8)",
+                        color: "var(--ink, #0f172a)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        boxShadow: "0 4px 14px rgba(0, 0, 0, 0.16)",
+                        transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+                        zIndex: 4,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = "translateY(-50%) scale(1.08)";
+                        e.currentTarget.style.background = "#ffffff";
+                        e.currentTarget.style.color = "var(--brand, #b91c1c)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "translateY(-50%) scale(1)";
+                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.92)";
+                        e.currentTarget.style.color = "var(--ink, #0f172a)";
+                      }}
+                    >
+                      <ChevronLeft size={22} strokeWidth={2.5} />
+                    </button>
+
+                    <button
+                      type="button"
+                      aria-label="Next photo (Right Arrow)"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        goToNextImage();
+                      }}
+                      style={{
+                        position: "absolute",
+                        right: 14,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        width: 42,
+                        height: 42,
+                        borderRadius: "50%",
+                        background: "rgba(255, 255, 255, 0.92)",
+                        backdropFilter: "blur(8px)",
+                        border: "1px solid rgba(255, 255, 255, 0.8)",
+                        color: "var(--ink, #0f172a)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        cursor: "pointer",
+                        boxShadow: "0 4px 14px rgba(0, 0, 0, 0.16)",
+                        transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+                        zIndex: 4,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = "translateY(-50%) scale(1.08)";
+                        e.currentTarget.style.background = "#ffffff";
+                        e.currentTarget.style.color = "var(--brand, #b91c1c)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = "translateY(-50%) scale(1)";
+                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.92)";
+                        e.currentTarget.style.color = "var(--ink, #0f172a)";
+                      }}
+                    >
+                      <ChevronRight size={22} strokeWidth={2.5} />
+                    </button>
+                  </>
                 )}
 
                 {/* Status Badges Overlay */}
@@ -368,7 +522,7 @@ export function ListingDetail({ id }: { id: string }) {
                 >
                   <span
                     style={{
-                      background: "rgba(15, 23, 42, 0.8)",
+                      background: "rgba(15, 23, 42, 0.82)",
                       backdropFilter: "blur(8px)",
                       color: "#fff",
                       fontSize: 12,
@@ -396,7 +550,7 @@ export function ListingDetail({ id }: { id: string }) {
                   )}
                   <span
                     style={{
-                      background: "rgba(22, 101, 52, 0.85)",
+                      background: "rgba(22, 101, 52, 0.88)",
                       backdropFilter: "blur(8px)",
                       color: "#fff",
                       fontSize: 12,
@@ -412,54 +566,180 @@ export function ListingDetail({ id }: { id: string }) {
                   </span>
                 </div>
 
-                {/* Image counter indicator */}
+                {/* Bottom Overlay: Caption + Photo Counter + Fullscreen Button */}
                 {listing.images && listing.images.length > 0 && (
                   <div
                     style={{
                       position: "absolute",
-                      bottom: 16,
-                      right: 16,
-                      background: "rgba(15, 23, 42, 0.75)",
-                      backdropFilter: "blur(6px)",
-                      color: "#fff",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      padding: "4px 10px",
-                      borderRadius: 14,
+                      bottom: 14,
+                      left: 14,
+                      right: 14,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      pointerEvents: "none",
+                      zIndex: 3,
                     }}
                   >
-                    Photo {activeImage + 1} of {listing.images.length}
+                    {/* Left: Image Room Caption */}
+                    <div style={{ pointerEvents: "auto" }}>
+                      {listing.images[activeImage]?.title ? (
+                        <div
+                          style={{
+                            background: "rgba(15, 23, 42, 0.8)",
+                            backdropFilter: "blur(8px)",
+                            color: "#ffffff",
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                            padding: "6px 14px",
+                            borderRadius: 20,
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                          }}
+                        >
+                          {listing.images[activeImage].title}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {/* Right: Counter Badge & Fullscreen Button */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, pointerEvents: "auto" }}>
+                      <div
+                        style={{
+                          background: "rgba(15, 23, 42, 0.8)",
+                          backdropFilter: "blur(8px)",
+                          color: "#ffffff",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          padding: "6px 12px",
+                          borderRadius: 20,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                        }}
+                      >
+                        <ImageIcon size={13} />
+                        {activeImage + 1} / {listing.images.length}
+                      </div>
+
+                      <button
+                        type="button"
+                        aria-label="View Fullscreen Gallery"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxOpen(true);
+                        }}
+                        style={{
+                          background: "rgba(15, 23, 42, 0.8)",
+                          backdropFilter: "blur(8px)",
+                          color: "#ffffff",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          padding: "6px 12px",
+                          borderRadius: 20,
+                          border: "none",
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                          transition: "background 0.2s, transform 0.2s",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "var(--brand, #b91c1c)";
+                          e.currentTarget.style.transform = "scale(1.04)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "rgba(15, 23, 42, 0.8)";
+                          e.currentTarget.style.transform = "scale(1)";
+                        }}
+                      >
+                        <Maximize2 size={13} />
+                        Fullscreen
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Thumbnail Selector */}
+              {/* Enhanced Thumbnail Selector */}
               {listing.images && listing.images.length > 1 && (
-                <div style={{ display: "flex", gap: 10, marginTop: 14, overflowX: "auto", paddingBottom: 6 }}>
-                  {listing.images.map((image, index) => (
-                    <button
-                      key={`${image.url}-${index}`}
-                      type="button"
-                      onClick={() => setActiveImage(index)}
-                      style={{
-                        border: index === activeImage ? "2.5px solid var(--brand, #b91c1c)" : "1.5px solid var(--border)",
-                        borderRadius: 10,
-                        padding: 0,
-                        overflow: "hidden",
-                        width: 90,
-                        height: 60,
-                        cursor: "pointer",
-                        background: "var(--surface)",
-                        flexShrink: 0,
-                        transform: index === activeImage ? "scale(1.02)" : "scale(1)",
-                        transition: "all 0.15s ease",
-                      }}
-                      aria-label={`View photo ${index + 1}`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={image.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    </button>
-                  ))}
+                <div style={{ marginTop: 14 }}>
+                  <div
+                    ref={thumbnailRailRef}
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      overflowX: "auto",
+                      padding: "4px 2px 8px",
+                      scrollBehavior: "smooth",
+                      scrollbarWidth: "thin",
+                    }}
+                  >
+                    {listing.images.map((image, index) => {
+                      const isActive = index === activeImage;
+                      return (
+                        <button
+                          key={`${image.url}-${index}`}
+                          type="button"
+                          onClick={() => setActiveImage(index)}
+                          style={{
+                            border: isActive
+                              ? "2.5px solid var(--brand, #b91c1c)"
+                              : "1.5px solid var(--border)",
+                            borderRadius: 12,
+                            padding: 0,
+                            overflow: "hidden",
+                            width: 96,
+                            height: 64,
+                            cursor: "pointer",
+                            background: "var(--surface)",
+                            flexShrink: 0,
+                            position: "relative",
+                            transform: isActive ? "scale(1.04)" : "scale(1)",
+                            opacity: isActive ? 1 : 0.78,
+                            boxShadow: isActive
+                              ? "0 4px 12px rgba(185, 28, 28, 0.25)"
+                              : "none",
+                            transition: "all 0.2s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isActive) {
+                              e.currentTarget.style.opacity = "1";
+                              e.currentTarget.style.borderColor = "var(--ink2, #64748b)";
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isActive) {
+                              e.currentTarget.style.opacity = "0.78";
+                              e.currentTarget.style.borderColor = "var(--border)";
+                            }
+                          }}
+                          aria-label={`View photo ${index + 1}${image.title ? `: ${image.title}` : ""}`}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={image.url}
+                            alt=""
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                          {isActive && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                height: 3,
+                                background: "var(--brand, #b91c1c)",
+                              }}
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -698,41 +978,241 @@ export function ListingDetail({ id }: { id: string }) {
               <div
                 style={{
                   marginTop: 32,
-                  padding: 24,
+                  padding: "26px 28px",
                   borderRadius: 18,
-                  background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)",
-                  color: "#fff",
+                  background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+                  border: "1px solid #e2e8f0",
+                  boxShadow: "0 4px 20px -2px rgba(15, 23, 42, 0.05)",
+                  position: "relative",
+                  overflow: "hidden",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                  <ShieldCheck size={24} color="#ef4444" />
-                  <h3 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>
-                    Center Estates Verified Purchase Guarantee
-                  </h3>
+                {/* Subtle top accent bar */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 3,
+                    background: "linear-gradient(90deg, var(--brand, #b91c1c) 0%, #16a34a 100%)",
+                  }}
+                />
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 12,
+                    marginBottom: 18,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: 12,
+                        background: "rgba(185, 28, 28, 0.08)",
+                        color: "var(--brand, #b91c1c)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <ShieldCheck size={22} />
+                    </div>
+                    <div>
+                      <h3
+                        style={{
+                          fontSize: 18,
+                          fontWeight: 800,
+                          margin: 0,
+                          color: "var(--ink, #0f172a)",
+                          letterSpacing: "-0.2px",
+                        }}
+                      >
+                        Center Estates Verified Purchase Guarantee
+                      </h3>
+                      <p style={{ margin: "2px 0 0", fontSize: 13, color: "var(--ink3, #64748b)" }}>
+                        Institutional-grade legal due diligence & buyer escrow safety included with every unit
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "5px 12px",
+                      borderRadius: 20,
+                      background: "#f0fdf4",
+                      border: "1px solid #bbf7d0",
+                      color: "#15803d",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: "0.2px",
+                    }}
+                  >
+                    <CheckCircle2 size={14} /> 100% TITLE VETTED
+                  </span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 14 }}>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <CheckCircle2 size={18} color="#22c55e" style={{ flexShrink: 0, marginTop: 2 }} />
-                    <div style={{ fontSize: 13, lineHeight: 1.5, color: "#cbd5e1" }}>
-                      <strong>Sectional Title Verification:</strong> Survey and land registry due diligence completed prior to listing.
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                    gap: 14,
+                    marginTop: 16,
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: 12,
+                      background: "var(--surface, #ffffff)",
+                      border: "1px solid #edf2f7",
+                      display: "flex",
+                      gap: 12,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        background: "#ecfdf5",
+                        color: "#16a34a",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                        marginTop: 2,
+                      }}
+                    >
+                      <CheckCircle2 size={16} />
+                    </div>
+                    <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                      <strong style={{ color: "var(--ink, #0f172a)", display: "block", marginBottom: 2 }}>
+                        Sectional Title Verification
+                      </strong>
+                      <span style={{ color: "var(--ink2, #475569)" }}>
+                        Survey and land registry due diligence completed prior to listing.
+                      </span>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <CheckCircle2 size={18} color="#22c55e" style={{ flexShrink: 0, marginTop: 2 }} />
-                    <div style={{ fontSize: 13, lineHeight: 1.5, color: "#cbd5e1" }}>
-                      <strong>Escrow Protection:</strong> Stage-gated construction milestone releases verified by licensed quantity surveyors.
+
+                  <div
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: 12,
+                      background: "var(--surface, #ffffff)",
+                      border: "1px solid #edf2f7",
+                      display: "flex",
+                      gap: 12,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        background: "#ecfdf5",
+                        color: "#16a34a",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                        marginTop: 2,
+                      }}
+                    >
+                      <CheckCircle2 size={16} />
+                    </div>
+                    <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                      <strong style={{ color: "var(--ink, #0f172a)", display: "block", marginBottom: 2 }}>
+                        Escrow Protection
+                      </strong>
+                      <span style={{ color: "var(--ink2, #475569)" }}>
+                        Stage-gated construction milestone releases verified by licensed quantity surveyors.
+                      </span>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <CheckCircle2 size={18} color="#22c55e" style={{ flexShrink: 0, marginTop: 2 }} />
-                    <div style={{ fontSize: 13, lineHeight: 1.5, color: "#cbd5e1" }}>
-                      <strong>Turnkey Handover:</strong> Snagging inspection, utility meter onboardings, and title deed registration support included.
+
+                  <div
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: 12,
+                      background: "var(--surface, #ffffff)",
+                      border: "1px solid #edf2f7",
+                      display: "flex",
+                      gap: 12,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        background: "#ecfdf5",
+                        color: "#16a34a",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                        marginTop: 2,
+                      }}
+                    >
+                      <CheckCircle2 size={16} />
+                    </div>
+                    <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                      <strong style={{ color: "var(--ink, #0f172a)", display: "block", marginBottom: 2 }}>
+                        Turnkey Handover
+                      </strong>
+                      <span style={{ color: "var(--ink2, #475569)" }}>
+                        Snagging inspection, utility meter onboardings, and title deed registration support included.
+                      </span>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <CheckCircle2 size={18} color="#22c55e" style={{ flexShrink: 0, marginTop: 2 }} />
-                    <div style={{ fontSize: 13, lineHeight: 1.5, color: "#cbd5e1" }}>
-                      <strong>Direct Developer Pricing:</strong> No agent markups or broker commissions charged to buyers.
+
+                  <div
+                    style={{
+                      padding: "14px 16px",
+                      borderRadius: 12,
+                      background: "var(--surface, #ffffff)",
+                      border: "1px solid #edf2f7",
+                      display: "flex",
+                      gap: 12,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        background: "#ecfdf5",
+                        color: "#16a34a",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                        marginTop: 2,
+                      }}
+                    >
+                      <CheckCircle2 size={16} />
+                    </div>
+                    <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                      <strong style={{ color: "var(--ink, #0f172a)", display: "block", marginBottom: 2 }}>
+                        Direct Developer Pricing
+                      </strong>
+                      <span style={{ color: "var(--ink2, #475569)" }}>
+                        No agent markups or broker commissions charged to buyers.
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1013,6 +1493,251 @@ export function ListingDetail({ id }: { id: string }) {
             </aside>
           </div>
         )}
+      {/* Fullscreen Lightbox Modal */}
+      {lightboxOpen && listing?.images && listing.images.length > 0 && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Listing photo lightbox"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            background: "rgba(10, 15, 29, 0.96)",
+            backdropFilter: "blur(14px)",
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            padding: "20px 24px",
+          }}
+          onClick={() => setLightboxOpen(false)}
+        >
+          {/* Lightbox Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+              maxWidth: 1200,
+              margin: "0 auto",
+              zIndex: 10,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div>
+              <div style={{ color: "#ffffff", fontWeight: 800, fontSize: 16 }}>
+                {listing.unit.code} — {listing.project.name}
+              </div>
+              <div style={{ color: "#94a3b8", fontSize: 13, marginTop: 2 }}>
+                {listing.images[activeImage]?.title || "Gallery View"}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div
+                style={{
+                  background: "rgba(255, 255, 255, 0.12)",
+                  color: "#ffffff",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  padding: "6px 14px",
+                  borderRadius: 20,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <ImageIcon size={14} />
+                {activeImage + 1} / {listing.images.length}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(false)}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  background: "rgba(255, 255, 255, 0.15)",
+                  border: "1px solid rgba(255, 255, 255, 0.2)",
+                  color: "#ffffff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--brand, #b91c1c)";
+                  e.currentTarget.style.transform = "scale(1.08)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+                aria-label="Close fullscreen view (Esc)"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Lightbox Center Image & Arrows */}
+          <div
+            style={{
+              position: "relative",
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              maxWidth: 1200,
+              width: "100%",
+              margin: "12px auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Prev Arrow */}
+            {listing.images.length > 1 && (
+              <button
+                type="button"
+                aria-label="Previous photo (Left Arrow)"
+                onClick={goToPrevImage}
+                style={{
+                  position: "absolute",
+                  left: 12,
+                  zIndex: 20,
+                  width: 50,
+                  height: 50,
+                  borderRadius: "50%",
+                  background: "rgba(255, 255, 255, 0.18)",
+                  backdropFilter: "blur(10px)",
+                  border: "1px solid rgba(255, 255, 255, 0.3)",
+                  color: "#ffffff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--brand, #b91c1c)";
+                  e.currentTarget.style.transform = "scale(1.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.18)";
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              >
+                <ChevronLeft size={28} />
+              </button>
+            )}
+
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              key={listing.images[activeImage]?.url}
+              src={listing.images[activeImage]?.url}
+              alt={listing.images[activeImage]?.title || listing.unit.code}
+              style={{
+                maxHeight: "74vh",
+                maxWidth: "88vw",
+                objectFit: "contain",
+                borderRadius: 12,
+                boxShadow: "0 25px 60px -15px rgba(0, 0, 0, 0.8)",
+              }}
+            />
+
+            {/* Next Arrow */}
+            {listing.images.length > 1 && (
+              <button
+                type="button"
+                aria-label="Next photo (Right Arrow)"
+                onClick={goToNextImage}
+                style={{
+                  position: "absolute",
+                  right: 12,
+                  zIndex: 20,
+                  width: 50,
+                  height: 50,
+                  borderRadius: "50%",
+                  background: "rgba(255, 255, 255, 0.18)",
+                  backdropFilter: "blur(10px)",
+                  border: "1px solid rgba(255, 255, 255, 0.3)",
+                  color: "#ffffff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--brand, #b91c1c)";
+                  e.currentTarget.style.transform = "scale(1.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.18)";
+                  e.currentTarget.style.transform = "scale(1)";
+                }}
+              >
+                <ChevronRight size={28} />
+              </button>
+            )}
+          </div>
+
+          {/* Lightbox Bottom Thumbnails */}
+          {listing.images.length > 1 && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: 10,
+                overflowX: "auto",
+                padding: "8px 0 4px",
+                maxWidth: 1200,
+                width: "100%",
+                margin: "0 auto",
+                zIndex: 10,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {listing.images.map((image, idx) => {
+                const isActive = idx === activeImage;
+                return (
+                  <button
+                    key={`lb-${image.url}-${idx}`}
+                    type="button"
+                    onClick={() => setActiveImage(idx)}
+                    style={{
+                      border: isActive
+                        ? "2px solid var(--brand, #ef4444)"
+                        : "1px solid rgba(255, 255, 255, 0.2)",
+                      borderRadius: 8,
+                      padding: 0,
+                      overflow: "hidden",
+                      width: 68,
+                      height: 48,
+                      cursor: "pointer",
+                      background: "transparent",
+                      flexShrink: 0,
+                      opacity: isActive ? 1 : 0.5,
+                      transform: isActive ? "scale(1.08)" : "scale(1)",
+                      transition: "all 0.2s ease",
+                    }}
+                    aria-label={`Jump to photo ${idx + 1}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={image.url}
+                      alt=""
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
       </div>
     </MarketingLayout>
   );

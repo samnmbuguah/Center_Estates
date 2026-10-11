@@ -80,7 +80,7 @@ function ProjectCard({ project }: { project: PublicProject }) {
         style={{
           position: "relative",
           aspectRatio: "16/10",
-          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+          background: "var(--bg, #f1f5f9)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
