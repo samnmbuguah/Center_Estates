@@ -13,12 +13,13 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ isSalesInitial }: LoginFormProps) {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [googleSdkReady, setGoogleSdkReady] = useState(false);
   const [isSales, setIsSales] = useState(() => {
     if (typeof isSalesInitial === "boolean") return isSalesInitial;
     return typeof window !== "undefined" ? isSalesOnlyHost() : false;
@@ -29,6 +30,72 @@ export function LoginForm({ isSalesInitial }: LoginFormProps) {
       setIsSales(isSalesOnlyHost());
     }
   }, [isSalesInitial]);
+
+  useEffect(() => {
+    const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+    if (!clientId || typeof window === "undefined") return;
+
+    const initGsi = () => {
+      const g = (window as unknown as { google?: { accounts?: { id?: {
+        initialize: (cfg: unknown) => void;
+        renderButton: (el: HTMLElement, opts: unknown) => void;
+        prompt: () => void;
+      } } } }).google;
+
+      if (g?.accounts?.id) {
+        setGoogleSdkReady(true);
+        g.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (res: { credential?: string }) => {
+            if (!res.credential) return;
+            setLoading(true);
+            setError("");
+            try {
+              await loginWithGoogle(res.credential, isSales ? "sales" : "erp");
+            } catch (err: unknown) {
+              setError(err instanceof Error ? err.message : "Google sign-in failed.");
+              setLoading(false);
+            }
+          },
+        });
+
+        const btnEl = document.getElementById("google-signin-btn-target");
+        if (btnEl) {
+          btnEl.innerHTML = "";
+          g.accounts.id.renderButton(btnEl, {
+            theme: "outline",
+            size: "large",
+            width: btnEl.clientWidth || 360,
+            text: isSales ? "continue_with" : "signin_with",
+            shape: "pill",
+          });
+        }
+      }
+    };
+
+    if ((window as unknown as { google?: unknown }).google) {
+      initGsi();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      script.onload = initGsi;
+      document.body.appendChild(script);
+      return () => {
+        if (script.parentNode) script.parentNode.removeChild(script);
+      };
+    }
+  }, [isSales, loginWithGoogle]);
+
+  const handleGoogleFallbackClick = () => {
+    const g = (window as unknown as { google?: { accounts?: { id?: { prompt: () => void } } } }).google;
+    if (g?.accounts?.id && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+      g.accounts.id.prompt();
+    } else {
+      setError("Google Sign-In requires NEXT_PUBLIC_GOOGLE_CLIENT_ID configured in your environment.");
+    }
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -273,6 +340,62 @@ export function LoginForm({ isSalesInitial }: LoginFormProps) {
             </Alert>
           )}
 
+          {/* Google Sign-in */}
+          <div style={{ marginBottom: 20 }}>
+            <div
+              id="google-signin-btn-target"
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                minHeight: 44,
+                width: "100%",
+              }}
+            />
+            {!googleSdkReady && (
+              <Button
+                fullWidth
+                variant="outlined"
+                onClick={handleGoogleFallbackClick}
+                disabled={loading}
+                startIcon={<GoogleGIcon />}
+                sx={{
+                  py: 1.3,
+                  borderRadius: "9999px",
+                  borderColor: "var(--login-border)",
+                  color: "var(--login-text)",
+                  bgcolor: "var(--login-input-bg)",
+                  fontWeight: 600,
+                  textTransform: "none",
+                  fontSize: "0.93rem",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+                  "&:hover": {
+                    bgcolor: "rgba(0,0,0,0.03)",
+                    borderColor: "var(--login-secondary)",
+                  },
+                }}
+              >
+                {isSales ? "Continue with Google" : "Sign in with Google"}
+              </Button>
+            )}
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                margin: "20px 0 10px 0",
+                color: "var(--login-secondary)",
+                fontSize: "0.75rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.75px",
+                fontWeight: 600,
+              }}
+            >
+              <div style={{ flex: 1, height: "1px", background: "var(--login-border)" }} />
+              <span style={{ padding: "0 14px" }}>or continue with credentials</span>
+              <div style={{ flex: 1, height: "1px", background: "var(--login-border)" }} />
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <TextField
               label="Username or email"
@@ -362,5 +485,28 @@ export function LoginForm({ isSalesInitial }: LoginFormProps) {
         </Paper>
       </div>
     </div>
+  );
+}
+
+function GoogleGIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24">
+      <path
+        fill="#4285F4"
+        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.02h3.87c2.27-2.09 3.67-5.17 3.67-9.12z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.87-3.02c-1.08.72-2.45 1.16-4.06 1.16-3.13 0-5.78-2.11-6.73-4.96H1.27v3.11C3.26 21.3 7.35 24 12 24z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.27 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.62H1.27C.46 8.23 0 10.06 0 12s.46 3.77 1.27 5.38l4-3.11z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.7 1.27 6.62l4 3.11c.95-2.85 3.6-4.98 6.73-4.98z"
+      />
+    </svg>
   );
 }

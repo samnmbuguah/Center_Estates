@@ -986,6 +986,127 @@ class LoginView(APIView):
         return response
 
 
+@method_decorator(csrf_exempt, name='dispatch')
+class GoogleLoginView(APIView):
+    """Cookie-based JWT login via verified Google ID token.
+    Supports both existing users (staff, agents, clients) and new customer visitors from the sales storefront."""
+    authentication_classes = ()
+    permission_classes = (AllowAny,)
+    throttle_classes = (ScopedRateThrottle,)
+    throttle_scope = 'login'
+
+    @extend_schema(
+        request={'type': 'object', 'properties': {'credential': {'type': 'string'}, 'site': {'type': 'string'}}},
+        responses={200: {'type': 'object'}, 400: {'type': 'object'}, 401: {'type': 'object'}, 403: {'type': 'object'}},
+    )
+    def post(self, request):
+        credential = (request.data.get('credential') or '').strip()
+        site_context = (request.data.get('site') or 'erp').strip().lower()
+
+        if not credential:
+            return Response({'detail': 'Google credential token is required.'}, status=400)
+
+        client_id = getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', '') or None
+        try:
+            from google.oauth2 import id_token
+            from google.auth.transport import requests as google_requests
+            idinfo = id_token.verify_oauth2_token(
+                credential,
+                google_requests.Request(),
+                client_id
+            )
+        except Exception as e:
+            logger.warning('Google token verification failed: %s', e)
+            return Response({'detail': 'Invalid or expired Google credential.'}, status=401)
+
+        email = (idinfo.get('email') or '').lower().strip()
+        first_name = (idinfo.get('given_name') or '').strip()
+        last_name = (idinfo.get('family_name') or '').strip()
+        email_verified = idinfo.get('email_verified', False)
+
+        if not email or not email_verified:
+            return Response({'detail': 'A verified Google email address is required.'}, status=400)
+
+        User = get_user_model()
+        user = User.objects.filter(email__iexact=email).first()
+
+        redirect_to = '/workspaces'
+
+        if not user:
+            # Check if this is a customer visit on the sales storefront
+            if site_context == 'sales':
+                username_base = email.split('@')[0]
+                username = username_base
+                counter = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{username_base}_{counter}"
+                    counter += 1
+
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    first_name=first_name,
+                    last_name=last_name,
+                )
+                user.set_unusable_password()
+                user.save()
+
+                # Link or create a Buyer in the storefront organization
+                from organizations.models import Organization
+                from sales.models import Buyer, BuyerPortalAccess
+
+                storefront_org = Organization.objects.filter(slug='center-estates-demo', is_active=True).first() \
+                    or Organization.objects.filter(is_active=True).first()
+
+                if storefront_org:
+                    buyer = Buyer.objects.for_organization(storefront_org).filter(email__iexact=email).first()
+                    if not buyer:
+                        full_name = f"{first_name} {last_name}".strip() or email
+                        buyer = Buyer.objects.create(
+                            organization=storefront_org,
+                            reference=f"BUY-G-{user.pk}",
+                            full_name=full_name,
+                            email=email,
+                            phone=getattr(getattr(user, 'profile', None), 'phone', '') or '0700000000',
+                            id_number=f"GOOGLE-{user.pk}",
+                            status=Buyer.Status.LEAD,
+                        )
+                    from organizations.models import Membership, Role
+                    membership, _ = Membership.objects.get_or_create(
+                        organization=storefront_org,
+                        user=user,
+                        defaults={
+                            "status": Membership.Status.ACTIVE,
+                            "is_organization_admin": False,
+                        }
+                    )
+                    client_role = Role.objects.filter(organization=storefront_org, slug__in=['read-only', 'client']).first()
+                    if client_role:
+                        membership.roles.add(client_role)
+                    if not Membership.objects.filter(user=user, is_default=True).exists():
+                        membership.is_default = True
+                        membership.save(update_fields=['is_default'])
+
+                    BuyerPortalAccess.objects.get_or_create(
+                        organization=storefront_org,
+                        user=user,
+                        defaults={'buyer': buyer, 'is_active': True}
+                    )
+                redirect_to = '/client-portal'
+            else:
+                return Response({
+                    'detail': 'No Center Estates ERP account found with this Google email. Please contact your organization administrator.'
+                }, status=403)
+        else:
+            # If user exists, determine if they are primarily a portal buyer or staff
+            if site_context == 'sales' and not (user.is_staff or user.is_superuser):
+                redirect_to = '/client-portal'
+
+        response = Response({'detail': 'Signed in with Google.', 'redirect_to': redirect_to})
+        _issue_session_cookies(response, user)
+        return response
+
+
 class MobileTokenSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):

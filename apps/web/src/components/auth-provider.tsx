@@ -27,6 +27,7 @@ type AuthContextValue = {
   session: Session | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
+  loginWithGoogle: (credential: string, site: "sales" | "erp") => Promise<string>;
   logout: () => Promise<void>;
   selectOrganization: (id: string) => Promise<void>;
   can: (permission: string) => boolean;
@@ -163,6 +164,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.replace(returnTo?.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/workspaces");
   }, [loadSession, router]);
 
+  const loginWithGoogle = useCallback(async (credential: string, site: "sales" | "erp") => {
+    clearApiCache();
+    await clearServerSessionCookies();
+    const response = await apiFetch("/auth/google/", {
+      method: "POST",
+      body: JSON.stringify({ credential, site }),
+    });
+    if (!response.ok) {
+      let message = "Unable to sign in with Google.";
+      try {
+        const body = await response.json();
+        if (body?.detail && typeof body.detail === "string") message = body.detail;
+      } catch { /* non-JSON error body */ }
+      throw new Error(message);
+    }
+    const data = await response.json().catch(() => ({}));
+    sessionStorage.setItem(AUTH_FLAG_STORAGE_KEY, "1");
+    localStorage.removeItem("ce_organization");
+    localStorage.removeItem("ce_organization_brand");
+    const sessionResult = await loadSession(undefined);
+    if (sessionResult !== "authenticated") throw new Error("Signed in, but the session could not be established. Please retry.");
+    sessionStorage.setItem(QM_LOGIN_BRIEF_STORAGE_KEY, "1");
+    const returnTo = sessionStorage.getItem("ce_return_after_login");
+    sessionStorage.removeItem("ce_return_after_login");
+    const target = returnTo?.startsWith("/") && !returnTo.startsWith("//")
+      ? returnTo
+      : (data?.redirect_to || (site === "sales" ? "/client-portal" : "/workspaces"));
+    router.replace(target);
+    return target;
+  }, [loadSession, router]);
+
   const logout = useCallback(async () => {
     try {
       clearApiCache();
@@ -247,6 +279,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       loading,
       login,
+      loginWithGoogle,
       logout,
       selectOrganization,
       can,
@@ -254,7 +287,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       stopImpersonate,
       loadDemoIdentities,
     }),
-    [session, loading, login, logout, selectOrganization, can, switchIdentity, stopImpersonate, loadDemoIdentities],
+    [session, loading, login, loginWithGoogle, logout, selectOrganization, can, switchIdentity, stopImpersonate, loadDemoIdentities],
   );
   return <AuthContext.Provider value={value}>
     <OrganizationBrandingSync session={session} loading={loading} />

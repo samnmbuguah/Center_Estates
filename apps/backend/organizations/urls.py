@@ -7,9 +7,11 @@ from .views import (
     RoleDetailView,
     RoleListCreateView,
     CurrentUserProfileView,
+    SuperAdminOrganizationProvisionView,
 )
 
 urlpatterns = [
+    path("provision/", SuperAdminOrganizationProvisionView.as_view(), name="organization-provision"),
     path("permissions/", PermissionListView.as_view(), name="permission-list"),
     path("roles/", RoleListCreateView.as_view(), name="role-list-create"),
     path("roles/<uuid:role_id>/", RoleDetailView.as_view(), name="role-detail"),

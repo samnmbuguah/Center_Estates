@@ -382,6 +382,7 @@ PLATFORM_EMAIL_ORGANIZATION_SLUG = os.environ.get(
     'center-estates-demo',
 )
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'https://centerestates.com')
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
 
 JWT_ACCESS_COOKIE = 'ce_access'
 JWT_REFRESH_COOKIE = 'ce_refresh'

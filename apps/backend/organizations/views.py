@@ -385,3 +385,82 @@ class CurrentUserProfileView(APIView):
             "is_placeholder_email": is_placeholder,
             "detail": "Profile updated successfully.",
         })
+
+
+class SuperAdminOrganizationProvisionView(APIView):
+    """Platform super-admin endpoint to list all organizations and provision new ones."""
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        if not request.user.is_superuser:
+            return Response({"detail": "Platform superuser privileges required."}, status=status.HTTP_403_FORBIDDEN)
+        from .models import Organization
+        from subscriptions.models import Subscription
+        orgs = Organization.objects.all().order_by("-created_at")
+        results = []
+        for org in orgs:
+            subs = list(
+                Subscription.objects.filter(organization=org, is_active=True).values_list("module", flat=True)
+            )
+            member_count = org.memberships.filter(status="active").count()
+            results.append({
+                "id": str(org.id),
+                "name": org.name,
+                "slug": org.slug,
+                "domain": org.domain,
+                "is_active": org.is_active,
+                "created_at": org.created_at.isoformat() if org.created_at else None,
+                "member_count": member_count,
+                "modules": subs,
+            })
+        return Response({"results": results, "count": len(results)})
+
+    def post(self, request):
+        if not request.user.is_superuser:
+            return Response({"detail": "Platform superuser privileges required."}, status=status.HTTP_403_FORBIDDEN)
+        data = request.data or {}
+        name = data.get("name")
+        slug = data.get("slug")
+        admin_email = data.get("admin_email")
+        admin_name = data.get("admin_name", "")
+        admin_password = data.get("admin_password", "")
+        domain = data.get("domain", "")
+        modules = data.get("modules")
+
+        try:
+            from .services import provision_new_organization
+            res = provision_new_organization(
+                name=name,
+                slug=slug,
+                admin_email=admin_email,
+                admin_name=admin_name,
+                admin_password=admin_password,
+                modules=modules,
+                domain=domain,
+            )
+            org = res["organization"]
+            admin = res["admin_user"]
+            return Response({
+                "detail": f"Organization '{org.name}' provisioned successfully.",
+                "organization": {
+                    "id": str(org.id),
+                    "name": org.name,
+                    "slug": org.slug,
+                    "domain": org.domain,
+                    "is_active": org.is_active,
+                    "created": res["created"],
+                },
+                "admin_user": {
+                    "id": admin.id,
+                    "email": admin.email,
+                    "username": admin.username,
+                    "full_name": admin.get_full_name(),
+                    "user_created": res["user_created"],
+                    "temp_password": res.get("temp_password"),
+                },
+                "modules": res["modules"],
+            }, status=status.HTTP_201_CREATED if res["created"] else status.HTTP_200_OK)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            return Response({"detail": f"Failed to provision organization: {str(exc)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

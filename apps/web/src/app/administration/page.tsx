@@ -295,6 +295,108 @@ function AdministrationContent() {
     }
   }
 
+  // Platform Super Admin Organization Provisioning State
+  type ProvisionedOrg = {
+    id: string;
+    name: string;
+    slug: string;
+    domain: string;
+    is_active: boolean;
+    member_count: number;
+    created_at: string;
+    modules: string[];
+  };
+  const [provisionedOrgs, setProvisionedOrgs] = useState<ProvisionedOrg[]>([]);
+  const [loadingOrgs, setLoadingOrgs] = useState(false);
+  const [showProvisionModal, setShowProvisionModal] = useState(false);
+  const [provisioning, setProvisioning] = useState(false);
+  const [provisionNotice, setProvisionNotice] = useState<{
+    type: "success" | "error";
+    text: string;
+    creds?: { email: string; username: string; password?: string };
+  } | null>(null);
+
+  const [provName, setProvName] = useState("");
+  const [provSlug, setProvSlug] = useState("");
+  const [provAdminEmail, setProvAdminEmail] = useState("");
+  const [provAdminName, setProvAdminName] = useState("");
+  const [provAdminPassword, setProvAdminPassword] = useState("");
+  const [provDomain, setProvDomain] = useState("");
+  const [provModules, setProvModules] = useState<string[]>([
+    "property", "sales", "facility", "companion"
+  ]);
+
+  const fetchProvisionedOrgs = useCallback(async () => {
+    if (!isSuperAdministrator) return;
+    setLoadingOrgs(true);
+    try {
+      const res = await apiFetch("/organizations/provision/");
+      if (res.ok) {
+        const data = await res.json();
+        setProvisionedOrgs(data.results || []);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingOrgs(false);
+    }
+  }, [isSuperAdministrator]);
+
+  useEffect(() => {
+    if (tab === "orgs" && isSuperAdministrator) {
+      void fetchProvisionedOrgs();
+    }
+  }, [tab, isSuperAdministrator, fetchProvisionedOrgs]);
+
+  async function handleProvisionOrganization(e: FormEvent) {
+    e.preventDefault();
+    if (!provName.trim() || !provSlug.trim() || !provAdminEmail.trim()) return;
+    setProvisioning(true);
+    setProvisionNotice(null);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch("/organizations/provision/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+        body: JSON.stringify({
+          name: provName.trim(),
+          slug: provSlug.trim().toLowerCase(),
+          admin_email: provAdminEmail.trim().toLowerCase(),
+          admin_name: provAdminName.trim(),
+          admin_password: provAdminPassword.trim() || undefined,
+          domain: provDomain.trim(),
+          modules: provModules,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to provision organization.");
+      setProvisionNotice({
+        type: "success",
+        text: `Organization '${provName}' provisioned successfully!`,
+        creds: {
+          email: data.admin_user?.email,
+          username: data.admin_user?.username,
+          password: data.admin_user?.temp_password || provAdminPassword || "(custom password set)",
+        },
+      });
+      setProvName("");
+      setProvSlug("");
+      setProvAdminEmail("");
+      setProvAdminName("");
+      setProvAdminPassword("");
+      setProvDomain("");
+      setShowProvisionModal(false);
+      void fetchProvisionedOrgs();
+    } catch (err: unknown) {
+      setProvisionNotice({
+        type: "error",
+        text: err instanceof Error ? err.message : "Error provisioning organization.",
+      });
+    } finally {
+      setProvisioning(false);
+    }
+  }
+
   // STK Push Testing
   const [testingGateway, setTestingGateway] = useState<GatewayConfig | null>(null);
   const [testStkPhone, setTestStkPhone] = useState("");
@@ -2229,6 +2331,172 @@ function AdministrationContent() {
       {/* TAB 4: ORGANIZATIONS & MODULES */}
       {tab === "orgs" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Platform Super Admin: Organizations Provisioning Section */}
+          {isSuperAdministrator && (
+            <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid var(--border)", flexWrap: "wrap", gap: 12 }}>
+                <div>
+                  <h2 style={{ margin: "0 0 4px", fontSize: "1.25rem", fontWeight: 800, display: "flex", alignItems: "center", gap: 10, color: "var(--text)" }}>
+                    <span>🏢 Tenant Workspaces & Organization Provisioning</span>
+                    <span style={{ fontSize: "0.75rem", background: "rgba(2, 132, 199, 0.1)", color: "var(--color-sky-strong, #0284c7)", padding: "2px 8px", borderRadius: 12, fontWeight: 700 }}>
+                      Super Admin
+                    </span>
+                  </h2>
+                  <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.875rem" }}>
+                    Provision independent multi-tenant organizations with automated standard roles, module entitlements, and tenant admin accounts.
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => void fetchProvisionedOrgs()}
+                    disabled={loadingOrgs}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: 8,
+                      border: "1px solid var(--border)",
+                      background: "var(--surface)",
+                      color: "var(--text)",
+                      fontSize: "0.85rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {loadingOrgs ? "Refreshing..." : "↻ Refresh"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowProvisionModal(true)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      background: "#c22e2a",
+                      color: "#ffffff",
+                      padding: "8px 18px",
+                      borderRadius: 8,
+                      border: 0,
+                      fontWeight: 700,
+                      fontSize: "0.85rem",
+                      cursor: "pointer",
+                      boxShadow: "0 2px 6px rgba(194, 46, 42, 0.25)",
+                    }}
+                  >
+                    <span>+ Provision New Organization</span>
+                  </button>
+                </div>
+              </div>
+
+              {provisionNotice && (
+                <div
+                  style={{
+                    marginBottom: 20,
+                    padding: 16,
+                    borderRadius: 10,
+                    border: provisionNotice.type === "success" ? "1px solid #86efac" : "1px solid #fca5a5",
+                    background: provisionNotice.type === "success" ? "#f0fdf4" : "#fef2f2",
+                    color: provisionNotice.type === "success" ? "#166534" : "#991b1b",
+                  }}
+                >
+                  <div style={{ fontWeight: 700, marginBottom: provisionNotice.creds ? 6 : 0 }}>
+                    {provisionNotice.text}
+                  </div>
+                  {provisionNotice.creds && (
+                    <div style={{ fontSize: "0.85rem", background: "rgba(255,255,255,0.7)", padding: "10px 14px", borderRadius: 6, marginTop: 8, border: "1px dashed #86efac" }}>
+                      <div>Admin Email: <strong>{provisionNotice.creds.email}</strong></div>
+                      <div>Username: <strong>{provisionNotice.creds.username}</strong></div>
+                      {provisionNotice.creds.password && (
+                        <div>Generated Password: <strong style={{ fontFamily: "monospace", color: "#b91c1c" }}>{provisionNotice.creds.password}</strong></div>
+                      )}
+                      <div style={{ fontSize: "0.75rem", color: "#4b5563", marginTop: 4 }}>
+                        Save these credentials and share them with the tenant administrator.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Orgs List / Table */}
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+                  <thead>
+                    <tr style={{ background: "var(--surface-sunken, #f8fafc)", borderBottom: "1px solid var(--border)", textAlign: "left" }}>
+                      <th style={{ padding: "10px 14px", fontWeight: 700, color: "var(--muted)" }}>Organization</th>
+                      <th style={{ padding: "10px 14px", fontWeight: 700, color: "var(--muted)" }}>Slug / Domain</th>
+                      <th style={{ padding: "10px 14px", fontWeight: 700, color: "var(--muted)" }}>Subscribed Modules</th>
+                      <th style={{ padding: "10px 14px", fontWeight: 700, color: "var(--muted)" }}>Members</th>
+                      <th style={{ padding: "10px 14px", fontWeight: 700, color: "var(--muted)" }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadingOrgs ? (
+                      <tr>
+                        <td colSpan={5} style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>
+                          Loading tenant workspaces...
+                        </td>
+                      </tr>
+                    ) : provisionedOrgs.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>
+                          No tenant organizations found. Click &quot;+ Provision New Organization&quot; to create one.
+                        </td>
+                      </tr>
+                    ) : (
+                      provisionedOrgs.map((o) => (
+                        <tr key={o.id} style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
+                          <td style={{ padding: "12px 14px" }}>
+                            <div style={{ fontWeight: 700, color: "var(--text)" }}>{o.name}</div>
+                          </td>
+                          <td style={{ padding: "12px 14px" }}>
+                            <div style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "var(--color-sky-strong, #0284c7)" }}>{o.slug}</div>
+                            {o.domain && <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{o.domain}</div>}
+                          </td>
+                          <td style={{ padding: "12px 14px" }}>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              {o.modules?.map((m) => (
+                                <span
+                                  key={m}
+                                  style={{
+                                    fontSize: "0.7rem",
+                                    padding: "2px 8px",
+                                    borderRadius: 10,
+                                    background: "var(--surface-2, #f1f5f9)",
+                                    border: "1px solid var(--border)",
+                                    fontWeight: 600,
+                                    textTransform: "capitalize",
+                                  }}
+                                >
+                                  {m}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td style={{ padding: "12px 14px" }}>
+                            <span style={{ fontWeight: 600 }}>{o.member_count}</span> staff
+                          </td>
+                          <td style={{ padding: "12px 14px" }}>
+                            <span
+                              style={{
+                                fontSize: "0.75rem",
+                                background: o.is_active ? "#dcfce7" : "#fee2e2",
+                                color: o.is_active ? "#15803d" : "#b91c1c",
+                                padding: "3px 8px",
+                                borderRadius: 12,
+                                fontWeight: 700,
+                              }}
+                            >
+                              {o.is_active ? "Active" : "Inactive"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* White-Label Organization Branding */}
           <div style={{ background: "var(--surface, #ffffff)", border: "1px solid var(--border, var(--color-slate-200))", borderRadius: 12, padding: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.02)" }}>
             <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
@@ -3508,6 +3776,192 @@ function AdministrationContent() {
               </div>
             </form>
           </div>
+        </Modal>
+      )}
+
+      {/* MODAL 8: PROVISION NEW ORGANIZATION */}
+      {showProvisionModal && (
+        <Modal
+          title="🏢 Provision New Organization & Workspace"
+          onClose={() => setShowProvisionModal(false)}
+          wide
+        >
+          <form onSubmit={handleProvisionOrganization} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <div style={{ background: "var(--surface-sunken, #f8fafc)", padding: "12px 16px", borderRadius: 8, fontSize: 13, color: "var(--muted)" }}>
+              Provisioning will create an isolated tenant workspace, generate standard operational roles (Platform Admin, Property Manager, etc.), and activate the selected module subscriptions.
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                  Organization Name <span style={{ color: "var(--color-danger)" }}>*</span>
+                </label>
+                <input
+                  required
+                  type="text"
+                  value={provName}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setProvName(val);
+                    if (!provSlug || provSlug === provName.toLowerCase().replace(/[^a-z0-9]+/g, "-")) {
+                      setProvSlug(val.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
+                    }
+                  }}
+                  placeholder="e.g. Apex Living Limited"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14 }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                  Workspace Slug <span style={{ color: "var(--color-danger)" }}>*</span>
+                </label>
+                <input
+                  required
+                  type="text"
+                  value={provSlug}
+                  onChange={(e) => setProvSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                  placeholder="e.g. apex-living"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14, fontFamily: "monospace" }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                  Tenant Administrator Email <span style={{ color: "var(--color-danger)" }}>*</span>
+                </label>
+                <input
+                  required
+                  type="email"
+                  value={provAdminEmail}
+                  onChange={(e) => setProvAdminEmail(e.target.value)}
+                  placeholder="e.g. director@apexliving.co.ke"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14 }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                  Administrator Full Name
+                </label>
+                <input
+                  type="text"
+                  value={provAdminName}
+                  onChange={(e) => setProvAdminName(e.target.value)}
+                  placeholder="e.g. Jane Mwangi"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14 }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                  Administrator Password <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={provAdminPassword}
+                  onChange={(e) => setProvAdminPassword(e.target.value)}
+                  placeholder="Leave blank to auto-generate secure password"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14 }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                  Custom Domain <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={provDomain}
+                  onChange={(e) => setProvDomain(e.target.value)}
+                  placeholder="e.g. apexliving.co.ke"
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14 }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+                Activate Module Subscriptions:
+              </label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[
+                  { slug: "property", label: "🏢 Property Management", desc: "Units, leases & rent collection" },
+                  { slug: "sales", label: "💰 Sales & CRM", desc: "Listings, buyers & reservations" },
+                  { slug: "facility", label: "🔧 Facility Management", desc: "Work orders & meter logs" },
+                  { slug: "monitoring", label: "🏗️ Construction Monitoring", desc: "Site diaries & IPC certificates" },
+                  { slug: "valuation", label: "📜 Valuation Services", desc: "Appraisals & RICS reports" },
+                  { slug: "tender", label: "📑 Tender Engine", desc: "RFP procurement & BoQs" },
+                  { slug: "companion", label: "🤖 Operations Companion", desc: "Team tasks & communications" },
+                ].map((m) => {
+                  const isChecked = provModules.includes(m.slug);
+                  return (
+                    <label
+                      key={m.slug}
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 10,
+                        padding: "10px 12px",
+                        borderRadius: 8,
+                        border: isChecked ? "1.5px solid var(--color-sky-strong, #0284c7)" : "1px solid var(--border)",
+                        background: isChecked ? "rgba(2, 132, 199, 0.05)" : "var(--surface)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setProvModules([...provModules, m.slug]);
+                          } else {
+                            setProvModules(provModules.filter((x) => x !== m.slug));
+                          }
+                        }}
+                        style={{ marginTop: 3 }}
+                      />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700 }}>{m.label}</div>
+                        <div style={{ fontSize: 11, color: "var(--muted)" }}>{m.desc}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 12 }}>
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => setShowProvisionModal(false)}
+                disabled={provisioning}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn primary"
+                disabled={provisioning || !provName.trim() || !provSlug.trim() || !provAdminEmail.trim()}
+                style={{
+                  background: "#c22e2a",
+                  borderColor: "#c22e2a",
+                  padding: "10px 24px",
+                  fontWeight: 800,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <span>{provisioning ? "Provisioning Organization…" : "✓ Provision Organization"}</span>
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
     </div>

@@ -1,7 +1,7 @@
 from django.urls import path
 
 from .views import (
-    ChangePasswordView, ClientErrorHealthView, ClientErrorView, DemoIdentitiesView, ImpersonateView, LoginView, LogoutView, MeView, MobileTokenView,
+    ChangePasswordView, ClientErrorHealthView, ClientErrorView, DemoIdentitiesView, GoogleLoginView, ImpersonateView, LoginView, LogoutView, MeView, MobileTokenView,
     PasswordResetRequestView, RefreshView, RegisterView, StopImpersonateView,
     CalendarFeedView, TestingAIAuditView, TestingAutoScanView, TestingChecklistView, TestingCIResultsView, TestingCIStatusView, TicketsFeedView, WorkspaceInboxView, WorkspacePulseView, csrf, health, security_audit,
 )
@@ -10,6 +10,7 @@ urlpatterns = [
     path('health/', health, name='health'),
     path('auth/csrf/', csrf, name='csrf'),
     path('auth/login/', LoginView.as_view(), name='login'),
+    path('auth/google/', GoogleLoginView.as_view(), name='google-login'),
     path('auth/register/', RegisterView.as_view(), name='register'),
     path('auth/password-reset/', PasswordResetRequestView.as_view(), name='password-reset'),
     path('auth/change-password/', ChangePasswordView.as_view(), name='change-password'),

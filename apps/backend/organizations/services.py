@@ -364,3 +364,139 @@ def _build_permission_keys_for_role(role_slug, modules, granted, permission_cata
     
     # Remove duplicates while preserving order
     return list(dict.fromkeys(perm_keys))
+
+
+def provision_new_organization(
+    name: str,
+    slug: str,
+    admin_email: str,
+    admin_name: str = "",
+    admin_password: str = "",
+    modules: list = None,
+    domain: str = "",
+):
+    """
+    Atomically provisions a new tenant organization with:
+    1. Organization record (name, slug, domain)
+    2. Complete standard business roles and permissions
+    3. Active module subscriptions
+    4. Admin user and administrative membership
+    """
+    from django.contrib.auth import get_user_model
+    from django.db import transaction
+    import secrets
+    from subscriptions.models import Subscription
+    from .models import Organization, Membership, Role
+
+    User = get_user_model()
+    name = (name or "").strip()
+    slug = (slug or "").strip().lower()
+    admin_email = (admin_email or "").strip().lower()
+    admin_name = (admin_name or "").strip()
+    domain = (domain or "").strip()
+
+    if not name:
+        raise ValueError("Organization name is required.")
+    if not slug:
+        raise ValueError("Organization slug is required.")
+    if not admin_email:
+        raise ValueError("Admin email is required.")
+
+    if modules is None or len(modules) == 0:
+        modules = [m[0] for m in Module.choices]
+
+    with transaction.atomic():
+        org, org_created = Organization.objects.get_or_create(
+            slug=slug,
+            defaults={
+                "name": name,
+                "domain": domain,
+                "is_active": True,
+            },
+        )
+        if not org_created:
+            if not org.is_active:
+                org.is_active = True
+                org.save(update_fields=["is_active"])
+            if domain and org.domain != domain:
+                org.domain = domain
+                org.save(update_fields=["domain"])
+
+        # 1. Ensure all standard embedded roles and full permission set
+        ensure_standard_roles_for_organization(org)
+
+        # 2. Configure module subscriptions
+        valid_modules = {choice[0] for choice in Module.choices}
+        subscribed_modules = []
+        for mod in modules:
+            mod_key = mod.strip().lower()
+            if mod_key in valid_modules:
+                Subscription.objects.update_or_create(
+                    organization=org,
+                    module=mod_key,
+                    defaults={
+                        "status": Subscription.Status.ACTIVE,
+                        "is_active": True,
+                    },
+                )
+                subscribed_modules.append(mod_key)
+
+        # 3. Create or find tenant admin User
+        first_name, _, last_name = admin_name.partition(" ")
+        username_base = admin_email.split("@")[0]
+        username = username_base
+        counter = 1
+        user = User.objects.filter(email__iexact=admin_email).first()
+        user_created = False
+        temp_password = None
+
+        if not user:
+            while User.objects.filter(username=username).exists():
+                username = f"{username_base}_{counter}"
+                counter += 1
+            user = User.objects.create(
+                username=username,
+                email=admin_email,
+                first_name=first_name or "Admin",
+                last_name=last_name or "",
+                is_active=True,
+            )
+            user_created = True
+
+        if admin_password:
+            user.set_password(admin_password)
+            user.save(update_fields=["password"])
+        elif user_created:
+            temp_password = secrets.token_urlsafe(10)
+            user.set_password(temp_password)
+            user.save(update_fields=["password"])
+
+        # 4. Link admin membership
+        membership, _ = Membership.objects.get_or_create(
+            organization=org,
+            user=user,
+            defaults={
+                "is_organization_admin": True,
+                "status": Membership.Status.ACTIVE,
+            },
+        )
+        if not membership.is_organization_admin:
+            membership.is_organization_admin = True
+            membership.save(update_fields=["is_organization_admin"])
+
+        admin_role = Role.objects.filter(organization=org, slug="platform-admin").first()
+        if admin_role:
+            membership.roles.add(admin_role)
+
+        if not Membership.objects.filter(user=user, is_default=True).exists():
+            membership.is_default = True
+            membership.save(update_fields=["is_default"])
+
+        return {
+            "organization": org,
+            "created": org_created,
+            "admin_user": user,
+            "user_created": user_created,
+            "temp_password": temp_password,
+            "modules": subscribed_modules,
+        }
