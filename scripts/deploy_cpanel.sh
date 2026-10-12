@@ -132,6 +132,7 @@ ssh "${SSH_OPTS[@]}" "$REMOTE_HOST" "bash -s" <<EOF
   (crontab -l 2>/dev/null | grep -vF '# center-estates-scheduled-reports'; echo "*/15 * * * * cd ${API_PATH} && ${PYTHON_VENV%/*}/python apps/backend/manage.py run_scheduled_reports >> ${API_PATH}/scheduled-reports.log 2>&1 # center-estates-scheduled-reports") | crontab -
   (crontab -l 2>/dev/null | grep -vF '# center-estates-calendar-notifications'; echo "17 * * * * cd ${API_PATH} && ${PYTHON_VENV%/*}/python apps/backend/manage.py sync_calendar_notifications >> ${API_PATH}/calendar-notifications.log 2>&1 # center-estates-calendar-notifications") | crontab -
   (crontab -l 2>/dev/null | grep -vF '# center-estates-sales-reservations'; echo "*/30 * * * * cd ${API_PATH} && ${PYTHON_VENV%/*}/python apps/backend/manage.py sync_sales_reservations >> ${API_PATH}/sales-reservations.log 2>&1 # center-estates-sales-reservations") | crontab -
+  (crontab -l 2>/dev/null | grep -vF '# center-estates-outreach-worker'; echo "*/15 * * * * cd ${API_PATH} && ${PYTHON_VENV%/*}/python apps/backend/manage.py process_outreach_worker --limit 20 >> ${API_PATH}/outreach-worker.log 2>&1 # center-estates-outreach-worker") | crontab -
   (crontab -l 2>/dev/null | grep -vF '# center-estates-daily-backup'; echo "30 2 * * * ${CPANEL_HOME}/scripts/backup_database.sh >> ${CPANEL_HOME}/backups/backup.log 2>&1 # center-estates-daily-backup") | crontab -
 
   killall -9 lswsgi 2>/dev/null || true
