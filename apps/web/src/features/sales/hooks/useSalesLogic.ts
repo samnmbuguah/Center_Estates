@@ -7,6 +7,10 @@ import { usePropertyContext } from "@/lib/property-context";
 import {
   BUYER_TRANSITIONS,
   Dashboard,
+  OutreachCampaign,
+  OutreachCampaignModule,
+  OutreachProspect,
+  OutreachSummary,
   Row,
   SALE_TRANSITIONS,
   SalesTab,
@@ -78,6 +82,14 @@ export function useSalesLogic(initialTab = "overview") {
   const [reportLoading, setReportLoading] = useState(false);
   const [reportKey, setReportKey] = useState("");
 
+  // Outreach state
+  const [outreachCampaigns, setOutreachCampaigns] = useState<OutreachCampaign[]>([]);
+  const [outreachProspects, setOutreachProspects] = useState<OutreachProspect[]>([]);
+  const [outreachSummary, setOutreachSummary] = useState<OutreachSummary | null>(null);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
+  const [selectedModule, setSelectedModule] = useState<OutreachCampaignModule | "all">("all");
+  const [outreachLoading, setOutreachLoading] = useState(false);
+
   const loadVersion = useRef(0);
 
   const loadData = useCallback(async () => {
@@ -90,6 +102,46 @@ export function useSalesLogic(initialTab = "overview") {
       setRows([]);
       setDashboard(null);
       setLoading(false);
+      return;
+    }
+
+    if (tab === "outreach") {
+      try {
+        let prospectUrl = "/sales/outreach-prospects/";
+        const params = new URLSearchParams();
+        if (search) params.append("search", search);
+        if (status) params.append("status", status);
+        if (selectedCampaignId) params.append("campaign", selectedCampaignId);
+        if (selectedModule && selectedModule !== "all") params.append("target_module", selectedModule);
+        if (params.toString()) prospectUrl += `?${params.toString()}`;
+
+        const [campRes, prospRes, sumRes] = await Promise.all([
+          apiFetch("/sales/outreach-campaigns/", {}, org),
+          apiFetch(prospectUrl, {}, org),
+          apiFetch("/sales/outreach-campaigns/summary/", {}, org),
+        ]);
+
+        if (version !== loadVersion.current) return;
+
+        if (campRes.ok) {
+          const campData = await campRes.json();
+          setOutreachCampaigns(Array.isArray(campData) ? campData : campData.results ?? []);
+        }
+        if (prospRes.ok) {
+          const prospData = await prospRes.json();
+          const items = Array.isArray(prospData) ? prospData : prospData.results ?? [];
+          setOutreachProspects(items);
+          setRows(items as unknown as Row[]);
+        }
+        if (sumRes.ok) {
+          const sumData = await sumRes.json();
+          setOutreachSummary(sumData);
+        }
+      } catch {
+        if (version === loadVersion.current) setError("Unable to load AI Outreach campaigns.");
+      } finally {
+        if (version === loadVersion.current) setLoading(false);
+      }
       return;
     }
 
@@ -125,7 +177,7 @@ export function useSalesLogic(initialTab = "overview") {
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
-  }, [tab, search, status, org, activeProperty?.id]);
+  }, [tab, search, status, org, activeProperty?.id, selectedCampaignId, selectedModule]);
 
   useEffect(() => {
     const timer = setTimeout(loadData, search ? 250 : 0);
@@ -442,6 +494,54 @@ export function useSalesLogic(initialTab = "overview") {
   const saleOptions = SALE_TRANSITIONS[String(transitionSaleRow?.status ?? "")] ?? [];
   const buyerOptions = BUYER_TRANSITIONS[String(transitionBuyerRow?.status ?? "")] ?? [];
 
+  // Outreach actions
+  const seedDefaults = useCallback(async () => {
+    if (!org) return;
+    setOutreachLoading(true);
+    await apiFetch("/auth/csrf/");
+    try {
+      const res = await apiFetch("/sales/outreach-campaigns/seed_defaults/", {
+        method: "POST",
+        headers: { "X-CSRFToken": csrfFromCookie() },
+      }, org);
+      if (res.ok) {
+        await loadData();
+      }
+    } finally {
+      setOutreachLoading(false);
+    }
+  }, [org, loadData]);
+
+  const generateDraft = useCallback(async (prospectId: string, stepNumber?: number) => {
+    if (!org) return null;
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/sales/outreach-prospects/${prospectId}/generate-draft/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify(stepNumber ? { step_number: stepNumber } : {}),
+    }, org);
+    if (res.ok) {
+      return await res.json();
+    }
+    return null;
+  }, [org]);
+
+  const logOutreach = useCallback(async (prospectId: string, payload: { activity_type: string; subject?: string; content?: string; step_number?: number }) => {
+    if (!org) return null;
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/sales/outreach-prospects/${prospectId}/log-outreach/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+      body: JSON.stringify(payload),
+    }, org);
+    if (res.ok) {
+      const data = await res.json();
+      await loadData();
+      return data;
+    }
+    return null;
+  }, [org, loadData]);
+
   return {
     tab,
     setTab,
@@ -466,6 +566,18 @@ export function useSalesLogic(initialTab = "overview") {
     loadReportPreview,
     downloadReport,
     options,
+    // Outreach state & actions
+    outreachCampaigns,
+    outreachProspects,
+    outreachSummary,
+    selectedCampaignId,
+    setSelectedCampaignId,
+    selectedModule,
+    setSelectedModule,
+    outreachLoading,
+    seedDefaults,
+    generateDraft,
+    logOutreach,
     // Modals
     showRegisterBuyer,
     setShowRegisterBuyer,

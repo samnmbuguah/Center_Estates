@@ -312,3 +312,116 @@ class SalesAuditEvent(OrganizationOwnedModel):
             raise ValidationError('Audit sale must belong to the same organization.')
         if self.payment_id and self.payment.organization_id != self.organization_id:
             raise ValidationError('Audit payment must belong to the same organization.')
+
+
+class OutreachCampaign(OrganizationOwnedModel):
+    class ModuleTarget(models.TextChoices):
+        PROPERTY = 'property', 'Property Management & Sectional Titles'
+        FACILITY = 'facility', 'Facility Management & Operations'
+        CONSTRUCTION = 'construction', 'Project Monitoring & Construction'
+        VALUATION = 'valuation', 'Valuation & Advisory'
+        TENDER = 'tender', 'Tenders & Procurement'
+        SALES = 'sales', 'Real Estate Sales CRM'
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        ACTIVE = 'active', 'Active'
+        PAUSED = 'paused', 'Paused'
+        COMPLETED = 'completed', 'Completed'
+
+    name = models.CharField(max_length=180)
+    target_module = models.CharField(max_length=32, choices=ModuleTarget.choices, default=ModuleTarget.PROPERTY)
+    target_icp = models.TextField(help_text='Ideal Customer Profile definition (e.g. Commercial property management companies with 30+ units)')
+    pain_points = models.TextField(help_text='Core operational bottlenecks and pain points addressed by this module')
+    value_proposition = models.TextField(help_text='The compelling hook and quantifiable outcome')
+    booking_url = models.URLField(max_length=255, blank=True, help_text='Demo booking link e.g. Cal.com / Calendly / WhatsApp link')
+    daily_send_limit = models.PositiveIntegerField(default=50)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [
+            models.UniqueConstraint(fields=('organization', 'name'), name='unique_org_outreach_campaign_name')
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.get_target_module_display()})"
+
+
+class OutreachSequenceStep(OrganizationOwnedModel):
+    campaign = models.ForeignKey(OutreachCampaign, on_delete=models.CASCADE, related_name='steps')
+    step_number = models.PositiveSmallIntegerField(default=1)
+    title = models.CharField(max_length=120, default='Initial Hook Opener')
+    delay_days = models.PositiveSmallIntegerField(default=0, help_text='Delay in days before sending after previous step')
+    subject_template = models.CharField(max_length=255)
+    body_template = models.TextField()
+
+    class Meta:
+        ordering = ('step_number',)
+        constraints = [
+            models.UniqueConstraint(fields=('campaign', 'step_number'), name='unique_campaign_step_number')
+        ]
+
+    def __str__(self):
+        return f"{self.campaign.name} - Step {self.step_number}: {self.title}"
+
+
+class OutreachProspect(OrganizationOwnedModel):
+    class Status(models.TextChoices):
+        DISCOVERED = 'discovered', 'Discovered'
+        QUALIFIED = 'qualified', 'Qualified'
+        CONTACTED = 'contacted', 'Contacted'
+        REPLIED = 'replied', 'Replied'
+        DEMO_BOOKED = 'demo_booked', 'Demo Booked'
+        WON = 'won', 'Customer Won'
+        LOST = 'lost', 'Not Interested'
+        BOUNCED = 'bounced', 'Bounced'
+
+    campaign = models.ForeignKey(OutreachCampaign, on_delete=models.PROTECT, related_name='prospects')
+    company_name = models.CharField(max_length=180)
+    website = models.URLField(max_length=255, blank=True)
+    contact_name = models.CharField(max_length=180)
+    job_title = models.CharField(max_length=120, blank=True)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    linkedin_url = models.URLField(max_length=255, blank=True)
+    city = models.CharField(max_length=80, blank=True, default='Nairobi')
+    country = models.CharField(max_length=60, blank=True, default='Kenya')
+    fit_score = models.PositiveSmallIntegerField(default=85, help_text='AI qualification score 0-100')
+    fit_reasoning = models.TextField(blank=True, help_text='AI explanation of why this prospect is an exact match for the module')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.QUALIFIED)
+    current_step = models.PositiveSmallIntegerField(default=0)
+    last_contacted_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('-fit_score', '-created_at')
+        constraints = [
+            models.UniqueConstraint(fields=('organization', 'campaign', 'company_name', 'email'), name='unique_org_campaign_prospect')
+        ]
+
+    def __str__(self):
+        return f"{self.contact_name} @ {self.company_name} ({self.fit_score}%)"
+
+
+class OutreachActivity(OrganizationOwnedModel):
+    class ActivityType(models.TextChoices):
+        SENT = 'sent', 'Email Sent'
+        OPENED = 'opened', 'Email Opened'
+        REPLIED = 'replied', 'Reply Received'
+        DEMO_BOOKED = 'demo_booked', 'Demo Scheduled'
+        NOTE = 'note', 'Note Added'
+        BOUNCED = 'bounced', 'Email Bounced'
+
+    prospect = models.ForeignKey(OutreachProspect, on_delete=models.CASCADE, related_name='activities')
+    step = models.ForeignKey(OutreachSequenceStep, on_delete=models.SET_NULL, null=True, blank=True, related_name='activities')
+    activity_type = models.CharField(max_length=20, choices=ActivityType.choices, default=ActivityType.SENT)
+    subject = models.CharField(max_length=255, blank=True)
+    content = models.TextField(blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f"{self.get_activity_type_display()} - {self.prospect.contact_name}"

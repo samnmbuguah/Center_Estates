@@ -5,6 +5,7 @@ from .public_views import public_enquiry, public_listing_detail, public_listings
 from .views import (
     AgentPortalViewSet, BuyerViewSet, BuyerPortalAccessViewSet, BuyerPortalViewSet,
     CommissionViewSet, InstallmentViewSet, ListingRenderViewSet, ListingViewSet,
+    OutreachCampaignViewSet, OutreachProspectViewSet,
     PaymentViewSet, SaleDocumentViewSet, SalesAnalyticsViewSet, SalesAuditEventViewSet,
     SalesDashboardViewSet, SalesProjectViewSet, SaleViewSet, SiteVisitViewSet,
 )
@@ -26,6 +27,8 @@ router.register('documents', SaleDocumentViewSet)
 router.register('audit-events', SalesAuditEventViewSet)
 router.register('buyer-portal', BuyerPortalViewSet, basename='buyer-portal')
 router.register('agent-portal', AgentPortalViewSet, basename='agent-portal')
+router.register('outreach-campaigns', OutreachCampaignViewSet, basename='outreach-campaigns')
+router.register('outreach-prospects', OutreachProspectViewSet, basename='outreach-prospects')
 
 urlpatterns = router.urls + [
     path('public/listings/', public_listings, name='sales-public-listings'),

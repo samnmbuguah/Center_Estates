@@ -19,13 +19,20 @@ from core.property_scope import scope_model_queryset, scope_queryset_to_property
 from rest_framework.exceptions import PermissionDenied
 
 from properties.models import Project, ProjectModuleAssignment, Property, Unit
-from .models import AgentCommission, Buyer, BuyerPortalAccess, Installment, ListingRender, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
+from .models import (
+    AgentCommission, Buyer, BuyerPortalAccess, Installment, ListingRender,
+    OutreachActivity, OutreachCampaign, OutreachProspect, OutreachSequenceStep,
+    PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
+)
 from .serializers import (
     AgentCommissionSerializer, BuyerSerializer, BuyerPortalAccessSerializer,
     InstallmentSerializer, ListingRenderSerializer, PropertySaleSerializer,
     SaleDocumentSerializer, SaleListingSerializer, SalePaymentSerializer,
     SalesAuditEventSerializer, SalesProjectSerializer, SiteVisitSerializer,
+    OutreachActivitySerializer, OutreachCampaignSerializer,
+    OutreachProspectSerializer, OutreachSequenceStepSerializer
 )
+from .outreach_defaults import MODULE_CAMPAIGN_TEMPLATES, SEED_PROSPECTS
 
 
 class SalesModelViewSet(ModelViewSet):
@@ -1376,3 +1383,209 @@ class AgentPortalViewSet(ViewSet):
                 SaleListing.objects.for_organization(organization).filter(status=SaleListing.Status.AVAILABLE).select_related('project', 'unit').order_by('project__name', 'unit__code')[:20], many=True,
             ).data,
         })
+
+
+class OutreachCampaignViewSet(SalesModelViewSet):
+    queryset = OutreachCampaign.objects.all()
+    serializer_class = OutreachCampaignSerializer
+    search_fields = ('name', 'target_icp', 'pain_points', 'value_proposition')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        module = self.request.query_params.get('target_module')
+        if module:
+            qs = qs.filter(target_module=module)
+        return qs
+
+    @action(detail=False, methods=('post',), url_path='seed-defaults')
+    @transaction.atomic
+    def seed_defaults(self, request):
+        organization = get_active_organization(request)
+        seeded_campaigns = 0
+        campaign_map = {}
+
+        for tpl in MODULE_CAMPAIGN_TEMPLATES:
+            campaign, created = OutreachCampaign.objects.update_or_create(
+                organization=organization,
+                name=tpl['name'],
+                defaults={
+                    'target_module': tpl['target_module'],
+                    'target_icp': tpl['target_icp'],
+                    'pain_points': tpl['pain_points'],
+                    'value_proposition': tpl['value_proposition'],
+                    'booking_url': tpl['booking_url'],
+                    'daily_send_limit': tpl['daily_send_limit'],
+                    'status': OutreachCampaign.Status.ACTIVE,
+                }
+            )
+            campaign_map[tpl['target_module']] = campaign
+            if created:
+                seeded_campaigns += 1
+
+            for s_data in tpl.get('steps', []):
+                OutreachSequenceStep.objects.update_or_create(
+                    organization=organization,
+                    campaign=campaign,
+                    step_number=s_data['step_number'],
+                    defaults={
+                        'title': s_data['title'],
+                        'delay_days': s_data['delay_days'],
+                        'subject_template': s_data['subject_template'],
+                        'body_template': s_data['body_template'],
+                    }
+                )
+
+        seeded_prospects = 0
+        if not OutreachProspect.objects.filter(organization=organization).exists():
+            for p_data in SEED_PROSPECTS:
+                target_camp = campaign_map.get(p_data.get('target_module'))
+                if not target_camp:
+                    target_camp = next(iter(campaign_map.values()), None)
+                if target_camp:
+                    OutreachProspect.objects.create(
+                        organization=organization,
+                        campaign=target_camp,
+                        company_name=p_data['company_name'],
+                        website=p_data.get('website', ''),
+                        contact_name=p_data['contact_name'],
+                        job_title=p_data.get('job_title', ''),
+                        email=p_data.get('email', ''),
+                        phone=p_data.get('phone', ''),
+                        city=p_data.get('city', 'Nairobi'),
+                        country=p_data.get('country', 'Kenya'),
+                        fit_score=p_data.get('fit_score', 85),
+                        fit_reasoning=p_data.get('fit_reasoning', ''),
+                        status=p_data.get('status', OutreachProspect.Status.QUALIFIED),
+                        notes=p_data.get('notes', ''),
+                    )
+                    seeded_prospects += 1
+
+        campaigns = OutreachCampaign.objects.filter(organization=organization).prefetch_related('steps', 'prospects')
+        return Response({
+            'status': 'success',
+            'seeded_campaigns': seeded_campaigns,
+            'seeded_prospects': seeded_prospects,
+            'campaigns': OutreachCampaignSerializer(campaigns, many=True).data,
+        })
+
+    @action(detail=False, methods=('get',), url_path='summary')
+    def summary(self, request):
+        organization = get_active_organization(request)
+        campaigns = OutreachCampaign.objects.filter(organization=organization)
+        prospects = OutreachProspect.objects.filter(organization=organization)
+
+        return Response({
+            'total_campaigns': campaigns.count(),
+            'total_prospects': prospects.count(),
+            'qualified': prospects.filter(status=OutreachProspect.Status.QUALIFIED).count(),
+            'contacted': prospects.filter(status__in=[
+                OutreachProspect.Status.CONTACTED,
+                OutreachProspect.Status.REPLIED,
+                OutreachProspect.Status.DEMO_BOOKED,
+                OutreachProspect.Status.WON,
+            ]).count(),
+            'replied': prospects.filter(status__in=[
+                OutreachProspect.Status.REPLIED,
+                OutreachProspect.Status.DEMO_BOOKED,
+                OutreachProspect.Status.WON,
+            ]).count(),
+            'demos_booked': prospects.filter(status=OutreachProspect.Status.DEMO_BOOKED).count(),
+            'won': prospects.filter(status=OutreachProspect.Status.WON).count(),
+        })
+
+
+class OutreachProspectViewSet(SalesModelViewSet):
+    queryset = OutreachProspect.objects.all()
+    serializer_class = OutreachProspectSerializer
+    search_fields = ('company_name', 'contact_name', 'email', 'phone', 'job_title')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        campaign_id = self.request.query_params.get('campaign')
+        if campaign_id:
+            qs = qs.filter(campaign_id=campaign_id)
+        module = self.request.query_params.get('target_module')
+        if module:
+            qs = qs.filter(campaign__target_module=module)
+        return qs
+
+    @action(detail=True, methods=('post',), url_path='generate-draft')
+    def generate_draft(self, request, pk=None):
+        prospect = self.get_object()
+        step_number = int(request.data.get('step_number') or max(1, prospect.current_step + 1))
+        
+        step = OutreachSequenceStep.objects.filter(campaign=prospect.campaign, step_number=step_number).first()
+        if not step:
+            step = OutreachSequenceStep.objects.filter(campaign=prospect.campaign).order_by('step_number').first()
+            step_number = step.step_number if step else 1
+
+        first_name = prospect.contact_name.split()[0] if prospect.contact_name else 'there'
+        booking_url = prospect.campaign.booking_url or 'https://centerestates.com/demo'
+
+        subject = step.subject_template if step else f"Partnership inquiry regarding {prospect.company_name}"
+        body = step.body_template if step else f"Hi {first_name},\n\nWould love to connect regarding {prospect.company_name}."
+
+        replacements = {
+            '{{first_name}}': first_name,
+            '{{contact_name}}': prospect.contact_name,
+            '{{company_name}}': prospect.company_name,
+            '{{job_title}}': prospect.job_title or 'Director',
+            '{{booking_url}}': booking_url,
+        }
+        for placeholder, val in replacements.items():
+            subject = subject.replace(placeholder, val)
+            body = body.replace(placeholder, val)
+
+        return Response({
+            'prospect_id': str(prospect.id),
+            'contact_name': prospect.contact_name,
+            'email': prospect.email,
+            'company_name': prospect.company_name,
+            'step_number': step_number,
+            'step_title': step.title if step else f'Step {step_number}',
+            'subject': subject,
+            'body': body,
+            'booking_url': booking_url,
+        })
+
+    @action(detail=True, methods=('post',), url_path='log-outreach')
+    def log_outreach(self, request, pk=None):
+        prospect = self.get_object()
+        organization = get_active_organization(request)
+        activity_type = request.data.get('activity_type', OutreachActivity.ActivityType.SENT)
+        subject = request.data.get('subject', '')
+        content = request.data.get('content', '')
+        step_number = request.data.get('step_number')
+
+        step = None
+        if step_number:
+            step = OutreachSequenceStep.objects.filter(campaign=prospect.campaign, step_number=step_number).first()
+
+        activity = OutreachActivity.objects.create(
+            organization=organization,
+            prospect=prospect,
+            step=step,
+            activity_type=activity_type,
+            subject=subject,
+            content=content,
+        )
+
+        if activity_type == OutreachActivity.ActivityType.SENT:
+            prospect.status = OutreachProspect.Status.CONTACTED
+            if step_number:
+                prospect.current_step = int(step_number)
+            prospect.last_contacted_at = timezone.now()
+            prospect.save(update_fields=['status', 'current_step', 'last_contacted_at', 'updated_at'])
+        elif activity_type == OutreachActivity.ActivityType.DEMO_BOOKED:
+            prospect.status = OutreachProspect.Status.DEMO_BOOKED
+            prospect.save(update_fields=['status', 'updated_at'])
+        elif activity_type == OutreachActivity.ActivityType.REPLIED:
+            prospect.status = OutreachProspect.Status.REPLIED
+            prospect.save(update_fields=['status', 'updated_at'])
+
+        return Response({
+            'status': 'logged',
+            'activity': OutreachActivitySerializer(activity).data,
+            'prospect': OutreachProspectSerializer(prospect).data,
+        })
+

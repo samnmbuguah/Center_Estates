@@ -26,6 +26,7 @@ import { HandoverView } from "./components/tabs/HandoverView";
 import { InstallmentsView } from "./components/tabs/InstallmentsView";
 import { InventoryView } from "./components/tabs/InventoryView";
 import { LeadsView } from "./components/tabs/LeadsView";
+import { OutreachView } from "./components/tabs/OutreachView";
 import { OverviewView } from "./components/tabs/OverviewView";
 import { PaymentsView } from "./components/tabs/PaymentsView";
 import { PerformanceView } from "./components/tabs/PerformanceView";
@@ -177,6 +178,24 @@ export function SalesFeaturePage({ initialTab = "overview" }: { initialTab?: str
             setStatus={logic.setStatus}
             openRegisterBuyer={logic.openBuyerRegistration}
             quickTransition={logic.quickTransitionBuyer}
+          />
+        ) : logic.tab === "outreach" ? (
+          <OutreachView
+            campaigns={logic.outreachCampaigns}
+            prospects={logic.outreachProspects}
+            summary={logic.outreachSummary}
+            loading={logic.outreachLoading}
+            search={logic.search}
+            setSearch={logic.setSearch}
+            status={logic.status}
+            setStatus={logic.setStatus}
+            selectedModule={logic.selectedModule}
+            setSelectedModule={logic.setSelectedModule}
+            selectedCampaignId={logic.selectedCampaignId}
+            setSelectedCampaignId={logic.setSelectedCampaignId}
+            onSeedDefaults={logic.seedDefaults}
+            onGenerateDraft={logic.generateDraft}
+            onLogOutreach={logic.logOutreach}
           />
         ) : logic.tab === "sales" ? (
           <SalesView

@@ -2,7 +2,11 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
-from .models import AgentCommission, Buyer, BuyerPortalAccess, Installment, ListingRender, PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
+from .models import (
+    AgentCommission, Buyer, BuyerPortalAccess, Installment, ListingRender,
+    OutreachActivity, OutreachCampaign, OutreachProspect, OutreachSequenceStep,
+    PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
+)
 
 
 class SaleListingSerializer(serializers.ModelSerializer):
@@ -247,4 +251,67 @@ class SalesProjectSerializer(serializers.ModelSerializer):
         if hasattr(obj, 'construction_profile') and obj.construction_profile:
             return str(obj.construction_profile.id)
         return ''
+
+
+class OutreachSequenceStepSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OutreachSequenceStep
+        exclude = ('organization',)
+
+
+class OutreachActivitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OutreachActivity
+        exclude = ('organization',)
+
+
+class OutreachProspectSerializer(serializers.ModelSerializer):
+    campaign_name = serializers.CharField(source='campaign.name', read_only=True)
+    target_module = serializers.CharField(source='campaign.target_module', read_only=True)
+    activities_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OutreachProspect
+        exclude = ('organization',)
+
+    def get_activities_count(self, obj) -> int:
+        return obj.activities.count()
+
+
+class OutreachCampaignSerializer(serializers.ModelSerializer):
+    steps = OutreachSequenceStepSerializer(many=True, read_only=True)
+    prospects_count = serializers.SerializerMethodField()
+    qualified_count = serializers.SerializerMethodField()
+    contacted_count = serializers.SerializerMethodField()
+    replied_count = serializers.SerializerMethodField()
+    demos_booked_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OutreachCampaign
+        exclude = ('organization',)
+
+    def get_prospects_count(self, obj) -> int:
+        return obj.prospects.count()
+
+    def get_qualified_count(self, obj) -> int:
+        return obj.prospects.filter(status=OutreachProspect.Status.QUALIFIED).count()
+
+    def get_contacted_count(self, obj) -> int:
+        return obj.prospects.filter(status__in=[
+            OutreachProspect.Status.CONTACTED,
+            OutreachProspect.Status.REPLIED,
+            OutreachProspect.Status.DEMO_BOOKED,
+            OutreachProspect.Status.WON,
+        ]).count()
+
+    def get_replied_count(self, obj) -> int:
+        return obj.prospects.filter(status__in=[
+            OutreachProspect.Status.REPLIED,
+            OutreachProspect.Status.DEMO_BOOKED,
+            OutreachProspect.Status.WON,
+        ]).count()
+
+    def get_demos_booked_count(self, obj) -> int:
+        return obj.prospects.filter(status=OutreachProspect.Status.DEMO_BOOKED).count()
+
 
