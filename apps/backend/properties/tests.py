@@ -568,6 +568,31 @@ class PropertyApiTests(TestCase):
         self.assertEqual(set(invoices.values_list('invoice_type', flat=True)), {'rent', 'water', 'security_deposit'})
         self.assertEqual(sum(invoices.values_list('amount', flat=True), Decimal('0')), Decimal('150750'))
 
+    def test_quarterly_property_rejects_monthly_rent_run(self):
+        self.property.metadata = {**(self.property.metadata or {}), 'billing_frequency': 'quarterly'}
+        self.property.save(update_fields=('metadata',))
+
+        created = self.client.post('/api/v1/property/billing-runs/', {
+            'property': str(self.property.id),
+            'period_start': '2026-10-01', 'period_end': '2026-10-31',
+        }, format='json', **self.headers)
+        self.assertEqual(created.status_code, 201, created.data)
+        prepared = self.client.post(
+            f"/api/v1/property/billing-runs/{created.data['id']}/prepare/", {}, format='json', **self.headers,
+        )
+        self.assertEqual(prepared.status_code, 400)
+        self.assertIn('quarterly', str(prepared.data).lower())
+
+        quarterly = self.client.post('/api/v1/property/billing-runs/', {
+            'property': str(self.property.id),
+            'period_start': '2026-10-01', 'period_end': '2026-12-31',
+        }, format='json', **self.headers)
+        self.assertEqual(quarterly.status_code, 201, quarterly.data)
+        prepared_quarterly = self.client.post(
+            f"/api/v1/property/billing-runs/{quarterly.data['id']}/prepare/", {}, format='json', **self.headers,
+        )
+        self.assertEqual(prepared_quarterly.status_code, 200, prepared_quarterly.data)
+
     def _create_billing_approver(self):
         approver = get_user_model().objects.create_user(
             username=f'billing-approver-{get_user_model().objects.count()}',

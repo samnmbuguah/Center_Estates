@@ -215,6 +215,13 @@ def _unit_rule_amount(rule, unit):
     return rule.amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
 
+def _default_lease_billing_frequency(unit):
+    """Return the billing frequency configured for the unit's property."""
+    property_record = getattr(unit, 'property', None) if unit else None
+    metadata = (property_record.metadata or {}) if property_record else {}
+    return str(metadata.get('billing_frequency') or 'monthly').lower()
+
+
 def _unit_deposit_amount(unit):
     """Return refundable deposits configured on the unit billing schedule."""
     rules = unit.charge_rules.filter(is_active=True).select_related('billing_item')
@@ -2751,6 +2758,7 @@ class TenantViewSet(OrganizationModelViewSet):
         lease_meta = {
             'application_number': application_number,
             'term_months': term_months,
+            'billing_frequency': _default_lease_billing_frequency(unit),
             'rent_collection_mode': rent_mode,
             'bill_rent': bool(monthly_rent > 0 and rent_mode == 'estate_managed'),
             'bill_service_charge': bool(unit.service_charge_payer == Unit.PayerChoice.TENANT and monthly_service > 0),
@@ -2938,7 +2946,12 @@ class TenantViewSet(OrganizationModelViewSet):
                 status=Lease.Status.DRAFT,
                 signed_on=lease_signed_on,
                 offer_letter_signed_on=offer_letter_signed_on,
-                metadata={'application_number': extra_app_num, 'term_months': e_term, **extra_calc},
+                metadata={
+                    'application_number': extra_app_num,
+                    'term_months': e_term,
+                    'billing_frequency': _default_lease_billing_frequency(extra_unit),
+                    **extra_calc,
+                },
             )
             _inherit_unit_charge_profiles(extra_lease)
             created_leases.append(extra_lease)
@@ -3454,6 +3467,7 @@ class LeaseViewSet(OrganizationModelViewSet):
             metadata['service_charge_rate_per_sqft'] = str(self.request.data.get('service_charge_rate_per_sqft')).strip()
         if self.request.data.get('service_charge'):
             metadata['service_charge'] = str(self.request.data.get('service_charge')).strip()
+        metadata.setdefault('billing_frequency', _default_lease_billing_frequency(serializer.validated_data.get('unit')))
         lease = serializer.save(organization=organization, metadata=metadata)
         _inherit_unit_charge_profiles(lease)
         try:
@@ -3640,6 +3654,7 @@ class LeaseViewSet(OrganizationModelViewSet):
                         'require_offer_letter': False,
                         'is_ongoing': True,
                         'imported_by': request.user.get_username(),
+                        'billing_frequency': _default_lease_billing_frequency(unit),
                         'service_charge': str(service_charge),
                         'rent_rate_per_sqft': str(rent_rate) if rent_rate is not None else '',
                         'service_charge_rate_per_sqft': str(sc_rate) if sc_rate is not None else '',
@@ -5433,6 +5448,15 @@ class BillingRunViewSet(OrganizationModelViewSet):
         start_year, start_month = run.period_start.year, run.period_start.month
         end_year, end_month = run.period_end.year, run.period_end.month
         months_count = max(1, (end_year - start_year) * 12 + (end_month - start_month) + 1)
+
+        property_frequency = str(
+            ((run.property.metadata or {}) if run.property else {}).get('billing_frequency') or 'monthly'
+        ).lower()
+        rent_in_scope = invoice_types is None or 'rent' in invoice_types
+        if rent_in_scope and property_frequency == 'quarterly' and months_count % 3 != 0:
+            raise ValidationError({
+                'period': 'This property is configured for quarterly rent billing. Select a quarterly or multi-month period covering at least three months.',
+            })
 
         if months_count > 1:
             if months_count == 3 and start_month in (1, 4, 7, 10):

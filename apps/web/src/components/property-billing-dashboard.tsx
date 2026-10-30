@@ -77,6 +77,15 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     return properties[0] || null;
   }, [properties, activeProperty]);
 
+  const billingModeInitialized = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeProp?.id || billingModeInitialized.current === String(activeProp.id)) return;
+    billingModeInitialized.current = String(activeProp.id);
+    const configured = String((activeProp.metadata as Record<string, unknown> | undefined)?.billing_frequency || "").toLowerCase();
+    if (configured === "quarterly") setMode("quarterly");
+    else if (configured === "monthly") setMode("monthly");
+  }, [activeProp]);
+
   const requireUtilityReadings = useMemo(() => {
     if (!activeProp) return true;
     const meta = activeProp.metadata;

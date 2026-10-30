@@ -214,7 +214,7 @@ export interface TenantDocumentRow extends Row {
 export interface LeaseRow extends Row {
   id: ID; reference?: string; unit?: ID; tenant?: ID; starts_on?: string; ends_on?: string;
   monthly_rent?: number; deposit?: number; escalation_percent?: number; billing_day?: number;
-  escalation_interval_months?: number;
+  escalation_interval_months?: number; billing_frequency?: string;
   status?: string; tenant_name?: string; unit_code?: string; unit_area?: number | string; property_name?: string;
   created_at?: string; outstanding?: number;
 }
