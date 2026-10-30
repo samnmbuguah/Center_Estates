@@ -5403,6 +5403,30 @@ class BillingRunViewSet(OrganizationModelViewSet):
     serializer_class = BillingRunSerializer
 
     @staticmethod
+    def _period_months(period_start, period_end):
+        return max(1, (period_end.year - period_start.year) * 12 + period_end.month - period_start.month + 1)
+
+    @staticmethod
+    def _candidates_have_rent(candidates):
+        return any(
+            str(item.get('code') or '').upper() == 'RENT'
+            for candidate in candidates
+            for item in (candidate.billing_items or [])
+        )
+
+    def _run_has_rent_items(self, run):
+        return self._candidates_have_rent(run.candidates.all())
+
+    def _assert_property_billing_period(self, run, rent_in_scope):
+        if not rent_in_scope or not run.property_id:
+            return
+        frequency = str((run.property.metadata or {}).get('billing_frequency') or 'monthly').lower()
+        if frequency == 'quarterly' and self._period_months(run.period_start, run.period_end) % 3 != 0:
+            raise ValidationError({
+                'period': 'This property is configured for quarterly rent billing. Select a quarterly or multi-month period covering at least three months.',
+            })
+
+    @staticmethod
     def _profile_is_due(profile, period_start):
         """Return whether a recurring profile is billable in the selected month.
 
@@ -5449,14 +5473,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
         end_year, end_month = run.period_end.year, run.period_end.month
         months_count = max(1, (end_year - start_year) * 12 + (end_month - start_month) + 1)
 
-        property_frequency = str(
-            ((run.property.metadata or {}) if run.property else {}).get('billing_frequency') or 'monthly'
-        ).lower()
-        rent_in_scope = invoice_types is None or 'rent' in invoice_types
-        if rent_in_scope and property_frequency == 'quarterly' and months_count % 3 != 0:
-            raise ValidationError({
-                'period': 'This property is configured for quarterly rent billing. Select a quarterly or multi-month period covering at least three months.',
-            })
+        self._assert_property_billing_period(run, invoice_types is None or 'rent' in invoice_types)
 
         if months_count > 1:
             if months_count == 3 and start_month in (1, 4, 7, 10):
@@ -5893,6 +5910,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
         run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
         if run.status not in (BillingRun.Status.REVIEW, BillingRun.Status.PREPARING, BillingRun.Status.GENERATED):
             raise ValidationError({'status': 'Prepare and review the billing run before confirmation.'})
+        self._assert_property_billing_period(run, self._run_has_rent_items(run))
         if run.issues.filter(severity=BillingReadinessIssue.Severity.BLOCKING, status=BillingReadinessIssue.Status.OPEN).exists():
             raise ValidationError({'issues': 'Resolve or authorize every blocking issue before confirmation.'})
         run.status = BillingRun.Status.APPROVED; run.approved_by = request.user; run.approved_at = timezone.now()
@@ -5930,6 +5948,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
         candidates = list(candidates)
         if not candidates:
             raise ValidationError({'candidates': 'Select at least one ready billing candidate.'})
+        self._assert_property_billing_period(run, self._candidates_have_rent(candidates))
 
         # Enforce consolidated billing if property requires utility readings before rent
         prop_rec = run.property if hasattr(run, 'property') and run.property else (candidates[0].lease.unit.property if candidates and candidates[0].lease and candidates[0].lease.unit else None)
@@ -6338,6 +6357,12 @@ class RentScheduleViewSet(OrganizationModelViewSet):
         validate_lease_billable(lease, today)
         if schedule.period_start < lease.starts_on or schedule.period_start >= lease.ends_on or schedule.period_end > lease.ends_on:
             raise ValidationError({'rent_schedule': 'The billing period falls outside the active lease term.'})
+        property_record = lease.unit.property if lease.unit else None
+        frequency = str(((property_record.metadata or {}) if property_record else {}).get('billing_frequency') or 'monthly').lower()
+        if frequency == 'quarterly':
+            months = max(1, (schedule.period_end.year - schedule.period_start.year) * 12 + schedule.period_end.month - schedule.period_start.month)
+            if months % 3 != 0:
+                raise ValidationError({'rent_schedule': 'This property is configured for quarterly rent billing. Use a quarterly Billing Pipeline run instead of monthly rent schedules.'})
 
         # Enforce consolidated billing: Unit with metered utilities requires approved readings before rent invoice
         # If utility is owner-paid / service charge included, or property is commercial, do not block rent

@@ -86,6 +86,10 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     else if (configured === "monthly") setMode("monthly");
   }, [activeProp]);
 
+  const propertyBillingFrequency = String(
+    (activeProp?.metadata as Record<string, unknown> | undefined)?.billing_frequency || "monthly",
+  ).toLowerCase();
+
   const requireUtilityReadings = useMemo(() => {
     if (!activeProp) return true;
     const meta = activeProp.metadata;
@@ -809,6 +813,9 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, width: "100%" }}>
       {error && <Alert severity="error" action={<button className="btn ghost sm" onClick={() => void load()}>Retry</button>}>{error}</Alert>}
       {notice && <Alert severity="success" onClose={() => setNotice("")}>{notice}</Alert>}
+      {billingTarget === "tenant" && propertyBillingFrequency === "quarterly" && mode === "monthly" && (
+        <Alert severity="warning">This property is configured for quarterly rent billing. Monthly runs can process non-rent charges only; select Quarterly to bill rent.</Alert>
+      )}
 
       <BillingHeader
         formattedPeriod={formattedPeriod}
