@@ -3,7 +3,7 @@
 import { useState, useMemo, type ReactNode } from "react";
 import {
   Box, Button, Checkbox, Chip, MenuItem, Paper, Stack,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, ToggleButton, ToggleButtonGroup, Typography,
 } from "@mui/material";
 import {
   KpiCard, KpiStrip, StatusPill, Badge, Panel, EmptyState, LoadingState,
@@ -26,6 +26,23 @@ import {
 import { useAuth } from "@/components/auth-provider";
 import { apiFetch, csrfFromCookie } from "@/lib/api";
 
+type RentRollView = "monthly" | "quarterly";
+
+type QuarterlyRentRow = {
+  key: string;
+  lease_reference?: string;
+  tenant_name?: string;
+  label: string;
+  period_start: string;
+  period_end: string;
+  months: number;
+  base_rent: number;
+  escalation_amount: number;
+  service_charge: number;
+  total: number;
+  status: string;
+};
+
 export function RentSchedulesView({ rows, loading, search, setSearch, onGenerateInvoice, onRefresh, canFinance }: {
   rows: Row[]; loading: boolean; search: string; setSearch: (v: string) => void;
   onGenerateInvoice: (r: RentScheduleRow, taxRate?: number) => void; onRefresh: () => void; canFinance: boolean;
@@ -37,8 +54,61 @@ export function RentSchedulesView({ rows, loading, search, setSearch, onGenerate
   const [taxRate, setTaxRate] = useState("0");
   const [preview, setPreview] = useState<(InvoicePreview & { schedule: ID; base_rent?: number; escalation_amount?: number; service_charge?: number }) | null>(null);
   const [busy, setBusy] = useState(false);
+  const [view, setView] = useState<RentRollView>("monthly");
 
-  const available = schedules.filter((schedule) => !schedule.invoice && schedule.status !== "waived");
+  const filteredSchedules = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return schedules;
+    return schedules.filter((schedule) =>
+      `${String(schedule.lease_reference ?? "")} ${String(schedule.tenant_name ?? "")}`.toLowerCase().includes(query),
+    );
+  }, [schedules, search]);
+
+  const quarterlyRows = useMemo<QuarterlyRentRow[]>(() => {
+    const groups = new Map<string, QuarterlyRentRow & { statuses: Set<string> }>();
+    for (const schedule of filteredSchedules) {
+      const start = String(schedule.period_start ?? "");
+      const [year, month] = start.split("-").map(Number);
+      if (!year || !month) continue;
+      const quarter = Math.floor((month - 1) / 3) + 1;
+      const key = `${String(schedule.lease_reference ?? "")}|${year}-Q${quarter}`;
+      const current = groups.get(key);
+      if (!current) {
+        groups.set(key, {
+          key,
+          lease_reference: schedule.lease_reference,
+          tenant_name: schedule.tenant_name,
+          label: `Q${quarter} ${year}`,
+          period_start: start,
+          period_end: String(schedule.period_end ?? start),
+          months: 1,
+          base_rent: Number(schedule.base_rent ?? 0),
+          escalation_amount: Number(schedule.escalation_amount ?? 0),
+          service_charge: Number(schedule.service_charge ?? 0),
+          total: Number(schedule.total ?? 0),
+          status: "",
+          statuses: new Set(schedule.status ? [String(schedule.status)] : []),
+        });
+      } else {
+        current.months += 1;
+        current.base_rent += Number(schedule.base_rent ?? 0);
+        current.escalation_amount += Number(schedule.escalation_amount ?? 0);
+        current.service_charge += Number(schedule.service_charge ?? 0);
+        current.total += Number(schedule.total ?? 0);
+        if (String(schedule.period_end ?? "") > current.period_end) current.period_end = String(schedule.period_end);
+        if (schedule.status) current.statuses.add(String(schedule.status));
+      }
+    }
+    return Array.from(groups.values())
+      .map(({ statuses, ...row }) => ({
+        ...row,
+        status: statuses.size === 1 ? Array.from(statuses)[0] : statuses.size === 0 ? "—" : "mixed",
+      }))
+      .sort((a, b) => a.period_start.localeCompare(b.period_start) || String(a.lease_reference ?? "").localeCompare(String(b.lease_reference ?? "")));
+  }, [filteredSchedules]);
+
+  const showingQuarterly = view === "quarterly";
+  const available = filteredSchedules.filter((schedule) => !schedule.invoice && schedule.status !== "waived");
   const toggleSelected = (id: string) => setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
 
   async function previewSchedule(schedule: RentScheduleRow) {
@@ -69,39 +139,90 @@ export function RentSchedulesView({ rows, loading, search, setSearch, onGenerate
     <>
       <ViewToolbar title="Rent Roll" subtitle="Unit-by-unit rent schedule with escalation and service charge" search={search} onSearch={setSearch} placeholder="Search by lease reference or tenant…" />
 
-      <Panel title="Rent Schedule (Rent Roll)" action={canFinance ? <div className="row" style={{ gap: 8 }}>
-        <label className="row" style={{ gap: 6, fontSize: 12 }}><span className="muted">VAT</span><select aria-label="Rent schedule VAT" value={taxRate} onChange={(event) => { setTaxRate(event.target.value); setPreview(null); }} style={{ width: 110 }}><option value="0">0%</option><option value="16">16%</option></select></label>
-        <button className="btn primary sm" disabled={selected.length === 0 || busy} onClick={() => void bulkCreateDrafts()} data-testid="bulk-invoice-drafts">Create {selected.length || "selected"} draft{selected.length === 1 ? "" : "s"}</button>
-      </div> : undefined}>
-        <ListState loading={loading} empty={schedules.length === 0} emptyTitle="No rent schedules found" emptyDesc="Generate rent schedules from active leases to build the rent roll.">
+      <Panel title="Rent Schedule (Rent Roll)" action={<div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={view}
+          onChange={(_, value: RentRollView | null) => value && setView(value)}
+          aria-label="Rent roll view"
+        >
+          <ToggleButton value="monthly" aria-label="Monthly rent rows">Monthly</ToggleButton>
+          <ToggleButton value="quarterly" aria-label="Quarterly rent roll-up">Quarterly</ToggleButton>
+        </ToggleButtonGroup>
+        {canFinance && !showingQuarterly && <>
+          <label className="row" style={{ gap: 6, fontSize: 12 }}><span className="muted">VAT</span><select aria-label="Rent schedule VAT" value={taxRate} onChange={(event) => { setTaxRate(event.target.value); setPreview(null); }} style={{ width: 110 }}><option value="0">0%</option><option value="16">16%</option></select></label>
+          <button className="btn primary sm" disabled={selected.length === 0 || busy} onClick={() => void bulkCreateDrafts()} data-testid="bulk-invoice-drafts">Create {selected.length || "selected"} draft{selected.length === 1 ? "" : "s"}</button>
+        </>}
+      </div>}>
+        {showingQuarterly && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+            Quarterly view rolls up the monthly schedule rows for reporting only. Switch to Monthly to create drafts.
+          </Typography>
+        )}
+        <ListState loading={loading} empty={showingQuarterly ? quarterlyRows.length === 0 : filteredSchedules.length === 0} emptyTitle="No rent schedules found" emptyDesc="Generate rent schedules from active leases to build the rent roll.">
           <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ bgcolor: "action.hover" }}>
-                  {canFinance && (
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        size="small"
-                        slotProps={{ input: { "aria-label": "Select all available schedules" } }}
-                        checked={available.length > 0 && selected.length === available.length}
-                        onChange={(event) => setSelected(event.target.checked ? available.map((row) => String(row.id)) : [])}
-                      />
-                    </TableCell>
-                  )}
-                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Lease Ref</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Period</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Due</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Base Rent</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Escalation</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Service Charge</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Total</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
-                </TableRow>
+                {showingQuarterly ? (
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Lease Ref</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Quarter</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Period</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Months</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Base Rent</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Escalation</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Service Charge</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Total</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                  </TableRow>
+                ) : (
+                  <TableRow sx={{ bgcolor: "action.hover" }}>
+                    {canFinance && (
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          size="small"
+                          slotProps={{ input: { "aria-label": "Select all available schedules" } }}
+                          checked={available.length > 0 && selected.length === available.length}
+                          onChange={(event) => setSelected(event.target.checked ? available.map((row) => String(row.id)) : [])}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Lease Ref</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Tenant</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Period</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Due</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Base Rent</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Escalation</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Service Charge</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Total</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Actions</TableCell>
+                  </TableRow>
+                )}
               </TableHead>
               <TableBody>
-                {schedules.map((s) => (
+                {showingQuarterly ? quarterlyRows.map((row) => (
+                  <TableRow key={row.key} hover>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", color: "primary.main" }}>
+                        {String(row.lease_reference ?? "—")}
+                      </Typography>
+                    </TableCell>
+                    <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>{String(row.tenant_name ?? "—")}</Typography></TableCell>
+                    <TableCell><Chip size="small" label={row.label} /></TableCell>
+                    <TableCell><Typography variant="body2" color="text.secondary">{fmtDate(row.period_start)} — {fmtDate(row.period_end)}</Typography></TableCell>
+                    <TableCell align="right"><Typography variant="body2">{row.months}</Typography></TableCell>
+                    <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{kM(row.base_rent)}</Typography></TableCell>
+                    <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{row.escalation_amount ? kM(row.escalation_amount) : "—"}</Typography></TableCell>
+                    <TableCell align="right"><Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace" }}>{row.service_charge ? kM(row.service_charge) : "—"}</Typography></TableCell>
+                    <TableCell align="right">
+                      <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 800 }}>{kM(row.total)}</Typography>
+                    </TableCell>
+                    <TableCell align="center"><StatusPill value={row.status} /></TableCell>
+                  </TableRow>
+                )) : filteredSchedules.map((s) => (
                   <TableRow key={String(s.id)} hover selected={selected.includes(String(s.id))}>
                     {canFinance && (
                       <TableCell padding="checkbox">
