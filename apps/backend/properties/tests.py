@@ -20,6 +20,7 @@ from subscriptions.models import Subscription
 from facilities.models import MeterReading, ServiceRequest, UtilityMeter
 from notifications.models import Notification
 
+from .lease_billing import generate_rent_schedule
 from .models import (
     BankTransaction, BillingCandidate, BillingItem, BillingProfile, BillingReadinessIssue, BillingRun,
     Budget, Building, CreditNote, Expense, Invoice, InvoiceLine,
@@ -1644,6 +1645,22 @@ class PropertyApiTests(TestCase):
         schedule.refresh_from_db()
         self.assertEqual(schedule.status, RentSchedule.Status.INVOICED)
         self.assertEqual(Invoice.objects.filter(rent_schedule_item=schedule).count(), 1)
+
+    def test_quarterly_lease_generates_quarterly_rent_schedules(self):
+        self.lease.metadata = {'billing_frequency': 'quarterly', 'monthly_service_charge_excl_vat': '100'}
+        self.lease.monthly_rent = Decimal('1000')
+        self.lease.save(update_fields=('metadata', 'monthly_rent'))
+        RentSchedule.objects.filter(lease=self.lease).delete()
+
+        generate_rent_schedule(self.lease)
+
+        schedules = list(RentSchedule.objects.filter(lease=self.lease).order_by('period_start'))
+        self.assertEqual(len(schedules), 4)
+        self.assertEqual(schedules[0].period_start, date(2026, 1, 1))
+        self.assertEqual(schedules[0].period_end, date(2026, 4, 1))
+        self.assertEqual(schedules[0].base_rent, Decimal('3000'))
+        self.assertEqual(schedules[0].service_charge, Decimal('300'))
+        self.assertEqual(schedules[0].total, Decimal('3300'))
 
     def test_expired_lease_cannot_generate_rent_invoice(self):
         from datetime import timedelta

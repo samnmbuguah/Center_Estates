@@ -4038,7 +4038,11 @@ class LeaseViewSet(OrganizationModelViewSet):
             escalation_percent=request.data.get('escalation_percent', lease.escalation_percent),
             escalation_interval_months=escalation_interval,
             billing_day=lease.billing_day, status=Lease.Status.ACTIVE,
-            renewed_from=lease, metadata={'renewed_from': lease.reference},
+            renewed_from=lease,
+            metadata={
+                'renewed_from': lease.reference,
+                'billing_frequency': (lease.metadata or {}).get('billing_frequency') or _default_lease_billing_frequency(lease.unit),
+            },
         )
         lease.status = Lease.Status.EXPIRED
         lease.save(update_fields=('status', 'updated_at'))
