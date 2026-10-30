@@ -200,7 +200,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 STORAGES = {
     'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
-    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
+    'staticfiles': {'BACKEND': 'config.storage.CappedCompressedManifestStaticFilesStorage'},
 }
 
 # Optional S3-compatible object storage for user media (3D models, renderings,

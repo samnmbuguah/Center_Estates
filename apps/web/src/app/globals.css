@@ -5223,6 +5223,10 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
 }
 .billing-period-control p { color: var(--text); font-size: .8rem; font-weight: 750; min-width: 112px; text-align: center; }
 .billing-period-control svg { color: var(--text-secondary); }
+.billing-custom-period { align-items: center; display: flex; gap: 8px; }
+.billing-custom-period p { color: var(--text-secondary); font-size: .75rem; font-weight: 750; }
+.billing-custom-period .MuiTextField-root { width: 138px; }
+.billing-custom-period .MuiInputBase-input { font-size: .8rem; }
 .billing-run-status { font-weight: 800; text-transform: capitalize; }
 
 .billing-kpi-grid { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -5281,6 +5285,8 @@ input:not(.MuiInputBase-input)::placeholder, textarea:not(.MuiInputBase-input)::
   .billing-control-actions .MuiToggleButtonGroup-root { display: flex; }
   .billing-control-actions .MuiToggleButton-root { flex: 1; }
   .billing-period-control { justify-content: space-between; }
+  .billing-custom-period { flex-wrap: wrap; }
+  .billing-custom-period .MuiTextField-root { flex: 1 1 138px; }
   .billing-workflow-actions .MuiButton-root { flex: 1; }
 }
 
