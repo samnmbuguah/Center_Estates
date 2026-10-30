@@ -271,27 +271,28 @@ export function CandidateTable({
                               : undefined;
 
                             return (
-                              <Chip
-                                key={i}
-                                size="small"
-                                icon={
-                                  isElectricity ? (
-                                    <Zap size={11} color={chipColor} />
-                                  ) : isPending && isUtility ? (
-                                    <Droplets size={11} color={chipColor} />
-                                  ) : undefined
-                                }
-                                label={label}
-                                variant="outlined"
-                                sx={{
-                                  fontSize: 10,
-                                  height: 22,
-                                  fontWeight: 700,
-                                  bgcolor: chipBg,
-                                  borderColor: chipBorder,
-                                  color: chipColor,
-                                }}
-                              />
+                              <Tooltip key={i} title={`${isRent ? "Rent" : grp.code} for ${formattedMonth}`}>
+                                <Chip
+                                  size="small"
+                                  icon={
+                                    isElectricity ? (
+                                      <Zap size={11} color={chipColor} />
+                                    ) : isPending && isUtility ? (
+                                      <Droplets size={11} color={chipColor} />
+                                    ) : undefined
+                                  }
+                                  label={label}
+                                  variant="outlined"
+                                  sx={{
+                                    fontSize: 10,
+                                    height: 22,
+                                    fontWeight: 700,
+                                    bgcolor: chipBg,
+                                    borderColor: chipBorder,
+                                    color: chipColor,
+                                  }}
+                                />
+                              </Tooltip>
                             );
                           });
                         })()}
@@ -314,6 +315,9 @@ export function CandidateTable({
                             />
                           </Tooltip>
                         )}
+                        <div style={{ width: "100%", fontSize: 9.5, color: "var(--text-secondary)", marginTop: 2 }}>
+                          Period: {formattedMonth}
+                        </div>
                       </div>
                     </td>
                     <td style={{ padding: "10px 12px" }}>

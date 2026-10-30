@@ -5690,7 +5690,11 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 tax_rate = tax.rate if tax and tax.is_active and tax.effective_from <= run.period_end and (not tax.effective_to or tax.effective_to >= run.period_start) else Decimal('0')
                 tax_amount = (line_subtotal * tax_rate / Decimal('100')).quantize(Decimal('0.01'))
                 
-                desc = f"{profile.billing_item.name} ({period_suffix})" if months_count > 1 and profile.calculation != BillingItem.Calculation.METERED else profile.billing_item.name
+                desc = (
+                    f"{profile.billing_item.name} ({period_suffix})"
+                    if profile.calculation != BillingItem.Calculation.METERED
+                    else profile.billing_item.name
+                )
                 items.append({
                     'billing_item': str(profile.billing_item_id), 'code': profile.billing_item.code, 'description': desc,
                     'quantity': str(line_qty), 'unit_rate': str(monthly_val), 'subtotal': str(line_subtotal),
@@ -5707,7 +5711,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     rent = lease.effective_rent(run.period_start)
                     if rent > 0:
                         line_subtotal = (rent * qty).quantize(Decimal('0.01'))
-                        desc = f"Rent ({period_suffix})" if months_count > 1 else "Rent"
+                        desc = f"Rent ({period_suffix})"
                         items.insert(0, {
                             'billing_item': None, 'code': 'RENT', 'description': desc,
                             'quantity': str(qty), 'unit_rate': str(rent), 'subtotal': str(line_subtotal),
@@ -5724,7 +5728,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 if (invoice_types is None or "service_charge" in invoice_types) and allocation and not any(item['code'].upper() in ('SERVICE_CHARGE', 'SC') for item in items):
                     monthly_sc = allocation.monthly_amount
                     line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
-                    desc = f"{allocation.service_charge.name} ({period_suffix})" if months_count > 1 else allocation.service_charge.name
+                    desc = f"{allocation.service_charge.name} ({period_suffix})"
                     items.append({
                         'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
                         'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
@@ -5758,7 +5762,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
 
                     if monthly_sc > 0:
                         line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
-                        desc = f"Service charge ({period_suffix})" if months_count > 1 else "Service charge"
+                        desc = f"Service charge ({period_suffix})"
                         items.append({
                             'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
                             'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),

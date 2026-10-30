@@ -438,7 +438,7 @@ class PropertyApiTests(TestCase):
         self.assertEqual(invoice.status, Invoice.Status.ISSUED)
         self.assertEqual(invoice.amount, Decimal('1160.00'))
         self.assertEqual(invoice.metadata['billing_period'], '2026-08')
-        self.assertEqual(InvoiceLine.objects.get(invoice=invoice).description, 'Rent')
+        self.assertEqual(InvoiceLine.objects.get(invoice=invoice).description, 'Rent (August 2026)')
         replayed = self.client.post(f'{run_url}generate/', {
             'candidate_ids': [candidate['id']],
         }, format='json', **self.headers)
@@ -1661,6 +1661,13 @@ class PropertyApiTests(TestCase):
         self.assertEqual(schedules[0].base_rent, Decimal('3000'))
         self.assertEqual(schedules[0].service_charge, Decimal('300'))
         self.assertEqual(schedules[0].total, Decimal('3300'))
+
+    def test_invoice_billing_period_label_is_human_readable(self):
+        from .pdf_documents import _billing_period_label
+        monthly = Invoice(metadata={'period_start': '2026-09-01', 'period_end': '2026-09-30', 'billing_period': '2026-09'})
+        self.assertEqual(_billing_period_label(monthly), 'September 2026')
+        quarterly = Invoice(metadata={'period_start': '2026-10-01', 'period_end': '2026-12-31'})
+        self.assertEqual(_billing_period_label(quarterly), 'Oct – Dec 2026')
 
     def test_expired_lease_cannot_generate_rent_invoice(self):
         from datetime import timedelta

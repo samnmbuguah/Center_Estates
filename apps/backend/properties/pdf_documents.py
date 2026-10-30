@@ -260,6 +260,24 @@ def _info_table(rows, styles, widths=None):
     return table
 
 
+def _billing_period_label(invoice: Invoice) -> str:
+    metadata = invoice.metadata or {}
+    start = metadata.get('period_start')
+    end = metadata.get('period_end')
+    if start and end:
+        try:
+            start_date = date.fromisoformat(str(start))
+            end_date = date.fromisoformat(str(end))
+            if start_date.year == end_date.year:
+                if start_date.month == end_date.month:
+                    return start_date.strftime('%B %Y')
+                return f'{start_date:%b} – {end_date:%b %Y}'
+            return f'{start_date:%b %Y} – {end_date:%b %Y}'
+        except (TypeError, ValueError):
+            pass
+    return str(metadata.get('billing_period') or '—')
+
+
 def invoice_pdf(invoice: Invoice, generated_by="System"):
     s = _styles(); lease = invoice.lease
     unit = invoice.unit or (lease.unit if lease else None)
@@ -295,7 +313,7 @@ def invoice_pdf(invoice: Invoice, generated_by="System"):
         party_rows = [
             ("Owner account", owner.code, "Invoice date", invoice.issued_on.strftime("%d %b %Y")),
             ("Unit owner / landlord", owner.name, "Due date", invoice.due_on.strftime("%d %b %Y")),
-            ("Customer PIN", owner.pin_number, "Billing period", metadata.get("billing_period", "—")),
+            ("Customer PIN", owner.pin_number, "Billing period", _billing_period_label(invoice)),
             ("Property", prop.name, "Charge billed to", "Unit owner / landlord"),
             ("Unit / floor", f"{unit.code} / {unit.floor or '—'}", "Invoice status", invoice.status.upper()),
         ]
@@ -303,9 +321,10 @@ def invoice_pdf(invoice: Invoice, generated_by="System"):
         party_rows = [
             ("Tenant no.", tenant.code, "Invoice date", invoice.issued_on.strftime("%d %b %Y")),
             ("Tenant", tenant.name, "Due date", invoice.due_on.strftime("%d %b %Y")),
-            ("Customer PIN", tenant.tax_id, "Lease no.", lease.reference),
-            ("Property", prop.name, "Lease period", f"{lease.starts_on:%d %b %Y} — {lease.ends_on:%d %b %Y}"),
-            ("Unit / floor", f"{unit.code} / {unit.floor or '—'}", "Landlord PIN", landlord.get("pin") or "—"),
+            ("Customer PIN", tenant.tax_id, "Billing period", _billing_period_label(invoice)),
+            ("Property", prop.name, "Lease no.", lease.reference),
+            ("Unit / floor", f"{unit.code} / {unit.floor or '—'}", "Lease period", f"{lease.starts_on:%d %b %Y} — {lease.ends_on:%d %b %Y}"),
+            ("Landlord PIN", landlord.get("pin") or "—", "Invoice status", invoice.status.upper()),
         ]
     story.append(_info_table(party_rows, s))
     story.extend([Spacer(1, 5 * mm), Paragraph("Invoice items", s["Section"])])
