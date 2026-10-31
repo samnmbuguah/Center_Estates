@@ -1,18 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { BillingHeader } from "@/components/billing/BillingHeader";
 
-const cycles = [
-  { id: "rent", label: "Rent", frequency: "quarterly" as const },
-  { id: "service_charge", label: "Service charge", frequency: "monthly" as const },
-];
-
 function renderHeader(overrides: Partial<Parameters<typeof BillingHeader>[0]> = {}) {
   return render(
     <BillingHeader
       formattedPeriod="October 2026"
       runStatus="review"
-      cycles={cycles}
-      cycle="rent"
       onPrev={jest.fn()}
       onNext={jest.fn()}
       {...overrides}
@@ -21,13 +14,14 @@ function renderHeader(overrides: Partial<Parameters<typeof BillingHeader>[0]> = 
 }
 
 describe("BillingHeader", () => {
-  it("lets finance switch between charge cycles", () => {
-    const onCycleChange = jest.fn();
-    renderHeader({ onCycleChange });
+  it("navigates monthly periods and exposes a custom period option", () => {
+    const onNext = jest.fn();
+    renderHeader({ onNext });
 
-    fireEvent.click(screen.getByRole("button", { name: "Service charge cycle" }));
-
-    expect(onCycleChange).toHaveBeenCalledWith("service_charge");
+    expect(screen.getByText("October 2026")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Next billing period" }));
+    expect(onNext).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Custom period" })).toBeInTheDocument();
   });
 
   it("shows the custom period range only when custom period is enabled", () => {
@@ -38,8 +32,6 @@ describe("BillingHeader", () => {
       <BillingHeader
         formattedPeriod="October 2026"
         runStatus="review"
-        cycles={cycles}
-        cycle="rent"
         customPeriod
         customStart="2026-07"
         customEnd="2026-09"

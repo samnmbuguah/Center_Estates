@@ -569,30 +569,36 @@ class PropertyApiTests(TestCase):
         self.assertEqual(set(invoices.values_list('invoice_type', flat=True)), {'rent', 'water', 'security_deposit'})
         self.assertEqual(sum(invoices.values_list('amount', flat=True), Decimal('0')), Decimal('150750'))
 
-    def test_quarterly_property_rejects_monthly_rent_run(self):
+    def test_quarterly_property_bills_rent_only_on_quarter_start_months(self):
         self.property.metadata = {**(self.property.metadata or {}), 'billing_frequency': 'quarterly'}
         self.property.save(update_fields=('metadata',))
 
-        created = self.client.post('/api/v1/property/billing-runs/', {
+        october = self.client.post('/api/v1/property/billing-runs/', {
             'property': str(self.property.id),
             'period_start': '2026-10-01', 'period_end': '2026-10-31',
         }, format='json', **self.headers)
-        self.assertEqual(created.status_code, 201, created.data)
-        prepared = self.client.post(
-            f"/api/v1/property/billing-runs/{created.data['id']}/prepare/", {}, format='json', **self.headers,
+        self.assertEqual(october.status_code, 201, october.data)
+        prepared_october = self.client.post(
+            f"/api/v1/property/billing-runs/{october.data['id']}/prepare/", {}, format='json', **self.headers,
         )
-        self.assertEqual(prepared.status_code, 400)
-        self.assertIn('quarterly', str(prepared.data).lower())
+        self.assertEqual(prepared_october.status_code, 200, prepared_october.data)
+        october_items = [item for candidate in prepared_october.data['candidates'] for item in candidate['billing_items']]
+        october_rent = [item for item in october_items if item['code'].upper() == 'RENT']
+        self.assertEqual(len(october_rent), 1)
+        self.assertEqual(october_rent[0]['quantity'], '3')
+        self.assertIn('Q4 2026', october_rent[0]['description'])
 
-        quarterly = self.client.post('/api/v1/property/billing-runs/', {
+        november = self.client.post('/api/v1/property/billing-runs/', {
             'property': str(self.property.id),
-            'period_start': '2026-10-01', 'period_end': '2026-12-31',
+            'period_start': '2026-11-01', 'period_end': '2026-11-30',
         }, format='json', **self.headers)
-        self.assertEqual(quarterly.status_code, 201, quarterly.data)
-        prepared_quarterly = self.client.post(
-            f"/api/v1/property/billing-runs/{quarterly.data['id']}/prepare/", {}, format='json', **self.headers,
+        self.assertEqual(november.status_code, 201, november.data)
+        prepared_november = self.client.post(
+            f"/api/v1/property/billing-runs/{november.data['id']}/prepare/", {}, format='json', **self.headers,
         )
-        self.assertEqual(prepared_quarterly.status_code, 200, prepared_quarterly.data)
+        self.assertEqual(prepared_november.status_code, 200, prepared_november.data)
+        november_items = [item for candidate in prepared_november.data['candidates'] for item in candidate['billing_items']]
+        self.assertFalse(any(item['code'].upper() == 'RENT' for item in november_items))
 
     def test_mixed_cycles_bill_rent_quarterly_and_service_charge_monthly(self):
         self.property.metadata = {

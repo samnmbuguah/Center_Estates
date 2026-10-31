@@ -44,7 +44,7 @@ from .models import (
     PropertyModule, ProjectModuleAssignment,
 )
 from .billing_policy import (
-    period_months, property_scope_frequency, scope_invoice_types, frequency_divides_period,
+    FREQUENCY_MONTHS, period_months, property_scope_frequency, scope_invoice_types, frequency_divides_period,
 )
 from .serializers import (
     BankTransactionSerializer, BillingCandidateSerializer, BillingItemSerializer, BillingProfileSerializer,
@@ -250,7 +250,7 @@ def _inherit_unit_charge_profiles(lease):
     ]
     if profiles:
         BillingProfile.objects.bulk_create(profiles, ignore_conflicts=True)
-from .lease_billing import generate_rent_schedule, refresh_schedule_amount, validate_lease_billable
+from .lease_billing import add_months, generate_rent_schedule, refresh_schedule_amount, validate_lease_billable
 
 
 def next_invoice_number(organization, year):
@@ -5435,6 +5435,64 @@ class BillingRunViewSet(OrganizationModelViewSet):
     def _period_months(period_start, period_end):
         return max(1, (period_end.year - period_start.year) * 12 + period_end.month - period_start.month + 1)
 
+    def _rent_period(self, run):
+        """Return the rent quantity and period due within this run, or None."""
+        if not run.property_id:
+            return None
+        rent_frequency = property_scope_frequency(run.property, BillingRun.ChargeScope.RENT) or BillingRun.Frequency.MONTHLY
+        months = self._period_months(run.period_start, run.period_end)
+        if rent_frequency == BillingRun.Frequency.MONTHLY:
+            quantity = months
+            start, end = run.period_start, run.period_end
+        else:
+            interval = FREQUENCY_MONTHS.get(rent_frequency, 1)
+            if months == 1:
+                if (run.period_start.month - 1) % interval != 0:
+                    return None
+                quantity = interval
+            else:
+                if months % interval != 0:
+                    return None
+                quantity = months
+            start = run.period_start
+            end = add_months(start, quantity) - timedelta(days=1)
+        if quantity <= 0:
+            return None
+        if quantity > 1:
+            if rent_frequency == BillingRun.Frequency.QUARTERLY:
+                q_num = (start.month - 1) // 3 + 1
+                suffix = f"Q{q_num} {start.year} ({start:%b} – {end:%b %Y})"
+            else:
+                suffix = f"{quantity} Months ({start:%b %Y} – {end:%b %Y})"
+            period_key = f"{start:%Y-%m}_to_{end:%Y-%m}"
+        else:
+            suffix = f"{start:%B %Y}"
+            period_key = start.strftime('%Y-%m')
+        return {
+            'quantity': quantity,
+            'start': start,
+            'end': end,
+            'suffix': suffix,
+            'period_key': period_key,
+        }
+
+    def _assert_rent_items_frequency(self, run, candidates):
+        if not run.property_id:
+            return
+        rent_frequency = property_scope_frequency(run.property, BillingRun.ChargeScope.RENT) or BillingRun.Frequency.MONTHLY
+        for candidate in candidates:
+            for item in (candidate.billing_items or []):
+                if str(item.get('code') or '').upper() != 'RENT':
+                    continue
+                try:
+                    months = int(item.get('quantity') or 0)
+                except (TypeError, ValueError):
+                    months = 0
+                if not frequency_divides_period(rent_frequency, months):
+                    raise ValidationError({
+                        'period': f'This property is configured for {rent_frequency} rent billing. Rent must cover a whole {rent_frequency} cycle.',
+                    })
+
     @staticmethod
     def _candidates_have_rent(candidates):
         return any(
@@ -5517,7 +5575,8 @@ class BillingRunViewSet(OrganizationModelViewSet):
         end_year, end_month = run.period_end.year, run.period_end.month
         months_count = max(1, (end_year - start_year) * 12 + (end_month - start_month) + 1)
 
-        self._assert_run_frequency(run, invoice_types is None or 'rent' in invoice_types)
+        self._assert_run_frequency(run, False)
+        rent_period = self._rent_period(run)
 
         if months_count > 1:
             if months_count == 3 and start_month in (1, 4, 7, 10):
@@ -5531,18 +5590,21 @@ class BillingRunViewSet(OrganizationModelViewSet):
         qty = Decimal(str(months_count))
         period_key = f"{run.period_start:%Y-%m}_to_{run.period_end:%Y-%m}" if months_count > 1 else run.period_start.strftime('%Y-%m')
 
-        # Prefetch existing non-void invoices for this billing period
+        # Prefetch existing non-void invoices for every period represented in this run.
+        period_keys = {period_key}
+        if rent_period:
+            period_keys.add(rent_period['period_key'])
         existing_invoices = Invoice.objects.for_organization(run.organization).filter(
-            metadata__billing_period=period_key,
-        ).exclude(status=Invoice.Status.VOID).values('id', 'number', 'lease_id', 'invoice_type', 'amount')
+            metadata__billing_period__in=period_keys,
+        ).exclude(status=Invoice.Status.VOID).values('id', 'number', 'lease_id', 'invoice_type', 'amount', 'metadata')
 
-        lease_invoices_map: dict[str, dict[str, dict]] = {}
+        lease_invoices_map: dict[str, dict[tuple[str, str], dict]] = {}
         for inv in existing_invoices:
             lid = str(inv['lease_id'])
-            if lid not in lease_invoices_map:
-                lease_invoices_map[lid] = {}
             itype = str(inv['invoice_type']).lower()
-            lease_invoices_map[lid][itype] = inv
+            metadata = inv.get('metadata') if isinstance(inv.get('metadata'), dict) else {}
+            billing_period = str(metadata.get('billing_period') or '')
+            lease_invoices_map.setdefault(lid, {})[(itype, billing_period)] = inv
 
         existing_candidate_map = {str(c.lease_id): c for c in run.candidates.all()}
         current_lease_ids = set()
@@ -5723,19 +5785,28 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 if monthly_val <= 0 and profile.calculation != BillingItem.Calculation.METERED:
                     issue_rows.append(('missing_rate', f'{profile.billing_item.name} has no billable amount.', profile))
                     continue
-                
-                line_qty = Decimal('1') if profile.calculation == BillingItem.Calculation.METERED else qty
+                is_rent_profile = profile_code == 'rent'
+                if is_rent_profile and not rent_period:
+                    continue
+
+                line_qty = (
+                    Decimal(str(rent_period['quantity'])) if is_rent_profile
+                    else Decimal('1') if profile.calculation == BillingItem.Calculation.METERED else qty
+                )
                 line_subtotal = (monthly_val * line_qty).quantize(Decimal('0.01'))
                 tax = profile.billing_item.tax_configuration
                 tax_rate = tax.rate if tax and tax.is_active and tax.effective_from <= run.period_end and (not tax.effective_to or tax.effective_to >= run.period_start) else Decimal('0')
                 tax_amount = (line_subtotal * tax_rate / Decimal('100')).quantize(Decimal('0.01'))
-                
-                desc = (
-                    f"{profile.billing_item.name} ({period_suffix})"
-                    if profile.calculation != BillingItem.Calculation.METERED
-                    else profile.billing_item.name
-                )
-                items.append({
+
+                if is_rent_profile:
+                    desc = f"{profile.billing_item.name} ({rent_period['suffix']})"
+                else:
+                    desc = (
+                        f"{profile.billing_item.name} ({period_suffix})"
+                        if profile.calculation != BillingItem.Calculation.METERED
+                        else profile.billing_item.name
+                    )
+                item = {
                     'billing_item': str(profile.billing_item_id), 'code': profile.billing_item.code, 'description': desc,
                     'quantity': str(line_qty), 'unit_rate': str(monthly_val), 'subtotal': str(line_subtotal),
                     'tax_code': tax.code if tax else '', 'tax_rate': str(tax_rate), 'tax_amount': str(tax_amount),
@@ -5744,19 +5815,30 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     # the unit is configured owner-paid.  Rent and utilities
                     # remain tenant obligations.
                     'payer': 'owner' if profile_code in ('service_charge', 'sc') and should_bill_owner_sc else 'tenant',
-                })
+                }
+                if is_rent_profile:
+                    item.update({
+                        'billing_period': rent_period['period_key'],
+                        'period_start': str(rent_period['start']),
+                        'period_end': str(rent_period['end']),
+                    })
+                items.append(item)
 
             if (invoice_types is None or "rent" in invoice_types) and not any(item['code'].upper() == 'RENT' for item in items):
-                if not is_direct_landlord:
-                    rent = lease.effective_rent(run.period_start)
+                if not is_direct_landlord and rent_period:
+                    rent = lease.effective_rent(rent_period['start'])
                     if rent > 0:
-                        line_subtotal = (rent * qty).quantize(Decimal('0.01'))
-                        desc = f"Rent ({period_suffix})"
+                        rent_qty = Decimal(str(rent_period['quantity']))
+                        line_subtotal = (rent * rent_qty).quantize(Decimal('0.01'))
+                        desc = f"Rent ({rent_period['suffix']})"
                         items.insert(0, {
                             'billing_item': None, 'code': 'RENT', 'description': desc,
-                            'quantity': str(qty), 'unit_rate': str(rent), 'subtotal': str(line_subtotal),
+                            'quantity': str(rent_qty), 'unit_rate': str(rent), 'subtotal': str(line_subtotal),
                             'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
-                            'source_type': 'lease', 'source_id': str(lease.id)
+                            'source_type': 'lease', 'source_id': str(lease.id),
+                            'billing_period': rent_period['period_key'],
+                            'period_start': str(rent_period['start']),
+                            'period_end': str(rent_period['end']),
                         })
                     elif invoice_types is None or "rent" in invoice_types:
                         issue_rows.append(('missing_rent', 'The lease has no effective rent for this period.', None))
@@ -5822,7 +5904,9 @@ class BillingRunViewSet(OrganizationModelViewSet):
             for it in items:
                 c_code = str(it.get('code') or 'charge').strip().lower()
                 itype = {'rent': 'rent', 'service_charge': 'service_charge', 'sc': 'service_charge', 'water': 'water', 'electricity': 'electricity'}.get(c_code, c_code)
-                existing_inv = lease_invs.get(itype)
+                item_period_key = str(it.get('billing_period') or period_key)
+                it.setdefault('billing_period', item_period_key)
+                existing_inv = lease_invs.get((itype, item_period_key))
                 if existing_inv:
                     it['billed'] = True
                     it['invoice_id'] = str(existing_inv['id'])
@@ -5968,7 +6052,8 @@ class BillingRunViewSet(OrganizationModelViewSet):
         run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
         if run.status not in (BillingRun.Status.REVIEW, BillingRun.Status.PREPARING, BillingRun.Status.GENERATED):
             raise ValidationError({'status': 'Prepare and review the billing run before confirmation.'})
-        self._assert_run_frequency(run, self._run_has_rent_items(run))
+        self._assert_run_frequency(run, False)
+        self._assert_rent_items_frequency(run, run.candidates.all())
         if run.issues.filter(severity=BillingReadinessIssue.Severity.BLOCKING, status=BillingReadinessIssue.Status.OPEN).exists():
             raise ValidationError({'issues': 'Resolve or authorize every blocking issue before confirmation.'})
         run.status = BillingRun.Status.APPROVED; run.approved_by = request.user; run.approved_at = timezone.now()
@@ -6006,7 +6091,8 @@ class BillingRunViewSet(OrganizationModelViewSet):
         candidates = list(candidates)
         if not candidates:
             raise ValidationError({'candidates': 'Select at least one ready billing candidate.'})
-        self._assert_run_frequency(run, self._candidates_have_rent(candidates))
+        self._assert_run_frequency(run, False)
+        self._assert_rent_items_frequency(run, candidates)
 
         # Enforce consolidated billing if property requires utility readings before rent
         prop_rec = run.property if hasattr(run, 'property') and run.property else (candidates[0].lease.unit.property if candidates and candidates[0].lease and candidates[0].lease.unit else None)
@@ -6087,9 +6173,12 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     'rent': 'rent', 'service_charge': 'service_charge', 'sc': 'service_charge',
                     'water': 'water', 'electricity': 'electricity',
                 }.get(code, code[:40])
+                item_period_key = str(item.get('billing_period') or period_key)
+                item_period_start = str(item.get('period_start') or run.period_start)
+                item_period_end = str(item.get('period_end') or run.period_end)
                 if Invoice.objects.for_organization(run.organization).filter(
                     lease=candidate.lease, invoice_type=invoice_type,
-                    metadata__billing_period=period_key,
+                    metadata__billing_period=item_period_key,
                 ).exclude(status=Invoice.Status.VOID).exists():
                     skipped_duplicate += 1
                     item['billed'] = True
@@ -6144,8 +6233,8 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     prepared_by=run.created_by, reviewed_by=request.user, reviewed_at=timezone.now(),
                     issued_by=request.user, issued_at=timezone.now(), metadata={
                         'source': 'billing_run', 'billing_run_id': str(run.id),
-                        'billing_candidate_id': str(candidate.id), 'billing_period': period_key,
-                        'period_start': str(run.period_start), 'period_end': str(run.period_end),
+                        'billing_candidate_id': str(candidate.id), 'billing_period': item_period_key,
+                        'period_start': item_period_start, 'period_end': item_period_end,
                         'charge_code': item.get('code', ''),
                     },
                 )

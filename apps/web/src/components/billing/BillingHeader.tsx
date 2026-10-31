@@ -5,20 +5,11 @@ import { Building2, CalendarRange, ChevronLeft, ChevronRight, Clock, Users } fro
 
 export type BillingMode = "monthly" | "quarterly" | "custom";
 
-export type BillingCycleOption = {
-  id: string;
-  label: string;
-  frequency: "monthly" | "quarterly";
-};
-
 export function BillingHeader({
   formattedPeriod,
   runStatus,
   billingTarget = "tenant",
   onBillingTargetChange = () => {},
-  cycles = [],
-  cycle,
-  onCycleChange = () => {},
   customPeriod = false,
   onCustomPeriodChange = () => {},
   onPrev,
@@ -32,9 +23,6 @@ export function BillingHeader({
   runStatus: string | null;
   billingTarget?: "tenant" | "landlord";
   onBillingTargetChange?: (target: "tenant" | "landlord") => void;
-  cycles?: BillingCycleOption[];
-  cycle?: string;
-  onCycleChange?: (id: string) => void;
   customPeriod?: boolean;
   onCustomPeriodChange?: (custom: boolean) => void;
   onPrev: () => void;
@@ -45,8 +33,6 @@ export function BillingHeader({
   onCustomEndChange?: (v: string) => void;
 }) {
   const status = runStatus?.replace(/_/g, " ") ?? "Not started";
-  const frequencyLabel = (frequency: BillingCycleOption["frequency"]) =>
-    frequency === "quarterly" ? "Quarterly" : "Monthly";
 
   return (
     <Paper className="billing-control-bar" elevation={0}>
@@ -66,22 +52,6 @@ export function BillingHeader({
           <ToggleButton value="tenant" aria-label="Tenant billing"><Users size={16} /> Tenant</ToggleButton>
           <ToggleButton value="landlord" aria-label="Landlord billing"><Building2 size={16} /> Landlord</ToggleButton>
         </ToggleButtonGroup>
-
-        {cycles.length > 0 && (
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            value={cycle}
-            onChange={(_, value: string | null) => value && onCycleChange(value)}
-            aria-label="Billing cycle"
-          >
-            {cycles.map((option) => (
-              <ToggleButton key={option.id} value={option.id} aria-label={`${option.label} cycle`}>
-                {option.label} · {frequencyLabel(option.frequency)}
-              </ToggleButton>
-            ))}
-          </ToggleButtonGroup>
-        )}
 
         {customPeriod ? (
           <Box className="billing-custom-period" aria-label="Custom billing period">
