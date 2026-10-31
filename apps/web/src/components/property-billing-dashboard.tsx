@@ -77,6 +77,15 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
 
   const mode: BillingMode = customPeriod ? "custom" : "monthly";
 
+  const rentFrequency = useMemo(() => {
+    const metadata = (activeProp?.metadata as Record<string, unknown> | undefined) || {};
+    const policy = metadata.billing_policy;
+    if (policy && typeof policy === "object" && (policy as Record<string, unknown>).rent) {
+      return String((policy as Record<string, unknown>).rent).toLowerCase();
+    }
+    return String(metadata.billing_frequency || "monthly").toLowerCase();
+  }, [activeProp]);
+
   const requireUtilityReadings = useMemo(() => {
     if (!activeProp) return true;
     const meta = activeProp.metadata;
@@ -140,6 +149,12 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     const label = `${sLabel} – ${eLabel} (${monthsCount} Months)`;
     return { period_start: start, period_end: end, formattedPeriod: label };
   }, [mode, month, customStart, customEnd]);
+
+  const rentDueThisPeriod = useMemo(() => {
+    if (rentFrequency !== "quarterly") return true;
+    const monthNumber = Number(period_start.slice(5, 7));
+    return [1, 4, 7, 10].includes(monthNumber);
+  }, [rentFrequency, period_start]);
 
   const changeMonth = (offset: number) => {
     const [year, monthNum] = month.split("-").map(Number);
@@ -220,6 +235,20 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
       || allRuns.find(r => r.period_start === period_start && r.period_end === period_end);
     setRun(matching ?? null);
   }, [allRuns, period_start, period_end]);
+
+  const staleRunPrepared = useRef<string>("");
+  useEffect(() => {
+    if (!run || billingTarget !== "tenant" || busy) return;
+    if (!["preparing", "review"].includes(run.status)) return;
+    const hasUnbilledRent = (run.candidates || []).some((candidate) =>
+      (candidate.billing_items || []).some((item) => String(item.code || "").toUpperCase() === "RENT" && !item.billed),
+    );
+    if (!hasUnbilledRent || rentDueThisPeriod) return;
+    const key = `${run.id}:${run.period_start}`;
+    if (staleRunPrepared.current === key) return;
+    staleRunPrepared.current = key;
+    void mutate("prepare");
+  }, [run, billingTarget, busy, rentDueThisPeriod]);
 
   // Auto-scan and auto-prepare queue whenever period or filters change
   const lastScannedKey = useRef<string>("");
