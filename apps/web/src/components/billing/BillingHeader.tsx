@@ -1,17 +1,26 @@
 "use client";
 
-import { Box, Chip, IconButton, Paper, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@mui/material";
-import { Building2, CalendarRange, ChevronLeft, ChevronRight, Clock, Layers, Users } from "lucide-react";
+import { Box, Button, Chip, IconButton, Paper, Stack, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@mui/material";
+import { Building2, CalendarRange, ChevronLeft, ChevronRight, Clock, Users } from "lucide-react";
 
 export type BillingMode = "monthly" | "quarterly" | "custom";
+
+export type BillingCycleOption = {
+  id: string;
+  label: string;
+  frequency: "monthly" | "quarterly";
+};
 
 export function BillingHeader({
   formattedPeriod,
   runStatus,
   billingTarget = "tenant",
   onBillingTargetChange = () => {},
-  mode = "monthly",
-  onModeChange = () => {},
+  cycles = [],
+  cycle,
+  onCycleChange = () => {},
+  customPeriod = false,
+  onCustomPeriodChange = () => {},
   onPrev,
   onNext,
   customStart = "",
@@ -23,8 +32,11 @@ export function BillingHeader({
   runStatus: string | null;
   billingTarget?: "tenant" | "landlord";
   onBillingTargetChange?: (target: "tenant" | "landlord") => void;
-  mode?: BillingMode;
-  onModeChange?: (m: BillingMode) => void;
+  cycles?: BillingCycleOption[];
+  cycle?: string;
+  onCycleChange?: (id: string) => void;
+  customPeriod?: boolean;
+  onCustomPeriodChange?: (custom: boolean) => void;
   onPrev: () => void;
   onNext: () => void;
   customStart?: string;
@@ -33,6 +45,8 @@ export function BillingHeader({
   onCustomEndChange?: (v: string) => void;
 }) {
   const status = runStatus?.replace(/_/g, " ") ?? "Not started";
+  const frequencyLabel = (frequency: BillingCycleOption["frequency"]) =>
+    frequency === "quarterly" ? "Quarterly" : "Monthly";
 
   return (
     <Paper className="billing-control-bar" elevation={0}>
@@ -53,19 +67,23 @@ export function BillingHeader({
           <ToggleButton value="landlord" aria-label="Landlord billing"><Building2 size={16} /> Landlord</ToggleButton>
         </ToggleButtonGroup>
 
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={mode}
-          onChange={(_, value: BillingMode | null) => value && onModeChange(value)}
-          aria-label="Billing frequency"
-        >
-          <ToggleButton value="monthly" aria-label="Monthly billing"><CalendarRange size={16} /> Monthly</ToggleButton>
-          <ToggleButton value="quarterly" aria-label="Quarterly billing"><Layers size={16} /> Quarterly</ToggleButton>
-          <ToggleButton value="custom" aria-label="Multi-month billing"><Clock size={16} /> Multi-month</ToggleButton>
-        </ToggleButtonGroup>
+        {cycles.length > 0 && (
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={cycle}
+            onChange={(_, value: string | null) => value && onCycleChange(value)}
+            aria-label="Billing cycle"
+          >
+            {cycles.map((option) => (
+              <ToggleButton key={option.id} value={option.id} aria-label={`${option.label} cycle`}>
+                {option.label} · {frequencyLabel(option.frequency)}
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        )}
 
-        {mode === "custom" ? (
+        {customPeriod ? (
           <Box className="billing-custom-period" aria-label="Custom billing period">
             <TextField
               type="month"
@@ -93,6 +111,16 @@ export function BillingHeader({
             <Tooltip title="Next billing period"><IconButton size="small" onClick={onNext} aria-label="Next billing period"><ChevronRight size={17} /></IconButton></Tooltip>
           </Box>
         )}
+
+        <Button
+          size="small"
+          variant={customPeriod ? "contained" : "text"}
+          startIcon={<Clock size={14} />}
+          onClick={() => onCustomPeriodChange(!customPeriod)}
+          sx={{ minHeight: 36, fontSize: 12, fontWeight: 750, textTransform: "none" }}
+        >
+          Custom period
+        </Button>
 
         <Chip
           className="billing-run-status"

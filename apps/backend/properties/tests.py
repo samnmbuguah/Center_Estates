@@ -594,6 +594,50 @@ class PropertyApiTests(TestCase):
         )
         self.assertEqual(prepared_quarterly.status_code, 200, prepared_quarterly.data)
 
+    def test_mixed_cycles_bill_rent_quarterly_and_service_charge_monthly(self):
+        self.property.metadata = {
+            **(self.property.metadata or {}),
+            'billing_frequency': 'quarterly',
+            'billing_policy': {'rent': 'quarterly', 'service_charge': 'monthly', 'utility': 'monthly', 'other': 'monthly'},
+        }
+        self.property.save(update_fields=('metadata',))
+        item = BillingItem.objects.create(
+            organization=self.organization, code='SERVICE_CHARGE', name='Service charge',
+            calculation=BillingItem.Calculation.FIXED, income_category='service_charge',
+        )
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=item,
+            frequency=BillingProfile.Frequency.MONTHLY, calculation=BillingItem.Calculation.FIXED,
+            amount=Decimal('100'), effective_from='2026-01-01', billing_day=1,
+        )
+
+        service_run = self.client.post('/api/v1/property/billing-runs/', {
+            'property': str(self.property.id), 'period_start': '2026-10-01', 'period_end': '2026-10-31',
+            'charge_scope': 'service_charge', 'frequency': 'monthly',
+        }, format='json', **self.headers)
+        self.assertEqual(service_run.status_code, 201, service_run.data)
+        service_prepared = self.client.post(
+            f"/api/v1/property/billing-runs/{service_run.data['id']}/prepare/", {}, format='json', **self.headers,
+        )
+        self.assertEqual(service_prepared.status_code, 200, service_prepared.data)
+        service_candidate = service_prepared.data['candidates'][0]
+        self.assertEqual([it['code'] for it in service_candidate['billing_items']], ['SERVICE_CHARGE'])
+
+        rent_run = self.client.post('/api/v1/property/billing-runs/', {
+            'property': str(self.property.id), 'period_start': '2026-10-01', 'period_end': '2026-12-31',
+            'charge_scope': 'rent', 'frequency': 'quarterly',
+        }, format='json', **self.headers)
+        self.assertEqual(rent_run.status_code, 201, rent_run.data)
+        rent_prepared = self.client.post(
+            f"/api/v1/property/billing-runs/{rent_run.data['id']}/prepare/", {}, format='json', **self.headers,
+        )
+        self.assertEqual(rent_prepared.status_code, 200, rent_prepared.data)
+        rent_candidate = rent_prepared.data['candidates'][0]
+        rent_lines = [it for it in rent_candidate['billing_items'] if it['code'].upper() == 'RENT']
+        self.assertEqual(len(rent_lines), 1)
+        self.assertEqual(rent_lines[0]['quantity'], '3')
+        self.assertFalse(any(it['code'].upper() == 'SERVICE_CHARGE' for it in rent_candidate['billing_items']))
+
     def _create_billing_approver(self):
         approver = get_user_model().objects.create_user(
             username=f'billing-approver-{get_user_model().objects.count()}',

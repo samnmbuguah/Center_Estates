@@ -43,6 +43,9 @@ from .models import (
     TenantHandover, ExitClearance, LandlordInvoice, Owner, PropertyCollectionAccount, PropertyFeeProfile,
     PropertyModule, ProjectModuleAssignment,
 )
+from .billing_policy import (
+    period_months, property_scope_frequency, scope_invoice_types, frequency_divides_period,
+)
 from .serializers import (
     BankTransactionSerializer, BillingCandidateSerializer, BillingItemSerializer, BillingProfileSerializer,
     BillingReadinessIssueSerializer, BillingRunSerializer, BuildingSerializer, BudgetSerializer,
@@ -4129,6 +4132,28 @@ class InvoiceViewSet(OrganizationModelViewSet):
         owner = serializer.validated_data.get('owner')
         if lease:
             validate_lease_billable(lease, timezone.localdate())
+            invoice_type = str(serializer.validated_data.get('invoice_type') or 'rent').lower()
+            if invoice_type == 'rent':
+                rent_frequency = property_scope_frequency(lease.unit.property, BillingRun.ChargeScope.RENT) or BillingRun.Frequency.MONTHLY
+                if rent_frequency != BillingRun.Frequency.MONTHLY:
+                    metadata = serializer.validated_data.get('metadata') or {}
+                    if not isinstance(metadata, dict):
+                        metadata = {}
+                    context = metadata.get('billing_context')
+                    if not isinstance(context, dict):
+                        context = {}
+                    months = context.get('months_count')
+                    start = metadata.get('period_start') or context.get('period_start')
+                    end = metadata.get('period_end') or context.get('period_end')
+                    if start and end:
+                        try:
+                            months = period_months(date.fromisoformat(str(start)), date.fromisoformat(str(end)))
+                        except (TypeError, ValueError):
+                            pass
+                    if not months or not frequency_divides_period(rent_frequency, int(months)):
+                        raise ValidationError({
+                            'invoice_type': f'Rent is billed {rent_frequency} for this property. Provide a {rent_frequency} billing period.',
+                        })
         elif not owner and not unit:
             raise ValidationError({'lease': 'Either a lease, unit, or owner recipient is required.'})
         if owner and unit and unit.owner_id != owner.id:
@@ -5421,14 +5446,26 @@ class BillingRunViewSet(OrganizationModelViewSet):
     def _run_has_rent_items(self, run):
         return self._candidates_have_rent(run.candidates.all())
 
-    def _assert_property_billing_period(self, run, rent_in_scope):
-        if not rent_in_scope or not run.property_id:
+    def _assert_run_frequency(self, run, rent_in_scope=False):
+        if not run.property_id:
             return
-        frequency = str((run.property.metadata or {}).get('billing_frequency') or 'monthly').lower()
-        if frequency == 'quarterly' and self._period_months(run.period_start, run.period_end) % 3 != 0:
+        months = self._period_months(run.period_start, run.period_end)
+        run_frequency = run.frequency or BillingRun.Frequency.MONTHLY
+        scope_frequency = property_scope_frequency(run.property, run.charge_scope)
+        if scope_frequency and run_frequency != scope_frequency:
             raise ValidationError({
-                'period': 'This property is configured for quarterly rent billing. Select a quarterly or multi-month period covering at least three months.',
+                'frequency': f'{run.charge_scope.replace("_", " ").title()} is billed {scope_frequency} for this property. Create a {scope_frequency} run instead.',
             })
+        if not frequency_divides_period(run_frequency, months):
+            raise ValidationError({
+                'period': f'This {run_frequency} billing run must cover a whole {run_frequency} period.',
+            })
+        if rent_in_scope:
+            rent_frequency = property_scope_frequency(run.property, BillingRun.ChargeScope.RENT) or BillingRun.Frequency.MONTHLY
+            if not frequency_divides_period(rent_frequency, months):
+                raise ValidationError({
+                    'period': f'This property is configured for {rent_frequency} rent billing. Select a period covering a whole {rent_frequency} cycle.',
+                })
 
     @staticmethod
     def _profile_is_due(profile, period_start):
@@ -5462,6 +5499,9 @@ class BillingRunViewSet(OrganizationModelViewSet):
 
     def _execute_prepare(self, run, invoice_types: set[str] | None = None):
         run.issues.all().delete()
+        scoped_types = scope_invoice_types(run.charge_scope)
+        if scoped_types is not None:
+            invoice_types = scoped_types if invoice_types is None else (invoice_types & scoped_types or scoped_types)
         leases = Lease.objects.for_organization(run.organization).filter(
             status__in=(Lease.Status.ACTIVE, Lease.Status.EXPIRING),
             starts_on__lte=run.period_end, ends_on__gt=run.period_start,
@@ -5477,7 +5517,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
         end_year, end_month = run.period_end.year, run.period_end.month
         months_count = max(1, (end_year - start_year) * 12 + (end_month - start_month) + 1)
 
-        self._assert_property_billing_period(run, invoice_types is None or 'rent' in invoice_types)
+        self._assert_run_frequency(run, invoice_types is None or 'rent' in invoice_types)
 
         if months_count > 1:
             if months_count == 3 and start_month in (1, 4, 7, 10):
@@ -5872,23 +5912,33 @@ class BillingRunViewSet(OrganizationModelViewSet):
         prop = serializer.validated_data.get('property') or active_property
         period_start = serializer.validated_data.get('period_start')
         period_end = serializer.validated_data.get('period_end')
+        charge_scope = serializer.validated_data.get('charge_scope') or BillingRun.ChargeScope.ALL
+        frequency = property_scope_frequency(prop, charge_scope) or serializer.validated_data.get('frequency') or BillingRun.Frequency.MONTHLY
+        if not frequency_divides_period(frequency, period_months(period_start, period_end)):
+            raise ValidationError({
+                'period': f'A {frequency} billing run must cover a whole {frequency} period.',
+            })
 
         existing = BillingRun.objects.filter(
             organization=organization,
             property=prop,
             period_start=period_start,
+            charge_scope=charge_scope,
         ).first()
 
         if existing:
-            if existing.period_end != period_end:
+            if existing.period_end != period_end or existing.frequency != frequency:
                 existing.period_end = period_end
-                existing.save(update_fields=('period_end',))
+                existing.frequency = frequency
+                existing.save(update_fields=('period_end', 'frequency'))
             return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
 
         run = serializer.save(
             organization=organization,
             created_by=self.request.user,
             property=prop,
+            charge_scope=charge_scope,
+            frequency=frequency,
         )
         return Response(self.get_serializer(run).data, status=status.HTTP_201_CREATED)
 
@@ -5918,7 +5968,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
         run = BillingRun.objects.select_for_update().get(pk=self.get_object().pk)
         if run.status not in (BillingRun.Status.REVIEW, BillingRun.Status.PREPARING, BillingRun.Status.GENERATED):
             raise ValidationError({'status': 'Prepare and review the billing run before confirmation.'})
-        self._assert_property_billing_period(run, self._run_has_rent_items(run))
+        self._assert_run_frequency(run, self._run_has_rent_items(run))
         if run.issues.filter(severity=BillingReadinessIssue.Severity.BLOCKING, status=BillingReadinessIssue.Status.OPEN).exists():
             raise ValidationError({'issues': 'Resolve or authorize every blocking issue before confirmation.'})
         run.status = BillingRun.Status.APPROVED; run.approved_by = request.user; run.approved_at = timezone.now()
@@ -5956,7 +6006,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
         candidates = list(candidates)
         if not candidates:
             raise ValidationError({'candidates': 'Select at least one ready billing candidate.'})
-        self._assert_property_billing_period(run, self._candidates_have_rent(candidates))
+        self._assert_run_frequency(run, self._candidates_have_rent(candidates))
 
         # Enforce consolidated billing if property requires utility readings before rent
         prop_rec = run.property if hasattr(run, 'property') and run.property else (candidates[0].lease.unit.property if candidates and candidates[0].lease and candidates[0].lease.unit else None)
@@ -6012,6 +6062,9 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 elif key:
                     normalized.add(key)
             selected_types = normalized or None
+        scoped_types = scope_invoice_types(run.charge_scope)
+        if scoped_types is not None:
+            selected_types = scoped_types if selected_types is None else (selected_types & scoped_types or scoped_types)
 
         def _item_type(item: dict) -> str:
             c = str(item.get('code') or 'charge').strip().lower()

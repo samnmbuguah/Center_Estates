@@ -11,12 +11,21 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--property', default='BLUESHIELD TOWERS', help='Property name (case-insensitive contains match).')
-        parser.add_argument('--frequency', default='quarterly', choices=('monthly', 'quarterly'))
+        parser.add_argument('--frequency', default='quarterly', choices=('monthly', 'quarterly'), help='Rent frequency.')
+        parser.add_argument('--service-charge-frequency', default='monthly', choices=('monthly', 'quarterly'))
+        parser.add_argument('--utility-frequency', default='monthly', choices=('monthly', 'quarterly'))
+        parser.add_argument('--other-frequency', default='monthly', choices=('monthly', 'quarterly'))
         parser.add_argument('--dry-run', action='store_true', help='Show what would change without saving.')
 
     def handle(self, *args, **options):
         name = options['property']
         frequency = options['frequency']
+        policy = {
+            'rent': frequency,
+            'service_charge': options['service_charge_frequency'],
+            'utility': options['utility_frequency'],
+            'other': options['other_frequency'],
+        }
         dry_run = options['dry_run']
 
         properties = Property.objects.filter(name__icontains=name)
@@ -26,10 +35,11 @@ class Command(BaseCommand):
         for property_record in properties:
             metadata = dict(property_record.metadata or {})
             metadata['billing_frequency'] = frequency
+            metadata['billing_policy'] = policy
             leases = Lease.objects.filter(unit__property=property_record)
 
             self.stdout.write(
-                f'{property_record.name}: setting billing_frequency={frequency} on '
+                f'{property_record.name}: setting policy {policy} on '
                 f'{leases.count()} lease(s).'
             )
             if dry_run:

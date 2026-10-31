@@ -829,9 +829,24 @@ class BillingRun(OrganizationOwnedModel):
         GENERATED = 'generated', 'Generated'
         CANCELLED = 'cancelled', 'Cancelled'
 
+    class ChargeScope(models.TextChoices):
+        ALL = 'all', 'All charges'
+        RENT = 'rent', 'Rent'
+        SERVICE_CHARGE = 'service_charge', 'Service charge'
+        UTILITY = 'utility', 'Utilities'
+        OTHER = 'other', 'Other charges'
+
+    class Frequency(models.TextChoices):
+        MONTHLY = 'monthly', 'Monthly'
+        QUARTERLY = 'quarterly', 'Quarterly'
+        BIANNUAL = 'biannual', 'Biannual'
+        ANNUAL = 'annual', 'Annual'
+
     period_start = models.DateField()
     period_end = models.DateField()
     property = models.ForeignKey(Property, on_delete=models.PROTECT, related_name='billing_runs', null=True, blank=True)
+    charge_scope = models.CharField(max_length=20, choices=ChargeScope.choices, default=ChargeScope.ALL)
+    frequency = models.CharField(max_length=16, choices=Frequency.choices, default=Frequency.MONTHLY)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.PREPARING)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='created_billing_runs')
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_billing_runs')
@@ -841,7 +856,10 @@ class BillingRun(OrganizationOwnedModel):
 
     class Meta:
         ordering = ('-period_start', '-created_at')
-        constraints = [models.UniqueConstraint(fields=('organization', 'property', 'period_start'), name='unique_property_billing_run_period')]
+        constraints = [models.UniqueConstraint(
+            fields=('organization', 'property', 'period_start', 'charge_scope'),
+            name='unique_property_billing_run_scope_period',
+        )]
 
     def clean(self):
         if self.period_end < self.period_start:

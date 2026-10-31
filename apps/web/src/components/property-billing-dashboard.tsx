@@ -7,7 +7,7 @@ import { useAuth } from "@/components/auth-provider";
 import { apiErrorMessage, apiFetch } from "@/lib/api";
 import { LoadingState, money } from "@/components/module-ui";
 import { BillingRun, BillingIssue, Candidate, Invoice, InvoiceChargeType, candidateHasChargeType, invoiceChargeType, isMissingWaterReading } from "./billing/types";
-import { BillingHeader, BillingMode } from "./billing/BillingHeader";
+import { BillingHeader, BillingMode, BillingCycleOption } from "./billing/BillingHeader";
 import { BillingActionBanner } from "./billing/BillingActionBanner";
 import { BillingChargeRollup } from "./billing/BillingChargeRollup";
 import { BillingKpis } from "./billing/BillingKpis";
@@ -36,7 +36,8 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
   const now = new Date();
   
   const [billingTarget, setBillingTarget] = useState<"tenant" | "landlord">("tenant");
-  const [mode, setMode] = useState<BillingMode>("monthly");
+  const [chargeScope, setChargeScope] = useState("rent");
+  const [customPeriod, setCustomPeriod] = useState(false);
   const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`);
   const [quarterYear, setQuarterYear] = useState(now.getFullYear());
   const [quarterIndex, setQuarterIndex] = useState(Math.floor(now.getMonth() / 3) + 1); // 1, 2, 3, 4
@@ -57,7 +58,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [chargeTypeFilter, setChargeTypeFilter] = useState<InvoiceChargeType | "all">("all");
+  const [chargeTypeFilter, setChargeTypeFilter] = useState<InvoiceChargeType | "all">("rent");
   const [search, setSearch] = useState("");
   const [previewCandidate, setPreviewCandidate] = useState<Candidate | null>(null);
   const [recordMeterCandidate, setRecordMeterCandidate] = useState<Candidate | null>(null);
@@ -77,18 +78,38 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     return properties[0] || null;
   }, [properties, activeProperty]);
 
-  const billingModeInitialized = useRef<string | null>(null);
-  useEffect(() => {
-    if (!activeProp?.id || billingModeInitialized.current === String(activeProp.id)) return;
-    billingModeInitialized.current = String(activeProp.id);
-    const configured = String((activeProp.metadata as Record<string, unknown> | undefined)?.billing_frequency || "").toLowerCase();
-    if (configured === "quarterly") setMode("quarterly");
-    else if (configured === "monthly") setMode("monthly");
+  const propertyBillingPolicy = useMemo<Record<string, "monthly" | "quarterly">>(() => {
+    const metadata = (activeProp?.metadata as Record<string, unknown> | undefined) || {};
+    const policy: Record<string, "monthly" | "quarterly"> = {
+      rent: "monthly", service_charge: "monthly", utility: "monthly", other: "monthly",
+    };
+    const legacyRent = String(metadata.billing_frequency || "").toLowerCase();
+    if (legacyRent === "quarterly") policy.rent = "quarterly";
+    const configured = metadata.billing_policy;
+    if (configured && typeof configured === "object") {
+      for (const key of Object.keys(policy)) {
+        const value = String((configured as Record<string, unknown>)[key] || "").toLowerCase();
+        if (value === "quarterly") policy[key] = "quarterly";
+        else if (value === "monthly") policy[key] = "monthly";
+      }
+    }
+    return policy;
   }, [activeProp]);
 
-  const propertyBillingFrequency = String(
-    (activeProp?.metadata as Record<string, unknown> | undefined)?.billing_frequency || "monthly",
-  ).toLowerCase();
+  const billingCycles = useMemo<BillingCycleOption[]>(() => ([
+    { id: "rent", label: "Rent", frequency: propertyBillingPolicy.rent },
+    { id: "service_charge", label: "Service charge", frequency: propertyBillingPolicy.service_charge },
+    { id: "utility", label: "Utilities", frequency: propertyBillingPolicy.utility },
+    { id: "other", label: "Other", frequency: propertyBillingPolicy.other },
+  ]), [propertyBillingPolicy]);
+
+  const selectedCycle = billingCycles.find((cycle) => cycle.id === chargeScope) || billingCycles[0];
+  const mode: BillingMode = customPeriod ? "custom" : selectedCycle.frequency;
+
+  useEffect(() => {
+    setCustomPeriod(false);
+    setChargeTypeFilter(selectedCycle.id as InvoiceChargeType);
+  }, [selectedCycle.id]);
 
   const requireUtilityReadings = useMemo(() => {
     if (!activeProp) return true;
@@ -248,22 +269,25 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     }
   }, []);
 
+  const runMatchesCycle = (candidateRun: BillingRun) =>
+    String(candidateRun.charge_scope || "all") === chargeScope;
+
   // Synchronously match run from allRuns when period or allRuns change — instant transition with zero flicker
   useEffect(() => {
-    const matching = allRuns.find(r => r.period_start === period_start && r.period_end === period_end)
-      || allRuns.find(r => r.period_start === period_start);
+    const matching = allRuns.find(r => runMatchesCycle(r) && r.period_start === period_start && r.period_end === period_end)
+      || allRuns.find(r => runMatchesCycle(r) && r.period_start === period_start);
     setRun(matching ?? null);
-  }, [allRuns, period_start, period_end]);
+  }, [allRuns, period_start, period_end, chargeScope]);
 
   // Auto-scan and auto-prepare queue whenever period or filters change
   const lastScannedKey = useRef<string>("");
   useEffect(() => {
     if (!organizationId || loading || busy || billingTarget !== "tenant") return;
-    const scanKey = `${period_start}_${period_end}_${chargeTypeFilter}`;
+    const scanKey = `${period_start}_${period_end}_${chargeScope}`;
     if (lastScannedKey.current === scanKey) return;
 
-    const matching = allRuns.find(r => r.period_start === period_start && r.period_end === period_end)
-      || allRuns.find(r => r.period_start === period_start);
+    const matching = allRuns.find(r => runMatchesCycle(r) && r.period_start === period_start && r.period_end === period_end)
+      || allRuns.find(r => runMatchesCycle(r) && r.period_start === period_start);
 
     if (!matching) {
       lastScannedKey.current = scanKey;
@@ -272,7 +296,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
       lastScannedKey.current = scanKey;
       void mutate("prepare");
     }
-  }, [organizationId, loading, busy, billingTarget, period_start, period_end, chargeTypeFilter, allRuns]);
+  }, [organizationId, loading, busy, billingTarget, period_start, period_end, chargeScope, allRuns]);
 
   // Compute Landlord Candidates dynamically based on managed properties and contracted revenue
   const landlordCandidates = useMemo<Candidate[]>(() => {
@@ -549,9 +573,11 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     return candidatesList;
   }, [properties, owners, units, invoices, landlordInvoices, period_start, period_end, landlordFeeType]);
 
-  const prepareTypesBody = chargeTypeFilter !== "all"
-    ? { invoice_types: chargeTypeFilter === "utility" ? ["water", "electricity", "utility"] : [chargeTypeFilter] }
-    : {};
+  const prepareTypesBody = {
+    invoice_types: selectedCycle.id === "utility"
+      ? ["water", "electricity", "utility"]
+      : [selectedCycle.id],
+  };
 
   async function mutate(action: "create" | "prepare" | "approve" | "generate") {
     if (!organizationId) return;
@@ -672,7 +698,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
 
     // Tenant Billing Run Mutate
     const body: Record<string, unknown> = action === "create"
-      ? { period_start, period_end }
+      ? { period_start, period_end, charge_scope: chargeScope, frequency: selectedCycle.frequency }
       : action === "generate"
         ? {
             candidate_ids: selected,
@@ -813,9 +839,6 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, width: "100%" }}>
       {error && <Alert severity="error" action={<button className="btn ghost sm" onClick={() => void load()}>Retry</button>}>{error}</Alert>}
       {notice && <Alert severity="success" onClose={() => setNotice("")}>{notice}</Alert>}
-      {billingTarget === "tenant" && propertyBillingFrequency === "quarterly" && mode === "monthly" && (
-        <Alert severity="warning">This property is configured for quarterly rent billing. Monthly runs can process non-rent charges only; select Quarterly to bill rent.</Alert>
-      )}
 
       <BillingHeader
         formattedPeriod={formattedPeriod}
@@ -826,8 +849,14 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
           setSearch("");
           setStatusFilter("all");
         }}
-        mode={mode}
-        onModeChange={setMode}
+        cycles={billingTarget === "tenant" ? billingCycles : []}
+        cycle={chargeScope}
+        onCycleChange={(id) => {
+          setChargeScope(id);
+          setCustomPeriod(false);
+        }}
+        customPeriod={customPeriod}
+        onCustomPeriodChange={setCustomPeriod}
         onPrev={handlePrev}
         onNext={handleNext}
         customStart={customStart}
