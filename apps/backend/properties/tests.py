@@ -569,24 +569,39 @@ class PropertyApiTests(TestCase):
         self.assertEqual(set(invoices.values_list('invoice_type', flat=True)), {'rent', 'water', 'security_deposit'})
         self.assertEqual(sum(invoices.values_list('amount', flat=True), Decimal('0')), Decimal('150750'))
 
-    def test_quarterly_property_bills_rent_only_on_quarter_start_months(self):
+    def test_quarterly_rent_shows_arrears_and_hides_settled_quarters(self):
         self.property.metadata = {**(self.property.metadata or {}), 'billing_frequency': 'quarterly'}
         self.property.save(update_fields=('metadata',))
 
-        october = self.client.post('/api/v1/property/billing-runs/', {
+        february = self.client.post('/api/v1/property/billing-runs/', {
             'property': str(self.property.id),
-            'period_start': '2026-10-01', 'period_end': '2026-10-31',
+            'period_start': '2026-02-01', 'period_end': '2026-02-28',
         }, format='json', **self.headers)
-        self.assertEqual(october.status_code, 201, october.data)
-        prepared_october = self.client.post(
-            f"/api/v1/property/billing-runs/{october.data['id']}/prepare/", {}, format='json', **self.headers,
+        self.assertEqual(february.status_code, 201, february.data)
+        prepared_february = self.client.post(
+            f"/api/v1/property/billing-runs/{february.data['id']}/prepare/", {}, format='json', **self.headers,
         )
-        self.assertEqual(prepared_october.status_code, 200, prepared_october.data)
-        october_items = [item for candidate in prepared_october.data['candidates'] for item in candidate['billing_items']]
-        october_rent = [item for item in october_items if item['code'].upper() == 'RENT']
-        self.assertEqual(len(october_rent), 1)
-        self.assertEqual(october_rent[0]['quantity'], '3')
-        self.assertIn('Q4 2026', october_rent[0]['description'])
+        self.assertEqual(prepared_february.status_code, 200, prepared_february.data)
+        february_items = [item for candidate in prepared_february.data['candidates'] for item in candidate['billing_items']]
+        february_rent = [item for item in february_items if item['code'].upper() == 'RENT']
+        self.assertEqual(len(february_rent), 1)
+        self.assertEqual(february_rent[0]['quantity'], '3')
+        self.assertIn('Q1 2026', february_rent[0]['description'])
+        self.assertNotIn('February', february_rent[0]['description'])
+
+        Invoice.objects.create(
+            organization=self.organization, number='INV-Q1-PAID', lease=self.lease,
+            issued_on='2026-01-01', due_on='2026-01-05',
+            subtotal=Decimal('3000'), amount=Decimal('3000'), balance=Decimal('0'),
+            status=Invoice.Status.PAID,
+            metadata={'billing_period': '2026-01_to_2026-03'},
+        )
+        prepared_again = self.client.post(
+            f"/api/v1/property/billing-runs/{february.data['id']}/prepare/", {}, format='json', **self.headers,
+        )
+        self.assertEqual(prepared_again.status_code, 200, prepared_again.data)
+        again_items = [item for candidate in prepared_again.data['candidates'] for item in candidate['billing_items']]
+        self.assertFalse(any(item['code'].upper() == 'RENT' for item in again_items))
 
         november = self.client.post('/api/v1/property/billing-runs/', {
             'property': str(self.property.id),
@@ -598,7 +613,9 @@ class PropertyApiTests(TestCase):
         )
         self.assertEqual(prepared_november.status_code, 200, prepared_november.data)
         november_items = [item for candidate in prepared_november.data['candidates'] for item in candidate['billing_items']]
-        self.assertFalse(any(item['code'].upper() == 'RENT' for item in november_items))
+        november_rent = [item for item in november_items if item['code'].upper() == 'RENT']
+        self.assertEqual(len(november_rent), 1)
+        self.assertIn('Q4 2026', november_rent[0]['description'])
 
     def test_mixed_cycles_bill_rent_quarterly_and_service_charge_monthly(self):
         self.property.metadata = {

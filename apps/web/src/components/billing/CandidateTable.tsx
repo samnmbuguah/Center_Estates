@@ -168,6 +168,7 @@ export function CandidateTable({
                 const isReady = (c.status === "ready" || (unbilledItems.length > 0 && c.status !== "issue")) && !isHold;
                 const unbilledTotal = unbilledItems.reduce((s: number, it: any) => s + Number(it.total || it.amount || 0), 0);
                 const billedTotal = (c.billing_items || []).filter((it: any) => it.billed).reduce((s: number, it: any) => s + Number(it.total || it.amount || 0), 0);
+                const outstandingTotal = (c.billing_items || []).filter((it: any) => it.billed && Number(it.outstanding_balance || 0) > 0).reduce((s: number, it: any) => s + Number(it.outstanding_balance || 0), 0);
 
                 return (
                   <tr key={c.id} style={{ borderBottom: "1px solid var(--border)", background: isSelected ? "rgba(59,130,246,0.04)" : isHold ? "rgba(245,158,11,0.03)" : "transparent" }}>
@@ -202,16 +203,20 @@ export function CandidateTable({
                     <td style={{ padding: "10px 12px" }}>
                       <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center" }}>
                         {(() => {
-                          const grouped = new Map<string, { code: string; rawCode: string; billedCount: number; totalCount: number; unbilledAmount: number; isPendingReading: boolean }>();
+                          const grouped = new Map<string, { code: string; rawCode: string; billedCount: number; totalCount: number; unbilledAmount: number; outstandingAmount: number; isPendingReading: boolean; description: string }>();
                           for (const it of c.billing_items || []) {
                             const rawCode = String(it.code || "charge");
                             const displayCode = rawCode.replace(/_/g, " ").toUpperCase();
-                            const entry = grouped.get(displayCode) || { code: displayCode, rawCode, billedCount: 0, totalCount: 0, unbilledAmount: 0, isPendingReading: false };
+                            const entry = grouped.get(displayCode) || { code: displayCode, rawCode, billedCount: 0, totalCount: 0, unbilledAmount: 0, outstandingAmount: 0, isPendingReading: false, description: "" };
                             entry.totalCount += 1;
                             if (it.billed) {
                               entry.billedCount += 1;
+                              entry.outstandingAmount += Number((it as any).outstanding_balance || 0);
                             } else {
                               entry.unbilledAmount += Number(it.total || it.amount || 0);
+                            }
+                            if (!entry.description && rawCode.toLowerCase() === "rent" && it.description) {
+                              entry.description = String(it.description);
                             }
                             if ((it as any).meter_reading_pending || (invoiceChargeType(rawCode) === "utility" && Number(it.total || 0) === 0 && !it.billed)) {
                               entry.isPendingReading = true;
@@ -228,13 +233,18 @@ export function CandidateTable({
                             const isPending = (grp.isPendingReading || (isUtility && grp.unbilledAmount === 0)) && !isAllBilled;
                             const isRent = t === "rent" || grp.rawCode.toLowerCase().includes("rent");
                             const isServiceCharge = t === "service_charge" || grp.rawCode.toLowerCase().includes("service");
-                            const label = isAllBilled
+                            const isArrears = grp.outstandingAmount > 0;
+                            const label = isArrears
+                              ? `${grp.code} · ${money.format(grp.outstandingAmount)} due`
+                              : isAllBilled
                               ? `${grp.code} ✓`
                               : isPending
                               ? `${grp.code} · Reading Required`
                               : `${grp.code} · ${money.format(grp.unbilledAmount)}`;
 
-                            const chipBg = isAllBilled
+                            const chipBg = isArrears
+                              ? "rgba(220, 38, 38, 0.08)"
+                              : isAllBilled
                               ? "rgba(16, 185, 129, 0.1)"
                               : isPending
                               ? "rgba(245, 158, 11, 0.12)"
@@ -246,7 +256,9 @@ export function CandidateTable({
                               ? "rgba(37, 99, 235, 0.08)"
                               : undefined;
 
-                            const chipBorder = isAllBilled
+                            const chipBorder = isArrears
+                              ? "rgba(220, 38, 38, 0.4)"
+                              : isAllBilled
                               ? "rgba(16, 185, 129, 0.4)"
                               : isPending
                               ? "rgba(245, 158, 11, 0.5)"
@@ -258,7 +270,9 @@ export function CandidateTable({
                               ? "rgba(37, 99, 235, 0.35)"
                               : undefined;
 
-                            const chipColor = isAllBilled
+                            const chipColor = isArrears
+                              ? "#b91c1c"
+                              : isAllBilled
                               ? "#047857"
                               : isPending
                               ? "#b45309"
@@ -271,7 +285,7 @@ export function CandidateTable({
                               : undefined;
 
                             return (
-                              <Tooltip key={i} title={`${isRent ? "Rent" : grp.code} for ${formattedMonth}`}>
+                              <Tooltip key={i} title={grp.description || `${isRent ? "Rent" : grp.code} for ${formattedMonth}`}>
                                 <Chip
                                   size="small"
                                   icon={
@@ -331,11 +345,23 @@ export function CandidateTable({
                               ({money.format(billedTotal)} billed ✓)
                             </div>
                           )}
+                          {outstandingTotal > 0 && (
+                            <div style={{ fontSize: 10, color: "var(--color-danger)", fontWeight: 600 }}>
+                              + {money.format(outstandingTotal)} outstanding rent
+                            </div>
+                          )}
                           {isHold && (
                             <div style={{ fontSize: 9.5, color: "var(--color-amber-deep)", fontWeight: 600, marginTop: 1 }}>
                               + pending {missingUtilityLabel.toLowerCase()} consumption
                             </div>
                           )}
+                        </>
+                      ) : outstandingTotal > 0 ? (
+                        <>
+                          <div style={{ fontWeight: 800, fontSize: 12.5, color: "var(--color-danger)" }}>
+                            {money.format(outstandingTotal)}
+                          </div>
+                          <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>Outstanding rent</div>
                         </>
                       ) : (
                         <div style={{ fontWeight: 700, fontSize: 11.5, color: "var(--success)" }}>
