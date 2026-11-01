@@ -5963,6 +5963,9 @@ class BillingRunViewSet(OrganizationModelViewSet):
                         })
 
             if not items:
+                existing_candidate = existing_candidate_map.get(str(lease.id))
+                if existing_candidate and not existing_candidate.invoice_id:
+                    existing_candidate.delete()
                 continue
 
             # Tag each item as billed or unbilled
