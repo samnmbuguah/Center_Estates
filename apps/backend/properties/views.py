@@ -5711,6 +5711,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
             current_lease_ids.add(str(lease.id))
             issue_rows = []
             items = []
+            lease_invs = lease_invoices_map.get(str(lease.id), {})
             lease_meta = lease.metadata or {}
             is_direct_landlord = (
                 lease.monthly_rent <= 0
@@ -5963,7 +5964,6 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 continue
 
             # Tag each item as billed or unbilled
-            lease_invs = lease_invoices_map.get(str(lease.id), {})
             unbilled_items = []
             unbilled_total = Decimal('0')
             billed_total = Decimal('0')
