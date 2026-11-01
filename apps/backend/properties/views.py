@@ -5524,6 +5524,8 @@ class BillingRunViewSet(OrganizationModelViewSet):
             total = subtotal + tax_amount
             due_day = min(lease.billing_day, calendar.monthrange(period['start'].year, period['start'].month)[1])
             due_on = period['start'].replace(day=due_day)
+            run_due_day = min(lease.billing_day, calendar.monthrange(run.period_start.year, run.period_start.month)[1])
+            effective_due_on = max(due_on, run.period_start.replace(day=run_due_day))
             description = f"Rent for {period['label']}"
 
             existing = lease_invs.get(('rent', period['period_key']))
@@ -5569,7 +5571,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 'tax_code': tax.code if tax else '', 'tax_rate': str(tax_rate), 'tax_amount': str(tax_amount),
                 'total': str(total), 'source_type': 'lease', 'source_id': str(lease.id),
                 'billing_period': period['period_key'], 'period_start': str(period['start']),
-                'period_end': str(period['end']), 'due_date': str(due_on),
+                'period_end': str(period['end']), 'due_date': str(effective_due_on),
             })
         return items
 
