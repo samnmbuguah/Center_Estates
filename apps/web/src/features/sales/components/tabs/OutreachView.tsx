@@ -370,194 +370,209 @@ export function OutreachView({
       </div>
 
       {/* Active Campaign Blueprint Panel */}
-      {activeCampaign && (
-        <Panel
-          title={
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 18 }}>
-                {MODULE_DISPLAY[activeCampaign.target_module]?.icon || "🚀"}
-              </span>
-              <span>{activeCampaign.name}</span>
-              <span
-                style={{
-                  fontSize: 11,
-                  background: "var(--color-surface-alt)",
-                  padding: "2px 8px",
-                  borderRadius: 6,
-                  color: "var(--color-muted)",
-                }}
-              >
-                Targeting: {MODULE_DISPLAY[activeCampaign.target_module]?.tag}
-              </span>
-            </div>
-          }
-        >
-          <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* Grid of ICP and Hooks */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-                gap: 16,
-              }}
-            >
-              {/* ICP & Roles */}
-              <div
-                style={{
-                  background: "var(--color-surface-alt)",
-                  borderRadius: 8,
-                  padding: 14,
-                  border: "1px solid var(--color-border)",
-                }}
-              >
-                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-muted)", marginBottom: 6 }}>
-                  IDEAL CUSTOMER PROFILE (ICP)
-                </div>
-                <p style={{ fontSize: 13, margin: "0 0 10px 0", lineHeight: 1.5 }}>
-                  {activeCampaign.icp_description}
-                </p>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-                  <span style={{ fontSize: 11, color: "var(--color-muted)" }}>Target Roles:</span>
-                  {activeCampaign.target_roles.map((role) => (
-                    <span
-                      key={role}
-                      style={{
-                        fontSize: 11,
-                        background: "var(--color-surface)",
-                        border: "1px solid var(--color-border)",
-                        padding: "2px 8px",
-                        borderRadius: 4,
-                      }}
-                    >
-                      {role}
-                    </span>
-                  ))}
-                </div>
-              </div>
+      {activeCampaign && (() => {
+        const targetRoles = Array.isArray(activeCampaign.target_roles) && activeCampaign.target_roles.length > 0
+          ? activeCampaign.target_roles
+          : ["Head of Property Management", "Estate Director", "Managing Agent"];
 
-              {/* Acute Pains & Killer Hook */}
-              <div
-                style={{
-                  background: "var(--color-surface-alt)",
-                  borderRadius: 8,
-                  padding: 14,
-                  border: "1px solid var(--color-border)",
-                }}
-              >
-                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-muted)", marginBottom: 6 }}>
-                  ACUTE PAIN POINTS
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
-                  {activeCampaign.acute_pain_points.map((pain) => (
-                    <div key={pain} style={{ fontSize: 12, display: "flex", gap: 6, alignItems: "flex-start" }}>
-                      <span style={{ color: "var(--color-danger)" }}>⚠️</span>
-                      <span>{pain}</span>
-                    </div>
-                  ))}
-                </div>
-                <div
+        const rawPains = activeCampaign.acute_pain_points || (activeCampaign.pain_points ? String(activeCampaign.pain_points).split("\n").filter(Boolean) : []);
+        const painPoints = Array.isArray(rawPains) && rawPains.length > 0
+          ? rawPains
+          : ["Manual reconciliation spreadsheets causing billing disputes", "Delayed follow-ups and inspections"];
+
+        const campaignSteps = Array.isArray(activeCampaign.steps) ? activeCampaign.steps : [];
+        const icp = activeCampaign.icp_description || activeCampaign.target_icp || "High-growth real estate portfolios and commercial developments in Kenya";
+        const hook = activeCampaign.killer_hook || activeCampaign.value_proposition || "Automate real estate sales and collections with Center Estates";
+
+        return (
+          <Panel
+            title={
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 18 }}>
+                  {MODULE_DISPLAY[activeCampaign.target_module]?.icon || "🚀"}
+                </span>
+                <span>{activeCampaign.name}</span>
+                <span
                   style={{
-                    background: "rgba(59, 130, 246, 0.1)",
-                    borderLeft: "3px solid #3b82f6",
-                    padding: "8px 12px",
-                    borderRadius: "0 6px 6px 0",
+                    fontSize: 11,
+                    background: "var(--color-surface-alt)",
+                    padding: "2px 8px",
+                    borderRadius: 6,
+                    color: "var(--color-muted)",
                   }}
                 >
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "#60a5fa", textTransform: "uppercase" }}>
-                    Killer Cold Hook
-                  </div>
-                  <div style={{ fontSize: 12, fontStyle: "italic", marginTop: 2 }}>
-                    &ldquo;{activeCampaign.killer_hook}&rdquo;
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Sequence Steps Strip */}
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-muted)" }}>
-                  OUTREACH CADENCE (3-STEP SEQUENCE)
-                </span>
-                <span style={{ fontSize: 11, color: "var(--color-muted)" }}>
-                  Step delay: Day 0 &rarr; Day 3 &rarr; Day 7
+                  Targeting: {MODULE_DISPLAY[activeCampaign.target_module]?.tag}
                 </span>
               </div>
-              <div style={{ display: "flex", gap: 8, overflowX: "auto" }}>
-                {activeCampaign.steps.map((step) => {
-                  const isActive = activeStepTab === step.step_number;
-                  return (
-                    <button
-                      key={step.step_number}
-                      onClick={() => setActiveStepTab(step.step_number)}
-                      style={{
-                        flex: 1,
-                        minWidth: 200,
-                        textAlign: "left",
-                        padding: "10px 14px",
-                        borderRadius: 8,
-                        background: isActive ? "var(--color-surface)" : "var(--color-surface-alt)",
-                        border: `1px solid ${isActive ? "var(--color-info)" : "var(--color-border)"}`,
-                        cursor: "pointer",
-                        transition: "all 0.2s ease",
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}>
-                        <span style={{ fontWeight: 700, color: isActive ? "var(--color-info)" : "inherit" }}>
-                          Step {step.step_number}: {step.delay_days === 0 ? "Day 0 (Cold Hook)" : `Day +${step.delay_days}`}
-                        </span>
-                        <span style={{ textTransform: "uppercase", fontSize: 10, opacity: 0.7 }}>
-                          {step.channel}
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          fontWeight: 500,
-                        }}
-                      >
-                        {step.subject_template}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Preview of active step template */}
-              {activeCampaign.steps.find((s) => s.step_number === activeStepTab) && (
+            }
+          >
+            <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Grid of ICP and Hooks */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+                  gap: 16,
+                }}
+              >
+                {/* ICP & Roles */}
                 <div
                   style={{
-                    marginTop: 10,
                     background: "var(--color-surface-alt)",
                     borderRadius: 8,
                     padding: 14,
-                    border: "1px dashed var(--color-border)",
-                    fontSize: 12,
+                    border: "1px solid var(--color-border)",
                   }}
                 >
-                  <div style={{ fontWeight: 700, marginBottom: 6 }}>
-                    Template Preview (Step {activeStepTab}):
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-muted)", marginBottom: 6 }}>
+                    IDEAL CUSTOMER PROFILE (ICP)
                   </div>
-                  <pre
+                  <p style={{ fontSize: 13, margin: "0 0 10px 0", lineHeight: 1.5 }}>
+                    {icp}
+                  </p>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    <span style={{ fontSize: 11, color: "var(--color-muted)" }}>Target Roles:</span>
+                    {targetRoles.map((role) => (
+                      <span
+                        key={role}
+                        style={{
+                          fontSize: 11,
+                          background: "var(--color-surface)",
+                          border: "1px solid var(--color-border)",
+                          padding: "2px 8px",
+                          borderRadius: 4,
+                        }}
+                      >
+                        {role}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Acute Pains & Killer Hook */}
+                <div
+                  style={{
+                    background: "var(--color-surface-alt)",
+                    borderRadius: 8,
+                    padding: 14,
+                    border: "1px solid var(--color-border)",
+                  }}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-muted)", marginBottom: 6 }}>
+                    ACUTE PAIN POINTS
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
+                    {painPoints.map((pain) => (
+                      <div key={pain} style={{ fontSize: 12, display: "flex", gap: 6, alignItems: "flex-start" }}>
+                        <span style={{ color: "var(--color-danger)" }}>⚠️</span>
+                        <span>{pain}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div
                     style={{
-                      whiteSpace: "pre-wrap",
-                      fontFamily: "inherit",
-                      margin: 0,
-                      color: "var(--color-muted)",
-                      lineHeight: 1.5,
+                      background: "rgba(59, 130, 246, 0.1)",
+                      borderLeft: "3px solid #3b82f6",
+                      padding: "8px 12px",
+                      borderRadius: "0 6px 6px 0",
                     }}
                   >
-                    {activeCampaign.steps.find((s) => s.step_number === activeStepTab)?.body_template}
-                  </pre>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "#60a5fa", textTransform: "uppercase" }}>
+                      Killer Cold Hook
+                    </div>
+                    <div style={{ fontSize: 12, fontStyle: "italic", marginTop: 2 }}>
+                      &ldquo;{hook}&rdquo;
+                    </div>
+                  </div>
                 </div>
-              )}
+              </div>
+
+              {/* Sequence Steps Strip */}
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--color-muted)" }}>
+                    OUTREACH CADENCE ({campaignSteps.length > 0 ? `${campaignSteps.length}-STEP SEQUENCE` : "CADENCE SEQUENCE"})
+                  </span>
+                  <span style={{ fontSize: 11, color: "var(--color-muted)" }}>
+                    Step delay: Day 0 &rarr; Day 3 &rarr; Day 7
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 8, overflowX: "auto" }}>
+                  {campaignSteps.map((step) => {
+                    const isActive = activeStepTab === step.step_number;
+                    return (
+                      <button
+                        key={step.step_number}
+                        onClick={() => setActiveStepTab(step.step_number)}
+                        style={{
+                          flex: 1,
+                          minWidth: 200,
+                          textAlign: "left",
+                          padding: "10px 14px",
+                          borderRadius: 8,
+                          background: isActive ? "var(--color-surface)" : "var(--color-surface-alt)",
+                          border: `1px solid ${isActive ? "var(--color-info)" : "var(--color-border)"}`,
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 4 }}>
+                          <span style={{ fontWeight: 700, color: isActive ? "var(--color-info)" : "inherit" }}>
+                            Step {step.step_number}: {step.delay_days === 0 ? "Day 0 (Cold Hook)" : `Day +${step.delay_days}`}
+                          </span>
+                          <span style={{ textTransform: "uppercase", fontSize: 10, opacity: 0.7 }}>
+                            {step.channel}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {step.subject_template}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Preview of active step template */}
+                {campaignSteps.find((s) => s.step_number === activeStepTab) && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      background: "var(--color-surface-alt)",
+                      borderRadius: 8,
+                      padding: 14,
+                      border: "1px dashed var(--color-border)",
+                      fontSize: 12,
+                    }}
+                  >
+                    <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                      Template Preview (Step {activeStepTab}):
+                    </div>
+                    <pre
+                      style={{
+                        whiteSpace: "pre-wrap",
+                        fontFamily: "inherit",
+                        margin: 0,
+                        color: "var(--color-muted)",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {campaignSteps.find((s) => s.step_number === activeStepTab)?.body_template}
+                    </pre>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </Panel>
-      )}
+          </Panel>
+        );
+      })()}
 
       {/* Prospects Table */}
       <Panel
@@ -588,7 +603,7 @@ export function OutreachView({
             </div>
           }
         >
-          {prospects.length === 0 ? (
+          {!prospects || prospects.length === 0 ? (
             <EmptyState
               icon="🎯"
               title="No prospects found"
@@ -601,7 +616,7 @@ export function OutreachView({
             />
           ) : (
             <DataTable headers={["Company & Contact", "Module Campaign", "Fit Score", "Sequence Step", "Status", "Actions"]}>
-              {prospects.map((p) => {
+              {(prospects || []).map((p) => {
                 const modMeta = p.campaign_module ? MODULE_DISPLAY[p.campaign_module as OutreachCampaignModule] : null;
                 return (
                   <tr key={p.id}>

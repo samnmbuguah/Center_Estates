@@ -644,9 +644,9 @@ export function CMSView({
                       </p>
                     )}
 
-                    {profile?.amenities && profile.amenities.length > 0 && (
+                    {Array.isArray(profile?.amenities) && profile.amenities.length > 0 && (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                        {profile.amenities.map((am) => (
+                        {(profile.amenities || []).map((am) => (
                           <span
                             key={am}
                             style={{

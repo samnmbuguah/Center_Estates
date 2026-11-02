@@ -281,6 +281,10 @@ class OutreachProspectSerializer(serializers.ModelSerializer):
 
 class OutreachCampaignSerializer(serializers.ModelSerializer):
     steps = OutreachSequenceStepSerializer(many=True, read_only=True)
+    target_roles = serializers.SerializerMethodField()
+    acute_pain_points = serializers.SerializerMethodField()
+    killer_hook = serializers.CharField(source='value_proposition', read_only=True)
+    icp_description = serializers.CharField(source='target_icp', read_only=True)
     prospects_count = serializers.SerializerMethodField()
     qualified_count = serializers.SerializerMethodField()
     contacted_count = serializers.SerializerMethodField()
@@ -290,6 +294,28 @@ class OutreachCampaignSerializer(serializers.ModelSerializer):
     class Meta:
         model = OutreachCampaign
         exclude = ('organization',)
+
+    def get_target_roles(self, obj) -> list:
+        role_map = {
+            'property': ['Head of Property Management', 'Estate Director', 'Managing Agent'],
+            'facility': ['Head of Facilities', 'Operations Manager', 'Estates Lead'],
+            'construction': ['Project Manager', 'Director of Developments', 'Lead Engineer'],
+            'valuation': ['Lead Valuer', 'Chief Appraiser', 'Partner'],
+            'tender': ['Procurement Director', 'Tender Lead', 'Commercial Manager'],
+            'sales': ['Head of Sales', 'Chief Commercial Officer', 'Real Estate Broker'],
+        }
+        return role_map.get(obj.target_module, ['Executive Director', 'Operations Lead'])
+
+    def get_acute_pain_points(self, obj) -> list:
+        if obj.pain_points:
+            lines = [line.strip().lstrip('-*•0123456789. ') for line in obj.pain_points.split('\n') if line.strip()]
+            if lines:
+                return lines[:4]
+        return [
+            'Manual reconciliation spreadsheets causing billing disputes',
+            'Uncoordinated field inspections and delayed reporting',
+            'Delayed client follow-ups leading to lost deals'
+        ]
 
     def get_prospects_count(self, obj) -> int:
         return obj.prospects.count()
