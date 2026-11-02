@@ -16,7 +16,7 @@ from rest_framework.throttling import AnonRateThrottle
 from organizations.models import Organization
 from properties.models import Project
 
-from .models import Buyer, SaleListing
+from .models import Buyer, SaleListing, SalesContentArticle, SalesMarketingAsset
 
 
 class EnquiryThrottle(AnonRateThrottle):
@@ -255,3 +255,104 @@ def public_enquiry(request):
         id_number=f'PENDING-{buyer_ref}', status=Buyer.Status.LEAD, notes=notes,
     )
     return Response({'status': 'ok', 'reference': buyer.reference}, status=201)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_articles(request):
+    organization = _public_org()
+    if organization is None:
+        return _no_storefront()
+    articles = SalesContentArticle.objects.filter(
+        organization=organization,
+        status=SalesContentArticle.Status.PUBLISHED,
+    )
+    category = request.query_params.get('category')
+    if category:
+        articles = articles.filter(category=category)
+    search = request.query_params.get('search', '').strip()
+    if search:
+        articles = articles.filter(Q(title__icontains=search) | Q(summary__icontains=search))
+    results = [
+        {
+            'id': str(a.id),
+            'title': a.title,
+            'slug': a.slug,
+            'category': a.category,
+            'category_display': a.get_category_display(),
+            'summary': a.summary,
+            'cover_image_url': a.cover_image_url,
+            'author_name': a.author_name,
+            'is_featured': a.is_featured,
+            'read_time_minutes': a.read_time_minutes,
+            'published_at': a.published_at,
+            'tags': a.tags,
+            'project_name': a.project.name if a.project else '',
+        }
+        for a in articles[:50]
+    ]
+    return Response({'results': results})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_article_detail(request, slug):
+    organization = _public_org()
+    if organization is None:
+        return _no_storefront()
+    article = SalesContentArticle.objects.filter(
+        organization=organization,
+        status=SalesContentArticle.Status.PUBLISHED,
+        slug=slug,
+    ).first()
+    if not article:
+        return Response({'detail': 'Article not found.'}, status=404)
+    article.views_count += 1
+    article.save(update_fields=['views_count'])
+    return Response({
+        'id': str(article.id),
+        'title': article.title,
+        'slug': article.slug,
+        'category': article.category,
+        'category_display': article.get_category_display(),
+        'summary': article.summary,
+        'body': article.body,
+        'cover_image_url': article.cover_image_url,
+        'author_name': article.author_name,
+        'is_featured': article.is_featured,
+        'read_time_minutes': article.read_time_minutes,
+        'published_at': article.published_at,
+        'tags': article.tags,
+        'project_name': article.project.name if article.project else '',
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_assets(request):
+    organization = _public_org()
+    if organization is None:
+        return _no_storefront()
+    assets = SalesMarketingAsset.objects.filter(
+        organization=organization,
+        is_public=True,
+    )
+    kind = request.query_params.get('asset_kind')
+    if kind:
+        assets = assets.filter(asset_kind=kind)
+    results = [
+        {
+            'id': str(a.id),
+            'title': a.title,
+            'asset_kind': a.asset_kind,
+            'asset_kind_display': a.get_asset_kind_display(),
+            'share_url': a.share_url,
+            'file_size': a.file_size,
+            'mime_type': a.mime_type,
+            'description': a.description,
+            'project_name': a.project.name if a.project else '',
+        }
+        for a in assets[:50]
+    ]
+    return Response({'results': results})
+

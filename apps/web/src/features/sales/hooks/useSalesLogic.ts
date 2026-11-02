@@ -11,8 +11,12 @@ import {
   OutreachCampaignModule,
   OutreachProspect,
   OutreachSummary,
+  ProjectMarketingProfile,
   Row,
   SALE_TRANSITIONS,
+  SalesCmsSummary,
+  SalesContentArticle,
+  SalesMarketingAsset,
   SalesTab,
   salesTabLabels,
 } from "../types/sales.types";
@@ -90,6 +94,15 @@ export function useSalesLogic(initialTab = "overview") {
   const [selectedModule, setSelectedModule] = useState<OutreachCampaignModule | "all">("all");
   const [outreachLoading, setOutreachLoading] = useState(false);
 
+  // CMS state
+  const [cmsArticles, setCmsArticles] = useState<SalesContentArticle[]>([]);
+  const [cmsAssets, setCmsAssets] = useState<SalesMarketingAsset[]>([]);
+  const [cmsProfiles, setCmsProfiles] = useState<ProjectMarketingProfile[]>([]);
+  const [cmsSummary, setCmsSummary] = useState<SalesCmsSummary | null>(null);
+  const [cmsLoading, setCmsLoading] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [selectedAssetKind, setSelectedAssetKind] = useState<string>("all");
+
   const loadVersion = useRef(0);
 
   const loadData = useCallback(async () => {
@@ -145,6 +158,56 @@ export function useSalesLogic(initialTab = "overview") {
       return;
     }
 
+    if (tab === "cms") {
+      try {
+        let articleUrl = "/sales/marketing-articles/";
+        const artParams = new URLSearchParams();
+        if (search) artParams.append("search", search);
+        if (status) artParams.append("status", status);
+        if (selectedCategory && selectedCategory !== "all") artParams.append("category", selectedCategory);
+        if (artParams.toString()) articleUrl += `?${artParams.toString()}`;
+
+        let assetUrl = "/sales/marketing-assets/";
+        const assetParams = new URLSearchParams();
+        if (search) assetParams.append("search", search);
+        if (selectedAssetKind && selectedAssetKind !== "all") assetParams.append("asset_kind", selectedAssetKind);
+        if (assetParams.toString()) assetUrl += `?${assetParams.toString()}`;
+
+        const [artRes, assetRes, profRes, sumRes] = await Promise.all([
+          apiFetch(articleUrl, {}, org),
+          apiFetch(assetUrl, {}, org),
+          apiFetch("/sales/project-profiles/", {}, org),
+          apiFetch("/sales/marketing-articles/summary/", {}, org),
+        ]);
+
+        if (version !== loadVersion.current) return;
+
+        if (artRes.ok) {
+          const artData = await artRes.json();
+          const items = Array.isArray(artData) ? artData : artData.results ?? [];
+          setCmsArticles(items);
+          setRows(items as unknown as Row[]);
+        }
+        if (assetRes.ok) {
+          const assetData = await assetRes.json();
+          setCmsAssets(Array.isArray(assetData) ? assetData : assetData.results ?? []);
+        }
+        if (profRes.ok) {
+          const profData = await profRes.json();
+          setCmsProfiles(Array.isArray(profData) ? profData : profData.results ?? []);
+        }
+        if (sumRes.ok) {
+          const sumData = await sumRes.json();
+          setCmsSummary(sumData);
+        }
+      } catch {
+        if (version === loadVersion.current) setError("Unable to load Marketing CMS content.");
+      } finally {
+        if (version === loadVersion.current) setLoading(false);
+      }
+      return;
+    }
+
     const isAnalytics = tab === "performance" || tab === "reports";
     const isHandover = tab === "handover";
     const isBankRecon = tab === "bank-reconciliation";
@@ -177,7 +240,7 @@ export function useSalesLogic(initialTab = "overview") {
     } finally {
       if (version === loadVersion.current) setLoading(false);
     }
-  }, [tab, search, status, org, activeProperty?.id, selectedCampaignId, selectedModule]);
+  }, [tab, search, status, org, activeProperty?.id, selectedCampaignId, selectedModule, selectedCategory, selectedAssetKind]);
 
   useEffect(() => {
     const timer = setTimeout(loadData, search ? 250 : 0);
@@ -542,6 +605,147 @@ export function useSalesLogic(initialTab = "overview") {
     return null;
   }, [org, loadData]);
 
+  // CMS Actions
+  const publishArticle = useCallback(async (id: string) => {
+    if (!org) return null;
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/sales/marketing-articles/${id}/publish/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+    }, org);
+    if (res.ok) {
+      await loadData();
+      return await res.json();
+    }
+    return null;
+  }, [org, loadData]);
+
+  const unpublishArticle = useCallback(async (id: string) => {
+    if (!org) return null;
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/sales/marketing-articles/${id}/unpublish/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+    }, org);
+    if (res.ok) {
+      await loadData();
+      return await res.json();
+    }
+    return null;
+  }, [org, loadData]);
+
+  const saveArticle = useCallback(async (payload: Partial<SalesContentArticle>, id?: string) => {
+    if (!org) return null;
+    await apiFetch("/auth/csrf/");
+    const url = id ? `/sales/marketing-articles/${id}/` : "/sales/marketing-articles/";
+    const method = id ? "PATCH" : "POST";
+    const res = await apiFetch(url, {
+      method,
+      headers: { "X-CSRFToken": csrfFromCookie(), "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }, org);
+    if (res.ok) {
+      await loadData();
+      return await res.json();
+    }
+    return null;
+  }, [org, loadData]);
+
+  const deleteArticle = useCallback(async (id: string) => {
+    if (!org) return false;
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/sales/marketing-articles/${id}/`, {
+      method: "DELETE",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+    }, org);
+    if (res.ok) {
+      await loadData();
+      return true;
+    }
+    return false;
+  }, [org, loadData]);
+
+  const saveAsset = useCallback(async (payload: FormData | Record<string, unknown>, id?: string) => {
+    if (!org) return null;
+    await apiFetch("/auth/csrf/");
+    const url = id ? `/sales/marketing-assets/${id}/` : "/sales/marketing-assets/";
+    const method = id ? "PATCH" : "POST";
+    const isFormData = payload instanceof FormData;
+    const headers: Record<string, string> = { "X-CSRFToken": csrfFromCookie() };
+    if (!isFormData) headers["Content-Type"] = "application/json";
+    const res = await apiFetch(url, {
+      method,
+      headers,
+      body: isFormData ? payload : JSON.stringify(payload),
+    }, org);
+    if (res.ok) {
+      await loadData();
+      return await res.json();
+    }
+    return null;
+  }, [org, loadData]);
+
+  const deleteAsset = useCallback(async (id: string) => {
+    if (!org) return false;
+    await apiFetch("/auth/csrf/");
+    const res = await apiFetch(`/sales/marketing-assets/${id}/`, {
+      method: "DELETE",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+    }, org);
+    if (res.ok) {
+      await loadData();
+      return true;
+    }
+    return false;
+  }, [org, loadData]);
+
+  const recordAssetDownload = useCallback(async (id: string) => {
+    if (!org) return;
+    await apiFetch("/auth/csrf/");
+    await apiFetch(`/sales/marketing-assets/${id}/record-download/`, {
+      method: "POST",
+      headers: { "X-CSRFToken": csrfFromCookie() },
+    }, org);
+  }, [org]);
+
+  const saveProjectProfile = useCallback(async (payload: Partial<ProjectMarketingProfile>, id?: string) => {
+    if (!org) return null;
+    await apiFetch("/auth/csrf/");
+    const url = id ? `/sales/project-profiles/${id}/` : "/sales/project-profiles/";
+    const method = id ? "PATCH" : "POST";
+    const res = await apiFetch(url, {
+      method,
+      headers: { "X-CSRFToken": csrfFromCookie(), "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }, org);
+    if (res.ok) {
+      await loadData();
+      return await res.json();
+    }
+    return null;
+  }, [org, loadData]);
+
+  const seedCmsDefaults = useCallback(async () => {
+    if (!org) return;
+    setCmsLoading(true);
+    await apiFetch("/auth/csrf/");
+    try {
+      await Promise.all([
+        apiFetch("/sales/marketing-articles/seed-defaults/", {
+          method: "POST",
+          headers: { "X-CSRFToken": csrfFromCookie() },
+        }, org),
+        apiFetch("/sales/marketing-assets/seed-defaults/", {
+          method: "POST",
+          headers: { "X-CSRFToken": csrfFromCookie() },
+        }, org),
+      ]);
+      await loadData();
+    } finally {
+      setCmsLoading(false);
+    }
+  }, [org, loadData]);
+
   return {
     tab,
     setTab,
@@ -578,6 +782,25 @@ export function useSalesLogic(initialTab = "overview") {
     seedDefaults,
     generateDraft,
     logOutreach,
+    // CMS state & actions
+    cmsArticles,
+    cmsAssets,
+    cmsProfiles,
+    cmsSummary,
+    cmsLoading,
+    selectedCategory,
+    setSelectedCategory,
+    selectedAssetKind,
+    setSelectedAssetKind,
+    publishArticle,
+    unpublishArticle,
+    saveArticle,
+    deleteArticle,
+    saveAsset,
+    deleteAsset,
+    recordAssetDownload,
+    saveProjectProfile,
+    seedCmsDefaults,
     // Modals
     showRegisterBuyer,
     setShowRegisterBuyer,

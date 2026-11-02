@@ -20,6 +20,7 @@ import {
 import { AuditEventsView } from "./components/tabs/AuditEventsView";
 import { BankReconciliationView } from "./components/tabs/BankReconciliationView";
 import { BuyersView } from "./components/tabs/BuyersView";
+import { CMSView } from "./components/tabs/CMSView";
 import { CommissionsView } from "./components/tabs/CommissionsView";
 import { DocumentsView } from "./components/tabs/DocumentsView";
 import { HandoverView } from "./components/tabs/HandoverView";
@@ -196,6 +197,32 @@ export function SalesFeaturePage({ initialTab = "overview" }: { initialTab?: str
             onSeedDefaults={logic.seedDefaults}
             onGenerateDraft={logic.generateDraft}
             onLogOutreach={logic.logOutreach}
+          />
+        ) : logic.tab === "cms" ? (
+          <CMSView
+            articles={logic.cmsArticles}
+            assets={logic.cmsAssets}
+            profiles={logic.cmsProfiles}
+            summary={logic.cmsSummary}
+            projects={logic.options.projects}
+            loading={logic.cmsLoading}
+            search={logic.search}
+            setSearch={logic.setSearch}
+            status={logic.status}
+            setStatus={logic.setStatus}
+            selectedCategory={logic.selectedCategory}
+            setSelectedCategory={logic.setSelectedCategory}
+            selectedAssetKind={logic.selectedAssetKind}
+            setSelectedAssetKind={logic.setSelectedAssetKind}
+            onPublishArticle={logic.publishArticle}
+            onUnpublishArticle={logic.unpublishArticle}
+            onSaveArticle={logic.saveArticle}
+            onDeleteArticle={logic.deleteArticle}
+            onSaveAsset={logic.saveAsset}
+            onDeleteAsset={logic.deleteAsset}
+            onRecordAssetDownload={logic.recordAssetDownload}
+            onSaveProjectProfile={logic.saveProjectProfile}
+            onSeedDefaults={logic.seedCmsDefaults}
           />
         ) : logic.tab === "sales" ? (
           <SalesView

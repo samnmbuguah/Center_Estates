@@ -22,7 +22,8 @@ from properties.models import Project, ProjectModuleAssignment, Property, Unit
 from .models import (
     AgentCommission, Buyer, BuyerPortalAccess, Installment, ListingRender,
     OutreachActivity, OutreachCampaign, OutreachProspect, OutreachSequenceStep,
-    PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent, SiteVisit
+    ProjectMarketingProfile, PropertySale, SaleDocument, SaleListing, SalePayment,
+    SalesAuditEvent, SalesContentArticle, SalesMarketingAsset, SiteVisit
 )
 from .serializers import (
     AgentCommissionSerializer, BuyerSerializer, BuyerPortalAccessSerializer,
@@ -30,9 +31,12 @@ from .serializers import (
     SaleDocumentSerializer, SaleListingSerializer, SalePaymentSerializer,
     SalesAuditEventSerializer, SalesProjectSerializer, SiteVisitSerializer,
     OutreachActivitySerializer, OutreachCampaignSerializer,
-    OutreachProspectSerializer, OutreachSequenceStepSerializer
+    OutreachProspectSerializer, OutreachSequenceStepSerializer,
+    ProjectMarketingProfileSerializer, SalesContentArticleSerializer,
+    SalesMarketingAssetSerializer
 )
 from .outreach_defaults import MODULE_CAMPAIGN_TEMPLATES, SEED_PROSPECTS
+from .cms_defaults import CMS_DEFAULT_ARTICLES, CMS_DEFAULT_ASSETS
 
 
 class SalesModelViewSet(ModelViewSet):
@@ -1588,4 +1592,174 @@ class OutreachProspectViewSet(SalesModelViewSet):
             'activity': OutreachActivitySerializer(activity).data,
             'prospect': OutreachProspectSerializer(prospect).data,
         })
+
+
+class SalesContentArticleViewSet(SalesModelViewSet):
+    write_permission = 'sales.selling'
+    queryset = SalesContentArticle.objects.select_related('project')
+    serializer_class = SalesContentArticleSerializer
+    search_fields = ('title', 'summary', 'body', 'author_name', 'slug')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        category = self.request.query_params.get('category')
+        if category:
+            qs = qs.filter(category=category)
+        project_id = self.request.query_params.get('project')
+        if project_id:
+            qs = qs.filter(project_id=project_id)
+        return qs
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        serializer.save(organization=organization)
+
+    @action(detail=True, methods=('post',), url_path='publish')
+    def publish(self, request, pk=None):
+        article = self.get_object()
+        article.status = SalesContentArticle.Status.PUBLISHED
+        article.published_at = timezone.now()
+        article.save(update_fields=['status', 'published_at', 'updated_at'])
+        return Response(SalesContentArticleSerializer(article, context={'request': request}).data)
+
+    @action(detail=True, methods=('post',), url_path='unpublish')
+    def unpublish(self, request, pk=None):
+        article = self.get_object()
+        article.status = SalesContentArticle.Status.DRAFT
+        article.save(update_fields=['status', 'updated_at'])
+        return Response(SalesContentArticleSerializer(article, context={'request': request}).data)
+
+    @action(detail=False, methods=('post',), url_path='seed-defaults')
+    def seed_defaults(self, request):
+        organization = get_active_organization(request)
+        seeded_count = 0
+        default_project = Project.objects.filter(organization=organization).first()
+
+        for a_data in CMS_DEFAULT_ARTICLES:
+            _, created = SalesContentArticle.objects.get_or_create(
+                organization=organization,
+                slug=a_data['slug'],
+                defaults={
+                    'title': a_data['title'],
+                    'category': a_data['category'],
+                    'summary': a_data['summary'],
+                    'body': a_data['body'],
+                    'cover_image_url': a_data.get('cover_image_url', ''),
+                    'author_name': a_data.get('author_name', 'Center Estates Sales Team'),
+                    'status': a_data.get('status', SalesContentArticle.Status.PUBLISHED),
+                    'is_featured': a_data.get('is_featured', False),
+                    'read_time_minutes': a_data.get('read_time_minutes', 3),
+                    'tags': a_data.get('tags', []),
+                    'project': default_project,
+                    'published_at': timezone.now() if a_data.get('status') == 'published' else None,
+                }
+            )
+            if created:
+                seeded_count += 1
+
+        articles = self.get_queryset()
+        return Response({
+            'status': 'success',
+            'seeded_articles': seeded_count,
+            'articles': SalesContentArticleSerializer(articles, many=True, context={'request': request}).data,
+        })
+
+    @action(detail=False, methods=('get',), url_path='summary')
+    def summary(self, request):
+        organization = get_active_organization(request)
+        articles = SalesContentArticle.objects.filter(organization=organization)
+        assets = SalesMarketingAsset.objects.filter(organization=organization)
+        profiles = ProjectMarketingProfile.objects.filter(organization=organization)
+
+        return Response({
+            'total_articles': articles.count(),
+            'published_articles': articles.filter(status=SalesContentArticle.Status.PUBLISHED).count(),
+            'draft_articles': articles.filter(status=SalesContentArticle.Status.DRAFT).count(),
+            'featured_articles': articles.filter(is_featured=True).count(),
+            'total_views': articles.aggregate(total=Sum('views_count'))['total'] or 0,
+            'total_assets': assets.count(),
+            'total_downloads': assets.aggregate(total=Sum('downloads_count'))['total'] or 0,
+            'configured_profiles': profiles.count(),
+        })
+
+
+class SalesMarketingAssetViewSet(SalesModelViewSet):
+    write_permission = 'sales.selling'
+    queryset = SalesMarketingAsset.objects.select_related('project')
+    serializer_class = SalesMarketingAssetSerializer
+    search_fields = ('title', 'description')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        kind = self.request.query_params.get('asset_kind')
+        if kind:
+            qs = qs.filter(asset_kind=kind)
+        project_id = self.request.query_params.get('project')
+        if project_id:
+            qs = qs.filter(project_id=project_id)
+        return qs
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        file_obj = self.request.FILES.get('file')
+        file_size = file_obj.size if file_obj else 0
+        mime_type = getattr(file_obj, 'content_type', '') if file_obj else ''
+        serializer.save(
+            organization=organization,
+            file_size=file_size,
+            mime_type=mime_type,
+        )
+
+    @action(detail=True, methods=('post',), url_path='record-download')
+    def record_download(self, request, pk=None):
+        asset = self.get_object()
+        asset.downloads_count += 1
+        asset.save(update_fields=['downloads_count', 'updated_at'])
+        return Response({
+            'status': 'recorded',
+            'downloads_count': asset.downloads_count,
+            'share_url': asset.share_url,
+        })
+
+    @action(detail=False, methods=('post',), url_path='seed-defaults')
+    def seed_defaults(self, request):
+        organization = get_active_organization(request)
+        seeded_count = 0
+        default_project = Project.objects.filter(organization=organization).first()
+
+        for a_data in CMS_DEFAULT_ASSETS:
+            _, created = SalesMarketingAsset.objects.get_or_create(
+                organization=organization,
+                title=a_data['title'],
+                defaults={
+                    'project': default_project,
+                    'asset_kind': a_data['asset_kind'],
+                    'external_url': a_data.get('external_url', ''),
+                    'description': a_data.get('description', ''),
+                    'file_size': a_data.get('file_size', 0),
+                    'mime_type': a_data.get('mime_type', ''),
+                    'is_public': a_data.get('is_public', True),
+                }
+            )
+            if created:
+                seeded_count += 1
+
+        assets = self.get_queryset()
+        return Response({
+            'status': 'success',
+            'seeded_assets': seeded_count,
+            'assets': SalesMarketingAssetSerializer(assets, many=True, context={'request': request}).data,
+        })
+
+
+class ProjectMarketingProfileViewSet(SalesModelViewSet):
+    write_permission = 'sales.selling'
+    queryset = ProjectMarketingProfile.objects.select_related('project')
+    serializer_class = ProjectMarketingProfileSerializer
+    search_fields = ('headline', 'marketing_pitch', 'project__name')
+
+    def perform_create(self, serializer):
+        organization = self._validate_organization(serializer)
+        serializer.save(organization=organization)
+
 

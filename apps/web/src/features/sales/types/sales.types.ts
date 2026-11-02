@@ -5,6 +5,7 @@ export type SalesTab =
   | "buyers"
   | "leads"
   | "outreach"
+  | "cms"
   | "sales"
   | "installments"
   | "payments"
@@ -107,6 +108,93 @@ export type OutreachSummary = {
   conversion_rate: number;
 };
 
+export type ArticleCategory =
+  | "buyer_guide"
+  | "neighborhood_guide"
+  | "investment_analysis"
+  | "project_update"
+  | "promotion"
+  | "faq";
+
+export type SalesContentArticle = {
+  id: string;
+  project?: string | null;
+  project_name?: string;
+  title: string;
+  slug: string;
+  category: ArticleCategory;
+  category_display?: string;
+  summary: string;
+  body: string;
+  cover_image_url?: string;
+  author_name?: string;
+  status: "draft" | "published" | "archived";
+  status_display?: string;
+  is_featured: boolean;
+  read_time_minutes: number;
+  published_at?: string | null;
+  views_count: number;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type MarketingAssetKind =
+  | "brochure"
+  | "pricelist"
+  | "floorplan"
+  | "masterplan"
+  | "video_tour"
+  | "virtual_tour"
+  | "image_still"
+  | "legal_pack";
+
+export type SalesMarketingAsset = {
+  id: string;
+  project?: string | null;
+  project_name?: string;
+  title: string;
+  asset_kind: MarketingAssetKind;
+  asset_kind_display?: string;
+  file_url?: string;
+  external_url?: string;
+  share_url?: string;
+  file_size: number;
+  mime_type: string;
+  is_public: boolean;
+  downloads_count: number;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProjectMarketingProfile = {
+  id?: string;
+  project: string;
+  project_name?: string;
+  project_code?: string;
+  headline: string;
+  marketing_pitch: string;
+  amenities: string[];
+  virtual_tour_url?: string;
+  video_tour_url?: string;
+  brochure_url?: string;
+  is_featured: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type SalesCmsSummary = {
+  total_articles: number;
+  published_articles: number;
+  draft_articles: number;
+  featured_articles: number;
+  total_views: number;
+  total_assets: number;
+  total_downloads: number;
+  configured_profiles: number;
+};
+
 export type Dashboard = {
   kpis?: Record<string, unknown>;
   recentSales?: Row[];
@@ -127,6 +215,7 @@ export const salesTabLabels: Record<SalesTab, string> = {
   buyers: "Buyers Registry",
   leads: "Leads & Prospects",
   outreach: "⚡ AI Outreach & GTM",
+  cms: "🎨 Content & Marketing CMS",
   sales: "Sales Pipeline",
   installments: "Installment Schedules",
   payments: "Payments & Verification",

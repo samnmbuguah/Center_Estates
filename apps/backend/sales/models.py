@@ -425,3 +425,116 @@ class OutreachActivity(OrganizationOwnedModel):
 
     def __str__(self):
         return f"{self.get_activity_type_display()} - {self.prospect.contact_name}"
+
+
+class SalesContentArticle(OrganizationOwnedModel):
+    class Category(models.TextChoices):
+        BUYER_GUIDE = 'buyer_guide', 'Homebuyer & Investor Guide'
+        NEIGHBORHOOD_GUIDE = 'neighborhood_guide', 'Neighborhood & Area Guide'
+        INVESTMENT_ANALYSIS = 'investment_analysis', 'ROI & Market Analysis'
+        PROJECT_UPDATE = 'project_update', 'Project Update & Progress'
+        PROMOTION = 'promotion', 'Special Offer / Launch Promo'
+        FAQ = 'faq', 'Sales & Legal FAQ'
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        PUBLISHED = 'published', 'Published'
+        ARCHIVED = 'archived', 'Archived'
+
+    project = models.ForeignKey('properties.Project', on_delete=models.SET_NULL, null=True, blank=True, related_name='marketing_articles')
+    title = models.CharField(max_length=220)
+    slug = models.SlugField(max_length=255, blank=True)
+    category = models.CharField(max_length=40, choices=Category.choices, default=Category.BUYER_GUIDE)
+    summary = models.TextField(blank=True, help_text='Short excerpt for preview cards, social shares, and SEO metadata.')
+    body = models.TextField(help_text='Full article content formatted in Markdown or structured HTML.')
+    cover_image_url = models.URLField(max_length=512, blank=True)
+    author_name = models.CharField(max_length=120, blank=True, default='Center Estates Sales Team')
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    is_featured = models.BooleanField(default=False, help_text='Pinned to the top of public guides and storefront.')
+    read_time_minutes = models.PositiveSmallIntegerField(default=3)
+    published_at = models.DateTimeField(null=True, blank=True)
+    views_count = models.PositiveIntegerField(default=0)
+    tags = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        ordering = ('-is_featured', '-published_at', '-created_at')
+        constraints = [
+            models.UniqueConstraint(fields=('organization', 'slug'), name='unique_org_article_slug')
+        ]
+
+    def __str__(self):
+        return f"{self.title} ({self.get_status_display()})"
+
+    def clean(self):
+        if not self.slug:
+            from django.utils.text import slugify
+            base_slug = slugify(self.title) or 'article'
+            self.slug = base_slug[:240]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            from django.utils.text import slugify
+            base_slug = slugify(self.title) or 'article'
+            self.slug = base_slug[:240]
+        if self.status == self.Status.PUBLISHED and not self.published_at:
+            from django.utils import timezone
+            self.published_at = timezone.now()
+        super().save(*args, **kwargs)
+
+
+class SalesMarketingAsset(OrganizationOwnedModel):
+    class AssetKind(models.TextChoices):
+        BROCHURE = 'brochure', 'Project Brochure (PDF)'
+        PRICELIST = 'pricelist', 'Payment Plan & Price List'
+        FLOORPLAN = 'floorplan', 'Architectural Floor Plan'
+        MASTERPLAN = 'masterplan', 'Master Site Plan'
+        VIDEO_TOUR = 'video_tour', 'Video Walkthrough'
+        VIRTUAL_TOUR = 'virtual_tour', '3D / Virtual Tour'
+        IMAGE_STILL = 'image_still', 'High-Res Hero Rendering'
+        LEGAL_PACK = 'legal_pack', 'Letter of Offer & Legal Pack'
+
+    project = models.ForeignKey('properties.Project', on_delete=models.SET_NULL, null=True, blank=True, related_name='marketing_assets')
+    title = models.CharField(max_length=200)
+    asset_kind = models.CharField(max_length=40, choices=AssetKind.choices, default=AssetKind.BROCHURE)
+    file = models.FileField(upload_to='sales/marketing_assets/%Y/%m/', blank=True)
+    external_url = models.URLField(max_length=512, blank=True, help_text='External URL e.g. Cloud CDN, YouTube, Matterport')
+    file_size = models.PositiveIntegerField(default=0)
+    mime_type = models.CharField(max_length=80, blank=True)
+    is_public = models.BooleanField(default=True, help_text='Whether this asset is shareable with prospective buyers.')
+    downloads_count = models.PositiveIntegerField(default=0)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+
+    def __str__(self):
+        return f"{self.title} ({self.get_asset_kind_display()})"
+
+    @property
+    def share_url(self) -> str:
+        if self.external_url:
+            return self.external_url
+        if self.file:
+            try:
+                return self.file.url
+            except Exception:
+                return ''
+        return ''
+
+
+class ProjectMarketingProfile(OrganizationOwnedModel):
+    project = models.OneToOneField('properties.Project', on_delete=models.CASCADE, related_name='marketing_profile')
+    headline = models.CharField(max_length=220, blank=True, help_text='Catchy sales tagline')
+    marketing_pitch = models.TextField(blank=True, help_text='Comprehensive sales narrative and lifestyle description')
+    amenities = models.JSONField(default=list, blank=True, help_text='Amenities and features e.g. ["Infinity Pool", "Borehole", "Gym"]')
+    virtual_tour_url = models.URLField(max_length=512, blank=True)
+    video_tour_url = models.URLField(max_length=512, blank=True)
+    brochure_url = models.URLField(max_length=512, blank=True)
+    is_featured = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ('project__name',)
+
+    def __str__(self):
+        return f"Marketing Profile - {self.project.name}"
+

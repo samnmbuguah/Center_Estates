@@ -14,8 +14,9 @@ from properties.models import Project, Property, Unit
 from subscriptions.models import Subscription
 
 from .models import (
-    AgentCommission, Buyer, Installment, ListingRender, PropertySale, SaleDocument, SaleListing,
-    SalePayment, SalesAuditEvent,
+    AgentCommission, Buyer, Installment, ListingRender, ProjectMarketingProfile,
+    PropertySale, SaleDocument, SaleListing, SalePayment, SalesAuditEvent,
+    SalesContentArticle, SalesMarketingAsset,
 )
 
 
@@ -625,3 +626,88 @@ class SalesPublicTests(TestCase):
         self.assertEqual(Buyer.objects.filter(organization=self.organization).count(), 1)
         bad = self.client.post('/api/v1/sales/public/enquiries/', {'name': '', 'phone': ''}, format='json')
         self.assertEqual(bad.status_code, 400)
+
+
+@override_settings(ALLOWED_HOSTS=['testserver'], DEBUG=True, SECURE_SSL_REDIRECT=False)
+class SalesCmsApiTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username='cms-sales-user', password='test')
+        self.organization = Organization.objects.create(name='CMS Real Estate', slug='cms-real-estate')
+        Membership.objects.create(user=self.user, organization=self.organization, is_default=True, is_organization_admin=True)
+        Subscription.objects.create(organization=self.organization, module=Module.SALES, status=Subscription.Status.ACTIVE)
+        prop = Property.objects.create(organization=self.organization, code='CMS-P1', name='Riverside Palms')
+        self.project = Project.objects.create(organization=self.organization, property=prop, code='CMS-PR1', name='Riverside Tower')
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.client.credentials(HTTP_X_ORGANIZATION_ID=str(self.organization.id))
+
+    def test_article_crud_and_publishing(self):
+        # Create draft article
+        res = self.client.post('/api/v1/sales/marketing-articles/', {
+            'title': 'Guide to Modern Nairobi Penthouses',
+            'category': 'buyer_guide',
+            'summary': 'A penthouse investment walkthrough.',
+            'body': '## Penthouse luxury\n\nHigh-end finishes and rooftop views.',
+            'project': str(self.project.id),
+        }, format='json')
+        self.assertEqual(res.status_code, 201, res.data)
+        article_id = res.data['id']
+        self.assertEqual(res.data['status'], 'draft')
+        self.assertEqual(res.data['slug'], 'guide-to-modern-nairobi-penthouses')
+
+        # Publish article
+        pub_res = self.client.post(f'/api/v1/sales/marketing-articles/{article_id}/publish/')
+        self.assertEqual(pub_res.status_code, 200)
+        self.assertEqual(pub_res.data['status'], 'published')
+        self.assertIsNotNone(pub_res.data['published_at'])
+
+        # Unpublish article
+        unpub_res = self.client.post(f'/api/v1/sales/marketing-articles/{article_id}/unpublish/')
+        self.assertEqual(unpub_res.status_code, 200)
+        self.assertEqual(unpub_res.data['status'], 'draft')
+
+    def test_seed_defaults_and_summary(self):
+        # Seed defaults
+        seed_res = self.client.post('/api/v1/sales/marketing-articles/seed-defaults/')
+        self.assertEqual(seed_res.status_code, 200)
+        self.assertGreaterEqual(seed_res.data['seeded_articles'], 1)
+
+        # Asset seed defaults
+        asset_seed_res = self.client.post('/api/v1/sales/marketing-assets/seed-defaults/')
+        self.assertEqual(asset_seed_res.status_code, 200)
+        self.assertGreaterEqual(asset_seed_res.data['seeded_assets'], 1)
+
+        # Summary endpoint
+        summary_res = self.client.get('/api/v1/sales/marketing-articles/summary/')
+        self.assertEqual(summary_res.status_code, 200)
+        self.assertGreater(summary_res.data['total_articles'], 0)
+        self.assertGreater(summary_res.data['total_assets'], 0)
+
+    def test_marketing_asset_crud_and_download(self):
+        res = self.client.post('/api/v1/sales/marketing-assets/', {
+            'title': 'Riverside Tower Brochure',
+            'asset_kind': 'brochure',
+            'external_url': 'https://example.com/riverside-brochure.pdf',
+            'description': 'High-res marketing PDF with floorplans',
+            'project': str(self.project.id),
+        }, format='json')
+        self.assertEqual(res.status_code, 201)
+        asset_id = res.data['id']
+
+        # Record download
+        dl_res = self.client.post(f'/api/v1/sales/marketing-assets/{asset_id}/record-download/')
+        self.assertEqual(dl_res.status_code, 200)
+        self.assertEqual(dl_res.data['downloads_count'], 1)
+
+    def test_project_marketing_profile_crud(self):
+        res = self.client.post('/api/v1/sales/project-profiles/', {
+            'project': str(self.project.id),
+            'headline': 'Luxury High-Rise Living by the River',
+            'marketing_pitch': 'Exceptional 2 & 3 bedroom apartments with heated pool and gym.',
+            'amenities': ['Heated Pool', 'Gym', 'High-Speed Lifts', 'Borehole'],
+            'virtual_tour_url': 'https://my.matterport.com/show/?m=sample',
+        }, format='json')
+        self.assertEqual(res.status_code, 201)
+        self.assertEqual(res.data['headline'], 'Luxury High-Rise Living by the River')
+        self.assertEqual(len(res.data['amenities']), 4)
+
