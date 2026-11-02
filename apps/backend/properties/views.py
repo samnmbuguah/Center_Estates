@@ -5435,11 +5435,20 @@ class BillingRunViewSet(OrganizationModelViewSet):
     def _period_months(period_start, period_end):
         return max(1, (period_end.year - period_start.year) * 12 + period_end.month - period_start.month + 1)
 
-    def _rent_obligation_periods(self, run):
-        """Return rent periods overlapping this run, with their correct labels."""
-        if not run.property_id:
+    @staticmethod
+    def _lease_rent_frequency(lease):
+        """Return a lease-level rent cadence override, or None to inherit the property default."""
+        value = str((lease.metadata or {}).get('billing_frequency') or '').strip().lower()
+        return value if value in FREQUENCY_MONTHS else None
+
+    def _rent_obligation_periods(self, run, frequency=None):
+        """Return rent periods due in this run, with their correct labels.
+
+        ``frequency`` overrides the property's rent cadence (used for lease-level overrides).
+        """
+        if not run.property_id and not frequency:
             return []
-        rent_frequency = property_scope_frequency(run.property, BillingRun.ChargeScope.RENT) or BillingRun.Frequency.MONTHLY
+        rent_frequency = frequency or property_scope_frequency(run.property, BillingRun.ChargeScope.RENT) or BillingRun.Frequency.MONTHLY
         months = self._period_months(run.period_start, run.period_end)
         if rent_frequency == BillingRun.Frequency.MONTHLY:
             start, end = run.period_start, run.period_end
@@ -5514,30 +5523,16 @@ class BillingRunViewSet(OrganizationModelViewSet):
         if lease.monthly_rent <= 0:
             return []
 
-        lease_meta = lease.metadata or {}
-        lease_freq = str(lease_meta.get('billing_frequency') or '').strip().lower()
-        rent_frequency = property_scope_frequency(run.property, BillingRun.ChargeScope.RENT) if run.property else BillingRun.Frequency.MONTHLY
-
-        # If lease explicitly defines an off-cycle frequency, respect it
-        if lease_freq and lease_freq in ('quarterly', 'biannual', 'annual'):
-            lease_interval = FREQUENCY_MONTHS.get(lease_freq, 3)
-            months = self._period_months(run.period_start, run.period_end)
-            if months < lease_interval:
-                anchor_month = ((run.period_start.month - 1) // lease_interval) * lease_interval + 1
-                if run.period_start.month != anchor_month:
-                    return []
-
+        # A lease-level cadence (lease.metadata.billing_frequency) overrides the property default,
+        # e.g. a quarterly commercial lease in a monthly property, or vice versa. Off-cycle months
+        # resolve to no periods, so rent is never re-raised outside its anchor month.
+        lease_freq = self._lease_rent_frequency(lease)
+        property_freq = (
+            property_scope_frequency(run.property, BillingRun.ChargeScope.RENT) if run.property_id else None
+        ) or BillingRun.Frequency.MONTHLY
         effective_periods = rent_periods
-        if lease_freq == 'monthly' and rent_frequency != BillingRun.Frequency.MONTHLY:
-            start = run.period_start
-            end = add_months(start, 1) - timedelta(days=1)
-            effective_periods = [{
-                'start': start,
-                'end': end,
-                'label': f"{start:%B %Y}",
-                'period_key': start.strftime('%Y-%m'),
-                'quantity': 1,
-            }]
+        if lease_freq and lease_freq != property_freq:
+            effective_periods = self._rent_obligation_periods(run, frequency=lease_freq)
 
         rent_profile = next(
             (profile for profile in profiles
@@ -5728,6 +5723,9 @@ class BillingRunViewSet(OrganizationModelViewSet):
         # Prefetch existing non-void invoices for every period represented in this run.
         period_keys = {period_key}
         period_keys.update(period['period_key'] for period in rent_periods)
+        # Include keys for any lease-level cadence overrides so duplicate detection still works.
+        for override in {self._lease_rent_frequency(lease) for lease in leases} - {None}:
+            period_keys.update(p['period_key'] for p in self._rent_obligation_periods(run, frequency=override))
         existing_invoices = Invoice.objects.for_organization(run.organization).filter(
             metadata__billing_period__in=period_keys,
         ).exclude(status=Invoice.Status.VOID).values(
