@@ -171,6 +171,9 @@ async function refreshAccessToken() {
         credentials: "include",
         headers: { "X-CSRFToken": csrfTokenCache },
       });
+      if (!response.ok && typeof window !== "undefined") {
+        sessionStorage.removeItem("ce_authenticated");
+      }
       return response.ok;
     } catch {
       return false;

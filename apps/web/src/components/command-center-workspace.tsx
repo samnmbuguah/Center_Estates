@@ -75,7 +75,7 @@ export function CommandCenterWorkspace() {
   const moduleSlugs = session?.modules?.map((module) => module.slug).join(",") ?? "";
 
   useEffect(() => {
-    if (!organizationId) return;
+    if (!session || !organizationId) return;
     let cancelled = false;
     async function loadPulse() {
       const response = await apiFetch(
