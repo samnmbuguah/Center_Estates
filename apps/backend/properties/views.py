@@ -5452,6 +5452,16 @@ class BillingRunViewSet(OrganizationModelViewSet):
             return [{'start': start, 'end': end, 'label': label, 'period_key': period_key, 'quantity': months}]
 
         interval = FREQUENCY_MONTHS.get(rent_frequency, 1)
+
+        # Cadence check for runs covering less than a full cycle (e.g. single-month runs on a quarterly property):
+        # Rent is only billable in the cycle's anchor commencement month.
+        if months < interval:
+            anchor_month = ((run.period_start.month - 1) // interval) * interval + 1
+            if run.period_start.month != anchor_month:
+                # This run is for an off-cycle month (e.g. February or March in Q1).
+                # Quarterly rent is not due for invoicing in this month.
+                return []
+
         periods = []
         cursor = date(run.period_start.year, ((run.period_start.month - 1) // interval) * interval + 1, 1)
         while cursor <= run.period_end:
@@ -5503,6 +5513,32 @@ class BillingRunViewSet(OrganizationModelViewSet):
         """Build rent items for every outstanding period overlapping the run."""
         if lease.monthly_rent <= 0:
             return []
+
+        lease_meta = lease.metadata or {}
+        lease_freq = str(lease_meta.get('billing_frequency') or '').strip().lower()
+        rent_frequency = property_scope_frequency(run.property, BillingRun.ChargeScope.RENT) if run.property else BillingRun.Frequency.MONTHLY
+
+        # If lease explicitly defines an off-cycle frequency, respect it
+        if lease_freq and lease_freq in ('quarterly', 'biannual', 'annual'):
+            lease_interval = FREQUENCY_MONTHS.get(lease_freq, 3)
+            months = self._period_months(run.period_start, run.period_end)
+            if months < lease_interval:
+                anchor_month = ((run.period_start.month - 1) // lease_interval) * lease_interval + 1
+                if run.period_start.month != anchor_month:
+                    return []
+
+        effective_periods = rent_periods
+        if lease_freq == 'monthly' and rent_frequency != BillingRun.Frequency.MONTHLY:
+            start = run.period_start
+            end = add_months(start, 1) - timedelta(days=1)
+            effective_periods = [{
+                'start': start,
+                'end': end,
+                'label': f"{start:%B %Y}",
+                'period_key': start.strftime('%Y-%m'),
+                'quantity': 1,
+            }]
+
         rent_profile = next(
             (profile for profile in profiles
              if str(profile.billing_item.code or '').strip().lower() == 'rent'),
@@ -5514,7 +5550,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
             tax_rate = tax.rate
 
         items = []
-        for period in rent_periods:
+        for period in effective_periods:
             quantity = Decimal(str(period['quantity']))
             unit_rate = lease.effective_rent(period['start'])
             if unit_rate <= 0:

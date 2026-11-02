@@ -151,10 +151,26 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
   }, [mode, month, customStart, customEnd]);
 
   const rentDueThisPeriod = useMemo(() => {
-    if (rentFrequency !== "quarterly") return true;
-    const monthNumber = Number(period_start.slice(5, 7));
-    return [1, 4, 7, 10].includes(monthNumber);
-  }, [rentFrequency, period_start]);
+    const freq = (rentFrequency || "monthly").toLowerCase();
+    if (freq === "monthly") return true;
+    const [sy, sm] = period_start.split("-").map(Number);
+    const [ey, em] = period_end.split("-").map(Number);
+    const monthsCount = Math.max(1, (ey - sy) * 12 + (em - sm) + 1);
+
+    if (freq === "quarterly") {
+      if (monthsCount >= 3) return true;
+      return [1, 4, 7, 10].includes(sm);
+    }
+    if (freq === "biannual" || freq === "semi_annual" || freq === "semi-annual" || freq === "half_year") {
+      if (monthsCount >= 6) return true;
+      return [1, 7].includes(sm);
+    }
+    if (freq === "annual" || freq === "yearly") {
+      if (monthsCount >= 12) return true;
+      return sm === 1;
+    }
+    return true;
+  }, [rentFrequency, period_start, period_end]);
 
   const changeMonth = (offset: number) => {
     const [year, monthNum] = month.split("-").map(Number);
@@ -663,11 +679,23 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     }
 
     // Tenant Billing Run Mutate
+    const invoiceTypesForRun = !rentDueThisPeriod
+      ? ["utility", "service_charge", "other"]
+      : undefined;
+
     const body: Record<string, unknown> = action === "create"
-      ? { period_start, period_end, charge_scope: "all", frequency: "monthly" }
+      ? {
+          period_start,
+          period_end,
+          charge_scope: "all",
+          frequency: "monthly",
+          ...(invoiceTypesForRun ? { invoice_types: invoiceTypesForRun } : {}),
+        }
       : action === "generate"
         ? { candidate_ids: selected }
-        : {};
+        : action === "prepare" && invoiceTypesForRun
+          ? { invoice_types: invoiceTypesForRun }
+          : {};
     let res = action === "create"
       ? await apiFetch("/property/billing-runs/", { method: "POST", body: JSON.stringify(body) }, organizationId)
       : await apiFetch(`/property/billing-runs/${run?.id}/${action}/`, { method: "POST", body: JSON.stringify(body) }, organizationId);
@@ -676,7 +704,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
       const createdRun = (await res.json()) as BillingRun;
       res = await apiFetch(
         `/property/billing-runs/${createdRun.id}/prepare/`,
-        { method: "POST", body: JSON.stringify({}) },
+        { method: "POST", body: JSON.stringify(invoiceTypesForRun ? { invoice_types: invoiceTypesForRun } : {}) },
         organizationId,
       );
     }
@@ -961,6 +989,14 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         propertyName={activeProp?.name}
       />
 
+      {billingTarget === "tenant" && !rentDueThisPeriod && rentFrequency !== "monthly" && (
+        <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+          <strong>Off-cycle Rent Period:</strong> Rent for this property is configured with{" "}
+          <strong style={{ textTransform: "capitalize" }}>{rentFrequency}</strong> billing frequency. No rent charges are due for {formattedPeriod}.
+          Any variable utilities, water meter readings, and service charges can still be reviewed and billed as normal.
+        </Alert>
+      )}
+
       <CandidateTable
         candidates={visibleCandidates}
         run={billingTarget === "landlord" ? true : Boolean(run)}
@@ -975,6 +1011,8 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         busy={busy}
         formattedMonth={formattedPeriod}
         runPeriodStart={run?.period_start ?? period_start}
+        rentDueThisPeriod={rentDueThisPeriod}
+        rentFrequency={rentFrequency}
         onSearch={setSearch}
         onStatusFilter={setStatusFilter}
         onChargeTypeFilter={(t) => {

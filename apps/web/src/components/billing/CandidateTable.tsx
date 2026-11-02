@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, Button, Checkbox, Chip, FormControlLabel, LinearProgress, MenuItem, Paper, Stack, TextField, Tooltip, Typography } from "@mui/material";
-import { Droplets, Eye, FileText, Gauge, Search, User, Zap, Flame } from "lucide-react";
+import { Calendar, Droplets, Eye, FileText, Gauge, Search, User, Zap, Flame } from "lucide-react";
 import { EmptyState, money, StatusPill } from "@/components/module-ui";
 import { Candidate, statusToneMap, InvoiceChargeType, invoiceChargeType, isMissingWaterReading, missingMeterUtilityType } from "./types";
 import { useAuth } from "@/components/auth-provider";
@@ -20,6 +20,8 @@ export function CandidateTable({
   readyCount,
   busy,
   formattedMonth,
+  rentDueThisPeriod = true,
+  rentFrequency = "monthly",
   onSearch,
   onStatusFilter,
   onChargeTypeFilter = () => {},
@@ -43,6 +45,8 @@ export function CandidateTable({
   busy: string;
   formattedMonth: string;
   runPeriodStart?: string;
+  rentDueThisPeriod?: boolean;
+  rentFrequency?: string;
   onSearch: (v: string) => void;
   onStatusFilter: (v: string) => void;
   onChargeTypeFilter?: (t: InvoiceChargeType | "all") => void;
@@ -78,7 +82,12 @@ export function CandidateTable({
           {billingTarget === "tenant" && <Stack className="billing-charge-filters" direction="row">
             {([
               { key: "all", label: "All charges" },
-              { key: "rent", label: `Rent${typeCounts.rent ? ` (${typeCounts.rent})` : ""}` },
+              {
+                key: "rent",
+                label: !rentDueThisPeriod && rentFrequency !== "monthly"
+                  ? "Rent (Off-cycle)"
+                  : `Rent${typeCounts.rent ? ` (${typeCounts.rent})` : ""}`,
+              },
               { key: "service_charge", label: `Service charge${typeCounts.service_charge ? ` (${typeCounts.service_charge})` : ""}` },
               { key: "utility", label: `Utilities${typeCounts.utility ? ` (${typeCounts.utility})` : ""}` },
             ] as const).map((item) => <Chip key={item.key} size="small" label={item.label} clickable onClick={() => onChargeTypeFilter(item.key)} color={chargeTypeFilter === item.key ? "primary" : "default"} variant={chargeTypeFilter === item.key ? "filled" : "outlined"} />)}
@@ -454,6 +463,29 @@ export function CandidateTable({
                   </tr>
                 );
               })}
+              {candidates.length === 0 && (
+                <tr>
+                  <td colSpan={7} style={{ padding: "48px 16px", textAlign: "center", color: "var(--text-secondary)" }}>
+                    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+                      {chargeTypeFilter === "rent" && rentDueThisPeriod === false ? (
+                        <>
+                          <Calendar size={32} style={{ opacity: 0.6, color: "var(--color-info)" }} />
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "var(--text-primary)" }}>Rent is off-cycle for this period</Typography>
+                          <Typography variant="body2" sx={{ maxWidth: 460, fontSize: 13 }}>
+                            Rent for this property is configured with <strong style={{ textTransform: "capitalize" }}>{rentFrequency}</strong> frequency. No rent charges are due for {formattedMonth}.
+                          </Typography>
+                        </>
+                      ) : (
+                        <>
+                          <FileText size={32} style={{ opacity: 0.3 }} />
+                          <Typography variant="subtitle2" sx={{ color: "var(--text-primary)" }}>No candidates found</Typography>
+                          <Typography variant="body2" sx={{ fontSize: 13 }}>No billable items match the selected filters for this period.</Typography>
+                        </>
+                      )}
+                    </Box>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </Box>
