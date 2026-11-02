@@ -17,7 +17,7 @@ export const modules = [
 ] as const;
 
 /** Modules currently enabled for the whole system (scope restriction). */
-export const ACTIVE_MODULES: readonly string[] = ["property", "facility", "valuation", "companion"];
+export const ACTIVE_MODULES: readonly string[] = ["property", "facility", "sales", "valuation", "companion"];
 
 /** Modules kept in the catalogue but hidden unless explicitly enabled by flag/role. */
 export const DISABLED_MODULES: readonly string[] = modules

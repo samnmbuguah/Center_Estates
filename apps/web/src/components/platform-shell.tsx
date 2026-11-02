@@ -209,12 +209,19 @@ export default function PlatformShell({ children }: { children: React.ReactNode 
   const { mode, toggleTheme } = useTheme();
 
   const allowedSlugs = useMemo(() => {
-    // The sales storefront domain admits no other module — including for
-    // superusers, who retain full access via the main domain.
-    if (isSalesOnlyHost()) return [SALES_MODULE];
-    return session?.user?.isSuperuser
+    const userModules = session?.user?.isSuperuser
       ? modules.map((module) => module.slug)
       : (session?.modules.map((module) => module.slug) ?? []).filter((slug) => ACTIVE_MODULES.includes(slug));
+
+    if (isSalesOnlyHost()) {
+      // On .co.ke, allow all commercial operations (Sales, Property, Facility, Companion, Valuation)
+      // Hide heavy enterprise construction & tender modules unless superuser
+      const commercialAllowed = new Set(["sales", "property", "facility", "companion", "valuation"]);
+      const filtered = userModules.filter((slug) => commercialAllowed.has(slug));
+      return filtered.length > 0 ? filtered : [SALES_MODULE];
+    }
+
+    return userModules;
   }, [session?.modules, session?.user?.isSuperuser]);
 
   const filteredModules = useMemo(() => {

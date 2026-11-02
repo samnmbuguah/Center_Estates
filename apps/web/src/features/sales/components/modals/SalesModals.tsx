@@ -178,43 +178,244 @@ export function NewSaleModal({
   buyers: Row[];
   listings: Row[];
 }) {
+  const [activeStep, setActiveStep] = useState(0);
+  const [selectedBuyerId, setSelectedBuyerId] = useState("");
+  const [selectedListingId, setSelectedListingId] = useState("");
+  const [reference, setReference] = useState("");
+  const [agreedPrice, setAgreedPrice] = useState("");
+  const [reservationFee, setReservationFee] = useState("");
+  const [paymentPlan, setPaymentPlan] = useState("milestone_10_20_30_30_10");
+  const [notes, setNotes] = useState("");
+
+  const selectedBuyer = buyers.find((b) => String(b.id) === selectedBuyerId);
+  const selectedListing = listings.find((l) => String(l.id) === selectedListingId);
+
+  const handleListingChange = (listingId: string) => {
+    setSelectedListingId(listingId);
+    const l = listings.find((x) => String(x.id) === listingId);
+    if (l) {
+      const price = Number(l.list_price || 0);
+      setAgreedPrice(String(price));
+      setReservationFee(String(Math.round(price * 0.10)));
+      if (!reference || reference.startsWith("SALE-")) {
+        const year = new Date().getFullYear();
+        const code = String(l.unit_code || "UNIT").replace(/[^a-zA-Z0-9-]/g, "");
+        setReference(`SALE-${year}-${code}`);
+      }
+    }
+  };
+
+  const steps = ["1. Buyer & Unit", "2. Commercial Terms", "3. Review & Create"];
+
+  const handleNext = () => {
+    if (activeStep === 0 && (!selectedBuyerId || !selectedListingId)) return;
+    if (activeStep === 1 && (!agreedPrice || Number(agreedPrice) <= 0)) return;
+    setActiveStep((prev) => prev + 1);
+  };
+
+  const handleBack = () => setActiveStep((prev) => prev - 1);
+
+  const handleFinalSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit({
+      reference: reference || `SALE-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`,
+      buyer: selectedBuyerId,
+      listing: selectedListingId,
+      agreed_price: agreedPrice,
+      reservation_fee: reservationFee || "0",
+      notes: notes ? `${notes} [Plan: ${paymentPlan}]` : `Plan: ${paymentPlan}`,
+    });
+  };
+
   if (!open) return null;
+
   return (
-    <Modal title="+ New Sale" onClose={onClose}>
+    <Modal title="Create New Sale Deal" onClose={onClose}>
       <FormError error={error} />
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit(Object.fromEntries(new FormData(e.currentTarget).entries()) as Record<string, string>);
-        }}
-        style={{ display: "grid", gap: 16, marginTop: 4 }}
-      >
-        <div className="grid-2">
-          <TextField fullWidth size="small" name="reference" label="Sale reference" required placeholder="SALE-2026-0001" />
-          <TextField select fullWidth size="small" name="buyer" label="Buyer" required defaultValue="">
-            <MenuItem value="" disabled>Select buyer…</MenuItem>
-            {buyers.map((b) => (
-              <MenuItem key={String(b.id)} value={String(b.id)}>
-                {String(b.full_name ?? "—")} · {String(b.reference ?? "—")}
-              </MenuItem>
-            ))}
-          </TextField>
-        </div>
-        <TextField select fullWidth size="small" name="listing" label="Unit listing" required defaultValue="">
-          <MenuItem value="" disabled>Select listing…</MenuItem>
-          {listings.map((l) => (
-            <MenuItem key={String(l.id)} value={String(l.id)}>
-              {String(l.project_name ?? "—")} · {String(l.unit_code ?? "—")} · {fmtMoney(l.list_price)}
-            </MenuItem>
-          ))}
-        </TextField>
-        <div className="grid-2">
-          <TextField fullWidth size="small" name="agreed_price" label="Agreed price (KES)" type="number" required placeholder="12500000" slotProps={{ htmlInput: { min: 1 } }} />
-          <TextField fullWidth size="small" name="reservation_fee" label="Reservation fee (KES)" type="number" defaultValue="0" slotProps={{ htmlInput: { min: 0 } }} />
-        </div>
-        <div className="modal-actions" style={{ marginTop: 8 }}>
-          <Button type="button" variant="outlined" onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="contained">Create Sale</Button>
+
+      <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 3, mt: 1 }}>
+        {steps.map((label) => (
+          <Step key={label}>
+            <StepLabel>{label}</StepLabel>
+          </Step>
+        ))}
+      </Stepper>
+
+      <form onSubmit={handleFinalSubmit} style={{ display: "grid", gap: 16 }}>
+        {activeStep === 0 && (
+          <div style={{ display: "grid", gap: 14 }}>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Select Property Unit Listing"
+              required
+              value={selectedListingId}
+              onChange={(e) => handleListingChange(e.target.value)}
+              helperText="Choose the available off-plan or completed inventory unit"
+            >
+              <MenuItem value="" disabled>Select listing…</MenuItem>
+              {listings.map((l) => (
+                <MenuItem key={String(l.id)} value={String(l.id)}>
+                  {String(l.project_name ?? "—")} · {String(l.unit_code ?? "—")} · {fmtMoney(l.list_price)}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Select Purchasing Buyer"
+              required
+              value={selectedBuyerId}
+              onChange={(e) => setSelectedBuyerId(e.target.value)}
+              helperText="Buyer must be registered in the CRM registry"
+            >
+              <MenuItem value="" disabled>Select buyer…</MenuItem>
+              {buyers.map((b) => (
+                <MenuItem key={String(b.id)} value={String(b.id)}>
+                  {String(b.full_name ?? "—")} ({String(b.reference ?? "—")}) {b.phone ? `· ${String(b.phone)}` : ""}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            {selectedListing && (
+              <div style={{ padding: 12, borderRadius: 8, background: "var(--surface-sunken)", border: "1px solid var(--border)", fontSize: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <strong>{String(selectedListing.project_name ?? "—")}</strong>
+                  <span className="mono" style={{ fontWeight: 700, color: "var(--color-primary)" }}>{fmtMoney(selectedListing.list_price)}</span>
+                </div>
+                <div style={{ color: "var(--muted)" }}>
+                  Unit Code: <strong>{String(selectedListing.unit_code ?? "—")}</strong> · Min Deposit: {String(selectedListing.minimum_deposit_percent ?? 10)}%
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeStep === 1 && (
+          <div style={{ display: "grid", gap: 14 }}>
+            <div className="grid-2">
+              <TextField
+                fullWidth
+                size="small"
+                label="Sale Deal Reference"
+                required
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
+                placeholder="SALE-2026-001"
+              />
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Payment Milestone Structure"
+                value={paymentPlan}
+                onChange={(e) => setPaymentPlan(e.target.value)}
+              >
+                <MenuItem value="milestone_10_20_30_30_10">Institutional Off-Plan (10-20-30-30-10)</MenuItem>
+                <MenuItem value="milestone_20_80_handover">20% Booking + 80% Handover</MenuItem>
+                <MenuItem value="mortgage_10_90">10% Deposit + 90% Bank Mortgage</MenuItem>
+                <MenuItem value="cash_lump_sum">100% Cash Settlement</MenuItem>
+              </TextField>
+            </div>
+
+            <div className="grid-2">
+              <TextField
+                fullWidth
+                size="small"
+                label="Agreed Sale Price (KES)"
+                type="number"
+                required
+                value={agreedPrice}
+                onChange={(e) => setAgreedPrice(e.target.value)}
+                slotProps={{ htmlInput: { min: 1 } }}
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="Reservation Booking Fee (KES)"
+                type="number"
+                value={reservationFee}
+                onChange={(e) => setReservationFee(e.target.value)}
+                slotProps={{ htmlInput: { min: 0 } }}
+                helperText="Initial booking deposit to hold the unit"
+              />
+            </div>
+
+            <TextField
+              fullWidth
+              size="small"
+              multiline
+              rows={2}
+              label="Special Contract Notes / Terms"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Sectional title transfer costs included; finishes selection by June 2026."
+            />
+          </div>
+        )}
+
+        {activeStep === 2 && (
+          <div style={{ display: "grid", gap: 12 }}>
+            <div style={{ padding: 14, borderRadius: 10, background: "var(--surface-sunken)", border: "1px solid var(--border)", display: "grid", gap: 10, fontSize: 13 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: 8 }}>
+                <span style={{ color: "var(--muted)" }}>Sale Reference:</span>
+                <strong className="mono">{reference}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: 8 }}>
+                <span style={{ color: "var(--muted)" }}>Buyer:</span>
+                <strong>{selectedBuyer ? `${String(selectedBuyer.full_name)} (${String(selectedBuyer.phone || "")})` : "—"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: 8 }}>
+                <span style={{ color: "var(--muted)" }}>Project & Unit:</span>
+                <strong>{selectedListing ? `${String(selectedListing.project_name)} · Unit ${String(selectedListing.unit_code)}` : "—"}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: 8 }}>
+                <span style={{ color: "var(--muted)" }}>Agreed Price:</span>
+                <strong className="mono" style={{ fontSize: 15, color: "var(--color-primary)" }}>{fmtMoney(agreedPrice)}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border-subtle)", paddingBottom: 8 }}>
+                <span style={{ color: "var(--muted)" }}>Reservation Fee:</span>
+                <strong className="mono" style={{ color: "var(--color-success)" }}>{fmtMoney(reservationFee)}</strong>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--muted)" }}>Payment Structure:</span>
+                <span style={{ fontWeight: 600 }}>{paymentPlan.replaceAll("_", " ").toUpperCase()}</span>
+              </div>
+            </div>
+            <p style={{ fontSize: 11, color: "var(--muted)", margin: 0 }}>
+              Confirming will place this unit in <strong>Reserved</strong> status, associate the buyer with the unit, and prepare the sale agreement.
+            </p>
+          </div>
+        )}
+
+        <div className="modal-actions" style={{ marginTop: 12, display: "flex", justifyContent: "space-between" }}>
+          {activeStep > 0 ? (
+            <Button type="button" variant="outlined" onClick={handleBack}>
+              ← Back
+            </Button>
+          ) : (
+            <Button type="button" variant="outlined" onClick={onClose}>
+              Cancel
+            </Button>
+          )}
+
+          {activeStep < 2 ? (
+            <Button
+              type="button"
+              variant="contained"
+              onClick={handleNext}
+              disabled={activeStep === 0 ? (!selectedBuyerId || !selectedListingId) : (!agreedPrice || Number(agreedPrice) <= 0)}
+            >
+              Continue →
+            </Button>
+          ) : (
+            <Button type="submit" variant="contained">
+              Confirm & Create Deal
+            </Button>
+          )}
         </div>
       </form>
     </Modal>

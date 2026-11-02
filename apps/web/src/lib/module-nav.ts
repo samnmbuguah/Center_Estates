@@ -156,36 +156,49 @@ export const facilityNav: ModuleNavGroup[] = [
 export const salesNav: ModuleNavGroup[] = [
   { label: "OVERVIEW", icon: "▦", items: [{ id: "overview", label: "Sales Dashboard", icon: "▦" }] },
   {
-    label: "FIELD",
-    icon: "📱",
-    items: [{ id: "clerk", label: "Sales Clerk (Mobile)", icon: "📱" }],
+    label: "GROWTH & MARKETING",
+    icon: "⚡",
+    items: [
+      { id: "outreach", label: "AI Outreach & GTM", icon: "⚡" },
+      { id: "cms", label: "Content & Marketing CMS", icon: "🎨" },
+      { id: "leads", label: "Leads & Prospects", icon: "🎯" },
+    ],
   },
   {
-    label: "PIPELINE",
+    label: "SALES PIPELINE",
     icon: "◈",
     items: [
       { id: "inventory", label: "Projects & Units", icon: "🏢" },
-      { id: "buyers", label: "Buyers & Leads", icon: "👥" },
-      { id: "sales", label: "Property Sales", icon: "🤝" },
+      { id: "buyers", label: "Buyers Registry", icon: "👥" },
+      { id: "sales", label: "Deals & Sales Pipeline", icon: "🤝" },
       { id: "site-visits", label: "Site Visits", icon: "📍" },
     ],
   },
   {
-    label: "COLLECTIONS",
+    label: "COLLECTIONS & ESCROW",
     icon: "◎",
     items: [
       { id: "installments", label: "Payment Schedules", icon: "📅" },
       { id: "payments", label: "Buyer Payments", icon: "💰" },
-      { id: "commissions", label: "Sales Commissions", icon: "🧾" },
+      { id: "commissions", label: "Agent Commissions", icon: "🧾" },
+      { id: "bank-reconciliation", label: "Bank Reconciliation", icon: "🏦" },
     ],
   },
   {
-    label: "INSIGHTS",
+    label: "FIELD & CLOSING",
+    icon: "📱",
+    items: [
+      { id: "clerk", label: "Sales Clerk (Mobile)", icon: "📱" },
+      { id: "documents", label: "Legal Document Packs", icon: "📎" },
+      { id: "handover", label: "Unit Handover", icon: "🔑" },
+    ],
+  },
+  {
+    label: "INSIGHTS & GOVERNANCE",
     icon: "◌",
     items: [
       { id: "performance", label: "Agent Performance", icon: "📊" },
       { id: "reports", label: "Sales Reports", icon: "📈" },
-      { id: "documents", label: "Legal Documents", icon: "📎" },
       { id: "audit-events", label: "Audit Trail", icon: "📜" },
     ],
   },

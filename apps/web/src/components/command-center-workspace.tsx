@@ -9,6 +9,7 @@ import { useSearchParams } from "next/navigation";
 import { ModuleCalendarView, ModuleTicketsView } from "@/components/module-activity";
 import { Box, Grid, Typography } from "@mui/material";
 import { TrendingUp, AlertCircle, CheckCircle, Clock, Activity, Users, Building2 } from "lucide-react";
+import { isSalesOnlyHost } from "@/lib/site-mode";
 
 type Pulse = {
   property?: { properties: number; outstanding: number; occupancy: number; tenants: number };
@@ -56,8 +57,17 @@ export function CommandCenterWorkspace() {
   
   // Always add companion as a universal module
   allowed.add("companion");
-  
-  const subscribedModules = modules.filter((module) => allowed.has(module.slug));
+
+  const isStorefront = typeof window !== "undefined" && isSalesOnlyHost();
+  const subscribedModules = modules
+    .filter((module) => allowed.has(module.slug))
+    .filter((module) => {
+      if (isStorefront && !session?.user?.isSuperuser) {
+        // On .co.ke domain, hide heavy enterprise construction & tender modules
+        return !["tender", "monitoring"].includes(module.slug);
+      }
+      return true;
+    });
   const organizationId = session?.activeOrganizationId ?? null;
   const [pulse, setPulse] = useState<Pulse>({});
   const searchParams = useSearchParams();

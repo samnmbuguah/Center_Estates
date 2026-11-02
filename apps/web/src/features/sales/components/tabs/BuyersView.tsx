@@ -248,7 +248,15 @@ export function BuyersView({
   canSell: boolean;
 }) {
   const [selected, setSelected] = useState<Row | null>(null);
+  const [viewMode, setViewMode] = useState<"table" | "board">("table");
   const active = countBy(rows, ["active", "qualified"]);
+
+  const buyerStages: { key: string; label: string; color: string }[] = [
+    { key: "lead", label: "Inbound Leads", color: "var(--color-amber-strong)" },
+    { key: "qualified", label: "Qualified Buyers", color: "var(--color-sky)" },
+    { key: "active", label: "Active Deals", color: "var(--color-success)" },
+    { key: "completed", label: "Closed / Completed", color: "var(--color-indigo)" },
+  ];
 
   return (
     <>
@@ -310,10 +318,81 @@ export function BuyersView({
           setSearch={setSearch}
           placeholder="Search name, reference, ID, email…"
           chips={<FilterChips options={[{ value: "lead", label: "Leads" }, { value: "qualified", label: "Qualified" }, { value: "active", label: "Active" }, { value: "completed", label: "Completed" }, { value: "cancelled", label: "Cancelled" }]} value={status as "lead" | "qualified" | "active" | "completed" | "cancelled" | ""} onChange={(v) => setStatus(v)} />}
-          actions={<div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}><SavedViews scope="buyers" current={{ status, search }} onApply={(f) => { setStatus(f.status); setSearch(f.search); }} />{canSell ? <button className="btn primary sm" onClick={openRegisterBuyer}>+ Register Buyer</button> : null}</div>}
+          actions={
+            <div className="row" style={{ gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <SavedViews scope="buyers" current={{ status, search }} onApply={(f) => { setStatus(f.status); setSearch(f.search); }} />
+              <button className={`btn sm ${viewMode === "table" ? "primary" : "ghost"}`} onClick={() => setViewMode("table")}>Table</button>
+              <button className={`btn sm ${viewMode === "board" ? "primary" : "ghost"}`} onClick={() => setViewMode("board")}>Kanban</button>
+              {canSell ? <button className="btn primary sm" onClick={openRegisterBuyer}>+ Register Buyer</button> : null}
+            </div>
+          }
         >
           {rows.length === 0 ? (
             <EmptyState icon="👥" title="No buyers registered" description="Register your first buyer to attach units, installments and payments." action={canSell ? <button className="btn primary sm" onClick={openRegisterBuyer}>+ Register Buyer</button> : undefined} />
+          ) : viewMode === "board" ? (
+            <div className="kanban-scroll" style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, alignItems: "flex-start" }}>
+              {buyerStages.map((stage) => {
+                const items = rows.filter((r) => String(r.status ?? "") === stage.key);
+                return (
+                  <div key={stage.key} style={{ minWidth: 264, flex: "0 0 264px", background: "var(--surface-2, var(--color-slate-50))", border: "1px solid var(--border)", borderRadius: 12, padding: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12 }}>
+                        <i style={{ width: 8, height: 8, borderRadius: "50%", background: stage.color, display: "inline-block" }} />
+                        {stage.label}
+                        <span style={{ color: "var(--muted)", fontWeight: 600 }}>{items.length}</span>
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {items.length === 0 ? (
+                        <div style={{ fontSize: 11, color: "var(--muted)", padding: "12px 4px", textAlign: "center", border: "1px dashed var(--border)", borderRadius: 8 }}>No buyers</div>
+                      ) : items.map((r) => {
+                        const initials = String(r.full_name ?? "B").split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+                        return (
+                          <article
+                            key={String(r.id)}
+                            onClick={() => setSelected(r)}
+                            style={{ background: "var(--surface, #fff)", border: "1px solid var(--border)", borderLeft: `3px solid ${stage.color}`, borderRadius: 10, padding: 10, cursor: "pointer" }}
+                          >
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 6, alignItems: "center" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--surface-sunken)", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700, color: "var(--text-primary)" }}>
+                                  {initials}
+                                </span>
+                                <strong style={{ fontSize: 12 }}>{String(r.full_name ?? "—")}</strong>
+                              </div>
+                              <RefText value={r.reference} />
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--muted)", margin: "6px 0 6px" }}>
+                              📞 {String(r.phone ?? "No phone")} {r.email ? `· ✉️ ${String(r.email)}` : ""}
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10 }}>
+                              <Badge tone={r.financing_type === "bank" ? "blue" : "green"}>{r.financing_type === "bank" ? "Bank Mortgaged" : "Self-Financed"}</Badge>
+                              {r.phone ? (
+                                <a
+                                  href={`https://wa.me/${String(r.phone).replace(/[^0-9]/g, "")}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ color: "var(--color-success)", fontWeight: 700, textDecoration: "none" }}
+                                >
+                                  💬 WhatsApp
+                                </a>
+                              ) : null}
+                            </div>
+                            {canSell && String(r.status) in BUYER_TRANSITIONS && BUYER_TRANSITIONS[String(r.status)].length > 0 && (
+                              <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
+                                <button className="btn ghost sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={(e) => { e.stopPropagation(); setSelected(r); }}>Profile</button>
+                                <button className="btn ghost sm" style={{ fontSize: 10, padding: "2px 8px" }} onClick={(e) => { e.stopPropagation(); transitionBuyer(r); }}>Advance Stage →</button>
+                              </div>
+                            )}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             <DataTable headers={["Ref", "Name", "ID Number", "KRA PIN", "Contact", "Email", "Financing", "Status", "Actions"]}>
               {rows.map((r) => (
