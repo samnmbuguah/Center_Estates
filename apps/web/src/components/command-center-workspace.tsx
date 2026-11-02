@@ -34,6 +34,11 @@ const quickActions: Record<string, Array<{ label: string; href: string; permissi
     { label: "Assets", href: "/facility?tab=assets" },
     { label: "Inspections", href: "/facility?tab=inspections" },
   ],
+  sales: [
+    { label: "Deals pipeline", href: "/sales?tab=sales" },
+    { label: "Buyers registry", href: "/sales?tab=buyers" },
+    { label: "Content & CMS", href: "/sales?tab=cms" },
+  ],
   valuation: [
     { label: "Instructions", href: "/valuation?tab=instructions" },
     { label: "Inspections", href: "/valuation?tab=inspections" },
@@ -115,6 +120,7 @@ export function CommandCenterWorkspace() {
     if (slug === "sales" && pulse.sales) {
       return [
         { label: "Units", value: String(pulse.sales.availableUnits) },
+        { label: "Pipeline", value: money.format(pulse.sales.salesValue || 0) },
         { label: "Pending pay", value: String(pulse.sales.pendingPayments) },
       ];
     }
@@ -146,6 +152,12 @@ export function CommandCenterWorkspace() {
     return null;
   };
 
+  const hasPermission = (perm?: string) => {
+    if (!perm) return true;
+    if (session?.user?.isSuperuser) return true;
+    return session?.permissions?.includes(perm) ?? false;
+  };
+
   return (
     <div className="page-wrap command-center">
 
@@ -160,10 +172,10 @@ export function CommandCenterWorkspace() {
               {subscribedModules.map((module) => {
                 const live = moduleStats(module.slug);
                 const stats = (live ?? module.stats.map((stat) => ({ label: stat.label, value: stat.value }))).slice(0, 3);
+                const actions = (quickActions[module.slug] || []).filter((act) => hasPermission(act.permission));
                 return (
-                  <Link
+                  <div
                     key={module.slug}
-                    href={`/${module.slug}`}
                     className="module-card design-module-card portrait-module-card"
                     style={{
                       "--module-accent": module.accent,
@@ -171,81 +183,111 @@ export function CommandCenterWorkspace() {
                       flexDirection: "column",
                       alignItems: "center",
                       textAlign: "center",
-                      padding: "32px 24px 24px",
+                      padding: "28px 20px 20px",
                       borderRadius: 18,
                       background: "var(--surface)",
                       border: "1px solid var(--border)",
-                      textDecoration: "none",
                       color: "inherit",
                       position: "relative",
                       transition: "all 0.2s ease-in-out",
-                      minHeight: 220,
+                      minHeight: 250,
                     } as CSSProperties}
                   >
-                    <div
-                      className="module-icon-circle"
+                    <Link
+                      href={`/${module.slug}`}
                       style={{
-                        width: 90,
-                        height: 90,
-                        borderRadius: "50%",
-                        background: `color-mix(in srgb, ${module.accent} 9%, transparent)`,
-                        color: module.accent,
-                        display: "grid",
-                        placeItems: "center",
-                        fontSize: 40,
-                        marginBottom: 20,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        textAlign: "center",
+                        width: "100%",
+                        textDecoration: "none",
+                        color: "inherit",
                       }}
                     >
-                      {module.icon}
-                    </div>
-
-                    <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 8px", lineHeight: 1.25 }}>
-                      {module.name}
-                    </h3>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 24px", minHeight: 40, lineHeight: 1.5, maxWidth: 260 }}>
-                      {module.description}
-                    </p>
-
-                    {stats.length > 0 && (
                       <div
-                        className="module-card-kpis"
+                        className="module-icon-circle"
                         style={{
-                          width: "100%",
+                          width: 80,
+                          height: 80,
+                          borderRadius: "50%",
+                          background: `color-mix(in srgb, ${module.accent} 9%, transparent)`,
+                          color: module.accent,
                           display: "grid",
-                          gridTemplateColumns: `repeat(${stats.length}, 1fr)`,
-                          gap: 10,
-                          paddingTop: 16,
-                          borderTop: "1px solid var(--border-subtle)",
-                          marginTop: "auto",
-                          textAlign: "center",
+                          placeItems: "center",
+                          fontSize: 36,
+                          marginBottom: 16,
                         }}
                       >
-                        {stats.map((stat) => (
-                          <div key={stat.label} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                            <span style={{ fontSize: 17, fontWeight: 900, color: "var(--text-primary)" }}>{stat.value}</span>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginTop: 2 }}>{stat.label}</span>
-                          </div>
+                        {module.icon}
+                      </div>
+
+                      <h3 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", margin: "0 0 6px", lineHeight: 1.25 }}>
+                        {module.name}
+                      </h3>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)", margin: "0 0 16px", minHeight: 38, lineHeight: 1.45, maxWidth: 260 }}>
+                        {module.description}
+                      </p>
+
+                      {stats.length > 0 && (
+                        <div
+                          className="module-card-kpis"
+                          style={{
+                            width: "100%",
+                            display: "grid",
+                            gridTemplateColumns: `repeat(${stats.length}, 1fr)`,
+                            gap: 8,
+                            paddingTop: 14,
+                            borderTop: "1px solid var(--border-subtle)",
+                            marginTop: "auto",
+                            textAlign: "center",
+                          }}
+                        >
+                          {stats.map((stat) => (
+                            <div key={stat.label} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                              <span style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{stat.value}</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginTop: 2 }}>{stat.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </Link>
+
+                    {actions.length > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 6,
+                          justifyContent: "center",
+                          marginTop: 14,
+                          paddingTop: 12,
+                          borderTop: "1px dashed var(--border-subtle)",
+                          width: "100%",
+                        }}
+                      >
+                        {actions.map((act) => (
+                          <Link
+                            key={act.href}
+                            href={act.href}
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              padding: "3px 8px",
+                              borderRadius: 6,
+                              background: "var(--color-surface-alt, rgba(0,0,0,0.04))",
+                              border: "1px solid var(--border-subtle, rgba(0,0,0,0.08))",
+                              color: "var(--text-secondary)",
+                              textDecoration: "none",
+                              transition: "all 0.15s ease",
+                            }}
+                          >
+                            {act.label}
+                          </Link>
                         ))}
                       </div>
                     )}
-
-                    <span
-                      className="card-arrow-indicator"
-                      aria-hidden="true"
-                      style={{
-                        position: "absolute",
-                        bottom: 16,
-                        right: 18,
-                        fontSize: 18,
-                        fontWeight: 800,
-                        color: "var(--text-primary)",
-                        opacity: 0.5,
-                        transition: "opacity 0.15s ease, transform 0.15s ease",
-                      }}
-                    >
-                      ›
-                    </span>
-                  </Link>
+                  </div>
                 );
               })}
             </div>
