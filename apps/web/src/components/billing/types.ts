@@ -14,6 +14,7 @@ export type BillingIssue = {
 
 export type BillingRun = {
   id: string; period_start: string; period_end: string; status: string;
+  property?: string; property_name?: string;
   charge_scope?: string; frequency?: string;
   totals: Record<string, string | number>; candidates: Candidate[]; issues: BillingIssue[];
 };

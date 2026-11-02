@@ -245,12 +245,25 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     }
   }, []);
 
-  // Synchronously match run from allRuns when period or allRuns change — instant transition with zero flicker
+  // Synchronously match run from allRuns when period, property, or allRuns change — instant transition with zero flicker
   useEffect(() => {
-    const matching = allRuns.find(r => String(r.charge_scope || "all") === "all" && r.period_start === period_start && r.period_end === period_end)
-      || allRuns.find(r => r.period_start === period_start && r.period_end === period_end);
+    if (!activeProp?.id) {
+      setRun(null);
+      return;
+    }
+    const propId = String(activeProp.id);
+    const matching = allRuns.find(r =>
+      (String(r.property) === propId || String((r as any).property_id) === propId) &&
+      String(r.charge_scope || "all") === "all" &&
+      r.period_start === period_start &&
+      r.period_end === period_end
+    ) || allRuns.find(r =>
+      (String(r.property) === propId || String((r as any).property_id) === propId) &&
+      r.period_start === period_start &&
+      r.period_end === period_end
+    );
     setRun(matching ?? null);
-  }, [allRuns, period_start, period_end]);
+  }, [allRuns, activeProp, period_start, period_end]);
 
   const staleRunPrepared = useRef<string>("");
   useEffect(() => {
@@ -266,15 +279,24 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     void mutate("prepare");
   }, [run, billingTarget, busy, rentDueThisPeriod]);
 
-  // Auto-scan and auto-prepare queue whenever period or filters change
+  // Auto-scan and auto-prepare queue whenever period, property, or filters change
   const lastScannedKey = useRef<string>("");
   useEffect(() => {
-    if (!organizationId || loading || busy || billingTarget !== "tenant") return;
-    const scanKey = `${period_start}_${period_end}`;
+    if (!organizationId || loading || busy || billingTarget !== "tenant" || !activeProp?.id) return;
+    const propId = String(activeProp.id);
+    const scanKey = `${propId}_${period_start}_${period_end}`;
     if (lastScannedKey.current === scanKey) return;
 
-    const matching = allRuns.find(r => String(r.charge_scope || "all") === "all" && r.period_start === period_start && r.period_end === period_end)
-      || allRuns.find(r => r.period_start === period_start && r.period_end === period_end);
+    const matching = allRuns.find(r =>
+      (String(r.property) === propId || String((r as any).property_id) === propId) &&
+      String(r.charge_scope || "all") === "all" &&
+      r.period_start === period_start &&
+      r.period_end === period_end
+    ) || allRuns.find(r =>
+      (String(r.property) === propId || String((r as any).property_id) === propId) &&
+      r.period_start === period_start &&
+      r.period_end === period_end
+    );
 
     if (!matching) {
       lastScannedKey.current = scanKey;
@@ -283,7 +305,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
       lastScannedKey.current = scanKey;
       void mutate("prepare");
     }
-  }, [organizationId, loading, busy, billingTarget, period_start, period_end, allRuns]);
+  }, [organizationId, loading, busy, billingTarget, activeProp, period_start, period_end, allRuns]);
 
   // Compute Landlord Candidates dynamically based on managed properties and contracted revenue
   const landlordCandidates = useMemo<Candidate[]>(() => {
@@ -293,10 +315,15 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     const isLetting = landlordFeeType === "letting";
     const isServiceCharge = landlordFeeType === "service_charge";
 
+    const targetProperties = activeProp ? [activeProp] : properties;
+
     // Letting fees are issued on-demand (not auto-scanned). Only show what's already been invoiced.
     if (isLetting) {
       const lettingInvoices = landlordInvoices.filter(
-        (inv) => inv.fee_type === "letting" && inv.billing_period === startMonthStr
+        (inv) =>
+          inv.fee_type === "letting" &&
+          inv.billing_period === startMonthStr &&
+          (!activeProp?.id || String(inv.property) === String(activeProp.id))
       );
       for (const inv of lettingInvoices) {
         const unitsDisplay = inv.metadata?.units_display || inv.metadata?.unit_codes?.join(", ") || "—";
@@ -322,7 +349,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
       const [startYear, startMonth] = period_start.slice(0, 7).split("-").map(Number);
       const [endYear, endMonth] = period_end.slice(0, 7).split("-").map(Number);
       const months = Math.max(1, (endYear - startYear) * 12 + endMonth - startMonth + 1);
-      for (const property of properties) {
+      for (const property of targetProperties) {
         const propertyUnits = units.filter((unit) => String(unit.property_id || unit.property) === String(property.id));
         for (const unit of propertyUnits) {
           const ownerId = unit.owner_id || unit.owner;
@@ -357,7 +384,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
       return candidatesList;
     }
 
-    for (const p of properties) {
+    for (const p of targetProperties) {
       // Find all units belonging to this property
       const propertyUnits = units.filter(
         (u) =>
@@ -558,7 +585,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     }
 
     return candidatesList;
-  }, [properties, owners, units, invoices, landlordInvoices, period_start, period_end, landlordFeeType]);
+  }, [properties, activeProp, owners, units, invoices, landlordInvoices, period_start, period_end, landlordFeeType]);
 
 
   async function mutate(action: "create" | "prepare" | "approve" | "generate") {
@@ -689,6 +716,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
           period_end,
           charge_scope: "all",
           frequency: "monthly",
+          ...(activeProp?.id ? { property: activeProp.id } : {}),
           ...(invoiceTypesForRun ? { invoice_types: invoiceTypesForRun } : {}),
         }
       : action === "generate"
