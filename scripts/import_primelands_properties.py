@@ -456,14 +456,40 @@ def run_import():
             imported_properties += 1
             print(f"Created Property: {prop.code} - {prop.name}")
 
-        # 2. Enable Property Modules (property, sales, facility)
-        for mod in (Module.PROPERTY, Module.SALES, Module.FACILITY):
-            PropertyModule.objects.get_or_create(
+        # 2. Enable Property Modules
+        # Properties for sale belong exclusively to the sales module.
+        # Rental properties belong to property management and facility modules.
+        if struct["is_sell"]:
+            enabled_modules = [Module.SALES]
+            disabled_modules = [Module.PROPERTY, Module.FACILITY]
+        else:
+            enabled_modules = [Module.PROPERTY, Module.FACILITY]
+            disabled_modules = [Module.SALES]
+
+        for mod in enabled_modules:
+            pm, _ = PropertyModule.objects.get_or_create(
                 organization=org,
                 property=prop,
                 module=mod,
                 defaults={"is_enabled": True, "enabled_at": timezone.now()},
             )
+            if not pm.is_enabled:
+                pm.is_enabled = True
+                pm.enabled_at = timezone.now()
+                pm.disabled_at = None
+                pm.save(update_fields=["is_enabled", "enabled_at", "disabled_at"])
+
+        for mod in disabled_modules:
+            pm, _ = PropertyModule.objects.get_or_create(
+                organization=org,
+                property=prop,
+                module=mod,
+                defaults={"is_enabled": False, "disabled_at": timezone.now()},
+            )
+            if pm.is_enabled:
+                pm.is_enabled = False
+                pm.disabled_at = timezone.now()
+                pm.save(update_fields=["is_enabled", "disabled_at"])
 
         # 3. Create Default Building
         bld, _ = Building.objects.get_or_create(
@@ -501,10 +527,12 @@ def run_import():
             imported_projects += 1
 
         # Project Module assignments
-        for mod, stg in (
-            (Module.SALES, ProjectModuleAssignment.Stage.SALES),
-            (Module.PROPERTY, ProjectModuleAssignment.Stage.OPERATIONS),
-        ):
+        project_modules = (
+            [(Module.SALES, ProjectModuleAssignment.Stage.SALES)]
+            if struct["is_sell"]
+            else [(Module.PROPERTY, ProjectModuleAssignment.Stage.OPERATIONS)]
+        )
+        for mod, stg in project_modules:
             ProjectModuleAssignment.objects.get_or_create(
                 organization=org,
                 project=proj,
