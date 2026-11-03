@@ -5672,6 +5672,9 @@ class BillingRunViewSet(OrganizationModelViewSet):
         frequency = profile.frequency
         if frequency in (BillingProfile.Frequency.MONTHLY, BillingProfile.Frequency.METERED):
             return True
+        if frequency == BillingProfile.Frequency.QUARTERLY:
+            # Commercial quarterly billing aligns with standard calendar quarters (Jan, Apr, Jul, Oct)
+            return (period_start.month - 1) % 3 == 0
         month_delta = (
             (period_start.year - profile.effective_from.year) * 12
             + period_start.month
@@ -5946,9 +5949,12 @@ class BillingRunViewSet(OrganizationModelViewSet):
 
                 if profile.calculation == BillingItem.Calculation.METERED:
                     desc = profile.billing_item.name
-                elif months_count < profile_interval and profile_interval == 3:
-                    q_num = (run.period_start.month - 1) // 3 + 1
-                    desc = f"{profile.billing_item.name} (Q{q_num} {run.period_start.year})"
+                elif profile_interval == 3:
+                    anchor_month = ((run.period_start.month - 1) // 3) * 3 + 1
+                    q_num = (anchor_month - 1) // 3 + 1
+                    q_start = date(run.period_start.year, anchor_month, 1)
+                    q_end = add_months(q_start, 3) - timedelta(days=1)
+                    desc = f"{profile.billing_item.name} for Q{q_num} {q_start.year} ({q_start:%b} – {q_end:%b %Y})"
                 elif months_count < profile_interval:
                     desc = f"{profile.billing_item.name} ({profile_interval} Months)"
                 else:
@@ -6007,15 +6013,38 @@ class BillingRunViewSet(OrganizationModelViewSet):
                                 monthly_sc = Decimal('0')
 
                     if monthly_sc > 0:
-                        line_subtotal = (monthly_sc * qty).quantize(Decimal('0.01'))
-                        desc = f"Service charge ({period_suffix})"
-                        items.append({
-                            'billing_item': None, 'code': 'SERVICE_CHARGE', 'description': desc,
-                            'quantity': str(qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
-                            'tax_code': '', 'tax_rate': '0', 'tax_amount': '0', 'total': str(line_subtotal),
-                            'source_type': 'lease_metadata', 'source_id': str(lease.id),
-                            'payer': 'owner' if should_bill_owner_sc else 'tenant',
-                        })
+                        prop_sc_freq = property_scope_frequency(run.property, BillingRun.ChargeScope.SERVICE_CHARGE) if run.property_id else 'monthly'
+                        lease_sc_freq = str(meta.get('service_charge_billing_frequency') or '').strip().lower() or prop_sc_freq
+                        is_quarterly_sc = (lease_sc_freq == 'quarterly')
+                        is_anchor_month = (run.period_start.month - 1) % 3 == 0
+
+                        if is_quarterly_sc and not is_anchor_month and months_count < 3:
+                            # Off-cycle month for quarterly service charge; do not bill
+                            pass
+                        else:
+                            sc_qty = Decimal('3') if is_quarterly_sc and months_count < 3 else qty
+                            line_subtotal = (monthly_sc * sc_qty).quantize(Decimal('0.01'))
+                            if is_quarterly_sc:
+                                q_num = (run.period_start.month - 1) // 3 + 1
+                                p_end = add_months(run.period_start, 3) - timedelta(days=1)
+                                desc = f"Service charge for Q{q_num} {run.period_start.year} ({run.period_start:%b} – {p_end:%b %Y})"
+                            else:
+                                desc = f"Service charge ({period_suffix})"
+
+                            default_sc_item = BillingItem.objects.filter(
+                                organization=run.organization, code__iexact='service_charge'
+                            ).select_related('tax_configuration').first()
+                            sc_tax = default_sc_item.tax_configuration if default_sc_item else None
+                            sc_tax_rate = sc_tax.rate if sc_tax and sc_tax.is_active and sc_tax.effective_from <= run.period_end and (not sc_tax.effective_to or sc_tax.effective_to >= run.period_start) else Decimal('0')
+                            sc_tax_amount = (line_subtotal * sc_tax_rate / Decimal('100')).quantize(Decimal('0.01'))
+
+                            items.append({
+                                'billing_item': str(default_sc_item.id) if default_sc_item else None, 'code': 'SERVICE_CHARGE', 'description': desc,
+                                'quantity': str(sc_qty), 'unit_rate': str(monthly_sc), 'subtotal': str(line_subtotal),
+                                'tax_code': sc_tax.code if sc_tax else '', 'tax_rate': str(sc_tax_rate), 'tax_amount': str(sc_tax_amount), 'total': str(line_subtotal + sc_tax_amount),
+                                'source_type': 'lease_metadata', 'source_id': str(lease.id),
+                                'payer': 'owner' if should_bill_owner_sc else 'tenant',
+                            })
 
             if not items:
                 existing_candidate = existing_candidate_map.get(str(lease.id))

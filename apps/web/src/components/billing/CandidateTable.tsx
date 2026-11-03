@@ -224,7 +224,7 @@ export function CandidateTable({
                             } else {
                               entry.unbilledAmount += Number(it.total || it.amount || 0);
                             }
-                            if (!entry.description && rawCode.toLowerCase() === "rent" && it.description) {
+                            if (!entry.description && it.description) {
                               entry.description = String(it.description);
                             }
                             if ((it as any).meter_reading_pending || (invoiceChargeType(rawCode) === "utility" && Number(it.total || 0) === 0 && !it.billed)) {
@@ -338,9 +338,14 @@ export function CandidateTable({
                             />
                           </Tooltip>
                         )}
-                        <div style={{ width: "100%", fontSize: 9.5, color: "var(--text-secondary)", marginTop: 2 }}>
-                          Period: {formattedMonth}
-                        </div>
+                        {(() => {
+                          const qMatch = (c.billing_items || []).map((it: any) => String(it.description || "").match(/Q\d \d{4} \([^\)]+\)/)?.[0]).find(Boolean);
+                          return (
+                            <div style={{ width: "100%", fontSize: 9.5, color: "var(--text-secondary)", marginTop: 2 }}>
+                              Period: {qMatch || formattedMonth}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td style={{ padding: "10px 12px" }}>
