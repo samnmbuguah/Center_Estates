@@ -210,7 +210,8 @@ def determine_property_structure(item):
     sku = item["sku"] or "00000"
     price = item["price"] or 0
 
-    is_sell = "sell" in purpose or "sale" in purpose
+    # All scraped Primeland properties are intended for the sales module
+    is_sell = True
 
     # Address heuristic
     address = "Kericho County"
