@@ -242,6 +242,7 @@ export function CandidateTable({
                             const isPending = (grp.isPendingReading || (isUtility && grp.unbilledAmount === 0)) && !isAllBilled;
                             const isRent = t === "rent" || grp.rawCode.toLowerCase().includes("rent");
                             const isServiceCharge = t === "service_charge" || grp.rawCode.toLowerCase().includes("service");
+                            const isParking = grp.rawCode.toLowerCase().includes("park");
                             const isArrears = grp.outstandingAmount > 0;
                             const label = isArrears
                               ? `${grp.code} · ${money.format(grp.outstandingAmount)} due`
@@ -263,6 +264,8 @@ export function CandidateTable({
                               ? "rgba(13, 148, 136, 0.09)"
                               : isRent
                               ? "rgba(37, 99, 235, 0.08)"
+                              : isParking
+                              ? "rgba(147, 51, 234, 0.08)"
                               : undefined;
 
                             const chipBorder = isArrears
@@ -277,6 +280,8 @@ export function CandidateTable({
                               ? "rgba(13, 148, 136, 0.35)"
                               : isRent
                               ? "rgba(37, 99, 235, 0.35)"
+                              : isParking
+                              ? "rgba(147, 51, 234, 0.35)"
                               : undefined;
 
                             const chipColor = isArrears
@@ -291,6 +296,8 @@ export function CandidateTable({
                               ? "#0f766e"
                               : isRent
                               ? "#1d4ed8"
+                              : isParking
+                              ? "#7e22ce"
                               : undefined;
 
                             return (

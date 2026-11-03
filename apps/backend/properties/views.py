@@ -6337,7 +6337,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
 
         def _item_type(item: dict) -> str:
             c = str(item.get('code') or 'charge').strip().lower()
-            return {'rent': 'rent', 'service_charge': 'service_charge', 'sc': 'service_charge', 'water': 'water', 'electricity': 'electricity'}.get(c, c[:40])
+            return {'rent': 'rent', 'service_charge': 'service_charge', 'sc': 'service_charge', 'water': 'water', 'electricity': 'electricity', 'parking': 'parking'}.get(c, c[:40])
 
         period_key = f"{run.period_start:%Y-%m}_to_{run.period_end:%Y-%m}" if (run.period_end.year - run.period_start.year)*12 + (run.period_end.month - run.period_start.month) >= 1 else run.period_start.strftime('%Y-%m')
 
@@ -6346,49 +6346,97 @@ class BillingRunViewSet(OrganizationModelViewSet):
         for candidate in candidates:
             items_for_candidate = candidate.billing_items
             if selected_types is not None:
-                items_for_candidate = [it for it in items_for_candidate if _item_type(it) in selected_types or (it.get('code','').lower() == 'sc' and 'service_charge' in selected_types)]
+                items_for_candidate = [
+                    it for it in items_for_candidate
+                    if _item_type(it) in selected_types
+                    or (it.get('code', '').lower() == 'sc' and 'service_charge' in selected_types)
+                    or ('other' in selected_types and _item_type(it) not in ('rent', 'service_charge', 'water', 'electricity'))
+                ]
             if not items_for_candidate:
                 continue
+
             candidate_invoices: list[Invoice] = []
+            prop_rec = candidate.lease.unit.property if candidate.lease and candidate.lease.unit else run.property
+            prop_meta = prop_rec.metadata if prop_rec and isinstance(prop_rec.metadata, dict) else {}
+            consolidate_lease = prop_meta.get('consolidate_lease_charges', False)
+            if not consolidate_lease and prop_meta.get('billing_frequency') == 'quarterly':
+                consolidate_lease = True
+
+            groups: dict[str, list[dict]] = {}
             for item in items_for_candidate:
-                code = str(item.get('code') or 'charge').strip().lower()
-                invoice_type = {
-                    'rent': 'rent', 'service_charge': 'service_charge', 'sc': 'service_charge',
-                    'water': 'water', 'electricity': 'electricity',
-                }.get(code, code[:40])
                 if item.get('billed') or item.get('arrears'):
                     continue
-                item_period_key = str(item.get('billing_period') or period_key)
-                item_period_start = str(item.get('period_start') or run.period_start)
-                item_period_end = str(item.get('period_end') or run.period_end)
-                item_due_on = candidate.due_date
-                if item.get('due_date'):
-                    try:
-                        item_due_on = date.fromisoformat(str(item['due_date']))
-                    except (TypeError, ValueError):
-                        pass
+                if Decimal(str(item.get('total') or '0')) <= Decimal('0') and item.get('meter_reading_pending'):
+                    continue
+
+                code = str(item.get('code') or 'charge').strip().lower()
+                payer = item.get('payer', 'tenant')
+                item_period = str(item.get('billing_period') or period_key)
+
+                is_utility = code in ('water', 'electricity', 'utility') or item.get('source_type') == 'utility_meter'
+                is_lease_charge = code in ('rent', 'service_charge', 'sc', 'parking')
+                if is_utility:
+                    group_key = f"utility:{code}:{payer}:{item_period}"
+                elif consolidate_lease and is_lease_charge and payer == 'tenant':
+                    group_key = f"lease:{payer}:{item_period}"
+                else:
+                    group_key = f"single:{code}:{payer}:{item_period}"
+
+                groups.setdefault(group_key, []).append(item)
+
+            for group_key, group_items in groups.items():
+                if not group_items:
+                    continue
+
+                primary_item = group_items[0]
+                item_period_key = str(primary_item.get('billing_period') or period_key)
+                item_period_start = str(primary_item.get('period_start') or run.period_start)
+                item_period_end = str(primary_item.get('period_end') or run.period_end)
+
+                is_lease_group = group_key.startswith("lease:")
+                if is_lease_group:
+                    invoice_type = 'rent'
+                    charge_type = 'rent'
+                else:
+                    first_code = str(primary_item.get('code') or 'charge').strip().lower()
+                    invoice_type = {
+                        'rent': 'rent', 'service_charge': 'service_charge', 'sc': 'service_charge',
+                        'water': 'water', 'electricity': 'electricity', 'parking': 'parking',
+                    }.get(first_code, first_code[:40])
+                    charge_type = invoice_type
+
                 if Invoice.objects.for_organization(run.organization).filter(
                     lease=candidate.lease, invoice_type=invoice_type,
                     metadata__billing_period=item_period_key,
                 ).exclude(status=Invoice.Status.VOID).exists():
-                    skipped_duplicate += 1
-                    item['billed'] = True
+                    skipped_duplicate += len(group_items)
+                    for it in group_items:
+                        it['billed'] = True
                     continue
-                if Decimal(str(item.get('total') or '0')) <= Decimal('0') and item.get('meter_reading_pending'):
-                    # Skip generating 0-cost invoice when meter reading is still pending
-                    continue
-                line_subtotal = Decimal(item['subtotal'])
-                line_tax = Decimal(item['tax_amount'])
-                line_total = Decimal(item['total'])
+
+                line_subtotals = [Decimal(str(it['subtotal'])) for it in group_items]
+                line_taxes = [Decimal(str(it['tax_amount'])) for it in group_items]
+                line_totals = [Decimal(str(it['total'])) for it in group_items]
+
+                inv_subtotal = sum(line_subtotals, Decimal('0.00'))
+                inv_tax = sum(line_taxes, Decimal('0.00'))
+                inv_total = sum(line_totals, Decimal('0.00'))
+
+                item_due_on = candidate.due_date
+                for it in group_items:
+                    if it.get('due_date'):
+                        try:
+                            item_due_on = date.fromisoformat(str(it['due_date']))
+                            break
+                        except (TypeError, ValueError):
+                            pass
 
                 unit_obj = candidate.lease.unit if candidate.lease else None
                 owner_obj = None
                 recipient_type = Invoice.RecipientType.TENANT
-                if item.get('payer') == 'owner':
+                if primary_item.get('payer') == 'owner':
                     if not unit_obj or not unit_obj.owner_id:
-                        # Readiness should already flag this.  Keep generation
-                        # safe if ownership changed after the run was prepared.
-                        skipped_duplicate += 1
+                        skipped_duplicate += len(group_items)
                         continue
                     recipient_type = Invoice.RecipientType.OWNER
                     owner_obj = unit_obj.owner
@@ -6396,13 +6444,13 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 collection_acct = None
                 if unit_obj and unit_obj.property:
                     collection_acct = PropertyCollectionAccount.objects.filter(
-                        property=unit_obj.property, charge_type=invoice_type, is_active=True
+                        property=unit_obj.property, charge_type=charge_type, is_active=True
                     ).first()
 
                 mpesa_ref = ''
                 if unit_obj:
                     fmt = (collection_acct.mpesa_reference_format if collection_acct else None) or '{CHARGE}-{UNIT}-{MONTH}-{YEAR}'
-                    c_prefix = 'RENT' if invoice_type == 'rent' else ('SC' if invoice_type == 'service_charge' else ('WATER' if invoice_type == 'water' else 'MF'))
+                    c_prefix = 'RENT' if invoice_type == 'rent' else ('SC' if invoice_type == 'service_charge' else ('WATER' if invoice_type == 'water' else ('ELEC' if invoice_type == 'electricity' else 'MF')))
                     try:
                         mpesa_ref = fmt.format(
                             CHARGE=c_prefix,
@@ -6413,32 +6461,43 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     except Exception:
                         mpesa_ref = f"{c_prefix}-{unit_obj.code}-{run.period_start:%m}-{run.period_start:%Y}"
 
+                invoice_meta = {
+                    'source': 'billing_run', 'billing_run_id': str(run.id),
+                    'billing_candidate_id': str(candidate.id), 'billing_period': item_period_key,
+                    'period_start': item_period_start, 'period_end': item_period_end,
+                    'charges': [it.get('code', '') for it in group_items],
+                    'is_consolidated': len(group_items) > 1,
+                }
+                if len(group_items) == 1:
+                    invoice_meta['charge_code'] = group_items[0].get('code', '')
+
                 invoice = Invoice.objects.create(
                     organization=run.organization, number=next_invoice_number(run.organization, year), lease=candidate.lease,
-                    recipient_type=recipient_type, owner=owner_obj, unit=unit_obj, charge_type=invoice_type,
+                    recipient_type=recipient_type, owner=owner_obj, unit=unit_obj, charge_type=charge_type,
                     collection_account=collection_acct, mpesa_reference=mpesa_ref,
                     invoice_type=invoice_type, issued_on=candidate.invoice_date, due_on=item_due_on,
-                    subtotal=line_subtotal, tax_amount=line_tax,
-                    tax_rate=(line_tax / line_subtotal * Decimal('100')).quantize(Decimal('0.01')) if line_subtotal else 0,
-                    amount=line_total, balance=line_total, status=Invoice.Status.ISSUED,
+                    subtotal=inv_subtotal, tax_amount=inv_tax,
+                    tax_rate=(inv_tax / inv_subtotal * Decimal('100')).quantize(Decimal('0.01')) if inv_subtotal else Decimal('0.00'),
+                    amount=inv_total, balance=inv_total, status=Invoice.Status.ISSUED,
                     prepared_by=run.created_by, reviewed_by=request.user, reviewed_at=timezone.now(),
-                    issued_by=request.user, issued_at=timezone.now(), metadata={
-                        'source': 'billing_run', 'billing_run_id': str(run.id),
-                        'billing_candidate_id': str(candidate.id), 'billing_period': item_period_key,
-                        'period_start': item_period_start, 'period_end': item_period_end,
-                        'charge_code': item.get('code', ''),
-                    },
+                    issued_by=request.user, issued_at=timezone.now(), metadata=invoice_meta,
                 )
-                InvoiceLine.objects.create(
-                    organization=run.organization, invoice=invoice,
-                    billing_item_id=item.get('billing_item') or None, description=item['description'],
-                    quantity=Decimal(item['quantity']), unit_rate=Decimal(item['unit_rate']), subtotal=line_subtotal,
-                    tax_code=item.get('tax_code', ''), tax_rate=Decimal(item['tax_rate']), tax_amount=line_tax, total=line_total,
-                    source_type=item.get('source_type', ''), source_id=item.get('source_id', ''),
-                )
-                item['billed'] = True
-                item['invoice_id'] = str(invoice.id)
-                item['invoice_number'] = invoice.number
+
+                for it in group_items:
+                    line_sub = Decimal(str(it['subtotal']))
+                    line_tx = Decimal(str(it['tax_amount']))
+                    line_tot = Decimal(str(it['total']))
+                    InvoiceLine.objects.create(
+                        organization=run.organization, invoice=invoice,
+                        billing_item_id=it.get('billing_item') or None, description=it['description'],
+                        quantity=Decimal(str(it['quantity'])), unit_rate=Decimal(str(it['unit_rate'])), subtotal=line_sub,
+                        tax_code=it.get('tax_code', ''), tax_rate=Decimal(str(it['tax_rate'])), tax_amount=line_tx, total=line_tot,
+                        source_type=it.get('source_type', ''), source_id=it.get('source_id', ''),
+                    )
+                    it['billed'] = True
+                    it['invoice_id'] = str(invoice.id)
+                    it['invoice_number'] = invoice.number
+
                 _apply_wallet_to_invoice(invoice=invoice, organization=run.organization)
                 invoice.refresh_from_db()
                 candidate_invoices.append(invoice)
