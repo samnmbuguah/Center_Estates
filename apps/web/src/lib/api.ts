@@ -352,7 +352,7 @@ export async function apiFetch(path: string, init: RequestInit = {}, organizatio
     .then(async (response) => {
       if (response.ok && !isAuthRead) {
         rememberGet(cacheKey, response);
-      } else if (!fullPath.startsWith("/auth/") && !fullPath.includes("/telemetry/")) {
+      } else if (!fullPath.startsWith("/auth/") && !fullPath.includes("/telemetry/") && !fullPath.includes("/companion/dashboard/nudge/")) {
         if (response.status === 403 && typeof window !== "undefined" && headers.has("X-Property-ID")) {
           try {
             localStorage.removeItem(activeOrgId ? `ce-active-property:${activeOrgId}` : "ce-active-property");

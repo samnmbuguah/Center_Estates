@@ -21,7 +21,7 @@ from django.http import FileResponse, HttpResponse, QueryDict
 from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet, ViewSet
@@ -30,7 +30,13 @@ from core.models import Module
 from core.permissions import HasModuleActionPermission, HasModuleSubscription
 from core.serializers import GenericObjectSerializer
 from core.tenancy import get_active_membership, get_active_organization
-from core.property_scope import get_active_property, scope_model_queryset, scope_queryset_to_property
+from core.property_scope import (
+    get_accessible_property_ids,
+    get_active_property,
+    is_property_manager_restricted,
+    scope_model_queryset,
+    scope_queryset_to_property,
+)
 
 from .models import (
     BankTransaction, BillingCandidate, BillingItem, BillingProfile, BillingReadinessIssue, BillingRun,
@@ -873,6 +879,18 @@ class PropertyViewSet(OrganizationModelViewSet):
     serializer_class = PropertySerializer
     search_fields = ('name', 'code', 'city')
 
+    def get_action_permission(self, request, action):
+        if action == 'billing_policy':
+            organization = get_active_organization(request)
+            membership = get_active_membership(request, organization)
+            if not membership:
+                return 'property.finance'
+            for perm in ('property.finance', 'property.operations', 'property.manage'):
+                if membership.has_permission(perm):
+                    return perm
+            return 'property.finance'
+        return None
+
     def retrieve(self, request, *args, **kwargs):
         """Include setup records when the onboarding form re-opens a property.
 
@@ -1700,7 +1718,14 @@ class PropertyViewSet(OrganizationModelViewSet):
     @action(detail=True, methods=('get', 'post', 'patch'), url_path='billing-policy')
     def billing_policy(self, request, pk=None):
         """Get or update property billing policy settings (e.g. require utilities before rent)."""
-        prop = self.get_object()
+        organization = get_active_organization(request)
+        prop = Property.objects.filter(pk=pk, organization=organization).first()
+        if not prop:
+            raise NotFound('The selected property was not found.')
+        if is_property_manager_restricted(request.user, organization):
+            accessible_ids = get_accessible_property_ids(request.user, organization)
+            if not accessible_ids.filter(pk=prop.pk).exists():
+                raise PermissionDenied('You do not have permission to view or manage this property.')
         meta = prop.metadata if isinstance(prop.metadata, dict) else {}
         billing_settings = meta.get('billing_settings', {})
         if not isinstance(billing_settings, dict):

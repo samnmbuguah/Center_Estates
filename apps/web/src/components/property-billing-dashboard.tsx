@@ -103,7 +103,11 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     if (!activeProp?.id) return;
     const res = await apiFetch(`/property/properties/${activeProp.id}/billing-policy/`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Property-Scope": "portfolio",
+        "X-Property-ID": activeProp.id,
+      },
       body: JSON.stringify({ require_utility_readings_before_rent: enabled }),
     }, organizationId);
     if (!res.ok) {
