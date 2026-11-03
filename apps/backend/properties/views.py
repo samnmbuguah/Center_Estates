@@ -5540,6 +5540,12 @@ class BillingRunViewSet(OrganizationModelViewSet):
             None,
         )
         tax = rent_profile.billing_item.tax_configuration if rent_profile else None
+        if not tax and run.organization_id:
+            default_rent_item = BillingItem.objects.filter(
+                organization_id=run.organization_id, code__iexact='rent'
+            ).select_related('tax_configuration').first()
+            if default_rent_item:
+                tax = default_rent_item.tax_configuration
         tax_rate = Decimal('0')
         if tax and tax.is_active and tax.effective_from <= run.period_end and (not tax.effective_to or tax.effective_to >= run.period_start):
             tax_rate = tax.rate
@@ -5921,17 +5927,32 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     issue_rows.append(('missing_rate', f'{profile.billing_item.name} has no billable amount.', profile))
                     continue
 
-                line_qty = Decimal('1') if profile.calculation == BillingItem.Calculation.METERED else qty
+                profile_interval = {
+                    BillingProfile.Frequency.QUARTERLY: 3,
+                    BillingProfile.Frequency.BIANNUAL: 6,
+                    BillingProfile.Frequency.ANNUAL: 12,
+                }.get(profile.frequency, 1)
+
+                if profile.calculation == BillingItem.Calculation.METERED:
+                    line_qty = Decimal('1')
+                elif months_count < profile_interval:
+                    line_qty = Decimal(str(profile_interval))
+                else:
+                    line_qty = qty
                 line_subtotal = (monthly_val * line_qty).quantize(Decimal('0.01'))
                 tax = profile.billing_item.tax_configuration
                 tax_rate = tax.rate if tax and tax.is_active and tax.effective_from <= run.period_end and (not tax.effective_to or tax.effective_to >= run.period_start) else Decimal('0')
                 tax_amount = (line_subtotal * tax_rate / Decimal('100')).quantize(Decimal('0.01'))
 
-                desc = (
-                    f"{profile.billing_item.name} ({period_suffix})"
-                    if profile.calculation != BillingItem.Calculation.METERED
-                    else profile.billing_item.name
-                )
+                if profile.calculation == BillingItem.Calculation.METERED:
+                    desc = profile.billing_item.name
+                elif months_count < profile_interval and profile_interval == 3:
+                    q_num = (run.period_start.month - 1) // 3 + 1
+                    desc = f"{profile.billing_item.name} (Q{q_num} {run.period_start.year})"
+                elif months_count < profile_interval:
+                    desc = f"{profile.billing_item.name} ({profile_interval} Months)"
+                else:
+                    desc = f"{profile.billing_item.name} ({period_suffix})"
                 items.append({
                     'billing_item': str(profile.billing_item_id), 'code': profile.billing_item.code, 'description': desc,
                     'quantity': str(line_qty), 'unit_rate': str(monthly_val), 'subtotal': str(line_subtotal),
