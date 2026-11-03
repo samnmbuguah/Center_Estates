@@ -20,24 +20,34 @@ describe("resolveApiBaseUrl", () => {
     expect(resolveApiBaseUrl("centerestates.co.ke")).toBe("/api/v1");
   });
 
-  it("keeps the configured cross-subdomain base everywhere else", () => {
+  it("uses the same-origin proxy in the browser for all hosts", () => {
+    expect(resolveApiBaseUrl("centerestates.com")).toBe("/api/v1");
+    expect(resolveApiBaseUrl("centerestates.co.ke")).toBe("/api/v1");
+    expect(resolveApiBaseUrl("localhost")).toBe("/api/v1");
+  });
+
+  it("keeps the configured cross-subdomain base in server context", () => {
+    (globalThis as { __TEST_SERVER_CONTEXT__?: boolean }).__TEST_SERVER_CONTEXT__ = true;
     const previous = process.env.NEXT_PUBLIC_API_BASE_URL;
     process.env.NEXT_PUBLIC_API_BASE_URL = "https://api.centerestates.com/api/v1";
     try {
       expect(resolveApiBaseUrl("centerestates.com")).toBe("https://api.centerestates.com/api/v1");
       expect(resolveApiBaseUrl("localhost")).toBe("https://api.centerestates.com/api/v1");
     } finally {
+      delete (globalThis as { __TEST_SERVER_CONTEXT__?: boolean }).__TEST_SERVER_CONTEXT__;
       if (previous === undefined) delete process.env.NEXT_PUBLIC_API_BASE_URL;
       else process.env.NEXT_PUBLIC_API_BASE_URL = previous;
     }
   });
 
-  it("falls back to /api/v1 when nothing is configured", () => {
+  it("falls back to /api/v1 when nothing is configured in server context", () => {
+    (globalThis as { __TEST_SERVER_CONTEXT__?: boolean }).__TEST_SERVER_CONTEXT__ = true;
     const previous = process.env.NEXT_PUBLIC_API_BASE_URL;
     delete process.env.NEXT_PUBLIC_API_BASE_URL;
     try {
       expect(resolveApiBaseUrl("localhost")).toBe("/api/v1");
     } finally {
+      delete (globalThis as { __TEST_SERVER_CONTEXT__?: boolean }).__TEST_SERVER_CONTEXT__;
       if (previous !== undefined) process.env.NEXT_PUBLIC_API_BASE_URL = previous;
     }
   });

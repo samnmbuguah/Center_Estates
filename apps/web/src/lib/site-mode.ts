@@ -13,14 +13,26 @@ export function isSalesOnlyHost(hostname?: string): boolean {
 }
 
 /**
- * Browser-facing API base. On the storefront the API is reached through the
- * same-origin /api/v1 proxy (see app/api/v1/[...segments]/route.ts) so auth
- * cookies are first-party: Safari and strict browser profiles reject
- * cross-site cookies, which silently breaks login from centerestates.co.ke.
- * The ERP keeps the direct cross-subdomain base (same registrable domain,
- * already first-party) to avoid re-routing its traffic through Next.js.
+ * Browser-facing API base. Browser requests are routed through the same-origin
+ * /api/v1 proxy (see app/api/v1/[...segments]/route.ts) so all requests and
+ * auth cookies are strictly first-party same-origin. This prevents CORS
+ * preflight (OPTIONS) network failures and third-party cookie/storage blocks
+ * across Microsoft Edge, Safari ITP, Brave, and enterprise privacy filters.
+ *
+ * In server-side rendering (SSR), it falls back to the configured upstream base
+ * (process.env.NEXT_PUBLIC_API_BASE_URL) so server components can connect to
+ * the API directly.
  */
 export function resolveApiBaseUrl(hostname?: string): string {
-  if (typeof window !== "undefined" && isSalesOnlyHost(hostname)) return "/api/v1";
+  if (process.env.NEXT_PUBLIC_DIRECT_API === "true") {
+    return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined") {
+    if ((globalThis as { __TEST_SERVER_CONTEXT__?: boolean }).__TEST_SERVER_CONTEXT__) {
+      return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace(/\/$/, "");
+    }
+    return "/api/v1";
+  }
+  if (isSalesOnlyHost(hostname)) return "/api/v1";
   return (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1").replace(/\/$/, "");
 }

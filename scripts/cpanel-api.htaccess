@@ -10,7 +10,7 @@ PassengerPython "/home2/username/virtualenv/api.centerestates.com/3.9/bin/python
     Header always set Access-Control-Allow-Origin "%{CORS_ALLOW_ORIGIN}e" env=CORS_ALLOW_ORIGIN
     Header always set Access-Control-Allow-Credentials "true"
     Header always set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-CSRFToken, X-Organization-Id, X-Property-Id, X-Property-Scope, X-Requested-With, X-Tenant-Id, X-Impersonate-User, X-CeEst-Signature"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-CSRFToken, X-Organization-Id, X-Property-Id, X-Property-Scope, X-Requested-With, X-Tenant-Id, X-Impersonate-User, X-CeEst-Signature, Accept, Origin, User-Agent, DNT, Cache-Control, Pragma, If-Modified-Since, Range, sec-ch-ua, sec-ch-ua-mobile, sec-ch-ua-platform"
 </IfModule>
 
 # LITESPEED / CONCURRENCY SETTINGS
