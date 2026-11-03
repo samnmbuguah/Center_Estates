@@ -100,13 +100,16 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
   }, [activeProp]);
 
   const handlePolicyChange = async (enabled: boolean) => {
-    if (!activeProp?.id) return;
-    const res = await apiFetch(`/property/properties/${activeProp.id}/billing-policy/`, {
+    const targetPropId = activeProp?.id || activeProperty?.id || properties[0]?.id;
+    if (!targetPropId) {
+      throw new Error("No active property found. Please select a property first.");
+    }
+    const res = await apiFetch(`/property/properties/${targetPropId}/billing-policy/`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
         "X-Property-Scope": "portfolio",
-        "X-Property-ID": activeProp.id,
+        "X-Property-ID": targetPropId,
       },
       body: JSON.stringify({ require_utility_readings_before_rent: enabled }),
     }, organizationId);
@@ -115,7 +118,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     }
     setProperties((prev) =>
       prev.map((p) => {
-        if (p.id === activeProp.id) {
+        if (p.id === targetPropId) {
           const meta = { ...(p.metadata || {}) };
           meta.require_utility_readings_before_rent = enabled;
           meta.billing_settings = { ...(meta.billing_settings || {}), require_utility_readings_before_rent: enabled };

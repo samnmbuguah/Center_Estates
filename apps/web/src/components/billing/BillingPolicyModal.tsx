@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -39,11 +39,18 @@ export function BillingPolicyModal({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  // Sync state if prop changes while closed
-  const handleOpen = () => {
-    setEnabled(requireUtilityReadings);
+  useEffect(() => {
+    if (open) {
+      setEnabled(requireUtilityReadings);
+      setError("");
+      setSuccess(false);
+    }
+  }, [open, requireUtilityReadings]);
+
+  const handleToggle = (forceVal?: boolean) => {
+    if (saving) return;
     setError("");
-    setSuccess(false);
+    setEnabled((prev) => (forceVal !== undefined ? forceVal : !prev));
   };
 
   const handleSave = async () => {
@@ -67,7 +74,6 @@ export function BillingPolicyModal({
     <Dialog
       open={open}
       onClose={saving ? undefined : onClose}
-      onTransitionEnter={handleOpen}
       maxWidth="sm"
       fullWidth
       slotProps={{
@@ -128,30 +134,64 @@ export function BillingPolicyModal({
         <Stack spacing={2.5}>
           <Paper
             elevation={0}
+            onClick={() => handleToggle()}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleToggle();
+              }
+            }}
             sx={{
               p: 2,
               borderRadius: "12px",
-              border: enabled ? "1.5px solid #d97706" : "1.5px solid #10b981",
-              bgcolor: enabled ? "rgba(254, 243, 199, 0.2)" : "rgba(209, 250, 229, 0.25)",
+              cursor: saving ? "default" : "pointer",
+              userSelect: "none",
+              border: enabled ? "2px solid #d97706" : "2px solid #10b981",
+              bgcolor: enabled ? "rgba(254, 243, 199, 0.35)" : "rgba(209, 250, 229, 0.4)",
               transition: "all 0.2s ease",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              "&:hover": {
+                bgcolor: enabled ? "rgba(254, 243, 199, 0.55)" : "rgba(209, 250, 229, 0.6)",
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
+                transform: "translateY(-1px)",
+              },
             }}
           >
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: 14 }}>
+            <Box sx={{ pr: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: 14.5, color: enabled ? "#92400e" : "#065f46" }}>
                   Require Utility Readings Before Rent
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Controls whether pending electricity/water meter readings block rent invoicing
-                </Typography>
+                <Box
+                  sx={{
+                    px: 1,
+                    py: 0.2,
+                    borderRadius: "6px",
+                    fontSize: 11,
+                    fontWeight: 800,
+                    bgcolor: enabled ? "#fef3c7" : "#d1fae5",
+                    color: enabled ? "#b45309" : "#047857",
+                    border: `1px solid ${enabled ? "#f59e0b" : "#10b981"}`,
+                  }}
+                >
+                  {enabled ? "GATE ON" : "GATE OFF"}
+                </Box>
               </Box>
-              <Switch
-                checked={enabled}
-                onChange={(e) => setEnabled(e.target.checked)}
-                color="warning"
-                disabled={saving}
-              />
+              <Typography variant="caption" color="text.secondary">
+                Controls whether pending electricity/water meter readings block rent invoicing
+              </Typography>
             </Box>
+            <Switch
+              checked={enabled}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => handleToggle(e.target.checked)}
+              color="warning"
+              disabled={saving}
+            />
           </Paper>
 
           <Box sx={{ display: "flex", gap: 1.5, alignItems: "flex-start" }}>
@@ -197,10 +237,11 @@ export function BillingPolicyModal({
           sx={{
             background: enabled ? "#d97706" : "#059669",
             "&:hover": { background: enabled ? "#b45309" : "#047857" },
-            fontWeight: 700,
+            fontWeight: 800,
+            px: 2.5,
           }}
         >
-          {saving ? "Saving…" : "Save Policy"}
+          {saving ? "Saving…" : enabled ? "Save Policy (Gate ON)" : "Save Policy (Gate OFF)"}
         </Button>
       </DialogActions>
     </Dialog>
