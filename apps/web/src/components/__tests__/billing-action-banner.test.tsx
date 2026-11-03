@@ -132,9 +132,8 @@ describe("BillingActionBanner", () => {
       />,
     );
 
-    expect(screen.getByText(/Independent Rent Invoicing Active/i)).toBeInTheDocument();
-    expect(screen.getByText(/Independent Invoicing Policy/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Invoicing Policy/i }));
+    expect(screen.getByText(/Meter readings pending/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Policy$/i }));
     expect(onOpenPolicyModal).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("button", { name: /Meter Gate: OFF/i }));

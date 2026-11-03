@@ -981,10 +981,10 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
           </div>
           <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>
             {landlordFeeType === "management"
-              ? "Calculated strictly per unit owner based on receipted tenant rent"
+              ? "From collected rent"
               : landlordFeeType === "letting"
-                ? "Billed on unit tenant placement agreements"
-                : "Generated per unit where onboarding assigns service charge to the owner"}
+                ? "Tenant placement fees"
+                : "Owner service charges"}
           </span>
         </div>
       )}
@@ -1038,10 +1038,8 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
       />
 
       {billingTarget === "tenant" && !rentDueThisPeriod && rentFrequency !== "monthly" && (
-        <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
-          <strong>Off-cycle Rent Period:</strong> Rent for this property is configured with{" "}
-          <strong style={{ textTransform: "capitalize" }}>{rentFrequency}</strong> billing frequency. No rent charges are due for {formattedPeriod}.
-          Any variable utilities, water meter readings, and service charges can still be reviewed and billed as normal.
+        <Alert severity="info" sx={{ mb: 1.5, py: 0.5, borderRadius: 2, fontSize: 13 }}>
+          <strong>Off-cycle:</strong> Rent is billed {rentFrequency}. Utilities and service charges can still be invoiced.
         </Alert>
       )}
 

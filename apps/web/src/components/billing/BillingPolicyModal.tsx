@@ -177,7 +177,7 @@ export function BillingPolicyModal({
                 </Box>
               </Box>
               <Typography variant="caption" color="text.secondary">
-                Controls whether pending electricity/water meter readings block rent invoicing
+                Require meter readings before generating rent invoices
               </Typography>
             </Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -199,14 +199,12 @@ export function BillingPolicyModal({
             )}
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5, color: enabled ? "#92400e" : "#047857" }}>
-                {enabled
-                  ? "Consolidated Mode (Gate ON)"
-                  : "Independent Rent Invoicing (Gate OFF - Recommended for KASNEB)"}
+                {enabled ? "Consolidated Invoicing (Gate ON)" : "Independent Invoicing (Gate OFF)"}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.4 }}>
                 {enabled
-                  ? "Rent, service charge, and utility consumption are bundled into a single invoice. Rent invoicing remains blocked for a tenant until caretaker logs current electricity and water meter readings."
-                  : "Rent and service charge invoices can be generated and sent immediately on the 1st of the month. Electricity and water meter readings can be recorded and billed independently when readings arrive."}
+                  ? "Rent invoices are held until current meter readings are entered."
+                  : "Rent and service charge can be invoiced immediately. Utilities are billed separately."}
               </Typography>
             </Box>
           </Box>
@@ -216,7 +214,7 @@ export function BillingPolicyModal({
           <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
             <Info size={16} color="var(--text-secondary)" />
             <Typography variant="caption" color="text.secondary">
-              Clicking the card above instantly toggles and saves the policy for this property.
+              Click the card above to toggle policy.
             </Typography>
           </Box>
         </Stack>

@@ -38,7 +38,7 @@ export function BillingHeader({
     <Paper className="billing-control-bar" elevation={0}>
       <Box className="billing-control-copy">
         <Typography component="h2" variant="subtitle1">Billing pipeline</Typography>
-        <Typography variant="body2">Prepare, review and dispatch recurring charges for the selected property.</Typography>
+        <Typography variant="body2">Prepare and issue recurring charges.</Typography>
       </Box>
 
       <Stack className="billing-control-actions" direction="row">

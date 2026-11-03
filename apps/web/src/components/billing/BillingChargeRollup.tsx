@@ -123,7 +123,7 @@ export function BillingChargeRollup({
             style={{ fontSize: 11, height: 22, padding: "2px 8px" }}
             onClick={() => onSelectFilter?.("all")}
           >
-            Show All Items (Clear Filter)
+            Clear filter
           </button>
         )}
       </Box>
@@ -185,14 +185,14 @@ export function BillingChargeRollup({
                   <Chip
                     size="small"
                     icon={<CheckCircle2 size={11} color="var(--color-success)" />}
-                    label="100% Invoiced"
+                    label="Invoiced"
                     sx={{ fontSize: 9.5, height: 20, bgcolor: "rgba(22, 163, 74, 0.1)", color: "var(--color-success)", fontWeight: 700 }}
                   />
                 ) : (
                   <Chip
                     size="small"
                     icon={sum.type === "utility" ? <Zap size={11} color="var(--color-orange)" /> : <AlertCircle size={11} color="var(--color-orange)" />}
-                    label={sum.type === "utility" && sum.totalAmount === 0 ? `${sum.pendingCount} Readings Req.` : `${sum.pendingCount} Pending`}
+                    label={sum.type === "utility" && sum.totalAmount === 0 ? `${sum.pendingCount} need readings` : `${sum.pendingCount} pending`}
                     sx={{ fontSize: 9.5, height: 20, bgcolor: "rgba(234, 88, 12, 0.1)", color: "var(--color-orange)", fontWeight: 700 }}
                   />
                 )}

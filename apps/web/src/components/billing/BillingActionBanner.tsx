@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Box, Button, Chip, CircularProgress, IconButton, Menu, MenuItem, Paper, Step, StepLabel, Stepper, Tooltip, Typography } from "@mui/material";
-import { BookOpen, CheckCircle2, ExternalLink, FilePlus2, Gauge, HandCoins, HelpCircle, MoreHorizontal, RotateCcw, Send, Settings2, ShieldAlert, Sliders, Zap } from "lucide-react";
+import { Box, Button, CircularProgress, IconButton, Menu, MenuItem, Paper, Step, StepLabel, Stepper, Tooltip, Typography } from "@mui/material";
+import { FilePlus2, HandCoins, MoreHorizontal, RotateCcw, Send, Settings2, Zap } from "lucide-react";
 import { CHARGE_TYPE_LABEL, InvoiceChargeType } from "./types";
 import { BillingGuidelinesModal } from "./BillingGuidelinesModal";
 
@@ -43,25 +43,13 @@ export function BillingActionBanner({
 
   const totalHoldCount = Math.max(pendingWaterCount, pendingUtilityCount);
 
-  const handleOpenFacilityMeters = () => {
-    if (onLogMeters) {
-      try {
-        onLogMeters();
-      } catch {
-        router.push("/facility?tab=meters");
-      }
-    } else {
-      router.push("/facility?tab=meters");
-    }
-  };
-
   return (
     <>
       <Paper className="billing-workflow" elevation={0}>
         <Box className="billing-workflow-heading">
           <div>
             <Typography component="h3" variant="subtitle2">Billing workflow</Typography>
-            <Typography variant="caption">Complete each checkpoint before invoices are dispatched.</Typography>
+            <Typography variant="caption">Review candidates and issue invoices.</Typography>
           </div>
           <Typography className="billing-period-caption" variant="caption">{formattedMonth}</Typography>
         </Box>
@@ -110,279 +98,136 @@ export function BillingActionBanner({
         <Paper
           elevation={0}
           sx={{
-            mt: 2,
-            p: { xs: 2.2, sm: 2.8 },
-            borderRadius: "14px",
+            mt: 1.5,
+            p: 1.5,
+            px: 2,
+            borderRadius: "10px",
             background: requireUtilityReadings
-              ? "linear-gradient(135deg, rgba(254, 243, 199, 0.45) 0%, rgba(255, 251, 235, 0.95) 50%, rgba(254, 249, 195, 0.35) 100%)"
-              : "linear-gradient(135deg, rgba(236, 253, 245, 0.7) 0%, rgba(240, 253, 250, 0.95) 50%, rgba(240, 249, 255, 0.6) 100%)",
+              ? "rgba(254, 243, 199, 0.5)"
+              : "rgba(236, 253, 245, 0.65)",
             border: requireUtilityReadings ? "1px solid rgba(245, 158, 11, 0.35)" : "1px solid rgba(16, 185, 129, 0.35)",
-            borderLeft: requireUtilityReadings ? "6px solid #d97706" : "6px solid #059669",
-            boxShadow: requireUtilityReadings
-              ? "0 4px 16px -2px rgba(217, 119, 6, 0.08)"
-              : "0 4px 16px -2px rgba(5, 150, 105, 0.08)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: 1.5,
           }}
         >
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 2.5 }}>
-            <Box sx={{ display: "flex", gap: 2, alignItems: "flex-start", flex: 1, minWidth: 320 }}>
-              <Box
-                sx={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: "12px",
-                  bgcolor: requireUtilityReadings ? "rgba(245, 158, 11, 0.2)" : "rgba(16, 185, 129, 0.2)",
-                  border: requireUtilityReadings ? "1.5px solid rgba(245, 158, 11, 0.4)" : "1.5px solid rgba(16, 185, 129, 0.4)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: requireUtilityReadings ? "#d97706" : "#059669",
-                  flexShrink: 0,
-                  boxShadow: requireUtilityReadings ? "0 2px 6px rgba(217,119,6,0.15)" : "0 2px 6px rgba(5,150,105,0.15)",
-                }}
-              >
-                <Zap size={24} />
-              </Box>
-              <Box sx={{ flex: 1 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, flexWrap: "wrap", mb: 0.8 }}>
-                  <Typography
-                    variant="subtitle1"
-                    sx={{
-                      fontWeight: 800,
-                      color: requireUtilityReadings ? "#92400e" : "#065f46",
-                      fontSize: 15,
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    {requireUtilityReadings
-                      ? `Consolidated Billing Hold: Electricity Readings Required (${totalHoldCount} Units)`
-                      : `Independent Rent Invoicing Active: Meter Gate is OFF (${totalHoldCount} Units Pending Readings)`}
-                  </Typography>
-                  <Chip
-                    label="Tariff: Ksh 35.00/kWh"
-                    size="small"
-                    sx={{
-                      height: 22,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      bgcolor: requireUtilityReadings ? "rgba(245, 158, 11, 0.22)" : "rgba(16, 185, 129, 0.15)",
-                      color: requireUtilityReadings ? "#92400e" : "#065f46",
-                      border: requireUtilityReadings ? "1px solid rgba(245, 158, 11, 0.35)" : "1px solid rgba(16, 185, 129, 0.3)",
-                    }}
-                  />
-                  <Chip
-                    label="Water Covered in Service Charge"
-                    size="small"
-                    sx={{
-                      height: 22,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      bgcolor: "rgba(37, 99, 235, 0.1)",
-                      color: "#1d4ed8",
-                      border: "1px solid rgba(37, 99, 235, 0.2)",
-                    }}
-                  />
-                  <Chip
-                    label={requireUtilityReadings ? "Consolidated Invoicing Policy" : "Independent Invoicing Policy"}
-                    size="small"
-                    sx={{
-                      height: 22,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      bgcolor: requireUtilityReadings ? "rgba(16, 185, 129, 0.1)" : "rgba(5, 150, 105, 0.2)",
-                      color: "#047857",
-                      border: "1px solid rgba(16, 185, 129, 0.25)",
-                    }}
-                  />
-                </Box>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontSize: 13,
-                    color: requireUtilityReadings ? "#78350f" : "#064e3b",
-                    lineHeight: 1.6,
-                    maxWidth: 880,
-                  }}
-                >
-                  {requireUtilityReadings
-                    ? "Under commercial property regulations, monthly rent, fixed service charge, and variable electricity consumption are consolidated on a single invoice. Invoices are held on checkpoint until current meter readings are entered to prevent dual billing."
-                    : "For this property, rent and service charge invoices can be generated immediately without waiting for electricity readings. Meters can be entered and billed at your convenience without blocking rent collection."}
-                </Typography>
-              </Box>
-            </Box>
-
-            {/* Action Buttons in a clean flex group */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             <Box
               sx={{
+                width: 28,
+                height: 28,
+                borderRadius: "6px",
+                bgcolor: requireUtilityReadings ? "rgba(245, 158, 11, 0.2)" : "rgba(16, 185, 129, 0.2)",
                 display: "flex",
                 alignItems: "center",
-                gap: 1.2,
-                flexWrap: "wrap",
-                alignSelf: { xs: "stretch", md: "center" },
-                justifyContent: { xs: "flex-start", sm: "flex-end" },
+                justifyContent: "center",
+                color: requireUtilityReadings ? "#d97706" : "#059669",
+                flexShrink: 0,
               }}
             >
-              {onBatchReadings && (
-                <Button
-                  variant="contained"
-                  size="medium"
-                  startIcon={<Zap size={16} />}
-                  onClick={onBatchReadings}
-                  sx={{
-                    background: requireUtilityReadings
-                      ? "linear-gradient(135deg, #d97706 0%, #f59e0b 100%)"
-                      : "linear-gradient(135deg, #059669 0%, #10b981 100%)",
-                    color: "#fff",
-                    fontWeight: 800,
-                    fontSize: 12.5,
-                    px: 2.2,
-                    py: 0.8,
-                    borderRadius: "8px",
-                    textTransform: "none",
-                    boxShadow: requireUtilityReadings
-                      ? "0 3px 8px rgba(245,158,11,0.3)"
-                      : "0 3px 8px rgba(16,185,129,0.3)",
-                    "&:hover": {
-                      background: requireUtilityReadings ? "#d97706" : "#047857",
-                      boxShadow: requireUtilityReadings
-                        ? "0 4px 12px rgba(245,158,11,0.4)"
-                        : "0 4px 12px rgba(16,185,129,0.4)",
-                    },
-                  }}
-                >
-                  Record Electricity Readings
-                </Button>
-              )}
-
-              <Button
-                variant="outlined"
-                size="medium"
-                startIcon={<ExternalLink size={15} />}
-                onClick={handleOpenFacilityMeters}
+              <Zap size={16} />
+            </Box>
+            <Box>
+              <Typography
+                variant="subtitle2"
                 sx={{
+                  fontWeight: 800,
                   color: requireUtilityReadings ? "#92400e" : "#065f46",
-                  borderColor: requireUtilityReadings ? "rgba(245, 158, 11, 0.5)" : "rgba(16, 185, 129, 0.5)",
-                  fontWeight: 700,
-                  fontSize: 12.5,
-                  px: 2,
-                  py: 0.75,
-                  borderRadius: "8px",
-                  textTransform: "none",
-                  bgcolor: "rgba(255, 255, 255, 0.9)",
-                  "&:hover": {
-                    bgcolor: "#fff",
-                    borderColor: requireUtilityReadings ? "#d97706" : "#059669",
-                  },
+                  fontSize: 13.5,
+                  lineHeight: 1.2,
                 }}
               >
-                Facility Management: Meters →
-              </Button>
-
-              {onTogglePolicy && (
-                <Button
-                  variant="contained"
-                  size="medium"
-                  disabled={policyToggling}
-                  startIcon={policyToggling ? <CircularProgress size={14} color="inherit" /> : requireUtilityReadings ? <ShieldAlert size={15} /> : <CheckCircle2 size={15} />}
-                  onClick={onTogglePolicy}
-                  sx={{
-                    background: requireUtilityReadings
-                      ? "linear-gradient(135deg, #d97706 0%, #b45309 100%)"
-                      : "linear-gradient(135deg, #059669 0%, #047857 100%)",
-                    color: "#fff",
-                    fontWeight: 800,
-                    fontSize: 12.5,
-                    px: 1.8,
-                    py: 0.75,
-                    borderRadius: "8px",
-                    textTransform: "none",
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-                    "&:hover": {
-                      background: requireUtilityReadings ? "#92400e" : "#064e3b",
-                    },
-                  }}
-                >
-                  {policyToggling
-                    ? "Updating Policy…"
-                    : requireUtilityReadings
-                      ? "Meter Gate: ON (Click to turn OFF)"
-                      : "Meter Gate: OFF (Click to turn ON)"}
-                </Button>
-              )}
-
-              {onOpenPolicyModal && (
-                <Button
-                  variant="outlined"
-                  size="medium"
-                  startIcon={<Settings2 size={15} />}
-                  onClick={onOpenPolicyModal}
-                  sx={{
-                    color: requireUtilityReadings ? "#b45309" : "#047857",
-                    borderColor: requireUtilityReadings ? "rgba(245, 158, 11, 0.4)" : "rgba(16, 185, 129, 0.4)",
-                    fontWeight: 700,
-                    fontSize: 12.5,
-                    px: 1.5,
-                    py: 0.75,
-                    borderRadius: "8px",
-                    textTransform: "none",
-                    bgcolor: "rgba(255, 255, 255, 0.8)",
-                    "&:hover": { bgcolor: "#fff" },
-                  }}
-                >
-                  Invoicing Policy
-                </Button>
-              )}
-
-              <Button
-                variant="text"
-                size="medium"
-                startIcon={<HelpCircle size={15} />}
-                onClick={() => setGuidelinesOpen(true)}
+                {requireUtilityReadings
+                  ? `Electricity readings pending (${totalHoldCount} units)`
+                  : `Meter readings pending (${totalHoldCount} units)`}
+              </Typography>
+              <Typography
+                variant="caption"
                 sx={{
-                  color: requireUtilityReadings ? "#b45309" : "#065f46",
-                  fontWeight: 700,
-                  fontSize: 12.5,
-                  px: 1.5,
-                  py: 0.75,
-                  textTransform: "none",
-                  "&:hover": {
-                    bgcolor: requireUtilityReadings ? "rgba(245, 158, 11, 0.12)" : "rgba(16, 185, 129, 0.12)",
-                  },
+                  color: requireUtilityReadings ? "#78350f" : "#064e3b",
+                  fontSize: 12,
                 }}
               >
-                Policy Guidelines
-              </Button>
+                {requireUtilityReadings
+                  ? "Rent invoicing is held until meter readings are entered."
+                  : "Rent and service charge are ready to invoice. Utilities are billed separately."}
+              </Typography>
             </Box>
           </Box>
 
-          {/* Quick Resolution Workflow Strip */}
-          <Box
-            sx={{
-              mt: 2,
-              pt: 1.8,
-              borderTop: "1px dashed rgba(245, 158, 11, 0.35)",
-              display: "grid",
-              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" },
-              gap: 1.5,
-            }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Box sx={{ width: 22, height: 22, borderRadius: "50%", bgcolor: "rgba(245,158,11,0.25)", color: "#92400e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>1</Box>
-              <Typography variant="caption" sx={{ color: "#78350f", fontSize: 12 }}>
-                <strong>Step 1:</strong> Record kWh readings via Wizard or Facility CSV.
-              </Typography>
-            </Box>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Box sx={{ width: 22, height: 22, borderRadius: "50%", bgcolor: "rgba(245,158,11,0.25)", color: "#92400e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>2</Box>
-              <Typography variant="caption" sx={{ color: "#78350f", fontSize: 12 }}>
-                <strong>Step 2:</strong> System calculates <code>(Current - Previous) × Ksh 35</code>.
-              </Typography>
-            </Box>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Box sx={{ width: 22, height: 22, borderRadius: "50%", bgcolor: "rgba(245,158,11,0.25)", color: "#92400e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>3</Box>
-              <Typography variant="caption" sx={{ color: "#78350f", fontSize: 12 }}>
-                <strong>Step 3:</strong> Click <strong>Refresh readiness</strong> & dispatch bills.
-              </Typography>
-            </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {onBatchReadings && (
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<Zap size={14} />}
+                onClick={onBatchReadings}
+                sx={{
+                  background: requireUtilityReadings ? "#d97706" : "#059669",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: 12,
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: "6px",
+                  textTransform: "none",
+                  boxShadow: "none",
+                  "&:hover": { background: requireUtilityReadings ? "#b45309" : "#047857" },
+                }}
+              >
+                Record Readings
+              </Button>
+            )}
+
+            {onTogglePolicy && (
+              <Button
+                variant="outlined"
+                size="small"
+                disabled={policyToggling}
+                startIcon={policyToggling ? <CircularProgress size={12} color="inherit" /> : undefined}
+                onClick={onTogglePolicy}
+                sx={{
+                  color: requireUtilityReadings ? "#b45309" : "#047857",
+                  borderColor: requireUtilityReadings ? "rgba(245, 158, 11, 0.4)" : "rgba(16, 185, 129, 0.4)",
+                  fontWeight: 700,
+                  fontSize: 12,
+                  px: 1.2,
+                  py: 0.5,
+                  borderRadius: "6px",
+                  textTransform: "none",
+                  bgcolor: "rgba(255, 255, 255, 0.8)",
+                  "&:hover": { bgcolor: "#fff" },
+                }}
+              >
+                {policyToggling
+                  ? "Saving…"
+                  : requireUtilityReadings
+                    ? "Meter Gate: ON"
+                    : "Meter Gate: OFF"}
+              </Button>
+            )}
+
+            {onOpenPolicyModal && (
+              <Button
+                variant="text"
+                size="small"
+                startIcon={<Settings2 size={13} />}
+                onClick={onOpenPolicyModal}
+                sx={{
+                  color: "var(--text-secondary)",
+                  fontWeight: 700,
+                  fontSize: 12,
+                  px: 1,
+                  py: 0.5,
+                  textTransform: "none",
+                  "&:hover": { bgcolor: "rgba(0,0,0,0.04)" },
+                }}
+              >
+                Policy
+              </Button>
+            )}
           </Box>
         </Paper>
       )}

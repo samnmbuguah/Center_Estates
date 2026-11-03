@@ -249,7 +249,7 @@ export function CandidateTable({
                               : isAllBilled
                               ? `${grp.code} ✓`
                               : isPending
-                              ? `${grp.code} · Reading Required`
+                              ? `${grp.code} · Meter needed`
                               : `${grp.code} · ${money.format(grp.unbilledAmount)}`;
 
                             const chipBg = isArrears
@@ -331,7 +331,7 @@ export function CandidateTable({
                             <Chip
                               size="small"
                               icon={missingUtilityIcon}
-                              label={`${missingUtilityLabel.toUpperCase()} · Reading Required`}
+                              label={`${missingUtilityLabel.toUpperCase()} · Meter needed`}
                               variant="outlined"
                               sx={{
                                 fontSize: 9.5,
