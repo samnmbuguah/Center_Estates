@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Box, Button, Chip, IconButton, Menu, MenuItem, Paper, Step, StepLabel, Stepper, Tooltip, Typography } from "@mui/material";
-import { BookOpen, ExternalLink, FilePlus2, Gauge, HandCoins, HelpCircle, MoreHorizontal, RotateCcw, Send, Settings2, ShieldAlert, Sliders, Zap } from "lucide-react";
+import { Box, Button, Chip, CircularProgress, IconButton, Menu, MenuItem, Paper, Step, StepLabel, Stepper, Tooltip, Typography } from "@mui/material";
+import { BookOpen, CheckCircle2, ExternalLink, FilePlus2, Gauge, HandCoins, HelpCircle, MoreHorizontal, RotateCcw, Send, Settings2, ShieldAlert, Sliders, Zap } from "lucide-react";
 import { CHARGE_TYPE_LABEL, InvoiceChargeType } from "./types";
 import { BillingGuidelinesModal } from "./BillingGuidelinesModal";
 
@@ -12,7 +12,7 @@ export function BillingActionBanner({
   chargeTypeFilter = "all", billingTarget = "tenant", blockingOpen, busy,
   pendingWaterCount = 0, pendingUtilityCount = 0, onLogMeters, onBatchReadings,
   canFinance, onInitialize, onRecheck, onGenerate, onSingleInvoice, onLettingFeeInvoice,
-  requireUtilityReadings = true, onOpenPolicyModal, propertyName,
+  requireUtilityReadings = true, onOpenPolicyModal, onTogglePolicy, policyToggling = false, propertyName,
 }: {
   hasRun: boolean; isPreparing: boolean; isReview: boolean; isApproved: boolean;
   formattedMonth: string; ready: number; issues: number; selectedCount: number;
@@ -25,6 +25,8 @@ export function BillingActionBanner({
   onLettingFeeInvoice?: () => void;
   requireUtilityReadings?: boolean;
   onOpenPolicyModal?: () => void;
+  onTogglePolicy?: () => void;
+  policyToggling?: boolean;
   propertyName?: string;
 }) {
   const router = useRouter();
@@ -274,6 +276,38 @@ export function BillingActionBanner({
               >
                 Facility Management: Meters →
               </Button>
+
+              {onTogglePolicy && (
+                <Button
+                  variant="contained"
+                  size="medium"
+                  disabled={policyToggling}
+                  startIcon={policyToggling ? <CircularProgress size={14} color="inherit" /> : requireUtilityReadings ? <ShieldAlert size={15} /> : <CheckCircle2 size={15} />}
+                  onClick={onTogglePolicy}
+                  sx={{
+                    background: requireUtilityReadings
+                      ? "linear-gradient(135deg, #d97706 0%, #b45309 100%)"
+                      : "linear-gradient(135deg, #059669 0%, #047857 100%)",
+                    color: "#fff",
+                    fontWeight: 800,
+                    fontSize: 12.5,
+                    px: 1.8,
+                    py: 0.75,
+                    borderRadius: "8px",
+                    textTransform: "none",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+                    "&:hover": {
+                      background: requireUtilityReadings ? "#92400e" : "#064e3b",
+                    },
+                  }}
+                >
+                  {policyToggling
+                    ? "Updating Policy…"
+                    : requireUtilityReadings
+                      ? "Meter Gate: ON (Click to turn OFF)"
+                      : "Meter Gate: OFF (Click to turn ON)"}
+                </Button>
+              )}
 
               {onOpenPolicyModal && (
                 <Button

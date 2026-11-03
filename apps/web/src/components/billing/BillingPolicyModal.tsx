@@ -47,24 +47,19 @@ export function BillingPolicyModal({
     }
   }, [open, requireUtilityReadings]);
 
-  const handleToggle = (forceVal?: boolean) => {
+  const handleToggle = async (forceVal?: boolean) => {
     if (saving) return;
-    setError("");
-    setEnabled((prev) => (forceVal !== undefined ? forceVal : !prev));
-  };
-
-  const handleSave = async () => {
+    const nextVal = forceVal !== undefined ? forceVal : !enabled;
+    setEnabled(nextVal);
     setSaving(true);
     setError("");
+    setSuccess(false);
     try {
-      await onPolicyChange(enabled);
+      await onPolicyChange(nextVal);
       setSuccess(true);
-      setTimeout(() => {
-        onClose();
-        setSuccess(false);
-      }, 700);
     } catch (err: any) {
       setError(err?.message || "Failed to update billing policy");
+      setEnabled(!nextVal);
     } finally {
       setSaving(false);
     }
@@ -127,26 +122,26 @@ export function BillingPolicyModal({
         )}
         {success && (
           <Alert severity="success" sx={{ mb: 2 }}>
-            Billing policy saved successfully!
+            Policy updated! {enabled ? "Utility readings are now required before rent (Gate ON)." : "Independent rent invoicing enabled (Meter gate OFF)."}
           </Alert>
         )}
 
         <Stack spacing={2.5}>
           <Paper
             elevation={0}
-            onClick={() => handleToggle()}
+            onClick={() => void handleToggle()}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
-                handleToggle();
+                void handleToggle();
               }
             }}
             sx={{
               p: 2,
               borderRadius: "12px",
-              cursor: saving ? "default" : "pointer",
+              cursor: saving ? "wait" : "pointer",
               userSelect: "none",
               border: enabled ? "2px solid #d97706" : "2px solid #10b981",
               bgcolor: enabled ? "rgba(254, 243, 199, 0.35)" : "rgba(209, 250, 229, 0.4)",
@@ -178,20 +173,22 @@ export function BillingPolicyModal({
                     border: `1px solid ${enabled ? "#f59e0b" : "#10b981"}`,
                   }}
                 >
-                  {enabled ? "GATE ON" : "GATE OFF"}
+                  {saving ? "SAVING…" : enabled ? "GATE ON" : "GATE OFF"}
                 </Box>
               </Box>
               <Typography variant="caption" color="text.secondary">
                 Controls whether pending electricity/water meter readings block rent invoicing
               </Typography>
             </Box>
-            <Switch
-              checked={enabled}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => handleToggle(e.target.checked)}
-              color="warning"
-              disabled={saving}
-            />
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              {saving && <CircularProgress size={18} sx={{ color: enabled ? "#d97706" : "#059669" }} />}
+              <Switch
+                checked={enabled}
+                disabled={saving}
+                color="warning"
+                aria-label="Require Utility Readings Before Rent"
+              />
+            </Box>
           </Paper>
 
           <Box sx={{ display: "flex", gap: 1.5, alignItems: "flex-start" }}>
@@ -219,29 +216,28 @@ export function BillingPolicyModal({
           <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
             <Info size={16} color="var(--text-secondary)" />
             <Typography variant="caption" color="text.secondary">
-              Changes take effect immediately for the next invoice generation and candidate review.
+              Clicking the card above instantly toggles and saves the policy for this property.
             </Typography>
           </Box>
         </Stack>
       </DialogContent>
 
-      <DialogActions sx={{ p: 2, px: 3, bgcolor: "var(--color-slate-50)" }}>
-        <Button onClick={onClose} disabled={saving} variant="text" color="inherit">
-          Cancel
-        </Button>
+      <DialogActions sx={{ p: 2, px: 3, bgcolor: "var(--color-slate-50)", justifyContent: "space-between" }}>
+        <Typography variant="caption" color="text.secondary">
+          Current status: <strong>{enabled ? "Gate ON" : "Gate OFF"}</strong>
+        </Typography>
         <Button
-          onClick={() => void handleSave()}
-          variant="contained"
+          onClick={onClose}
           disabled={saving}
-          startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
+          variant="contained"
           sx={{
-            background: enabled ? "#d97706" : "#059669",
-            "&:hover": { background: enabled ? "#b45309" : "#047857" },
+            background: "#1e293b",
+            "&:hover": { background: "#0f172a" },
             fontWeight: 800,
-            px: 2.5,
+            px: 3,
           }}
         >
-          {saving ? "Saving…" : enabled ? "Save Policy (Gate ON)" : "Save Policy (Gate OFF)"}
+          Done
         </Button>
       </DialogActions>
     </Dialog>

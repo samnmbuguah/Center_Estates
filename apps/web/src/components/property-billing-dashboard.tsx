@@ -99,36 +99,47 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     return true;
   }, [activeProp]);
 
+  const [policyToggling, setPolicyToggling] = useState(false);
+
   const handlePolicyChange = async (enabled: boolean) => {
     const targetPropId = activeProp?.id || activeProperty?.id || properties[0]?.id;
     if (!targetPropId) {
       throw new Error("No active property found. Please select a property first.");
     }
-    const res = await apiFetch(`/property/properties/${targetPropId}/billing-policy/`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Property-Scope": "portfolio",
-        "X-Property-ID": targetPropId,
-      },
-      body: JSON.stringify({ require_utility_readings_before_rent: enabled }),
-    }, organizationId);
-    if (!res.ok) {
-      throw new Error(await apiErrorMessage(res, "Failed to update billing policy"));
+    setPolicyToggling(true);
+    try {
+      const res = await apiFetch(`/property/properties/${targetPropId}/billing-policy/`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Property-Scope": "portfolio",
+          "X-Property-ID": targetPropId,
+        },
+        body: JSON.stringify({ require_utility_readings_before_rent: enabled }),
+      }, organizationId);
+      if (!res.ok) {
+        throw new Error(await apiErrorMessage(res, "Failed to update billing policy"));
+      }
+      setProperties((prev) =>
+        prev.map((p) => {
+          if (p.id === targetPropId) {
+            const meta = { ...(p.metadata || {}) };
+            meta.require_utility_readings_before_rent = enabled;
+            meta.billing_settings = { ...(meta.billing_settings || {}), require_utility_readings_before_rent: enabled };
+            return { ...p, metadata: meta };
+          }
+          return p;
+        })
+      );
+      setNotice(`Billing policy updated: ${enabled ? "Utility readings required before rent (Gate ON)" : "Independent rent invoicing enabled (Meter gate OFF)"}`);
+      if (run?.id) {
+        await mutate("prepare");
+      } else {
+        await load();
+      }
+    } finally {
+      setPolicyToggling(false);
     }
-    setProperties((prev) =>
-      prev.map((p) => {
-        if (p.id === targetPropId) {
-          const meta = { ...(p.metadata || {}) };
-          meta.require_utility_readings_before_rent = enabled;
-          meta.billing_settings = { ...(meta.billing_settings || {}), require_utility_readings_before_rent: enabled };
-          return { ...p, metadata: meta };
-        }
-        return p;
-      })
-    );
-    setNotice(`Billing policy updated: ${enabled ? "Utility readings required before rent" : "Independent rent invoicing enabled (Meter gate OFF)"}`);
-    await mutate("prepare");
   };
 
   const canFinance = can("property.finance");
@@ -1021,6 +1032,8 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         onLettingFeeInvoice={landlordFeeType === "letting" ? () => setLettingModalOpen(true) : undefined}
         requireUtilityReadings={requireUtilityReadings}
         onOpenPolicyModal={() => setPolicyModalOpen(true)}
+        onTogglePolicy={() => void handlePolicyChange(!requireUtilityReadings)}
+        policyToggling={policyToggling}
         propertyName={activeProp?.name}
       />
 

@@ -116,6 +116,7 @@ describe("BillingActionBanner", () => {
 
   it("displays independent rent invoicing mode when utility readings requirement is OFF", () => {
     const onOpenPolicyModal = jest.fn();
+    const onTogglePolicy = jest.fn();
     render(
       <BillingActionBanner
         hasRun isPreparing={false} isReview isApproved={false}
@@ -124,6 +125,7 @@ describe("BillingActionBanner", () => {
         pendingUtilityCount={3}
         requireUtilityReadings={false}
         onOpenPolicyModal={onOpenPolicyModal}
+        onTogglePolicy={onTogglePolicy}
         blockingOpen={false} busy="" canFinance canApprove
         onInitialize={jest.fn()} onRecheck={jest.fn()} onApprove={jest.fn()}
         onGenerate={jest.fn()} onSingleInvoice={jest.fn()}
@@ -134,6 +136,9 @@ describe("BillingActionBanner", () => {
     expect(screen.getByText(/Independent Invoicing Policy/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Invoicing Policy/i }));
     expect(onOpenPolicyModal).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /Meter Gate: OFF/i }));
+    expect(onTogglePolicy).toHaveBeenCalledTimes(1);
   });
 });
 
