@@ -17,7 +17,12 @@ from .base import ConstructionScopedViewSet
 
 class ProjectViewSet(ConstructionScopedViewSet):
     write_permission = 'monitoring.project_admin'
-    queryset = Project.objects.select_related("portfolio_project")
+    queryset = Project.objects.select_related("portfolio_project").filter(
+        archived=False,
+    ).exclude(
+        onboarding_complete=False,
+        modules=[],
+    )
     serializer_class = ProjectSerializer
     search_fields = ("name", "code", "client_name", "location")
 
