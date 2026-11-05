@@ -784,3 +784,39 @@ class ConstructionApiTests(TestCase):
         self.assertEqual(response["Content-Type"], "application/pdf")
         self.assertTrue(len(response.content) > 1000)
         self.assertTrue(response.content.startswith(b"%PDF"))
+
+    def test_boq_material_reconciliation(self):
+        item = BoQItem.objects.create(
+            project=self.project,
+            organization=self.organization,
+            section="concrete_works",
+            item_number="3.1",
+            description="Ready mix concrete grade 30/20 in columns",
+            unit="m3",
+            quantity=Decimal("150.00"),
+            rate=Decimal("14500.00"),
+            amount=Decimal("2175000.00"),
+        )
+        MaterialDelivery.objects.create(
+            project_id=self.project.id,
+            organization=self.organization,
+            material="Ready mix concrete grade 30/20",
+            quantity=Decimal("160.00"),
+            unit="m3",
+            supplier="Bamburi Special Products",
+            delivery_date=1,
+            boq_item_id=item.id,
+            created_at=1,
+            updated_at=1,
+        )
+        url = f"/api/v1/construction/projects/{self.project.id}/boq-material-reconciliation"
+        response = self.client.get(url, **self.headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertIsInstance(response.data, list)
+        self.assertTrue(len(response.data) >= 1)
+        recon_entry = next(r for r in response.data if r["boq_item_id"] == item.id)
+        self.assertEqual(recon_entry["planned_quantity"], "150.00")
+        self.assertEqual(recon_entry["delivered_quantity"], "160.00")
+        self.assertEqual(recon_entry["variance"], "+10.00")
+        self.assertEqual(recon_entry["status"], "slightly_over")
+

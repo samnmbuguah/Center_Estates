@@ -16,7 +16,7 @@ from .views import (
 from core.views import MobileTokenView
 from .sync_views import media_upload, mobile_me, pull, push, register_device, verify_submission
 from .report_views import (
-    export_boq_csv, export_cost_csv, export_milestones_csv, generate_project_scurve, monthly_report,
+    boq_material_reconciliation, export_boq_csv, export_cost_csv, export_milestones_csv, generate_project_scurve, monthly_report,
     project_report, project_scurve, project_workspace, weekly_report,
 )
 from .ingest import (
@@ -97,6 +97,8 @@ urlpatterns += [
     path("reports/scurve/", project_scurve, name="construction-scurve-query-slash"),
     path("reports/scurve/<str:project_id>/", project_scurve, name="construction-scurve"),
     path("projects/<str:project_id>/generate-scurve/", generate_project_scurve, name="construction-generate-scurve"),
+    path("projects/<str:project_id>/boq-material-reconciliation", boq_material_reconciliation, name="construction-boq-material-reconciliation"),
+    path("projects/<str:project_id>/boq-material-reconciliation/", boq_material_reconciliation, name="construction-boq-material-reconciliation-slash"),
     path("projects/<str:project_id>/workspace/", project_workspace, name="construction-project-workspace"),
     path("reports/<str:project_id>/", project_report, name="construction-project-report"),
     path("exports/boq/<str:project_id>.csv", export_boq_csv, name="construction-boq-csv"),

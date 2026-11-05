@@ -378,3 +378,80 @@ def project_workspace(request, project_id):
             for item in milestones
         ],
     })
+
+
+@extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
+@api_view(["GET"])
+@permission_classes([ConstructionSubscription])
+def boq_material_reconciliation(request, project_id=None):
+    """Reconciles delivered materials against Bill of Quantities (BoQ) planned allowances."""
+    if not project_id:
+        project_id = request.query_params.get("project_id") or request.query_params.get("project")
+    if not project_id:
+        return Response({"detail": "project_id is required."}, status=400)
+    project = _scoped_project(request, project_id)
+    if not project:
+        return Response({"detail": "Project not found."}, status=404)
+
+    org = get_active_organization(request) or project.organization
+    boq_items = BoQItem.objects.filter(project=project)
+    if org:
+        boq_items = boq_items.filter(organization=org)
+
+    # Deliveries for this project
+    deliveries = MaterialDelivery.objects.filter(project_id=project.id)
+    if org:
+        deliveries = deliveries.filter(organization=org)
+
+    # Map deliveries by boq_item_id and by keyword
+    deliveries_by_item = defaultdict(list)
+    unassigned_deliveries = []
+    for d in deliveries:
+        if d.boq_item_id:
+            deliveries_by_item[d.boq_item_id].append(d)
+        else:
+            unassigned_deliveries.append(d)
+
+    recon_list = []
+    for item in boq_items.order_by("section", "item_number"):
+        item_deliveries = list(deliveries_by_item.get(item.id, []))
+        
+        # Keyword matching fallback for deliveries recorded without explicit BoQ FK
+        desc_lower = (item.description or "").lower()
+        for d in unassigned_deliveries:
+            mat_lower = (d.material or "").lower()
+            if (
+                mat_lower in desc_lower
+                or any(kw in desc_lower and kw in mat_lower for kw in ("steel", "rebar", "cement", "sand", "ballast", "concrete", "paint", "block", "timber", "excavat"))
+            ):
+                item_deliveries.append(d)
+
+        planned = item.quantity or Decimal("0.00")
+        delivered = sum((d.quantity for d in item_deliveries), Decimal("0.00"))
+        variance = delivered - planned
+
+        # Determine status
+        if planned > 0 and delivered > (planned * Decimal("1.10")):
+            status = "significantly_over"
+        elif planned > 0 and delivered > planned:
+            status = "slightly_over"
+        else:
+            status = "on_track"
+
+        var_str = f"{variance:,.2f}"
+        if variance > 0:
+            var_str = f"+{var_str}"
+
+        recon_list.append({
+            "boq_item_id": item.id,
+            "item_number": item.item_number or "",
+            "section": item.section,
+            "description": item.description,
+            "unit": item.unit or "",
+            "planned_quantity": f"{planned:,.2f}",
+            "delivered_quantity": f"{delivered:,.2f}",
+            "variance": var_str,
+            "status": status,
+        })
+
+    return Response(recon_list)
