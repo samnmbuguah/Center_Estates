@@ -9,16 +9,19 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
-from organizations.models import Organization
+from organizations.models import Organization, Role
 from properties.models import Project as PortfolioProject
 from construction.models import (
     Project as ConstructionProject,
     WorkPlanTask,
     MilestoneEntry,
+    MilestoneBoQItem,
     BoQItem,
     ProjectDocument,
     DocumentVersion,
     ProjectApproval,
+    ProgressPlan,
+    ProjectMembership,
 )
 
 User = get_user_model()
@@ -430,5 +433,85 @@ class Command(BaseCommand):
                     issue_date=issue_date,
                     review_notes="Verified and compliant with technical specifications.",
                 )
+
+            # 8. S-Curve Progress Plan (90 Weeks Baseline)
+            import math
+            start_dt = datetime.date(2026, 8, 17)
+            for i in range(1, 91):
+                cur_dt = start_dt + datetime.timedelta(days=(i - 1) * 7)
+                iso_yr, iso_wk, _ = cur_dt.isocalendar()
+                week_str = f"{iso_yr}-W{iso_wk:02d}"
+                # Smooth S-curve (logistic) from 1% at week 1 to 100% at week 90
+                x = (i - 45) / 9.0
+                raw_pct = 100.0 / (1.0 + math.exp(-x))
+                # Normalize so week 1 starts at 1 and week 90 is 100
+                normalized = max(1, min(100, int(round(raw_pct))))
+                ProgressPlan.objects.update_or_create(
+                    project_id=construction_prj.id,
+                    week=week_str,
+                    defaults={
+                        "organization": org,
+                        "planned_percent": normalized,
+                    },
+                )
+
+            # 9. Project Memberships for Testing
+            cow_role = Role.objects.filter(organization=org, slug__icontains="clerk").first() or Role.objects.filter(organization=org).first()
+            active_users = User.objects.filter(organization=org, is_active=True)
+            for u in active_users:
+                ProjectMembership.objects.update_or_create(
+                    user=u,
+                    project=construction_prj,
+                    defaults={
+                        "role": cow_role,
+                        "label": "Clerk of Works" if "clerk" in (u.username.lower() or "") else "Project Member",
+                        "created_at": now_ms,
+                    },
+                )
+
+            # 10. Auto-Map BoQ items to Milestones
+            BOQ_SECTION_KEYWORDS = {
+                "substructure": ["substructure", "excavation", "foundation", "hardcore", "plinth", "strip footing", "ground beam"],
+                "superstructure": ["superstructure", "slab", "column", "beam", "concrete", "rebar", "formwork", "masonry", "wall"],
+                "finishes": ["finishes", "plaster", "paint", "tile", "screed", "ceiling", "gypsum", "flooring", "door", "window"],
+                "mep": ["electrical", "plumbing", "drainage", "mep", "cctv", "fire", "generator", "lift", "solar"],
+                "preliminaries": ["mobilisation", "site setup", "hoarding", "preliminaries", "insurance", "supervision"],
+            }
+            all_boq_items = list(BoQItem.objects.filter(project=construction_prj))
+            all_milestones = list(MilestoneEntry.objects.filter(project_id=construction_prj.id, organization=org))
+            
+            for m in all_milestones:
+                m_name = (m.milestone_id or "").lower()
+                matched_items = []
+                for sec, keywords in BOQ_SECTION_KEYWORDS.items():
+                    if any(kw in m_name for kw in keywords):
+                        for item in all_boq_items:
+                            desc = (item.description or "").lower()
+                            if item.section == sec or any(kw in desc for kw in keywords):
+                                matched_items.append(item)
+
+                seen_ids = set(
+                    MilestoneBoQItem.objects.filter(
+                        milestone_id=m.milestone_id, project=construction_prj
+                    ).values_list("boq_item_id", flat=True)
+                )
+                to_create = []
+                for bi in matched_items:
+                    if bi.id not in seen_ids:
+                        seen_ids.add(bi.id)
+                        to_create.append(
+                            MilestoneBoQItem(
+                                project=construction_prj,
+                                organization=org,
+                                milestone_id=m.milestone_id,
+                                boq_item=bi,
+                                allocated_quantity=bi.quantity or Decimal("1.00"),
+                                notes="Auto-mapped by AI keyword heuristics",
+                                created_at=now_ms,
+                                updated_at=now_ms,
+                            )
+                        )
+                if to_create:
+                    MilestoneBoQItem.objects.bulk_create(to_create)
 
         self.stdout.write(self.style.SUCCESS("All Karam Apartments data imported successfully!"))
