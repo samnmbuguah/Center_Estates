@@ -306,6 +306,8 @@ class MilestoneEntry(SyncBase):
     required_certifying_role = models.CharField(max_length=40, blank=True, default="")
     payment_instruction = models.CharField(max_length=512, blank=True, default="")
     payment_value = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True, help_text="Monetary value of this milestone for payment triggering")
+    prerequisites = models.JSONField(default=list, blank=True, help_text="List of prerequisite milestone IDs that must reach 100% before this milestone can advance")
+
 
 
 class EvidenceFile(SyncBase):

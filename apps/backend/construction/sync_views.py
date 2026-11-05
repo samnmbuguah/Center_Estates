@@ -49,7 +49,7 @@ def mobile_me(request):
 
 
 WRITABLE_FIELDS = {
-    MilestoneEntry: ["project_id", "milestone_id", "percent_complete", "submitted_at", "client_signature", "signing_device_id", "required_evidence_types", "required_certifying_role", "payment_instruction", "payment_value"],
+    MilestoneEntry: ["project_id", "milestone_id", "percent_complete", "submitted_at", "client_signature", "signing_device_id", "required_evidence_types", "required_certifying_role", "payment_instruction", "payment_value", "prerequisites"],
     EvidenceFile: ["milestone_entry_id", "media_type", "remote_url", "hash", "latitude", "longitude", "captured_at", "submitted_at"],
     Observation: ["milestone_entry_id", "body", "flag", "origin"],
     OfficeNote: ["milestone_entry_id", "body", "author"],

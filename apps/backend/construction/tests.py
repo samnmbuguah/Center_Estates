@@ -837,4 +837,44 @@ class ConstructionApiTests(TestCase):
         self.assertIn("URGENT H&S", notif.title)
         self.assertIn("Scaffolding collapse", notif.body)
 
+    def test_milestone_prerequisites_stage_gate(self):
+        m1 = MilestoneEntry.objects.create(
+            organization=self.organization,
+            project_id=self.project.id,
+            milestone_id="Substructure & Raft",
+            percent_complete=50,
+            created_at=1,
+            updated_at=1,
+        )
+        m2 = MilestoneEntry.objects.create(
+            organization=self.organization,
+            project_id=self.project.id,
+            milestone_id="Superstructure Frame",
+            percent_complete=0,
+            prerequisites=["Substructure & Raft"],
+            created_at=1,
+            updated_at=1,
+        )
+        # Attempting to update m2 progress while m1 is only 50% should fail
+        url = f"/api/v1/construction/milestones/{m2.id}/"
+        response = self.client.patch(url, {"percent_complete": 25}, format="json", **self.headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Stage-gate locked", str(response.data))
+
+        # Check prerequisites query endpoint
+        url_prereqs = f"/api/v1/construction/milestones/{m2.id}/prerequisites/"
+        res_prereq = self.client.get(url_prereqs, **self.headers)
+        self.assertEqual(res_prereq.status_code, 200)
+        self.assertFalse(res_prereq.data["satisfied"])
+        self.assertEqual(len(res_prereq.data["incomplete"]), 1)
+
+        # Once m1 reaches 100%, m2 can advance
+        m1.percent_complete = 100
+        m1.save()
+        res_ok = self.client.patch(url, {"percent_complete": 25}, format="json", **self.headers)
+        self.assertEqual(res_ok.status_code, 200)
+        m2.refresh_from_db()
+        self.assertEqual(m2.percent_complete, 25)
+
+
 

@@ -33,6 +33,7 @@ interface MilestoneRow {
   required_certifying_role: string;
   payment_instruction: string;
   payment_value: string | null;
+  prerequisites?: string[];
   submitted_at: number | null;
   created_at: number;
 }
@@ -59,6 +60,7 @@ export function Milestones() {
     required_certifying_role: "",
     payment_instruction: "",
     payment_value: "",
+    prerequisites: [] as string[],
   });
 
   const load = useCallback(
@@ -68,8 +70,17 @@ export function Milestones() {
   useEffect(() => { load(); }, [load]);
 
   const resetForm = () => {
-    setForm({ milestone_id: "", percent_complete: 0, required_evidence_types: [], required_certifying_role: "", payment_instruction: "", payment_value: "" });
+    setForm({ milestone_id: "", percent_complete: 0, required_evidence_types: [], required_certifying_role: "", payment_instruction: "", payment_value: "", prerequisites: [] });
     setEditId(null);
+  };
+
+  const togglePrerequisite = (pid: string) => {
+    setForm((f) => ({
+      ...f,
+      prerequisites: f.prerequisites.includes(pid)
+        ? f.prerequisites.filter((x) => x !== pid)
+        : [...f.prerequisites, pid],
+    }));
   };
 
   const handleAutoMapAll = async () => {
@@ -116,6 +127,7 @@ export function Milestones() {
       required_certifying_role: m.required_certifying_role,
       payment_instruction: m.payment_instruction,
       payment_value: m.payment_value ?? "",
+      prerequisites: m.prerequisites || [],
     });
     setEditId(m.milestone_id);
   };
@@ -184,6 +196,7 @@ export function Milestones() {
           <thead>
             <tr>
               <th>Milestone ID</th>
+              <th>Stage-Gate Prerequisites</th>
               <th>% Complete</th>
               <th>Required Evidence</th>
               <th>Required Role</th>
@@ -194,34 +207,64 @@ export function Milestones() {
             </tr>
           </thead>
           <tbody>
-            {items.map((m) => (
-              <tr key={m.id}>
-                <td className="mono">{m.milestone_id}</td>
-                <td>{m.percent_complete}%</td>
-                <td style={{ fontSize: 12 }}>{m.required_evidence_types.map(evidenceLabel).join(", ") || "—"}</td>
-                <td>{ROLE_OPTIONS.find((r) => r.value === m.required_certifying_role)?.label || "—"}</td>
-                <td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{m.payment_instruction || "—"}</td>
-                <td className="mono">{m.payment_value ? Number(m.payment_value).toLocaleString() : "—"}</td>
-                <td>{statusBadge(m)}</td>
-                <td>
-                  <button
-                    className="btn ghost sm"
-                    onClick={() => setSelectedMiniBoQ(m)}
-                    title="Mini-BoQ Valuation & AI Audit"
-                    style={{ marginRight: 4 }}
-                  >
-                    <Coins size={14} /> Mini-BoQ
-                  </button>
-                  {!m.submitted_at && (
-                    <>
-                      <button className="btn ghost sm" onClick={() => startEdit(m)} title="Edit"><Pencil size={14} /></button>
-                      <button className="btn ghost sm" onClick={() => setConfirmTarget(m)} title="Delete"><Trash2 size={14} /></button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && <tr><td colSpan={8} className="empty">No milestones yet.</td></tr>}
+            {items.map((m) => {
+              const itemMap = new Map(items.map((it) => [it.milestone_id, it]));
+              const prereqs = m.prerequisites || [];
+              const incompletePrereqs = prereqs
+                .map((pid) => itemMap.get(pid))
+                .filter((p) => !p || Number(p.percent_complete) < 100);
+              const isBlocked = prereqs.length > 0 && incompletePrereqs.length > 0;
+
+              return (
+                <tr key={m.id}>
+                  <td className="mono">{m.milestone_id}</td>
+                  <td>
+                    {prereqs.length === 0 ? (
+                      <span className="muted" style={{ fontSize: 11 }}>—</span>
+                    ) : isBlocked ? (
+                      <span
+                        className="badge"
+                        style={{ backgroundColor: "#fee2e2", color: "#b91c1c", border: "1px solid #f87171", cursor: "help" }}
+                        title={`Stage-gate blocked by: ${incompletePrereqs.map((p) => p ? `${p.milestone_id} (${p.percent_complete}%)` : "Unstarted").join(", ")}`}
+                      >
+                        🔒 Blocked ({incompletePrereqs.length})
+                      </span>
+                    ) : (
+                      <span
+                        className="badge"
+                        style={{ backgroundColor: "#dcfce7", color: "#15803d", border: "1px solid #86efac", cursor: "help" }}
+                        title={`All ${prereqs.length} prerequisite stage-gates 100% complete`}
+                      >
+                        ✓ Unlocked ({prereqs.length})
+                      </span>
+                    )}
+                  </td>
+                  <td>{m.percent_complete}%</td>
+                  <td style={{ fontSize: 12 }}>{m.required_evidence_types.map(evidenceLabel).join(", ") || "—"}</td>
+                  <td>{ROLE_OPTIONS.find((r) => r.value === m.required_certifying_role)?.label || "—"}</td>
+                  <td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{m.payment_instruction || "—"}</td>
+                  <td className="mono">{m.payment_value ? Number(m.payment_value).toLocaleString() : "—"}</td>
+                  <td>{statusBadge(m)}</td>
+                  <td>
+                    <button
+                      className="btn ghost sm"
+                      onClick={() => setSelectedMiniBoQ(m)}
+                      title="Mini-BoQ Valuation & AI Audit"
+                      style={{ marginRight: 4 }}
+                    >
+                      <Coins size={14} /> Mini-BoQ
+                    </button>
+                    {!m.submitted_at && (
+                      <>
+                        <button className="btn ghost sm" onClick={() => startEdit(m)} title="Edit"><Pencil size={14} /></button>
+                        <button className="btn ghost sm" onClick={() => setConfirmTarget(m)} title="Delete"><Trash2 size={14} /></button>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+            {items.length === 0 && <tr><td colSpan={9} className="empty">No milestones yet.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -300,7 +343,30 @@ export function Milestones() {
               placeholder="KES amount"
             />
           </div>
-          <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 44 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, width: "100%", marginTop: 6 }}>
+            <label style={{ fontSize: 12, fontWeight: 600 }}>
+              Stage-Gate Prerequisites (Milestones that must reach 100% before this milestone can advance)
+            </label>
+            <div className="row wrap" style={{ gap: 8, padding: 8, background: "var(--surface-2)", borderRadius: 6, border: "1px solid var(--border)" }}>
+              {items
+                .filter((it) => it.milestone_id !== form.milestone_id)
+                .map((it) => (
+                  <label key={it.id} style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={form.prerequisites.includes(it.milestone_id)}
+                      onChange={() => togglePrerequisite(it.milestone_id)}
+                      disabled={loading}
+                    />
+                    <span>{it.milestone_id} ({it.percent_complete}%)</span>
+                  </label>
+                ))}
+              {items.filter((it) => it.milestone_id !== form.milestone_id).length === 0 && (
+                <span className="muted" style={{ fontSize: 11 }}>No other milestones available in project yet.</span>
+              )}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 4, alignItems: "flex-end", height: 44, marginTop: 8 }}>
             <button className="btn" onClick={submit} disabled={loading}>
               {editId ? "Update" : "Create"}
             </button>

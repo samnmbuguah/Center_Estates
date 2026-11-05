@@ -50,8 +50,58 @@ BOQ_SECTION_KEYWORDS = {
 }
 
 
+def check_milestone_prerequisites(milestone_entry, organization=None):
+    """Checks if all prerequisite milestone stage-gates have reached 100% completion."""
+    prereqs = milestone_entry.prerequisites or []
+    if not prereqs:
+        return True, []
+
+    org = organization or milestone_entry.organization
+    qs = MilestoneEntry.objects.filter(
+        project_id=milestone_entry.project_id,
+        milestone_id__in=prereqs,
+        deleted_at__isnull=True,
+    )
+    if org:
+        qs = qs.filter(organization=org)
+
+    found_map = {m.milestone_id: m for m in qs}
+    incomplete = []
+    for pid in prereqs:
+        item = found_map.get(pid)
+        if not item or item.percent_complete < 100:
+            pct = item.percent_complete if item else 0
+            incomplete.append({"milestone_id": pid, "percent_complete": pct})
+
+    return len(incomplete) == 0, incomplete
+
+
 class MilestoneViewSet(MobileCaptureMixin, ImmutableSubmittedMixin, MilestoneBaseViewSet):
     write_permission = 'monitoring.site'
+
+    def perform_update(self, serializer):
+        entry = self.get_object()
+        new_pct = serializer.validated_data.get("percent_complete")
+        if new_pct is not None and new_pct > 0:
+            satisfied, incomplete = check_milestone_prerequisites(entry)
+            if not satisfied:
+                reasons = ", ".join([f"'{item['milestone_id']}' ({item['percent_complete']}%)" for item in incomplete])
+                raise ValidationError({
+                    "prerequisites": f"Stage-gate locked: Preceding milestone(s) {reasons} must reach 100% before progress can be claimed on '{entry.milestone_id}'."
+                })
+        super().perform_update(serializer)
+
+    @action(detail=True, methods=["get"], url_path="prerequisites")
+    def prerequisites(self, request, pk=None):
+        entry = self.get_object()
+        satisfied, incomplete = check_milestone_prerequisites(entry)
+        return Response({
+            "milestone_id": entry.milestone_id,
+            "prerequisites": entry.prerequisites or [],
+            "satisfied": satisfied,
+            "incomplete": incomplete,
+        })
+
 
     @action(detail=True, methods=["get", "post"], url_path="mini-boq")
     def mini_boq(self, request, pk=None):
@@ -222,6 +272,16 @@ class MilestoneVerificationViewSet(ConstructionScopedViewSet):
         note = serializer.validated_data.get("note", "").strip()
         if serializer.validated_data["decision"] != "verified" and not note:
             raise ValidationError({"note": "A reason is required for rejection or clarification."})
+
+        # Stage-gate validation: Ensure all prerequisite milestones are satisfied
+        if serializer.validated_data["decision"] == "verified":
+            satisfied, incomplete = check_milestone_prerequisites(entry, organization)
+            if not satisfied:
+                reasons = ", ".join([f"'{item['milestone_id']}' ({item['percent_complete']}%)" for item in incomplete])
+                raise ValidationError({
+                    "prerequisites": f"Cannot verify milestone '{entry.milestone_id}'. Prerequisite stage-gate(s) incomplete: {reasons}. All preceding milestones must be 100% complete."
+                })
+
         serializer.save(verifier=self.request.user, verified_at=int(time() * 1000))
 
         # Automated Valuation & IPC Generation on Verification
