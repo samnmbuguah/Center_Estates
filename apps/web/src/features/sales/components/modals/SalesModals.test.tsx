@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { NewSaleModal, PaymentActionModal } from "./SalesModals";
 
 describe("Sales transaction dialogs", () => {
-  test("submits a new sale using the existing API payload names", () => {
+  test("submits a new sale using the multi-step deal wizard", () => {
     const onSubmit = jest.fn();
     render(
       <NewSaleModal
@@ -15,15 +15,21 @@ describe("Sales transaction dialogs", () => {
       />,
     );
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Sale reference" }), { target: { value: "SALE-001" } });
-    // MUI Select renders a div-based combobox: open the listbox, then pick the option.
+    // Step 1: Select listing and buyer
     const selects = screen.getAllByRole("combobox");
     fireEvent.mouseDown(selects[0]);
-    fireEvent.click(screen.getByRole("option", { name: /Test Buyer/ }));
-    fireEvent.mouseDown(selects[1]);
     fireEvent.click(screen.getByRole("option", { name: /Lynx/ }));
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Agreed price (KES)" }), { target: { value: "11500000" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create Sale" }));
+    fireEvent.mouseDown(selects[1]);
+    fireEvent.click(screen.getByRole("option", { name: /Test Buyer/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+
+    // Step 2: Commercial terms - update reference and agreed price
+    fireEvent.change(screen.getByRole("textbox", { name: "Sale Deal Reference" }), { target: { value: "SALE-001" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Agreed Sale Price (KES)" }), { target: { value: "11500000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue →" }));
+
+    // Step 3: Review and create
+    fireEvent.click(screen.getByRole("button", { name: "Confirm & Create Deal" }));
 
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
       reference: "SALE-001",
