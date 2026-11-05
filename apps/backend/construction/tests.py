@@ -768,3 +768,19 @@ class ConstructionApiTests(TestCase):
         self.assertIn("confidence_score", response.data)
         self.assertIn("audit_status", response.data)
         self.assertIn("recommendation", response.data)
+
+    def test_generate_project_scurve(self):
+        url = f"/api/v1/construction/projects/{self.project.id}/generate-scurve/"
+        response = self.client.post(url, {}, format="json", **self.headers)
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["status"], "success")
+        self.assertGreater(response.data["total_weeks"], 0)
+        self.assertIn("series", response.data["scurve"])
+
+    def test_certificate_pdf_generation(self):
+        url = f"/api/v1/construction/certificates/{self.certificate.id}/pdf/"
+        response = self.client.get(url, **self.headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(len(response.content) > 1000)
+        self.assertTrue(response.content.startswith(b"%PDF"))

@@ -1,8 +1,10 @@
 import datetime
 import csv
+import math
 from collections import defaultdict
 from decimal import Decimal
 
+from django.db import transaction
 from django.http import HttpResponse
 from django.db.models import Sum
 from rest_framework.decorators import api_view, permission_classes
@@ -260,6 +262,56 @@ def project_scurve(request, project_id=None):
     if not project:
         return Response({"detail": "Project not found."}, status=404)
     return Response(build_scurve(project, get_active_organization(request)))
+
+
+@extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])
+@api_view(["POST"])
+@permission_classes([ConstructionSubscription])
+def generate_project_scurve(request, project_id=None):
+    """Generates or recalculates the planned baseline S-curve for a project based on its planned start and completion dates."""
+    if not project_id:
+        project_id = request.data.get("project_id") or request.query_params.get("project_id")
+    if not project_id:
+        return Response({"detail": "project_id parameter is required."}, status=400)
+    project = _scoped_project(request, project_id)
+    if not project:
+        return Response({"detail": "Project not found."}, status=404)
+
+    start_date = project.planned_start_date or datetime.date(2026, 8, 17)
+    end_date = project.planned_completion_date or (start_date + datetime.timedelta(weeks=90))
+    org = get_active_organization(request) or project.organization
+
+    total_days = max(7, (end_date - start_date).days)
+    total_weeks = max(1, math.ceil(total_days / 7))
+
+    with transaction.atomic():
+        ProgressPlan.objects.filter(project_id=project.id).delete()
+        plans = []
+        for i in range(1, total_weeks + 1):
+            cur_dt = start_date + datetime.timedelta(days=(i - 1) * 7)
+            iso_yr, iso_wk, _ = cur_dt.isocalendar()
+            week_str = f"{iso_yr}-W{iso_wk:02d}"
+            # Standard sigmoid S-curve
+            mid = total_weeks / 2.0
+            scale = max(1.0, total_weeks / 9.0)
+            x = (i - mid) / scale
+            raw_pct = 100.0 / (1.0 + math.exp(-x))
+            normalized = max(1, min(100, int(round(raw_pct))))
+            plans.append(
+                ProgressPlan(
+                    project_id=project.id,
+                    organization=org,
+                    week=week_str,
+                    planned_percent=normalized,
+                )
+            )
+        ProgressPlan.objects.bulk_create(plans)
+
+    return Response({
+        "status": "success",
+        "total_weeks": total_weeks,
+        "scurve": build_scurve(project, org),
+    })
 
 
 @extend_schema(request=None, responses={200: {"type": "object"}}, parameters=[OpenApiParameter("project_id", OpenApiTypes.STR, OpenApiParameter.PATH)])

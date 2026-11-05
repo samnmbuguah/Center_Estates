@@ -6,9 +6,11 @@ Financial ViewSets:
 """
 from decimal import Decimal
 from time import time
+import datetime
 
 from django.db import transaction
 from django.db.models import Sum
+from django.http import HttpResponse
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -261,6 +263,168 @@ class CertificateViewSet(CertificateBaseViewSet):
 
     def perform_destroy(self, instance):
         raise ValidationError({"certificate": "Certificates cannot be deleted; void the record instead."})
+
+    @action(detail=True, methods=["get"], url_path="pdf")
+    def generate_pdf(self, request, pk=None):
+        """Generates an audit-grade Interim Payment Certificate (IPC) PDF using ReportLab."""
+        certificate = self.get_object()
+        project = certificate.project
+        org = certificate.organization
+
+        from io import BytesIO
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            rightMargin=15 * mm,
+            leftMargin=15 * mm,
+            topMargin=15 * mm,
+            bottomMargin=15 * mm,
+        )
+
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            "CertTitle",
+            parent=styles["Title"],
+            fontSize=18,
+            leading=22,
+            textColor=colors.HexColor("#0f172a"),
+            alignment=1,
+        )
+        subtitle_style = ParagraphStyle(
+            "CertSubtitle",
+            parent=styles["Normal"],
+            fontSize=11,
+            leading=14,
+            textColor=colors.HexColor("#475569"),
+            alignment=1,
+        )
+        heading_style = ParagraphStyle(
+            "CertHeading",
+            parent=styles["Heading2"],
+            fontSize=12,
+            leading=16,
+            textColor=colors.HexColor("#1e293b"),
+            spaceBefore=10,
+            spaceAfter=6,
+        )
+        body_style = ParagraphStyle(
+            "CertBody",
+            parent=styles["Normal"],
+            fontSize=9,
+            leading=12,
+            textColor=colors.HexColor("#334155"),
+        )
+        bold_style = ParagraphStyle(
+            "CertBold",
+            parent=body_style,
+            fontName="Helvetica-Bold",
+        )
+
+        elements = []
+
+        # Header
+        org_name = org.name if org else "Center Estates"
+        elements.append(Paragraph(f"<b>{org_name.upper()}</b>", title_style))
+        elements.append(Paragraph("INTERIM PAYMENT VALUATION CERTIFICATE (IPC)", subtitle_style))
+        elements.append(Spacer(1, 6 * mm))
+
+        # Certificate & Project Meta Table
+        issued_date_str = (
+            datetime.datetime.fromtimestamp(certificate.issued_at / 1000, tz=datetime.timezone.utc).strftime("%d %B %Y")
+            if certificate.issued_at else "Draft / Pending"
+        )
+        meta_data = [
+            [Paragraph("<b>Certificate No:</b>", body_style), Paragraph(certificate.certificate_number or f"IPC-{certificate.id}", bold_style),
+             Paragraph("<b>Issue Date:</b>", body_style), Paragraph(issued_date_str, body_style)],
+            [Paragraph("<b>Project:</b>", body_style), Paragraph(f"{project.name} ({project.code or ''})", body_style),
+             Paragraph("<b>Contract Type:</b>", body_style), Paragraph(getattr(project, "contract_type", "Standard FIDIC/JBCC") or "Standard", body_style)],
+            [Paragraph("<b>Client:</b>", body_style), Paragraph(project.client_name or "M/S Client", body_style),
+             Paragraph("<b>Status:</b>", body_style), Paragraph(certificate.status.upper(), bold_style)],
+            [Paragraph("<b>Site Location:</b>", body_style), Paragraph(project.location or "Nairobi, Kenya", body_style),
+             Paragraph("<b>Tender Sum:</b>", body_style), Paragraph(f"KES {project.budget:,.2f}" if project.budget else "KES 0.00", bold_style)],
+        ]
+        meta_table = Table(meta_data, colWidths=[35*mm, 55*mm, 35*mm, 55*mm])
+        meta_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
+            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        elements.append(meta_table)
+        elements.append(Spacer(1, 6 * mm))
+
+        # Valuation Breakdown Table
+        elements.append(Paragraph("Valuation Summary & Statutory Deductions", heading_style))
+        cur_gross = float(certificate.current_gross or 0)
+        variations = float(certificate.variations or 0)
+        total_gross = cur_gross + variations
+        retention_pct = float(certificate.retention_percent or 5.0)
+        retention_amt = float(certificate.retention_amount or (total_gross * retention_pct / 100.0))
+        advance_rec = float(certificate.advance_recovery or 0)
+        prev_cert = float(certificate.previous_certified or 0)
+        net_payable = float(certificate.net_payable or (total_gross - retention_amt - advance_rec - prev_cert))
+
+        val_data = [
+            [Paragraph("<b>Item Description</b>", bold_style), Paragraph("<b>Amount (KES)</b>", bold_style)],
+            [Paragraph("1. Total Gross Work Completed to Date", body_style), Paragraph(f"{cur_gross:,.2f}", body_style)],
+            [Paragraph("2. Approved Contract Variations & Change Orders", body_style), Paragraph(f"{variations:,.2f}", body_style)],
+            [Paragraph("<b>Subtotal (Gross Valuation)</b>", bold_style), Paragraph(f"<b>{total_gross:,.2f}</b>", bold_style)],
+            [Paragraph(f"3. Less: Retention Fund ({retention_pct:.1f}%)", body_style), Paragraph(f"({retention_amt:,.2f})", body_style)],
+            [Paragraph("4. Less: Mobilisation Advance Payment Recovery", body_style), Paragraph(f"({advance_rec:,.2f})", body_style)],
+            [Paragraph("5. Less: Previously Certified Interim Payments", body_style), Paragraph(f"({prev_cert:,.2f})", body_style)],
+            [Paragraph("<b>NET CERTIFIED AMOUNT PAYABLE</b>", bold_style), Paragraph(f"<b>KES {net_payable:,.2f}</b>", bold_style)],
+        ]
+        val_table = Table(val_data, colWidths=[120*mm, 60*mm])
+        val_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+            ("BACKGROUND", (0, 3), (-1, 3), colors.HexColor("#f1f5f9")),
+            ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#dcfce7")),
+            ("TEXTCOLOR", (0, -1), (-1, -1), colors.HexColor("#166534")),
+            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(val_table)
+        elements.append(Spacer(1, 10 * mm))
+
+        # Sign-off Blocks
+        elements.append(Paragraph("Professional Certifications & Approvals", heading_style))
+        signs_data = [
+            [
+                Paragraph("<b>Prepared by:</b><br/>Clerk of Works / Resident Eng.<br/><br/><br/>Sign: ___________________<br/>Date: ___________________", body_style),
+                Paragraph("<b>Quantity Surveyor:</b><br/>Consultant QS (IQSK / BORAQS)<br/><br/><br/>Sign: ___________________<br/>Date: ___________________", body_style),
+                Paragraph("<b>Client Authorisation:</b><br/>Project Steering Committee<br/><br/><br/>Sign: ___________________<br/>Date: ___________________", body_style),
+            ]
+        ]
+        signs_table = Table(signs_data, colWidths=[60*mm, 60*mm, 60*mm])
+        signs_table.setStyle(TableStyle([
+            ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+            ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fafc")),
+            ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+        ]))
+        elements.append(signs_table)
+
+        doc.build(elements)
+        pdf = buffer.getvalue()
+        buffer.close()
+
+        response = HttpResponse(pdf, content_type="application/pdf")
+        filename = f"IPC_{certificate.certificate_number or certificate.id}.pdf"
+        response["Content-Disposition"] = f'inline; filename="{filename}"'
+        return response
 
 
 class DisbursementViewSet(DisbursementBaseViewSet):
