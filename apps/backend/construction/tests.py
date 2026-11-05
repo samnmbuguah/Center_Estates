@@ -820,3 +820,21 @@ class ConstructionApiTests(TestCase):
         self.assertEqual(recon_entry["variance"], "+10.00")
         self.assertEqual(recon_entry["status"], "slightly_over")
 
+    def test_serious_safety_incident_dispatches_notification(self):
+        from .models import SafetyIncident
+        incident = SafetyIncident.objects.create(
+            organization=self.organization,
+            project_id=self.project.id,
+            incident_date="2026-11-05",
+            severity="serious",
+            description="Scaffolding collapse near east perimeter wall.",
+            action_taken="Area cordoned off, site engineer notified.",
+            reported_by=self.user,
+            created_at=1000,
+        )
+        notif = Notification.objects.filter(recipient=self.user, type="incident").first()
+        self.assertIsNotNone(notif)
+        self.assertIn("URGENT H&S", notif.title)
+        self.assertIn("Scaffolding collapse", notif.body)
+
+

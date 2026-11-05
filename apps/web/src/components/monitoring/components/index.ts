@@ -11,6 +11,7 @@ export { ConfirmModal } from "./ConfirmModal";
 export { MiniBoQModal } from "./MiniBoQModal";
 export { IpcPrintModal } from "./IpcPrintModal";
 export { InteractiveSCurve } from "./InteractiveSCurve";
+export { SiteGeofenceMap } from "./SiteGeofenceMap";
 export { BoQAllocationDrawer } from "./BoQAllocationDrawer";
 export type { TourStep, RoleTourKey, TourAPI } from "./tour";
 

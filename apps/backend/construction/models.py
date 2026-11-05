@@ -468,6 +468,59 @@ class SafetyIncident(VerifiedModel):
     class Meta:
         ordering = ["-incident_date", "-created_at"]
 
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+        if is_new and self.severity in ("serious", "lost_time"):
+            self._dispatch_urgent_alerts()
+
+    def _dispatch_urgent_alerts(self):
+        """Dispatches immediate high-priority notifications to project members & admins."""
+        try:
+            from time import time
+            from django.apps import apps
+            ProjectModel = apps.get_model("construction", "Project")
+            ProjectMemberModel = apps.get_model("construction", "ProjectMembership")
+            NotificationModel = apps.get_model("construction", "Notification")
+
+            project = ProjectModel.objects.filter(id=self.project_id).first()
+            project_name = project.name if project else self.project_id
+
+            recipients = set()
+            if self.organization:
+                MembershipModel = apps.get_model("organizations", "Membership")
+                admin_memberships = MembershipModel.objects.filter(
+                    organization=self.organization,
+                    is_organization_admin=True,
+                ).select_related("user")
+                for m in admin_memberships:
+                    if m.user:
+                        recipients.add(m.user)
+
+            project_members = ProjectMemberModel.objects.filter(
+                project_id=self.project_id
+            ).select_related("user")
+            for pm in project_members:
+                if pm.user:
+                    recipients.add(pm.user)
+
+            sev_label = self.severity.replace("_", " ").title()
+            now_ms = int(time() * 1000)
+
+            for user in recipients:
+                NotificationModel.objects.create(
+                    organization=self.organization,
+                    recipient=user,
+                    title=f"🚨 URGENT H&S: {sev_label} incident reported at {project_name}",
+                    body=f"{self.description[:180]} (Action: {self.action_taken or 'Under investigation'})",
+                    type="incident",
+                    link=f"/app/projects/{self.project_id}/daily-logs",
+                    created_at=now_ms,
+                )
+        except Exception:
+            pass  # Non-blocking for incident logging
+
+
 
 class Risk(models.Model):
     """Persistent project risk register item with scored likelihood/impact."""
