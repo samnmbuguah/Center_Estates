@@ -8,12 +8,12 @@
     "preview": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_BASE": "https://api.185.167.99.135.sslip.io" }
+      "env": { "EXPO_PUBLIC_API_BASE": "https://api.centerestates.com/api/v1/construction" }
     },
     "production": {
       "autoIncrement": true,
-      "android": { "buildType": "apk" },
-      "env": { "EXPO_PUBLIC_API_BASE": "https://api.185.167.99.135.sslip.io" }
+      "android": { "buildType": "app-bundle" },
+      "env": { "EXPO_PUBLIC_API_BASE": "https://api.centerestates.com/api/v1/construction" }
     }
   },
   "submit": { "production": {} }

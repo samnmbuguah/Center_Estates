@@ -49,6 +49,7 @@
     "@react-native/codegen": "^0.88.1",
     "@testing-library/react-native": "^14.0.1",
     "babel-preset-expo": "~58.0.24",
+    "eas-cli": "^27.4.1",
     "hermes-engine": "^0.11.0",
     "react-test-renderer": "19.3.0",
     "typescript": "^6.0.3",
