@@ -38,3 +38,6 @@ scripts/setup_primeland.py
 scripts/update_roles_production.sh
 *.bundle
 *_backup/
+
+# Uploaded media archives
+*.zip

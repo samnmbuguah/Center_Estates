@@ -47,7 +47,7 @@ export const ed25519Signer: SubmissionSigner = {
   async deviceId() {
     let id = await SecureStore.getItemAsync(DEVICE_ID);
     if (!id) {
-      id = ed.etc.bytesToHex(ed.utils.randomPrivateKey()).slice(0, 32);
+      id = ed.etc.bytesToHex(ed.utils.randomSecretKey()).slice(0, 32);
       await SecureStore.setItemAsync(DEVICE_ID, id);
     }
     return id;
