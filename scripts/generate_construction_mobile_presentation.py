@@ -481,14 +481,56 @@ def build_presentation():
     proof_bar(s, "Live Links: centerestates.com/monitoring?tab=certificates  •  centerestates.com/monitoring?tab=drawdowns")
 
     # =========================================================================
-    # SLIDE 11: Step-by-Step 5-Minute Live Demo Script for Your Colleague
+    # SLIDE 11: Feature 10 — Native Clerk of Works Mobile Field App (Live Screens)
     # =========================================================================
     s = base_slide(
         prs,
-        "10 • Your 5-Minute Live Demo Guide",
+        "Feature 10 • Native Clerk of Works Mobile App",
+        "100% Native Mobile Telemetry: GPS Geofenced & Cryptographically Sealed",
+        "Field telemetry captured live at Karam Apartments — Lang'ata. Clerks log milestones, photos, and snags offline.",
+        10
+    )
+
+    mob_dir = ASSETS / "mobile_screens"
+    mob_cards = [
+        ("06_mobile_karam_geofenced_hub.jpg", "1. GPS Perimeter", "350m Geofence Lock", GREEN),
+        ("02_mobile_milestone_detail_governance.jpg", "2. Stage-Gate Check", "Drawings & Defect Q&A", CRIMSON),
+        ("08_mobile_milestone_evidence_chain.jpg", "3. Evidence Chain", "SHA-256 Tamper-Proof", TEAL),
+        ("09_mobile_site_diary_plant_hse.jpg", "4. HSE & Plant Log", "Machinery & Safety Audit", AMBER),
+        ("11_mobile_quality_tests_pass.jpg", "5. Lab Tensile Test", "Devki Steel 538 MPa", GREEN),
+        ("01_mobile_ticket_raise_modal.jpg", "6. Site Defect Snags", "Live Photo & Priority", NAVY_LIGHT),
+    ]
+
+    card_w = 1.90
+    card_h = 4.45
+    spacing_x = 0.16
+    start_x = 0.55
+    y_top = 2.02
+
+    for i, (fn, tag, sub, col) in enumerate(mob_cards):
+        x = start_x + i * (card_w + spacing_x)
+        # Background card frame
+        rect(s, x, y_top, card_w, card_h, WHITE, LINE, True, corner=0.04)
+        rect(s, x, y_top, card_w, 0.06, col, None, False)
+        add_text(s, tag, x + 0.08, y_top + 0.08, card_w - 0.16, 0.22, 10, col, True, PP_ALIGN.CENTER)
+
+        img_p = mob_dir / fn
+        if img_p.exists():
+            s.shapes.add_picture(str(img_p), Inches(x + 0.12), Inches(y_top + 0.34), width=Inches(card_w - 0.24))
+
+        add_text(s, sub, x + 0.06, y_top + card_h - 0.32, card_w - 0.12, 0.26, 9.5, INK, True, PP_ALIGN.CENTER)
+
+    proof_bar(s, "All 12 live mobile screens are available to view at https://centerestates.com/presentations/")
+
+    # =========================================================================
+    # SLIDE 12: Step-by-Step 5-Minute Live Demo Script for Your Colleague
+    # =========================================================================
+    s = base_slide(
+        prs,
+        "11 • Your 5-Minute Live Demo Guide",
         "How to Demo This Live on centerestates.com in 5 Simple Clicks",
         "Open https://centerestates.com/monitoring and click through Karam Apartments — Lang'ata in this exact order:",
-        10
+        11
     )
 
     steps = [
