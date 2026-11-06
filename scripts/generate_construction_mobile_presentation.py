@@ -51,6 +51,27 @@ def pil_font(path, size):
 # HIGH-RESOLUTION 300-DPI MOCKUP & CHART GENERATORS (Pillow)
 # ---------------------------------------------------------------------------
 
+def draw_badge_icon(d, kind, x, y, color=(255, 255, 255)):
+    """Draws crisp vector icons in Pillow so we never rely on missing emoji glyphs."""
+    if kind == "search":
+        d.ellipse([x, y, x + 14, y + 14], outline=color, width=3)
+        d.line([(x + 12, y + 12), (x + 19, y + 19)], fill=color, width=3)
+    elif kind == "shield":
+        pts = [(x + 9, y), (x + 18, y + 4), (x + 18, y + 11), (x + 9, y + 19), (x, y + 11), (x, y + 4)]
+        d.polygon(pts, outline=color, fill=None)
+    elif kind == "lock":
+        d.rounded_rectangle([x + 2, y + 8, x + 16, y + 19], radius=3, fill=color)
+        d.arc([x + 4, y, x + 14, y + 12], start=180, end=0, fill=color, width=2)
+    elif kind == "check":
+        d.line([(x + 2, y + 10), (x + 7, y + 16), (x + 17, y + 4)], fill=color, width=3)
+    elif kind == "tag":
+        pts = [(x, y + 3), (x + 11, y + 3), (x + 18, y + 10), (x + 11, y + 17), (x, y + 17)]
+        d.polygon(pts, outline=color, fill=None)
+    elif kind == "stop":
+        d.ellipse([x, y, x + 18, y + 18], fill=color)
+        d.line([(x + 4, y + 9), (x + 14, y + 9)], fill=(255, 255, 255), width=3)
+
+
 def generate_mobile_delivery_mockup() -> Path:
     """Renders a crisp mobile phone UI mockup for Site Gate Material Deliveries & BoQ Shield."""
     ASSETS.mkdir(parents=True, exist_ok=True)
@@ -82,14 +103,16 @@ def generate_mobile_delivery_mockup() -> Path:
     d.rounded_rectangle([sx1 + 26, y, sx2 - 26, y + 175], radius=20, fill=(255, 255, 255), outline=(203, 213, 225), width=2)
     d.text((sx1 + 48, y + 18), "LINKED BILL OF QUANTITIES (BoQ) ITEM", font=pil_font(FONT_BOLD, 17), fill=(220, 38, 38))
     d.rounded_rectangle([sx1 + 48, y + 50, sx2 - 48, y + 112], radius=12, fill=(241, 245, 249), outline=(148, 163, 184), width=2)
-    d.text((sx1 + 66, y + 67), "🔍  BOQ-02.04 • Ordinary Portland Cement (50kg)", font=pil_font(FONT_BOLD, 22), fill=(15, 23, 42))
+    draw_badge_icon(d, "search", sx1 + 66, y + 71, (220, 38, 38))
+    d.text((sx1 + 96, y + 67), "BOQ-02.04 • Ordinary Portland Cement (50kg)", font=pil_font(FONT_BOLD, 22), fill=(15, 23, 42))
     d.text((sx1 + 48, y + 128), "Unit: 50kg Bags   •   Rate: KES 920   •   Budget: KES 1,104,000", font=pil_font(FONT_REG, 19), fill=(71, 85, 105))
 
     y += 195
     # Card 2: Planned Allowance Shield (Green/Amber progress bar)
     d.rounded_rectangle([sx1 + 26, y, sx2 - 26, y + 215], radius=20, fill=(240, 253, 244), outline=(34, 197, 94), width=3)
-    d.rounded_rectangle([sx1 + 48, y + 18, sx1 + 370, y + 52], radius=8, fill=(22, 163, 74))
-    d.text((sx1 + 62, y + 24), "🛡 PLANNED ALLOWANCE SHIELD", font=pil_font(FONT_BOLD, 17), fill=(255, 255, 255))
+    d.rounded_rectangle([sx1 + 48, y + 18, sx1 + 380, y + 52], radius=8, fill=(22, 163, 74))
+    draw_badge_icon(d, "shield", sx1 + 62, y + 25, (255, 255, 255))
+    d.text((sx1 + 88, y + 24), "PLANNED ALLOWANCE SHIELD", font=pil_font(FONT_BOLD, 17), fill=(255, 255, 255))
     d.text((sx2 - 220, y + 24), "WITHIN ALLOWANCE", font=pil_font(FONT_BOLD, 17), fill=(22, 163, 74))
 
     d.text((sx1 + 48, y + 68), "Cumulative Delivered: 650 / 1,200 Bags (54.2%)", font=pil_font(FONT_BOLD, 23), fill=(15, 23, 42))
@@ -109,7 +132,7 @@ def generate_mobile_delivery_mockup() -> Path:
     d.rounded_rectangle([sx1 + 26, y, sx2 - 26, y + 190], radius=20, fill=(255, 255, 255), outline=(203, 213, 225), width=2)
     d.text((sx1 + 48, y + 18), "VERIFIED KENYAN SUPPLIER (ONE-TAP)", font=pil_font(FONT_BOLD, 17), fill=(10, 33, 61))
     chips = [
-        ("✓ Bamburi Cement", True, sx1 + 48, y + 54, 235),
+        ("Bamburi Cement", True, sx1 + 48, y + 54, 235),
         ("Apex Steel", False, sx1 + 298, y + 54, 175),
         ("Devki Steel", False, sx1 + 488, y + 54, 175),
         ("Savannah Cement", False, sx1 + 48, y + 116, 220),
@@ -121,20 +144,26 @@ def generate_mobile_delivery_mockup() -> Path:
         fg_c = (255, 255, 255) if active else (51, 65, 85)
         out_c = (10, 33, 61) if active else (203, 213, 225)
         d.rounded_rectangle([cx, cy, cx + cw, cy + 48], radius=24, fill=bg_c, outline=out_c, width=2)
-        d.text((cx + 20, cy + 12), label, font=pil_font(FONT_BOLD if active else FONT_REG, 19), fill=fg_c)
+        if active:
+            draw_badge_icon(d, "check", cx + 18, cy + 14, (74, 222, 128))
+            d.text((cx + 44, cy + 12), label, font=pil_font(FONT_BOLD, 19), fill=fg_c)
+        else:
+            d.text((cx + 22, cy + 12), label, font=pil_font(FONT_REG, 19), fill=fg_c)
 
     y += 210
     # Card 4: Work Plan Activity & Delivery Note
     d.rounded_rectangle([sx1 + 26, y, sx2 - 26, y + 150], radius=20, fill=(255, 255, 255), outline=(203, 213, 225), width=2)
     d.text((sx1 + 48, y + 18), "CPM WORK PLAN ACTIVITY & DELIVERY NOTE", font=pil_font(FONT_BOLD, 17), fill=(10, 33, 61))
     d.rounded_rectangle([sx1 + 48, y + 52, sx2 - 48, y + 96], radius=10, fill=(248, 250, 252), outline=(203, 213, 225), width=2)
-    d.text((sx1 + 64, y + 63), "🏷  WP-002 • First Floor Slab & Columns", font=pil_font(FONT_BOLD, 20), fill=(18, 54, 91))
-    d.text((sx1 + 48, y + 110), "Delivery Note: DN-88412  •  Truck: KDK 412P  •  SQLite Draft Saved ✓", font=pil_font(FONT_REG, 18), fill=(22, 163, 74))
+    draw_badge_icon(d, "tag", sx1 + 64, y + 64, (18, 54, 91))
+    d.text((sx1 + 92, y + 63), "WP-002 • First Floor Slab & Columns", font=pil_font(FONT_BOLD, 20), fill=(18, 54, 91))
+    d.text((sx1 + 48, y + 110), "Delivery Note: DN-88412  •  Truck: KDK 412P  •  SQLite Draft Saved", font=pil_font(FONT_BOLD, 18), fill=(22, 163, 74))
 
     y += 170
     # Submit Button
     d.rounded_rectangle([sx1 + 26, y, sx2 - 26, y + 76], radius=18, fill=(220, 38, 38))
-    d.text((w // 2 - 235, y + 23), "🔒  RECORD & SEAL GATE DELIVERY (SHA-256)", font=pil_font(FONT_BOLD, 22), fill=(255, 255, 255))
+    draw_badge_icon(d, "lock", w // 2 - 235, y + 26, (255, 255, 255))
+    d.text((w // 2 - 205, y + 23), "RECORD & SEAL GATE DELIVERY (SHA-256)", font=pil_font(FONT_BOLD, 22), fill=(255, 255, 255))
 
     out_file = ASSETS / "mobile_delivery_mockup.png"
     img.save(out_file, "PNG")
@@ -167,14 +196,16 @@ def generate_stage_gate_mockup() -> Path:
     # Red Stage-Gate Lock Banner
     d.rounded_rectangle([sx1 + 26, y, sx2 - 26, y + 255], radius=20, fill=(254, 242, 242), outline=(220, 38, 38), width=4)
     d.rounded_rectangle([sx1 + 48, y + 20, sx2 - 48, y + 66], radius=10, fill=(220, 38, 38))
-    d.text((sx1 + 66, y + 30), "🔒  CONTRACTUAL STAGE-GATE LOCKED", font=pil_font(FONT_BOLD, 22), fill=(255, 255, 255))
+    draw_badge_icon(d, "lock", sx1 + 66, y + 32, (255, 255, 255))
+    d.text((sx1 + 94, y + 30), "CONTRACTUAL STAGE-GATE LOCKED", font=pil_font(FONT_BOLD, 22), fill=(255, 255, 255))
 
     d.text((sx1 + 48, y + 84), "Progress claims (>0%) are blocked until all prerequisite", font=pil_font(FONT_BOLD, 20), fill=(153, 27, 27))
     d.text((sx1 + 48, y + 112), "structural milestones reach 100% certified completion:", font=pil_font(FONT_BOLD, 20), fill=(153, 27, 27))
 
     # Prerequisite pill inside banner
     d.rounded_rectangle([sx1 + 48, y + 150, sx2 - 48, y + 230], radius=14, fill=(255, 255, 255), outline=(248, 113, 113), width=2)
-    d.text((sx1 + 68, y + 164), "⛔  MS-01: Substructure & Raft Foundation", font=pil_font(FONT_BOLD, 21), fill=(15, 23, 42))
+    draw_badge_icon(d, "stop", sx1 + 66, y + 167, (220, 38, 38))
+    d.text((sx1 + 94, y + 164), "MS-01: Substructure & Raft Foundation", font=pil_font(FONT_BOLD, 21), fill=(15, 23, 42))
     d.text((sx1 + 68, y + 196), "Current Certified Progress: 50%  (Requires 100% to Unlock)", font=pil_font(FONT_BOLD, 18), fill=(220, 38, 38))
 
     y += 280
@@ -191,14 +222,18 @@ def generate_stage_gate_mockup() -> Path:
     # Evidence & Cryptographic Status Card
     d.rounded_rectangle([sx1 + 26, y, sx2 - 26, y + 185], radius=20, fill=(255, 255, 255), outline=(203, 213, 225), width=2)
     d.text((sx1 + 48, y + 20), "CRYPTOGRAPHIC & GEOLOCATION VERIFICATION", font=pil_font(FONT_BOLD, 18), fill=(10, 33, 61))
-    d.text((sx1 + 48, y + 60), "📍  GPS Geofence: Verified Inside Karam Perimeter (14m)", font=pil_font(FONT_BOLD, 19), fill=(22, 163, 74))
-    d.text((sx1 + 48, y + 98), "👆  Device Key: Ed25519 Hardware Biometric Ready", font=pil_font(FONT_REG, 19), fill=(51, 65, 85))
-    d.text((sx1 + 48, y + 136), "🛡  API Guard: HTTP 400 enforced on /sync/push & PATCH", font=pil_font(FONT_REG, 19), fill=(51, 65, 85))
+    draw_badge_icon(d, "check", sx1 + 48, y + 62, (22, 163, 74))
+    d.text((sx1 + 76, y + 60), "GPS Geofence: Verified Inside Karam Perimeter (14m)", font=pil_font(FONT_BOLD, 19), fill=(22, 163, 74))
+    draw_badge_icon(d, "shield", sx1 + 48, y + 100, (18, 54, 91))
+    d.text((sx1 + 76, y + 98), "Device Key: Ed25519 Hardware Biometric Ready", font=pil_font(FONT_REG, 19), fill=(51, 65, 85))
+    draw_badge_icon(d, "lock", sx1 + 48, y + 138, (220, 38, 38))
+    d.text((sx1 + 76, y + 136), "API Guard: HTTP 400 enforced on /sync/push & PATCH", font=pil_font(FONT_REG, 19), fill=(51, 65, 85))
 
     y += 210
     # Disabled Submit Button
     d.rounded_rectangle([sx1 + 26, y, sx2 - 26, y + 80], radius=18, fill=(203, 213, 225), outline=(148, 163, 184), width=2)
-    d.text((w // 2 - 205, y + 25), "🔒  STAGE-GATE LOCKED (CANNOT SUBMIT)", font=pil_font(FONT_BOLD, 22), fill=(71, 85, 105))
+    draw_badge_icon(d, "lock", w // 2 - 215, y + 28, (71, 85, 105))
+    d.text((w // 2 - 185, y + 25), "STAGE-GATE LOCKED (CANNOT SUBMIT)", font=pil_font(FONT_BOLD, 22), fill=(71, 85, 105))
 
     out_file = ASSETS / "stage_gate_mockup.png"
     img.save(out_file, "PNG")
@@ -242,7 +277,7 @@ def generate_web_erp_scurve_chart() -> Path:
     # Middle Section: Earned Value S-Curve Chart
     cx1, cy1, cx2, cy2 = 36, 254, w - 36, 615
     d.rounded_rectangle([cx1, cy1, cx2, cy2], radius=18, fill=(255, 255, 255), outline=(226, 232, 240), width=2)
-    d.text((cx1 + 28, cy1 + 18), "EARNED VALUE S-CURVE: PLANNED VALUE (PV) vs. CERTIFIED EARNED VALUE (EV) vs. ACTUAL COST (AC)", font=pil_font(FONT_BOLD, 19), fill=(15, 23, 42))
+    d.text((cx1 + 28, cy1 + 18), "EARNED VALUE S-CURVE: PLANNED (PV) vs. CERTIFIED (EV)", font=pil_font(FONT_BOLD, 19), fill=(15, 23, 42))
 
     # Legend
     d.rectangle([cx2 - 520, cy1 + 22, cx2 - 490, cy1 + 30], fill=(10, 33, 61))
@@ -304,23 +339,24 @@ def generate_web_erp_scurve_chart() -> Path:
     d.rounded_rectangle([tx1, ty1, tx2, ty1 + 48], radius=18, fill=(18, 54, 91))
     d.rectangle([tx1, ty1 + 24, tx2, ty1 + 48], fill=(18, 54, 91))
 
-    headers = [("BoQ CODE", 24), ("ELEMENT DESCRIPTION", 180), ("BUDGET (KES)", 600), ("VERIFIED %", 800), ("CERTIFIED IPC", 965), ("AUDIT STATUS", 1140)]
+    headers = [("BoQ CODE", 24), ("ELEMENT DESCRIPTION", 180), ("BUDGET (KES)", 600), ("VERIFIED %", 800), ("CERTIFIED IPC", 965), ("AUDIT STATUS", 1130)]
     for h_text, hx in headers:
         d.text((tx1 + hx, ty1 + 14), h_text, font=pil_font(FONT_BOLD, 16), fill=(255, 255, 255))
 
     rows = [
-        ("BOQ-01.01", "Substructure & Raft Foundation", "84,000,000", "100.0%", "84,000,000", "✓ SHA-256 Sealed", (22, 163, 74)),
-        ("BOQ-02.04", "Superstructure RC Frame (Fl 1-3)", "112,000,000", "57.6%", "64,500,000", "✓ GPS + Photo Verified", (22, 163, 74)),
-        ("BOQ-03.01", "Roofing & Structural Waterproofing", "48,000,000", "0.0%", "0", "🔒 Stage-Gate Locked", (220, 38, 38)),
+        ("BOQ-01.01", "Substructure & Raft Foundation", "84,000,000", "100.0%", "84,000,000", "SHA-256 Sealed", "check", (22, 163, 74)),
+        ("BOQ-02.04", "Superstructure RC Frame (Fl 1-3)", "112,000,000", "57.6%", "64,500,000", "GPS + Photo Verified", "check", (22, 163, 74)),
+        ("BOQ-03.01", "Roofing & Structural Waterproofing", "48,000,000", "0.0%", "0", "Stage-Gate Locked", "lock", (220, 38, 38)),
     ]
     ry = ty1 + 60
-    for code, desc, bud, pct, cert, status, scol in rows:
+    for code, desc, bud, pct, cert, status, ikind, scol in rows:
         d.line([(tx1 + 16, ry + 52), (tx2 - 16, ry + 52)], fill=(226, 232, 240), width=1)
         d.text((tx1 + 24, ry + 14), code, font=pil_font(FONT_MONO, 17), fill=(15, 23, 42))
         d.text((tx1 + 180, ry + 14), desc, font=pil_font(FONT_BOLD, 18), fill=(15, 23, 42))
         d.text((tx1 + 600, ry + 14), bud, font=pil_font(FONT_REG, 18), fill=(71, 85, 105))
         d.text((tx1 + 800, ry + 14), pct, font=pil_font(FONT_BOLD, 18), fill=scol)
         d.text((tx1 + 965, ry + 14), cert, font=pil_font(FONT_BOLD, 18), fill=(15, 23, 42))
+        draw_badge_icon(d, ikind, tx1 + 1105, ry + 15, scol)
         d.text((tx1 + 1130, ry + 14), status, font=pil_font(FONT_BOLD, 16), fill=scol)
         ry += 62
 
@@ -465,9 +501,10 @@ def card(slide, x, y, w, h, title, body=None, bullet_list=None, accent=CRIMSON, 
 
     header_y = y + 0.18
     if badge:
-        rect(slide, x + 0.22, header_y, 0.44, 0.36, accent, None, True, corner=0.2)
-        add_text(slide, badge, x + 0.22, header_y, 0.44, 0.36, 12, WHITE, True, PP_ALIGN.CENTER)
-        tx = x + 0.76
+        bw = 0.56 if len(str(badge)) >= 3 else 0.44
+        rect(slide, x + 0.22, header_y, bw, 0.36, accent, None, True, corner=0.2)
+        add_text(slide, badge, x + 0.22, header_y, bw, 0.36, 11.5, WHITE, True, PP_ALIGN.CENTER)
+        tx = x + 0.32 + bw
     else:
         tx = x + 0.22
 

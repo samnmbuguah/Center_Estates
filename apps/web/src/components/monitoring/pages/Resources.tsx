@@ -28,16 +28,32 @@ export function Resources() {
 
   const PRESENTATION_ITEMS = [
     {
+      id: "interactive-live-deck",
+      title: "Interactive Web Presentation Deck (Browser Slides)",
+      badge: "Launch Live in Browser",
+      badgeColor: "#dc2626",
+      badgeBg: "#fee2e2",
+      format: "HTML5 Deck",
+      size: "Instant Load",
+      slides: "11 Fullscreen Slides (← / → / F)",
+      description:
+        "Present directly from your browser with keyboard navigation, fullscreen toggle, interactive Mobile App UI mockups, and Earned Value S-Curve tables.",
+      downloadUrl: "/presentations/live-deck.html",
+      previewUrl: "/presentations/live-deck.html",
+      isPrimary: true,
+      icon: Presentation,
+    },
+    {
       id: "construction-pptx",
       title: "Construction Oversight & Mobile Field App (PowerPoint)",
       badge: "Today's Feature Deck",
       badgeColor: "#dc2626",
       badgeBg: "#fee2e2",
       format: "PPTX",
-      size: "87 KB",
+      size: "1.3 MB",
       slides: "11 Widescreen Slides (16:9)",
       description:
-        "The primary executive presentation deck covering the 3 construction blind spots, site gate BoQ material shields, contractual stage-gate governance, concrete lifecycle tracking, and financial valuations.",
+        "Executive PowerPoint deck featuring 300-DPI Mobile App UI mockups (BoQ gate intake & stage-gate lockouts), Earned Value S-Curve charts, and Mini-BoQ IPC tables.",
       downloadUrl: "/presentations/Center_Estates_Construction_and_Mobile_Presentation.pptx",
       isPrimary: true,
       icon: Presentation,
@@ -49,10 +65,10 @@ export function Resources() {
       badgeColor: "#0284c7",
       badgeBg: "#e0f2fe",
       format: "PDF",
-      size: "420 KB",
-      slides: "11 Slides Vector Export",
+      size: "1.1 MB",
+      slides: "11 High-Res Vector Slides",
       description:
-        "Complete vector slide deck ready to present on laptops, iPads, tablets, or export directly to clients and financiers.",
+        "Complete high-resolution slide deck with embedded UI mockups ready to present on laptops, iPads, tablets, or send directly to clients and financiers.",
       downloadUrl: "/presentations/Center_Estates_Construction_and_Mobile_Presentation.pdf",
       previewUrl: "/presentations/Center_Estates_Construction_and_Mobile_Presentation.pdf",
       isPrimary: false,

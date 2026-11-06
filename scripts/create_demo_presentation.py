@@ -194,7 +194,7 @@ def build():
     card(s, 0.65, 2.35, 2.9, 1.75, "Due today", "Planned maintenance, inspections, lease events and assigned tasks.", RED, "◷")
     card(s, 3.75, 2.35, 2.9, 1.75, "Needs attention", "Overdue actions, SLA risks, expiring compliance and approvals.", AMBER, "!")
     card(s, 6.85, 2.35, 2.9, 1.75, "Team delivery", "Assignments, progress, evidence and staff performance.", TEAL, "✓")
-    card(s, 9.95, 2.35, 2.75, 1.75, "Quartermaster AI", "Contextual assistance, summaries and operational guidance.", NAVY_2, "AI")
+    card(s, 9.95, 2.35, 2.75, 1.75, "Quartermaster", "Contextual AI assistance, summaries and operational guidance.", NAVY_2, "AI")
     bullets(s, [
         "Open with the manager’s current property already selected.",
         "Use one alert as the bridge into the live workflow.",
