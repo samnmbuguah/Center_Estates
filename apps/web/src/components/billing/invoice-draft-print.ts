@@ -16,9 +16,22 @@ const formatDate = (value: string) => {
 export function invoiceDraftHtml(candidate: Candidate, brand: { name: string; logoUrl?: string; primaryColor?: string }) {
   const reference = candidate.invoice_number || `DRAFT-${candidate.unit_code}-${candidate.due_date?.slice(0, 7) || "AUTO"}`;
   const total = Number(candidate.total || 0);
-  const rows = candidate.billing_items.map((item, index) => `
-    <tr><td>${index + 1}</td><td><strong>${escapeHtml(item.description || item.code)}</strong><small>Recurring tenancy schedule charge</small></td><td>${escapeHtml(String(item.code || "charge").replaceAll("_", " ").toUpperCase())}</td><td>${formatMoney(item.total ?? item.amount)}</td></tr>
-  `).join("");
+  const rows = candidate.billing_items.map((item, index) => {
+    let sublabel = "Recurring tenancy schedule charge";
+    const codeUpper = String(item.code || "charge").toUpperCase();
+    if (item.previous_reading !== undefined && item.current_reading !== undefined) {
+      sublabel = `Meter ${item.meter_code ? `${escapeHtml(item.meter_code)} · ` : ""}Prev ${escapeHtml(item.previous_reading)} · Curr ${escapeHtml(item.current_reading)} (${escapeHtml(item.consumption || "")} ${escapeHtml(item.meter_unit || "kWh")})`;
+    } else if (codeUpper.includes("PARK")) {
+      sublabel = "Allocated parking bay schedule charge";
+    } else if (codeUpper.includes("RENT")) {
+      sublabel = "Tenancy rent schedule charge";
+    } else if (codeUpper.includes("SERVICE") || codeUpper === "SC") {
+      sublabel = "Property service charge";
+    }
+    return `
+    <tr><td>${index + 1}</td><td><strong>${escapeHtml(item.description || item.code)}</strong><small>${sublabel}</small></td><td>${escapeHtml(codeUpper.replaceAll("_", " "))}</td><td>${formatMoney(item.total ?? item.amount)}</td></tr>
+  `;
+  }).join("");
   const logo = brand.logoUrl ? `<img src="${escapeHtml(brand.logoUrl)}" alt="${escapeHtml(brand.name)} logo" />` : "";
   const accent = /^#[0-9a-f]{6}$/i.test(brand.primaryColor ?? "") ? brand.primaryColor : "#dc2626";
 

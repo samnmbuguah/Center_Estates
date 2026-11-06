@@ -836,13 +836,13 @@ class PropertyApiTests(TestCase):
             frequency=BillingProfile.Frequency.METERED, calculation=BillingItem.Calculation.METERED,
             amount=Decimal('0'), effective_from='2026-01-01', billing_day=1,
         )
-        _, _, metered_missing = self._prepare_run('2026-08-01', '2026-08-31')
-        self.assertEqual(metered_missing['candidates'][0]['status'], BillingCandidate.Status.ISSUE)
-        self.assertTrue(any(issue['code'] == 'missing_water_reading' for issue in metered_missing['issues']))
         meter = UtilityMeter.objects.create(
             organization=self.organization, property=self.property, property_unit=self.unit,
             code='W-101', name='Unit 101 water', utility_type=UtilityMeter.Utility.WATER,
         )
+        _, _, metered_missing = self._prepare_run('2026-08-01', '2026-08-31')
+        self.assertEqual(metered_missing['candidates'][0]['status'], BillingCandidate.Status.ISSUE)
+        self.assertTrue(any(issue['code'] == 'missing_water_reading' for issue in metered_missing['issues']))
         MeterReading.objects.create(
             organization=self.organization, meter=meter,
             read_at=timezone.make_aware(datetime(2026, 8, 15, 10, 0)),
@@ -956,6 +956,102 @@ class PropertyApiTests(TestCase):
         invoice_types = {inv['invoice_type'] for inv in success_gen.data['invoices']}
         self.assertIn('rent', invoice_types)
         self.assertIn('water', invoice_types)
+
+    def test_quarterly_billing_excludes_metered_electricity_and_includes_parking(self):
+        """On quarterly lease billing runs (e.g. Q4), metered utilities are excluded and parking charges are included."""
+        # 1. Attach metered electricity profile
+        elec_item = BillingItem.objects.create(
+            organization=self.organization, code='ELECTRICITY', name='Electricity consumption',
+            calculation=BillingItem.Calculation.METERED, income_category='utilities',
+        )
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=elec_item,
+            frequency=BillingProfile.Frequency.METERED, calculation=BillingItem.Calculation.METERED,
+            amount=Decimal('0'), effective_from='2026-01-01', billing_day=1,
+        )
+
+        # 2. Attach parking bay allocation
+        space = ParkingSpace.objects.create(
+            organization=self.organization, property=self.property, code='B-04',
+            status=ParkingSpace.Status.AVAILABLE,
+        )
+        ParkingAssignment.objects.create(
+            organization=self.organization, parking_space=space, lease=self.lease,
+            monthly_fee=Decimal('2500.00'), starts_on=date(2026, 1, 1),
+            status=ParkingAssignment.Status.ACTIVE,
+        )
+
+        # 3. Prepare quarterly billing run for Q4 (Oct – Dec 2026)
+        _, _, q4_run = self._prepare_run('2026-10-01', '2026-12-31')
+        candidate = q4_run['candidates'][0]
+        item_codes = [it['code'].upper() for it in candidate['billing_items']]
+
+        # Electricity must NOT be bundled on the quarterly invoice (no Reading pending item)
+        self.assertNotIn('ELECTRICITY', item_codes)
+        self.assertFalse(any('Reading pending' in it.get('description', '') for it in candidate['billing_items']))
+
+        # Parking charges MUST be included for Q4 (3 months * 2500 = 7500)
+        self.assertIn('PARKING', item_codes)
+        parking_line = next(it for it in candidate['billing_items'] if it['code'].upper() == 'PARKING')
+        self.assertEqual(parking_line['quantity'], '3')
+        self.assertEqual(parking_line['unit_rate'], '2500.00')
+        self.assertEqual(parking_line['subtotal'], '7500.00')
+        self.assertIn('Q4 2026', parking_line['description'])
+        self.assertIn('Bay B-04', parking_line['description'])
+
+    def test_electricity_monthly_invoice_includes_readings(self):
+        """On monthly electricity billing, meter readings reflect on candidate and generated invoice."""
+        elec_item = BillingItem.objects.create(
+            organization=self.organization, code='ELECTRICITY', name='Electricity consumption',
+            calculation=BillingItem.Calculation.METERED, income_category='utilities',
+        )
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=elec_item,
+            frequency=BillingProfile.Frequency.METERED, calculation=BillingItem.Calculation.METERED,
+            amount=Decimal('0'), effective_from='2026-01-01', billing_day=1,
+        )
+        meter = UtilityMeter.objects.create(
+            organization=self.organization, property=self.property, property_unit=self.unit,
+            code='MTR-E-101', name='Unit 101 Electricity', utility_type=UtilityMeter.Utility.ELECTRICITY,
+            unit='kWh', tariff=Decimal('25.50'),
+        )
+        MeterReading.objects.create(
+            organization=self.organization, meter=meter,
+            read_at=timezone.make_aware(datetime(2026, 10, 25, 10, 0)),
+            previous_value=Decimal('1042.000'), value=Decimal('1184.000'),
+            consumption=Decimal('142.000'), cost=Decimal('3621.00'),
+            status=MeterReading.Status.APPROVED,
+        )
+
+        # Prepare monthly utility run for Oct 2026
+        run_resp = self.client.post('/api/v1/property/billing-runs/', {
+            'property': str(self.property.id),
+            'period_start': '2026-10-01', 'period_end': '2026-10-31',
+            'charge_scope': 'utility',
+        }, format='json', **self.headers)
+        self.assertEqual(run_resp.status_code, 201)
+        run_url = f"/api/v1/property/billing-runs/{run_resp.data['id']}/"
+        prep_resp = self.client.post(f'{run_url}prepare/', {}, format='json', **self.headers)
+        self.assertEqual(prep_resp.status_code, 200)
+
+        candidate = prep_resp.data['candidates'][0]
+        elec_line = next(it for it in candidate['billing_items'] if it['code'] == 'ELECTRICITY')
+        self.assertEqual(elec_line['previous_reading'], '1042')
+        self.assertEqual(elec_line['current_reading'], '1184')
+        self.assertEqual(elec_line['consumption'], '142')
+        self.assertIn('Prev: 1042', elec_line['description'])
+        self.assertIn('Curr: 1184', elec_line['description'])
+
+        # Generate invoice
+        gen_resp = self.client.post(f'{run_url}generate/', {'candidate_ids': [candidate['id']]}, format='json', **self.headers)
+        self.assertEqual(gen_resp.status_code, 201)
+        invoice = Invoice.objects.get(lease=self.lease, invoice_type='electricity')
+        self.assertEqual(invoice.amount, Decimal('3621.00'))
+        line = invoice.lines.first()
+        self.assertIn('Prev: 1042', line.description)
+        self.assertIn('Curr: 1184', line.description)
+        self.assertEqual(line.metadata.get('previous_reading'), '1042')
+        self.assertEqual(line.metadata.get('current_reading'), '1184')
 
     @mock.patch.dict(os.environ, {'ECITIZEN_TEST_SECRET': 'client-supplied-signing-secret'})
     def test_tenant_payment_is_signed_idempotent_and_fully_reconciled(self):

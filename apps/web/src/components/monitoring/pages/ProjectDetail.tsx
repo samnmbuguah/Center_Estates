@@ -7,7 +7,8 @@ import { addApproval, addDocument, addProjectMember, completeOnboarding, deleteA
   updateApproval, updateModuleConfig,
 } from "../api";
 import { useAuth } from "../auth";
-import { ErrorBanner, ConfirmModal, MiniBoQModal, SiteGeofenceMap } from "../components";
+import { ErrorBanner, ConfirmModal, MiniBoQModal } from "../components";
+import { SiteGeofenceMap } from "../components/SiteGeofenceMap";
 
 import { ProjectAssistant } from "../components/ProjectAssistant";
 import { apiFetch } from "@/lib/api";
@@ -89,7 +90,7 @@ export function ProjectDetail() {
     get<any>(`/projects/${id}/cost-dashboard`).then(setCost).catch(() => {});
     get<any[]>(`/issues?project_id=${encodeURIComponent(id)}`).then(setIssues).catch(() => {});
     get<any[]>(`/projects/${id}/consultant-payments`).then(setConsultantFees).catch(() => {});
-    fetchDailyLogs(id).then(setDailyLogs).catch(() => {});
+    fetchDailyLogs(id).then((res) => setDailyLogs(res.results || [])).catch(() => {});
     fetchIncidents(id).then(setSafetyIncidents).catch(() => {});
   }, [id]);
   const run = (fn: () => Promise<unknown>) => { setError(null); fn().then(load).catch((e) => setError((e as Error).message)); };

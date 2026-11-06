@@ -251,9 +251,15 @@ export function CandidatePreviewDrawer({
                       <div style={{ fontWeight: 800, color: "var(--text-primary, var(--color-slate-900))" }}>
                         {item.description || item.code}
                       </div>
-                      <div style={{ fontSize: 12, color: "var(--text-secondary, var(--color-slate-600))", marginTop: 2 }}>
-                        Tenancy lease schedule charge
-                      </div>
+                      {item.previous_reading !== undefined && item.current_reading !== undefined ? (
+                        <div style={{ fontSize: 12, color: "var(--color-amber-deep, #b45309)", fontWeight: 600, marginTop: 2 }}>
+                          Meter {item.meter_code ? `${item.meter_code} · ` : ""}Prev: {item.previous_reading} | Curr: {item.current_reading} ({item.consumption} {item.meter_unit || "kWh"})
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 12, color: "var(--text-secondary, var(--color-slate-600))", marginTop: 2 }}>
+                          {codeUpper.includes("PARK") ? "Allocated parking bay schedule charge" : "Tenancy lease schedule charge"}
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: "12px 16px" }}>
                       <span
@@ -268,6 +274,8 @@ export function CandidatePreviewDrawer({
                             ? "rgba(245, 158, 11, 0.1)"
                             : codeUpper.includes("WATER")
                             ? "rgba(6, 182, 212, 0.1)"
+                            : codeUpper.includes("PARK")
+                            ? "rgba(147, 51, 234, 0.1)"
                             : "rgba(107, 114, 128, 0.1)",
                           color: codeUpper.includes("RENT")
                             ? "var(--color-info)"
@@ -275,6 +283,8 @@ export function CandidatePreviewDrawer({
                             ? "var(--color-amber-deep)"
                             : codeUpper.includes("WATER")
                             ? "var(--color-cyan)"
+                            : codeUpper.includes("PARK")
+                            ? "#7e22ce"
                             : "#4b5563",
                           border: "1px solid currentColor",
                         }}

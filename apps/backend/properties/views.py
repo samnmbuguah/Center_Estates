@@ -5888,6 +5888,17 @@ class BillingRunViewSet(OrganizationModelViewSet):
                         target_utility = UtilityMeter.Utility.WATER
                         utility_name = 'Water'
 
+                    # Electricity and metered utilities are billed on a monthly cadence. When running quarterly
+                    # or multi-month cycles (e.g. Q4), exclude metered utilities so they are billed separately
+                    # on their dedicated monthly utility run.
+                    is_multi_month_or_quarterly = months_count > 1 or run.frequency in (
+                        BillingRun.Frequency.QUARTERLY,
+                        BillingRun.Frequency.BIANNUAL,
+                        BillingRun.Frequency.ANNUAL,
+                    )
+                    if is_multi_month_or_quarterly and run.charge_scope != BillingRun.ChargeScope.UTILITY:
+                        continue
+
                     # If landlord/owner pays this utility, do not bill tenant or generate missing reading issue
                     if target_utility == UtilityMeter.Utility.WATER and lease.unit and getattr(lease.unit, 'water_payer', 'tenant') == 'owner':
                         continue
@@ -5914,7 +5925,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     readings = MeterReading.objects.for_organization(run.organization).filter(
                         meter__property_unit=lease.unit, meter__utility_type=target_utility,
                         read_at__date__range=(run.period_start, run.period_end), status=MeterReading.Status.APPROVED,
-                    ).select_related('meter')
+                    ).select_related('meter').order_by('read_at')
                     if not readings.exists():
                         # Meter reading pending for this period: include the billable item with status pending
                         # so that Utilities charge completion, candidate chips, and filters clearly reflect
@@ -5948,7 +5959,18 @@ class BillingRunViewSet(OrganizationModelViewSet):
                             severity = BillingReadinessIssue.Severity.BLOCKING
                         issue_rows.append((f'missing_{target_utility}_reading', f'{utility_name} meter reading is required for {lease.unit.code if lease.unit else "unit"} before billing rent and utilities.', profile, severity))
                         continue
+                    first_reading = readings.first()
+                    last_reading = readings.last()
+                    prev_reading_val = first_reading.previous_value
+                    curr_reading_val = last_reading.value
+                    tot_consumption = sum((row.consumption for row in readings), Decimal('0'))
                     monthly_val = sum((row.cost for row in readings), Decimal('0'))
+                    meter_code = first_reading.meter.code if first_reading and first_reading.meter else ''
+                    meter_unit = (first_reading.meter.unit if first_reading and first_reading.meter and first_reading.meter.unit else ('kWh' if target_utility == UtilityMeter.Utility.ELECTRICITY else 'm³'))
+                    avg_tariff = (monthly_val / tot_consumption).quantize(Decimal('0.01')) if tot_consumption > 0 else (first_reading.meter.tariff if first_reading and first_reading.meter else (profile.rate or Decimal('0')))
+                    prev_reading_str = f"{Decimal(str(prev_reading_val)):f}".rstrip('0').rstrip('.') or '0'
+                    curr_reading_str = f"{Decimal(str(curr_reading_val)):f}".rstrip('0').rstrip('.') or '0'
+                    consumption_str = f"{Decimal(str(tot_consumption)):f}".rstrip('0').rstrip('.') or '0'
                 elif profile.calculation == BillingItem.Calculation.PERCENTAGE:
                     monthly_val = (lease.effective_rent(run.period_start) * profile.rate / Decimal('100')).quantize(Decimal('0.01'))
                 if monthly_val <= 0 and profile.calculation != BillingItem.Calculation.METERED:
@@ -5962,18 +5984,37 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 }.get(profile.frequency, 1)
 
                 if profile.calculation == BillingItem.Calculation.METERED:
-                    line_qty = Decimal('1')
+                    line_qty = tot_consumption if tot_consumption > 0 else Decimal('1')
+                    unit_rate_val = avg_tariff if tot_consumption > 0 else monthly_val
+                    line_subtotal = monthly_val
                 elif months_count < profile_interval:
                     line_qty = Decimal(str(profile_interval))
+                    unit_rate_val = monthly_val
+                    line_subtotal = (monthly_val * line_qty).quantize(Decimal('0.01'))
                 else:
                     line_qty = qty
-                line_subtotal = (monthly_val * line_qty).quantize(Decimal('0.01'))
+                    unit_rate_val = monthly_val
+                    line_subtotal = (monthly_val * line_qty).quantize(Decimal('0.01'))
                 tax = profile.billing_item.tax_configuration
                 tax_rate = tax.rate if tax and tax.is_active and tax.effective_from <= run.period_end and (not tax.effective_to or tax.effective_to >= run.period_start) else Decimal('0')
                 tax_amount = (line_subtotal * tax_rate / Decimal('100')).quantize(Decimal('0.01'))
 
                 if profile.calculation == BillingItem.Calculation.METERED:
-                    desc = profile.billing_item.name
+                    if meter_code:
+                        desc = f"{profile.billing_item.name} — Meter {meter_code} (Prev: {prev_reading_str} | Curr: {curr_reading_str} | Consumed: {consumption_str} {meter_unit})"
+                    else:
+                        desc = f"{profile.billing_item.name} (Prev: {prev_reading_str} | Curr: {curr_reading_str} | Consumed: {consumption_str} {meter_unit})"
+                elif profile_code in ('parking', 'parking_fee') or 'park' in profile_code:
+                    bays = [a.parking_space.code for a in lease.parking_assignments.filter(status__in=[ParkingAssignment.Status.ACTIVE, ParkingAssignment.Status.RESERVED]) if a.parking_space and a.parking_space.code]
+                    bay_str = f" — Bay {', '.join(bays)}" if bays else ""
+                    if months_count == 3:
+                        anchor_month = ((run.period_start.month - 1) // 3) * 3 + 1
+                        q_num = (anchor_month - 1) // 3 + 1
+                        q_start = date(run.period_start.year, anchor_month, 1)
+                        q_end = add_months(q_start, 3) - timedelta(days=1)
+                        desc = f"Parking charges for Q{q_num} {q_start.year} ({q_start:%b} – {q_end:%b %Y}){bay_str}"
+                    else:
+                        desc = f"Parking charges ({period_suffix}){bay_str}"
                 elif profile_interval == 3:
                     anchor_month = ((run.period_start.month - 1) // 3) * 3 + 1
                     q_num = (anchor_month - 1) // 3 + 1
@@ -5984,16 +6025,26 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     desc = f"{profile.billing_item.name} ({profile_interval} Months)"
                 else:
                     desc = f"{profile.billing_item.name} ({period_suffix})"
-                items.append({
+                item_dict = {
                     'billing_item': str(profile.billing_item_id), 'code': profile.billing_item.code, 'description': desc,
-                    'quantity': str(line_qty), 'unit_rate': str(monthly_val), 'subtotal': str(line_subtotal),
+                    'quantity': str(line_qty), 'unit_rate': str(unit_rate_val), 'subtotal': str(line_subtotal),
                     'tax_code': tax.code if tax else '', 'tax_rate': str(tax_rate), 'tax_amount': str(tax_amount),
                     'total': str(line_subtotal + tax_amount), 'source_type': 'billing_profile', 'source_id': str(profile.id),
                     # Service charge belongs to the registered unit owner when
                     # the unit is configured owner-paid.  Rent and utilities
                     # remain tenant obligations.
                     'payer': 'owner' if profile_code in ('service_charge', 'sc') and should_bill_owner_sc else 'tenant',
-                })
+                }
+                if profile.calculation == BillingItem.Calculation.METERED:
+                    item_dict.update({
+                        'previous_reading': prev_reading_str,
+                        'current_reading': curr_reading_str,
+                        'consumption': consumption_str,
+                        'meter_code': meter_code,
+                        'meter_unit': meter_unit,
+                        'tariff': str(avg_tariff),
+                    })
+                items.append(item_dict)
 
             if (invoice_types is None or "rent" in invoice_types) and not is_direct_landlord:
                 items.extend(self._rent_items_for_lease(run, lease, profiles, lease_invs, rent_periods))
@@ -6070,6 +6121,51 @@ class BillingRunViewSet(OrganizationModelViewSet):
                                 'source_type': 'lease_metadata', 'source_id': str(lease.id),
                                 'payer': 'owner' if should_bill_owner_sc else 'tenant',
                             })
+
+            # If parking is not already billed via billing profile, check active parking bay allocations
+            has_parking_item = any(item.get('code', '').upper() == 'PARKING' for item in items)
+            if not has_parking_item and (invoice_types is None or 'parking' in invoice_types or 'other' in invoice_types or 'rent' in invoice_types):
+                parking_assignments = lease.parking_assignments.filter(
+                    status__in=[ParkingAssignment.Status.ACTIVE, ParkingAssignment.Status.RESERVED],
+                    starts_on__lte=run.period_end,
+                ).filter(Q(ends_on__isnull=True) | Q(ends_on__gte=run.period_start)).select_related('parking_space')
+                if parking_assignments.exists():
+                    total_parking_monthly = sum((a.monthly_fee for a in parking_assignments), Decimal('0.00'))
+                    if total_parking_monthly > 0:
+                        bays = [a.parking_space.code for a in parking_assignments if a.parking_space and a.parking_space.code]
+                        bay_str = f" — Bay {', '.join(bays)}" if bays else ""
+                        if months_count == 3:
+                            anchor_month = ((run.period_start.month - 1) // 3) * 3 + 1
+                            q_num = (anchor_month - 1) // 3 + 1
+                            q_start = date(run.period_start.year, anchor_month, 1)
+                            q_end = add_months(q_start, 3) - timedelta(days=1)
+                            parking_desc = f"Parking charges for Q{q_num} {q_start.year} ({q_start:%b} – {q_end:%b %Y}){bay_str}"
+                        else:
+                            parking_desc = f"Parking charges ({period_suffix}){bay_str}"
+
+                        parking_qty = qty
+                        parking_line_subtotal = (total_parking_monthly * parking_qty).quantize(Decimal('0.01'))
+                        parking_item = BillingItem.objects.filter(
+                            organization=run.organization, code__iexact='parking'
+                        ).select_related('tax_configuration').first()
+                        p_tax = parking_item.tax_configuration if parking_item else None
+                        p_tax_rate = p_tax.rate if p_tax and p_tax.is_active and p_tax.effective_from <= run.period_end and (not p_tax.effective_to or p_tax.effective_to >= run.period_start) else Decimal('0')
+                        p_tax_amount = (parking_line_subtotal * p_tax_rate / Decimal('100')).quantize(Decimal('0.01'))
+                        items.append({
+                            'billing_item': str(parking_item.id) if parking_item else None,
+                            'code': 'PARKING',
+                            'description': parking_desc,
+                            'quantity': str(parking_qty),
+                            'unit_rate': str(total_parking_monthly),
+                            'subtotal': str(parking_line_subtotal),
+                            'tax_code': p_tax.code if p_tax else '',
+                            'tax_rate': str(p_tax_rate),
+                            'tax_amount': str(p_tax_amount),
+                            'total': str(parking_line_subtotal + p_tax_amount),
+                            'source_type': 'parking_assignment',
+                            'source_id': str(parking_assignments.first().id),
+                            'payer': 'tenant',
+                        })
 
             if not items:
                 existing_candidate = existing_candidate_map.get(str(lease.id))
@@ -6450,7 +6546,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 mpesa_ref = ''
                 if unit_obj:
                     fmt = (collection_acct.mpesa_reference_format if collection_acct else None) or '{CHARGE}-{UNIT}-{MONTH}-{YEAR}'
-                    c_prefix = 'RENT' if invoice_type == 'rent' else ('SC' if invoice_type == 'service_charge' else ('WATER' if invoice_type == 'water' else ('ELEC' if invoice_type == 'electricity' else 'MF')))
+                    c_prefix = 'RENT' if invoice_type == 'rent' else ('SC' if invoice_type == 'service_charge' else ('WATER' if invoice_type == 'water' else ('ELEC' if invoice_type == 'electricity' else ('PARK' if invoice_type == 'parking' else 'MF'))))
                     try:
                         mpesa_ref = fmt.format(
                             CHARGE=c_prefix,
@@ -6487,12 +6583,23 @@ class BillingRunViewSet(OrganizationModelViewSet):
                     line_sub = Decimal(str(it['subtotal']))
                     line_tx = Decimal(str(it['tax_amount']))
                     line_tot = Decimal(str(it['total']))
+                    line_meta = {}
+                    if it.get('previous_reading') is not None:
+                        line_meta = {
+                            'previous_reading': it.get('previous_reading'),
+                            'current_reading': it.get('current_reading'),
+                            'consumption': it.get('consumption'),
+                            'meter_code': it.get('meter_code'),
+                            'meter_unit': it.get('meter_unit'),
+                            'tariff': it.get('tariff'),
+                        }
                     InvoiceLine.objects.create(
                         organization=run.organization, invoice=invoice,
                         billing_item_id=it.get('billing_item') or None, description=it['description'],
                         quantity=Decimal(str(it['quantity'])), unit_rate=Decimal(str(it['unit_rate'])), subtotal=line_sub,
                         tax_code=it.get('tax_code', ''), tax_rate=Decimal(str(it['tax_rate'])), tax_amount=line_tx, total=line_tot,
                         source_type=it.get('source_type', ''), source_id=it.get('source_id', ''),
+                        metadata=line_meta,
                     )
                     it['billed'] = True
                     it['invoice_id'] = str(invoice.id)

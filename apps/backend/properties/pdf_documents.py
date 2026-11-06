@@ -298,6 +298,7 @@ def invoice_pdf(invoice: Invoice, generated_by="System"):
             "vat_rate": line.tax_rate,
             "vat_amount": line.tax_amount,
             "total": line.total,
+            "metadata": line.metadata or {},
         }
         for line in persisted_lines
     ]
@@ -336,8 +337,12 @@ def invoice_pdf(invoice: Invoice, generated_by="System"):
         description = str(line.get("description", "Charge"))
         quantity = Decimal(str(line.get("quantity", 1)))
         unit_rate = Decimal(str(line.get("unit_rate", net)))
-        if quantity != 1:
+        line_meta = line.get("metadata") or {}
+        if quantity != 1 and "×" not in description:
             description = f"{description} ({quantity:g} × {_money(unit_rate)})"
+        elif line_meta.get("previous_reading") is not None and "Prev" not in description:
+            m_code = f"Meter {line_meta['meter_code']} · " if line_meta.get('meter_code') else ""
+            description = f"{description} — {m_code}Prev: {line_meta['previous_reading']} | Curr: {line_meta['current_reading']} ({line_meta.get('consumption', '')} {line_meta.get('meter_unit', 'kWh')})"
         data.append([Paragraph(description, s["Small"]), f"{rate:g}%", f"{net:,.2f}", f"{tax:,.2f}", f"{total:,.2f}"])
     table = Table(data, colWidths=[72 * mm, 18 * mm, 28 * mm, 25 * mm, 30 * mm], repeatRows=1)
     table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8), ("ALIGN", (1, 1), (-1, -1), "RIGHT"), ("GRID", (0, 0), (-1, -1), .35, LINE), ("ROWBACKGROUNDS", (0, 1), (-1, -1), (colors.white, PALE)), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]))
