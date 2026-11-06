@@ -7,11 +7,14 @@
   },
   "workspaces": [
     "apps/web",
+    "apps/mobile",
     "packages/*"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=web",
     "build": "npm run build --workspace=web",
+    "mobile:start": "npm run start --workspace=@monitoring/mobile",
+    "mobile:test": "npm test --workspace=@monitoring/mobile",
     "check:bundles": "node scripts/check_frontend_bundles.mjs",
     "lint": "npm run lint --workspace=web",
     "e2e": "playwright test",

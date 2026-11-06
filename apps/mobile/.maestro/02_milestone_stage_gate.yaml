@@ -1,0 +1,25 @@
+# Maestro Flow: Contractual Stage-Gate Lock & Verification
+appId: com.centerestates.monitoring
+---
+- launchApp
+- tapOn: "Karam Apartments — Lang'ata"
+- tapOn: "Milestones"
+
+# Check milestones list
+- assertVisible: "Substructure & Raft Foundation"
+- assertVisible: "Superstructure Frame"
+
+# Tap downstream milestone that has prerequisite stage-gate
+- tapOn: "Superstructure Frame"
+
+# Assert that stage-gate lock banner is visible
+- assertVisible: "🔒 Contractual Stage-Gate Locked"
+- assertVisible: "Preceding milestone(s) must reach 100% completion"
+
+# Verify locked submit action
+- assertVisible: "🔒 Stage-gate locked"
+
+# Ensure attempting to slide or submit triggers prompt
+- tapOn: "🔒 Stage-gate locked"
+- assertVisible: "Stage-Gate Locked"
+- tapOn: "OK"

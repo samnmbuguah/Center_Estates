@@ -1,0 +1,16 @@
+# Expo dev server for USABILITY TESTING — serves the mobile app to Expo Go
+# over exp://<host>:8081 so testers never need a local dev machine.
+# Build context is the REPO ROOT (needs the pnpm workspace + shared-types).
+FROM node:22-alpine AS app
+RUN corepack enable
+WORKDIR /repo
+
+# Copy the whole workspace (node_modules excluded via root .dockerignore).
+COPY . .
+RUN pnpm install --filter @monitoring/mobile... --frozen-lockfile --config.minimum-release-age=0
+
+WORKDIR /repo/apps/mobile
+
+ENV CI=1
+EXPOSE 8081
+CMD ["npx", "expo", "start", "--port", "8081"]

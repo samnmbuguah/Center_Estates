@@ -1,0 +1,27 @@
+# Maestro Flow: Mobile Authentication & Project Hub Verification
+appId: com.centerestates.monitoring
+---
+- launchApp
+- assertVisible: "Center Estates"
+- assertVisible: "Field Inspection & Verification"
+
+# Verify offline / connectivity indicator presence
+- assertVisible: ".*(Connected|Offline).*"
+
+# Authentication step
+- tapOn: "Staff ID / Email"
+- inputText: "clerk@centerestates.com"
+- tapOn: "Password / Site PIN"
+- inputText: "SecurePass123!"
+- tapOn: "Sign In to Site Workspace"
+
+# Confirm landing on Projects List / Hub
+- assertVisible: "Karam Apartments — Lang'ata"
+- tapOn: "Karam Apartments — Lang'ata"
+
+# Hub verification: confirm essential modules exist
+- assertVisible: "Milestones"
+- assertVisible: "Site Diary"
+- assertVisible: "Tickets & Snags"
+- assertVisible: "Concrete Tests"
+- assertVisible: "BoQ Items"

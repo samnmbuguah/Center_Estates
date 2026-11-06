@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    // Web Crypto + TextEncoder are used by integrity.ts; these globals exist at
+    // runtime in both React Native (Hermes) and browsers.
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/__tests__/**"]
+}

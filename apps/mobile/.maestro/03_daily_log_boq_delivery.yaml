@@ -1,0 +1,40 @@
+# Maestro Flow: BoQ-Linked Material Delivery & Draft Persistence
+appId: com.centerestates.monitoring
+---
+- launchApp
+- tapOn: "Karam Apartments — Lang'ata"
+- tapOn: "Site Diary"
+
+# Switch to Material Deliveries section
+- tapOn: "Material Deliveries"
+- assertVisible: "Record Material Delivery"
+
+# Select BoQ Item via Modal
+- tapOn: "Select Bill of Quantities (BoQ) Item"
+- assertVisible: "Link BoQ Line Item"
+- tapOn: "Search BoQ items…"
+- inputText: "Cement"
+- tapOn: ".*Cement.*"
+
+# Verify supplier chips and select Bamburi
+- assertVisible: "Bamburi"
+- tapOn: "Bamburi"
+
+# Enter quantity and delivery note number
+- tapOn: "Quantity Delivered"
+- inputText: "50"
+- tapOn: "Delivery Note / Invoice No."
+- inputText: "DN-BAM-9081"
+
+# Verify planned allowance shield
+- assertVisible: ".*Planned:.*"
+
+# Test backgrounding & state preservation:
+- stopApp
+- launchApp
+- tapOn: "Karam Apartments — Lang'ata"
+- tapOn: "Site Diary"
+- tapOn: "Material Deliveries"
+
+# Verify draft was restored automatically
+- assertVisible: "DN-BAM-9081"

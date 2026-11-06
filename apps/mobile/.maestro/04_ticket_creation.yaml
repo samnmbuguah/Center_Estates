@@ -1,0 +1,29 @@
+# Maestro Flow: Mobile Snags & Tickets Workflow
+appId: com.centerestates.monitoring
+---
+- launchApp
+- tapOn: "Karam Apartments — Lang'ata"
+- tapOn: "Tickets & Snags"
+
+# Verify ticket board
+- assertVisible: "Open"
+- assertVisible: "In Progress"
+- assertVisible: "Resolved"
+
+# Tap create ticket action
+- tapOn: "+ New Ticket"
+- assertVisible: "Create Site Ticket / Snag"
+
+# Enter ticket details
+- tapOn: "Ticket Title"
+- inputText: "Rebar spacing discrepancy in Beam B4"
+- tapOn: "Category"
+- tapOn: "Quality Defect"
+- tapOn: "Priority"
+- tapOn: "High"
+- tapOn: "Description & Location Details"
+- inputText: "Main reinforcement bars spaced at 250mm instead of approved structural 150mm specification."
+
+# Save ticket
+- tapOn: "Create Ticket"
+- assertVisible: "Rebar spacing discrepancy in Beam B4"
