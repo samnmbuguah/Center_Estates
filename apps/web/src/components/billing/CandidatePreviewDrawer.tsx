@@ -4,16 +4,18 @@ import React from "react";
 import Link from "next/link";
 import { DetailDrawer, money } from "@/components/module-ui";
 import { useAuth } from "@/components/auth-provider";
-import { Candidate, issueResolution, isMissingWaterReading, missingMeterUtilityType } from "./types";
+import { Candidate, InvoiceChargeType, invoiceChargeType, issueResolution, isMissingWaterReading, missingMeterUtilityType } from "./types";
 import { printInvoiceDraft } from "./invoice-draft-print";
 import { downloadApiPdf } from "@/lib/api";
 
 export function CandidatePreviewDrawer({
   candidate,
+  activeFilter = "all",
   onClose,
   onRecordMeter,
 }: {
   candidate: Candidate;
+  activeFilter?: InvoiceChargeType | "all";
   onClose: () => void;
   onRecordMeter?: (c: Candidate) => void;
 }) {
@@ -26,15 +28,35 @@ export function CandidatePreviewDrawer({
   const utilityEmoji = missingUtility === "electricity" ? "⚡" : missingUtility === "gas" ? "🔥" : "💧";
   const isReady = candidate.status === "ready" && !isMissingWater;
   const hasIssues = candidate.issue_summary && candidate.issue_summary.length > 0;
-  const totalAmount = Number(candidate.total || 0);
 
-  const handlePrint = () => {
+  const allItems = candidate.billing_items || [];
+  const leaseItems = allItems.filter((it) => invoiceChargeType(it.code) !== "utility");
+  const utilityItems = allItems.filter((it) => invoiceChargeType(it.code) === "utility");
+
+  const isUtilityFocus = activeFilter === "utility" || (leaseItems.length === 0 && utilityItems.length > 0);
+  const primaryItems = isUtilityFocus ? utilityItems : (leaseItems.length > 0 ? leaseItems : allItems);
+  const secondaryUtilityItems = !isUtilityFocus && leaseItems.length > 0 && utilityItems.length > 0 ? utilityItems : [];
+
+  const totalAmount = primaryItems.reduce((sum, it) => sum + Number(it.total ?? it.amount ?? 0), 0);
+  const utilityTotalAmount = secondaryUtilityItems.reduce((sum, it) => sum + Number(it.total ?? it.amount ?? 0), 0);
+
+  const handlePrint = (itemsOverride?: typeof allItems, suffix?: string) => {
     try {
-      printInvoiceDraft(candidate, {
-        name: orgName,
-        logoUrl: currentOrg?.logo_url,
-        primaryColor: currentOrg?.primary_color,
-      });
+      const itemsToPrint = itemsOverride || primaryItems;
+      const printTotal = itemsToPrint.reduce((sum, it) => sum + Number(it.total ?? it.amount ?? 0), 0);
+      printInvoiceDraft(
+        {
+          ...candidate,
+          invoice_number: suffix && candidate.invoice_number ? `${candidate.invoice_number}-${suffix}` : candidate.invoice_number,
+          billing_items: itemsToPrint,
+          total: String(printTotal.toFixed(2)),
+        },
+        {
+          name: orgName,
+          logoUrl: currentOrg?.logo_url,
+          primaryColor: currentOrg?.primary_color,
+        }
+      );
     } catch (error) {
       window.alert(error instanceof Error ? error.message : "The printable draft could not be opened.");
     }
@@ -218,10 +240,10 @@ export function CandidatePreviewDrawer({
             }}
           >
             <strong style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, var(--color-slate-700))", fontWeight: 800 }}>
-              Itemized Billing Breakdown
+              {isUtilityFocus ? "Monthly Utility / Electricity Invoice Breakdown" : "Consolidated Lease & Parking Breakdown"}
             </strong>
             <span style={{ fontSize: 12, color: "var(--text-secondary, var(--color-slate-600))", fontWeight: 700 }}>
-              {candidate.billing_items.length} line {candidate.billing_items.length === 1 ? "item" : "items"}
+              {primaryItems.length} line {primaryItems.length === 1 ? "item" : "items"}
             </span>
           </div>
 
@@ -235,14 +257,14 @@ export function CandidatePreviewDrawer({
               </tr>
             </thead>
             <tbody>
-              {candidate.billing_items.map((item, idx) => {
+              {primaryItems.map((item, idx) => {
                 const amount = Number(item.total ?? item.amount ?? 0);
                 const codeUpper = (item.code || "CHARGE").toUpperCase();
                 return (
                   <tr
                     key={idx}
                     style={{
-                      borderBottom: idx === candidate.billing_items.length - 1 ? "none" : "1px solid var(--border)",
+                      borderBottom: idx === primaryItems.length - 1 ? "none" : "1px solid var(--border)",
                       background: idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.015)",
                     }}
                   >
@@ -314,6 +336,81 @@ export function CandidatePreviewDrawer({
           </table>
         </div>
 
+        {/* Separate Monthly Utility / Electricity Invoice Section when both Lease and Utility items exist */}
+        {secondaryUtilityItems.length > 0 && (
+          <div style={{ background: "var(--surface)", border: "1px solid rgba(245, 158, 11, 0.35)", borderRadius: 12, overflow: "hidden" }}>
+            <div
+              style={{
+                padding: "10px 18px",
+                background: "rgba(245, 158, 11, 0.08)",
+                borderBottom: "1px solid rgba(245, 158, 11, 0.25)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span>⚡</span>
+                <strong style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--color-amber-deep, #b45309)", fontWeight: 800 }}>
+                  Separate Monthly Utility / Electricity Invoice
+                </strong>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 99, background: "rgba(245, 158, 11, 0.16)", color: "#92400e" }}>
+                  BILLED SEPARATELY (MONTHLY)
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn ghost sm"
+                onClick={() => handlePrint(secondaryUtilityItems, "ELEC")}
+                style={{ fontSize: 11, padding: "3px 10px", fontWeight: 700 }}
+              >
+                🖨️ Print Utility Draft
+              </button>
+            </div>
+            <div style={{ padding: "12px 16px", display: "grid", gap: 8 }}>
+              {secondaryUtilityItems.map((uItem, idx) => {
+                const uAmt = Number(uItem.total ?? uItem.amount ?? 0);
+                const isPending = (uItem as any).meter_reading_pending || uAmt === 0;
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      fontSize: 12.5,
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      background: "var(--surface-sunken)",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 800, color: "var(--text)" }}>{uItem.description || uItem.code}</div>
+                      {uItem.previous_reading !== undefined && uItem.current_reading !== undefined ? (
+                        <div style={{ fontSize: 11.5, color: "var(--color-amber-deep, #b45309)", fontWeight: 600, marginTop: 2 }}>
+                          Meter {uItem.meter_code ? `${uItem.meter_code} · ` : ""}Prev: {uItem.previous_reading} | Curr: {uItem.current_reading} ({uItem.consumption} {uItem.meter_unit || "kWh"})
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11.5, color: "var(--text-secondary)", marginTop: 2 }}>
+                          Monthly metered utility charge — generated as a separate monthly invoice after meter reading approval
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ textAlign: "right", fontWeight: 800 }}>
+                      {isPending ? (
+                        <span style={{ color: "var(--color-amber-deep)", fontSize: 11, fontWeight: 700 }}>Reading Pending</span>
+                      ) : (
+                        money.format(uAmt)
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Meter Readings Reconciliation if any */}
         {candidate.meter_readings && candidate.meter_readings.length > 0 && (
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
@@ -360,7 +457,7 @@ export function CandidatePreviewDrawer({
             <button
               type="button"
               className="btn ghost sm"
-              onClick={handlePrint}
+              onClick={() => handlePrint()}
               style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}
             >
               <span>🖨️</span>

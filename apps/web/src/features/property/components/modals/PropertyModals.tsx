@@ -274,7 +274,7 @@ function AddLeaseFormModal({
           />
         </div>
 
-        {/* Commercial Service Charge Auto-Calculation */}
+        {/* Commercial Service Charge & Parking Charges */}
         <div className="grid-2">
           <TextField
             fullWidth
@@ -297,8 +297,30 @@ function AddLeaseFormModal({
             value={serviceCharge}
             onChange={(e) => handleServiceChargeChange(e.target.value)}
             placeholder="e.g. 57850.00"
-            helperText={scRate && unitArea > 0 ? `Calculated: ${unitArea} sqft @ KES ${scRate}/sqft` : ""}
+            helperText={scRate && unitArea > 0 ? `Calculated: ${unitArea} sqft @ KES ${scRate}/sqft` : "Auto-multiplies ×3 on quarterly properties"}
             slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+          />
+        </div>
+
+        <div className="grid-2">
+          <TextField
+            fullWidth
+            size="small"
+            name="parking_fee"
+            label="Monthly Parking Fee (KES)"
+            type="number"
+            defaultValue={0}
+            placeholder="e.g. 5000.00"
+            helperText="Included on consolidated lease invoice (×3 on quarterly billing)"
+            slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+          />
+          <TextField
+            fullWidth
+            size="small"
+            name="parking_bay"
+            label="Parking Bay / Slot Code (optional)"
+            placeholder="e.g. BAY-01, B1-14"
+            helperText="Shown on invoice line item if specified"
           />
         </div>
 

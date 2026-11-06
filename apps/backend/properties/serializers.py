@@ -620,10 +620,43 @@ class LeaseSerializer(serializers.ModelSerializer):
     unit_code = serializers.CharField(source='unit.code', read_only=True)
     unit_area = serializers.DecimalField(source='unit.area', max_digits=12, decimal_places=2, read_only=True)
     property_name = serializers.CharField(source='unit.property.name', read_only=True)
+    service_charge = serializers.SerializerMethodField()
+    parking_fee = serializers.SerializerMethodField()
+    parking_bay = serializers.SerializerMethodField()
+
     class Meta:
         model = Lease
         exclude = ('organization',)
         read_only_fields = ('status', 'renewed_from')
+
+    def get_service_charge(self, obj):
+        meta = obj.metadata if isinstance(obj.metadata, dict) else {}
+        sc = meta.get('service_charge') or meta.get('monthly_service_charge_excl_vat')
+        if sc is not None and str(sc).strip() != '':
+            return str(sc)
+        for bp in obj.billing_profiles.all():
+            if bp.is_active and bp.billing_item and str(bp.billing_item.code or '').upper() in ('SERVICE_CHARGE', 'SC'):
+                return str(bp.amount)
+        return '0.00'
+
+    def get_parking_fee(self, obj):
+        meta = obj.metadata if isinstance(obj.metadata, dict) else {}
+        pf = meta.get('parking_fee') or meta.get('monthly_parking_fee')
+        if pf is None and isinstance(meta.get('parking'), dict):
+            pf = meta['parking'].get('monthly_fee')
+        if pf is not None and str(pf).strip() != '':
+            return str(pf)
+        for bp in obj.billing_profiles.all():
+            if bp.is_active and bp.billing_item and 'PARK' in str(bp.billing_item.code or '').upper():
+                return str(bp.amount)
+        return '0.00'
+
+    def get_parking_bay(self, obj):
+        meta = obj.metadata if isinstance(obj.metadata, dict) else {}
+        bay = meta.get('parking_bay')
+        if not bay and isinstance(meta.get('parking'), dict):
+            bay = meta['parking'].get('bay')
+        return str(bay or '')
 
     def validate_monthly_rent(self, value):
         # A zero-rent lease is a real occupancy state for a tenant whose rent

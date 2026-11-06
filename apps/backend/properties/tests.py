@@ -999,6 +999,36 @@ class PropertyApiTests(TestCase):
         self.assertIn('Q4 2026', parking_line['description'])
         self.assertIn('Bay B-04', parking_line['description'])
 
+    def test_lease_patch_parking_and_anchor_month_quarterly_scaling(self):
+        """Patching a quarterly lease with parking_fee creates a quarterly PARKING profile that scales x3 on anchor-month runs (Oct 2026)."""
+        rent_item = BillingItem.objects.create(
+            organization=self.organization, code='RENT', name='Rent',
+            calculation=BillingItem.Calculation.FIXED, income_category='rent',
+        )
+        BillingProfile.objects.create(
+            organization=self.organization, lease=self.lease, billing_item=rent_item,
+            frequency=BillingProfile.Frequency.QUARTERLY, calculation=BillingItem.Calculation.FIXED,
+            amount=Decimal('50000.00'), effective_from='2026-01-01', billing_day=1,
+        )
+        patch_resp = self.client.patch(
+            f'/api/v1/property/leases/{self.lease.id}/',
+            {'parking_fee': 4000, 'parking_bay': 'BAY-12', 'service_charge': 10000},
+            format='json', **self.headers,
+        )
+        self.assertEqual(patch_resp.status_code, 200)
+        self.assertEqual(patch_resp.data['parking_fee'], 4000.0)
+        self.assertEqual(patch_resp.data['parking_bay'], 'BAY-12')
+
+        # Prepare single-month anchor run for Oct 2026 (Q4 anchor month, months_count=1, profile_interval=3)
+        _, _, oct_run = self._prepare_run('2026-10-01', '2026-10-31')
+        candidate = oct_run['candidates'][0]
+        parking_line = next(it for it in candidate['billing_items'] if it['code'].upper() == 'PARKING')
+        self.assertEqual(parking_line['quantity'], '3')
+        self.assertEqual(parking_line['unit_rate'], '4000.00')
+        self.assertEqual(parking_line['subtotal'], '12000.00')
+        self.assertIn('Parking charges for Q4 2026 (Oct – Dec 2026)', parking_line['description'])
+        self.assertIn('Bay BAY-12', parking_line['description'])
+
     def test_electricity_monthly_invoice_includes_readings(self):
         """On monthly electricity billing, meter readings reflect on candidate and generated invoice."""
         elec_item = BillingItem.objects.create(

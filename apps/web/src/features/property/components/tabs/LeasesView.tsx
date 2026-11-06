@@ -103,6 +103,9 @@ export function LeasesView({
   const [editEndsOn, setEditEndsOn] = useState("");
   const [editMonthlyRent, setEditMonthlyRent] = useState("");
   const [editRentRate, setEditRentRate] = useState("");
+  const [editServiceCharge, setEditServiceCharge] = useState("");
+  const [editParkingFee, setEditParkingFee] = useState("");
+  const [editParkingBay, setEditParkingBay] = useState("");
   const [editUnitArea, setEditUnitArea] = useState<number>(0);
   const [editDeposit, setEditDeposit] = useState("");
   const [editEscalation, setEditEscalation] = useState("");
@@ -153,6 +156,12 @@ export function LeasesView({
     setEditStartsOn(l.starts_on ? String(l.starts_on).slice(0, 10) : "");
     setEditEndsOn(l.ends_on ? String(l.ends_on).slice(0, 10) : "");
     setEditMonthlyRent(String(l.monthly_rent || ""));
+    const rawSc = (l as any).service_charge ?? (l as any).metadata?.service_charge ?? "";
+    const rawPf = (l as any).parking_fee ?? (l as any).metadata?.parking_fee ?? (l as any).metadata?.parking_monthly_fee ?? "";
+    const rawPb = (l as any).parking_bay ?? (l as any).metadata?.parking_bay ?? "";
+    setEditServiceCharge(rawSc !== null && rawSc !== undefined && Number(rawSc) > 0 ? String(rawSc) : "");
+    setEditParkingFee(rawPf !== null && rawPf !== undefined && Number(rawPf) > 0 ? String(rawPf) : "");
+    setEditParkingBay(rawPb ? String(rawPb) : "");
     setEditDeposit(String(l.deposit || ""));
     setEditEscalation(String(l.escalation_percent || "0"));
     setEditInterval(String(l.escalation_interval_months || "12"));
@@ -217,6 +226,9 @@ export function LeasesView({
         starts_on: editStartsOn,
         ends_on: editEndsOn,
         monthly_rent: Number(editMonthlyRent || 0),
+        service_charge: editServiceCharge.trim() !== "" ? Number(editServiceCharge) : 0,
+        parking_fee: editParkingFee.trim() !== "" ? Number(editParkingFee) : 0,
+        parking_bay: editParkingBay.trim(),
         deposit: Number(editDeposit || 0),
         escalation_percent: Number(editEscalation || 0),
         escalation_interval_months: Number(editInterval || 12),
@@ -252,6 +264,7 @@ export function LeasesView({
   const [bulkEscalation, setBulkEscalation] = useState("");
   const [bulkInterval, setBulkInterval] = useState("12");
   const [bulkServiceCharge, setBulkServiceCharge] = useState("");
+  const [bulkParkingFee, setBulkParkingFee] = useState("");
   const [bulkBillingDay, setBulkBillingDay] = useState("");
   const [bulkActivate, setBulkActivate] = useState(false);
 
@@ -299,6 +312,7 @@ export function LeasesView({
       if (bulkEscalation.trim()) payload.escalation_percent = bulkEscalation.trim();
       if (bulkInterval.trim()) payload.escalation_interval_months = bulkInterval.trim();
       if (bulkServiceCharge.trim()) payload.service_charge_rate_per_sqft = bulkServiceCharge.trim();
+      if (bulkParkingFee.trim()) payload.parking_fee = bulkParkingFee.trim();
       if (bulkBillingDay.trim()) payload.billing_day = bulkBillingDay.trim();
       if (bulkActivate) payload.status = "active";
 
@@ -712,7 +726,7 @@ export function LeasesView({
               </Field>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
               <Field label="Service Charge Rate (KES / sqft)">
                 <input
                   type="number"
@@ -721,6 +735,17 @@ export function LeasesView({
                   placeholder="e.g. 25.00"
                   value={bulkServiceCharge}
                   onChange={(e) => setBulkServiceCharge(e.target.value)}
+                />
+              </Field>
+
+              <Field label="Monthly Parking Fee (KES)">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="e.g. 5000.00 (×3 on Qtrly)"
+                  value={bulkParkingFee}
+                  onChange={(e) => setBulkParkingFee(e.target.value)}
                 />
               </Field>
 
@@ -902,6 +927,39 @@ export function LeasesView({
                   placeholder="e.g. 100000"
                   value={editDeposit}
                   onChange={(e) => setEditDeposit(e.target.value)}
+                />
+              </Field>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+              <Field label="Monthly Service Charge (KES)">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 25000 (×3 if quarterly)"
+                  value={editServiceCharge}
+                  onChange={(e) => setEditServiceCharge(e.target.value)}
+                />
+              </Field>
+
+              <Field label="Monthly Parking Fee (KES)">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 5000 (×3 if quarterly)"
+                  value={editParkingFee}
+                  onChange={(e) => setEditParkingFee(e.target.value)}
+                />
+              </Field>
+
+              <Field label="Parking Bay / Slot Code">
+                <input
+                  type="text"
+                  placeholder="e.g. BAY-01 (optional)"
+                  value={editParkingBay}
+                  onChange={(e) => setEditParkingBay(e.target.value)}
                 />
               </Field>
             </div>

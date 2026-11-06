@@ -738,7 +738,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
           ...(invoiceTypesForRun ? { invoice_types: invoiceTypesForRun } : {}),
         }
       : action === "generate"
-        ? { candidate_ids: selected }
+        ? { candidate_ids: selected, ...(chargeTypeFilter !== "all" ? { invoice_types: [chargeTypeFilter] } : {}) }
         : action === "prepare" && invoiceTypesForRun
           ? { invoice_types: invoiceTypesForRun }
           : {};
@@ -1095,6 +1095,7 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
       {previewCandidate && (
         <CandidatePreviewDrawer
           candidate={previewCandidate}
+          activeFilter={chargeTypeFilter}
           onClose={() => setPreviewCandidate(null)}
           onRecordMeter={(c) => {
             setPreviewCandidate(null);

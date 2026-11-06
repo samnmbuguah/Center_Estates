@@ -870,6 +870,8 @@ export function usePropertyLogic({
       rent_rate_per_sqft: String(raw.rent_rate_per_sqft ?? "").trim(),
       service_charge_rate_per_sqft: String(raw.service_charge_rate_per_sqft ?? "").trim(),
       service_charge: String(raw.service_charge ?? "").trim(),
+      parking_fee: String(raw.parking_fee ?? "").trim(),
+      parking_bay: String(raw.parking_bay ?? "").trim(),
     };
     await apiFetch("/auth/csrf/");
     const res = await apiFetch("/property/leases/", {

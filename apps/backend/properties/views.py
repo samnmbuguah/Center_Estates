@@ -3389,9 +3389,111 @@ class LeaseViewSet(OrganizationModelViewSet):
     write_permission = 'property.leasing'
 
 
-    queryset = Lease.objects.select_related('tenant', 'unit__property')
+    queryset = Lease.objects.select_related('tenant', 'unit__property').prefetch_related('billing_profiles__billing_item')
     serializer_class = LeaseSerializer
     search_fields = ('reference', 'tenant__name', 'unit__code')
+
+    def _sync_lease_recurring_profiles(self, lease, data=None):
+        """Sync Service Charge and Parking BillingProfiles and metadata for a lease."""
+        organization = lease.organization
+        metadata = dict(lease.metadata or {})
+        payload = data if isinstance(data, dict) else {}
+
+        default_freq = str(metadata.get('billing_frequency') or _default_lease_billing_frequency(lease.unit) or 'monthly').strip().lower()
+        target_bp_freq = (
+            BillingProfile.Frequency.QUARTERLY
+            if default_freq == 'quarterly'
+            else BillingProfile.Frequency.MONTHLY
+        )
+
+        # 1. Service Charge sync
+        if 'service_charge_rate_per_sqft' in payload and payload.get('service_charge_rate_per_sqft') is not None:
+            metadata['service_charge_rate_per_sqft'] = str(payload.get('service_charge_rate_per_sqft')).strip()
+        if 'service_charge' in payload and payload.get('service_charge') is not None:
+            metadata['service_charge'] = str(payload.get('service_charge')).strip()
+            metadata['monthly_service_charge_excl_vat'] = str(payload.get('service_charge')).strip()
+
+        try:
+            sc_val = Decimal(str(metadata.get('service_charge') or metadata.get('monthly_service_charge_excl_vat') or 0))
+        except Exception:
+            sc_val = Decimal('0')
+
+        if sc_val > 0:
+            metadata.setdefault('service_charge_billing_frequency', default_freq)
+            sc_item = BillingItem.objects.filter(organization=organization, code__iexact='SERVICE_CHARGE').first()
+            if not sc_item:
+                sc_item = BillingItem.objects.create(
+                    organization=organization, code='SERVICE_CHARGE',
+                    name='Service charge', calculation=BillingItem.Calculation.FIXED,
+                    income_category='service_charge', is_recurring=True,
+                )
+            BillingProfile.objects.update_or_create(
+                organization=organization, lease=lease, billing_item=sc_item, effective_from=lease.starts_on,
+                defaults={
+                    'amount': sc_val, 'effective_to': lease.ends_on, 'frequency': target_bp_freq,
+                    'calculation': BillingItem.Calculation.FIXED, 'billing_day': lease.billing_day, 'is_active': True,
+                },
+            )
+
+        # 2. Parking Charges sync
+        raw_parking_fee = payload.get('parking_fee')
+        if raw_parking_fee is None:
+            raw_parking_fee = payload.get('parking_monthly_fee')
+        if raw_parking_fee is not None:
+            metadata['parking_fee'] = str(raw_parking_fee).strip()
+        if 'parking_bay' in payload and payload.get('parking_bay') is not None:
+            metadata['parking_bay'] = str(payload.get('parking_bay')).strip()
+        if 'parking_billing_frequency' in payload and payload.get('parking_billing_frequency'):
+            metadata['parking_billing_frequency'] = str(payload.get('parking_billing_frequency')).strip().lower()
+
+        parking_meta = metadata.get('parking') if isinstance(metadata.get('parking'), dict) else {}
+        try:
+            parking_val = Decimal(str(
+                metadata.get('parking_fee')
+                or metadata.get('monthly_parking_fee')
+                or parking_meta.get('monthly_fee')
+                or 0
+            ))
+        except Exception:
+            parking_val = Decimal('0')
+
+        parking_freq_str = str(
+            metadata.get('parking_billing_frequency')
+            or parking_meta.get('billing_frequency')
+            or default_freq
+        ).strip().lower()
+        parking_bp_freq = (
+            BillingProfile.Frequency.QUARTERLY
+            if parking_freq_str == 'quarterly'
+            else BillingProfile.Frequency.MONTHLY
+        )
+
+        if parking_val > 0:
+            metadata['parking_fee'] = str(parking_val)
+            metadata['parking_billing_frequency'] = parking_freq_str
+            parking_item = BillingItem.objects.filter(organization=organization, code__iexact='PARKING').first()
+            if not parking_item:
+                parking_item = BillingItem.objects.create(
+                    organization=organization, code='PARKING',
+                    name='Parking charges', calculation=BillingItem.Calculation.FIXED,
+                    income_category='Parking', is_recurring=True,
+                )
+            BillingProfile.objects.update_or_create(
+                organization=organization, lease=lease, billing_item=parking_item, effective_from=lease.starts_on,
+                defaults={
+                    'amount': parking_val, 'effective_to': lease.ends_on, 'frequency': parking_bp_freq,
+                    'calculation': BillingItem.Calculation.FIXED, 'billing_day': lease.billing_day, 'is_active': True,
+                    'instructions': 'Recurring parking charges.',
+                },
+            )
+        elif raw_parking_fee is not None and parking_val <= 0:
+            BillingProfile.objects.filter(
+                organization=organization, lease=lease, billing_item__code__iexact='PARKING'
+            ).delete()
+
+        if metadata != (lease.metadata or {}):
+            lease.metadata = metadata
+            lease.save(update_fields=('metadata', 'updated_at'))
 
     @staticmethod
     def _offer_letter(lease):
@@ -3495,27 +3597,23 @@ class LeaseViewSet(OrganizationModelViewSet):
             metadata['service_charge_rate_per_sqft'] = str(self.request.data.get('service_charge_rate_per_sqft')).strip()
         if self.request.data.get('service_charge'):
             metadata['service_charge'] = str(self.request.data.get('service_charge')).strip()
+        if self.request.data.get('parking_fee') is not None:
+            metadata['parking_fee'] = str(self.request.data.get('parking_fee')).strip()
+        if self.request.data.get('parking_bay') is not None:
+            metadata['parking_bay'] = str(self.request.data.get('parking_bay')).strip()
         metadata.setdefault('billing_frequency', _default_lease_billing_frequency(serializer.validated_data.get('unit')))
         lease = serializer.save(organization=organization, metadata=metadata)
         _inherit_unit_charge_profiles(lease)
-        try:
-            sc_val = Decimal(str(metadata.get('service_charge') or 0))
-        except Exception:
-            sc_val = Decimal('0')
-        if sc_val > 0:
-            sc_item, _ = BillingItem.objects.get_or_create(
-                organization=organization, code='SERVICE_CHARGE',
-                defaults={'name': 'Service charge', 'calculation': BillingItem.Calculation.FIXED, 'income_category': 'service_charge', 'is_recurring': True},
-            )
-            BillingProfile.objects.update_or_create(
-                organization=organization, lease=lease, billing_item=sc_item, effective_from=lease.starts_on,
-                defaults={
-                    'amount': sc_val, 'effective_to': lease.ends_on, 'frequency': BillingProfile.Frequency.MONTHLY,
-                    'calculation': BillingItem.Calculation.FIXED, 'billing_day': lease.billing_day, 'is_active': True,
-                },
-            )
+        self._sync_lease_recurring_profiles(lease, dict(self.request.data))
         if is_new_tenant:
             self._issue_offer_letter(lease, self.request.user, require_acceptance=True)
+
+    @transaction.atomic
+    def perform_update(self, serializer):
+        lease = serializer.save()
+        self._sync_lease_recurring_profiles(lease, dict(self.request.data))
+        if lease.status in (Lease.Status.ACTIVE, Lease.Status.EXPIRING):
+            generate_rent_schedule(lease)
 
     @transaction.atomic
     @action(detail=False, methods=('post',), url_path='bulk-import')
@@ -3689,18 +3787,12 @@ class LeaseViewSet(OrganizationModelViewSet):
                     },
                 )
                 _inherit_unit_charge_profiles(lease)
-                if service_charge > 0:
-                    sc_item, _ = BillingItem.objects.get_or_create(
-                        organization=organization, code='SERVICE_CHARGE',
-                        defaults={'name': 'Service charge', 'calculation': BillingItem.Calculation.FIXED, 'income_category': 'service_charge', 'is_recurring': True},
-                    )
-                    BillingProfile.objects.update_or_create(
-                        organization=organization, lease=lease, billing_item=sc_item, effective_from=starts_on,
-                        defaults={
-                            'amount': service_charge, 'effective_to': ends_on, 'frequency': BillingProfile.Frequency.MONTHLY,
-                            'calculation': BillingItem.Calculation.FIXED, 'billing_day': billing_day, 'is_active': True,
-                        },
-                    )
+                self._sync_lease_recurring_profiles(lease, {
+                    'service_charge': str(service_charge),
+                    'service_charge_rate_per_sqft': str(sc_rate) if sc_rate is not None else '',
+                    'parking_fee': str(row.get('parking_fee') or row.get('parking_monthly_fee') or '0').replace(',', '').strip(),
+                    'parking_bay': str(row.get('parking_bay') or '').strip(),
+                })
                 created.append(str(lease.id))
             results.append({'row': index, 'data': normalized, 'errors': errors})
         return Response({
@@ -3730,12 +3822,16 @@ class LeaseViewSet(OrganizationModelViewSet):
         escalation_percent = request.data.get('escalation_percent')
         escalation_interval_months = request.data.get('escalation_interval_months')
         service_charge_rate_per_sqft = request.data.get('service_charge_rate_per_sqft')
+        parking_fee = request.data.get('parking_fee')
+        if parking_fee is None:
+            parking_fee = request.data.get('parking_monthly_fee')
         billing_day = request.data.get('billing_day')
         target_status = request.data.get('status')
 
         for lease in leases:
             dirty = False
             metadata = dict(lease.metadata or {})
+            sync_payload = {}
 
             if escalation_percent is not None and str(escalation_percent).strip() != '':
                 try:
@@ -3765,6 +3861,19 @@ class LeaseViewSet(OrganizationModelViewSet):
                     monthly_sc = (unit_area * sc_rate).quantize(Decimal('0.01'))
                     metadata['service_charge_rate_per_sqft'] = str(sc_rate)
                     metadata['monthly_service_charge_excl_vat'] = str(monthly_sc)
+                    metadata['service_charge'] = str(monthly_sc)
+                    sync_payload['service_charge'] = str(monthly_sc)
+                    sync_payload['service_charge_rate_per_sqft'] = str(sc_rate)
+                    lease.metadata = metadata
+                    dirty = True
+                except Exception:
+                    pass
+
+            if parking_fee is not None and str(parking_fee).strip() != '':
+                try:
+                    pf_val = Decimal(str(parking_fee).replace(',', '').strip()).quantize(Decimal('0.01'))
+                    metadata['parking_fee'] = str(pf_val)
+                    sync_payload['parking_fee'] = str(pf_val)
                     lease.metadata = metadata
                     dirty = True
                 except Exception:
@@ -3784,6 +3893,8 @@ class LeaseViewSet(OrganizationModelViewSet):
 
             if dirty:
                 lease.save()
+                if sync_payload:
+                    self._sync_lease_recurring_profiles(lease, sync_payload)
                 generate_rent_schedule(lease)
                 updated_count += 1
 
@@ -5953,7 +6064,10 @@ class BillingRunViewSet(OrganizationModelViewSet):
                                 'require_utility_readings_before_rent',
                                 prop.metadata.get('billing_settings', {}).get('require_utility_readings_before_rent', True)
                             )
-                        if not prop_require_util or (invoice_types is not None and "utility" not in invoice_types):
+                        lease_rent_freq = self._lease_rent_frequency(lease) or (
+                            property_scope_frequency(run.property, BillingRun.ChargeScope.RENT) if run.property_id else 'monthly'
+                        )
+                        if not prop_require_util or lease_rent_freq == 'quarterly' or (invoice_types is not None and "utility" not in invoice_types):
                             severity = BillingReadinessIssue.Severity.WARNING
                         else:
                             severity = BillingReadinessIssue.Severity.BLOCKING
@@ -6006,8 +6120,12 @@ class BillingRunViewSet(OrganizationModelViewSet):
                         desc = f"{profile.billing_item.name} (Prev: {prev_reading_str} | Curr: {curr_reading_str} | Consumed: {consumption_str} {meter_unit})"
                 elif profile_code in ('parking', 'parking_fee') or 'park' in profile_code:
                     bays = [a.parking_space.code for a in lease.parking_assignments.filter(status__in=[ParkingAssignment.Status.ACTIVE, ParkingAssignment.Status.RESERVED]) if a.parking_space and a.parking_space.code]
+                    if not bays:
+                        meta_bay = (lease.metadata or {}).get('parking_bay') or ((lease.metadata or {}).get('parking') if isinstance((lease.metadata or {}).get('parking'), dict) else {}).get('bay')
+                        if meta_bay:
+                            bays = [str(meta_bay)]
                     bay_str = f" — Bay {', '.join(bays)}" if bays else ""
-                    if months_count == 3:
+                    if months_count == 3 or profile_interval == 3:
                         anchor_month = ((run.period_start.month - 1) // 3) * 3 + 1
                         q_num = (anchor_month - 1) // 3 + 1
                         q_start = date(run.period_start.year, anchor_month, 1)
@@ -6122,19 +6240,52 @@ class BillingRunViewSet(OrganizationModelViewSet):
                                 'payer': 'owner' if should_bill_owner_sc else 'tenant',
                             })
 
-            # If parking is not already billed via billing profile, check active parking bay allocations
+            # If parking is not already billed via billing profile, check active parking bay allocations or lease metadata
             has_parking_item = any(item.get('code', '').upper() == 'PARKING' for item in items)
             if not has_parking_item and (invoice_types is None or 'parking' in invoice_types or 'other' in invoice_types or 'rent' in invoice_types):
-                parking_assignments = lease.parking_assignments.filter(
-                    status__in=[ParkingAssignment.Status.ACTIVE, ParkingAssignment.Status.RESERVED],
-                    starts_on__lte=run.period_end,
-                ).filter(Q(ends_on__isnull=True) | Q(ends_on__gte=run.period_start)).select_related('parking_space')
-                if parking_assignments.exists():
-                    total_parking_monthly = sum((a.monthly_fee for a in parking_assignments), Decimal('0.00'))
-                    if total_parking_monthly > 0:
+                meta = lease.metadata or {}
+                parking_meta = meta.get('parking') if isinstance(meta.get('parking'), dict) else {}
+                prop_rent_freq = property_scope_frequency(run.property, BillingRun.ChargeScope.RENT) if run.property_id else 'monthly'
+                lease_parking_freq = str(
+                    meta.get('parking_billing_frequency')
+                    or parking_meta.get('billing_frequency')
+                    or meta.get('billing_frequency')
+                    or prop_rent_freq
+                    or 'monthly'
+                ).strip().lower()
+                is_quarterly_parking = (lease_parking_freq == 'quarterly') or (months_count == 3)
+                is_anchor_month = (run.period_start.month - 1) % 3 == 0
+
+                if not (is_quarterly_parking and not is_anchor_month and months_count < 3):
+                    parking_assignments = lease.parking_assignments.filter(
+                        status__in=[ParkingAssignment.Status.ACTIVE, ParkingAssignment.Status.RESERVED],
+                        starts_on__lte=run.period_end,
+                    ).filter(Q(ends_on__isnull=True) | Q(ends_on__gte=run.period_start)).select_related('parking_space')
+
+                    total_parking_monthly = Decimal('0.00')
+                    bays = []
+                    source_type = 'lease_metadata'
+                    source_id = str(lease.id)
+
+                    if parking_assignments.exists():
+                        total_parking_monthly = sum((a.monthly_fee for a in parking_assignments), Decimal('0.00'))
                         bays = [a.parking_space.code for a in parking_assignments if a.parking_space and a.parking_space.code]
+                        source_type = 'parking_assignment'
+                        source_id = str(parking_assignments.first().id)
+                    else:
+                        raw_pf = meta.get('parking_fee') or meta.get('monthly_parking_fee') or parking_meta.get('monthly_fee')
+                        if raw_pf is not None:
+                            try:
+                                total_parking_monthly = Decimal(str(raw_pf))
+                            except Exception:
+                                total_parking_monthly = Decimal('0.00')
+                        meta_bay = meta.get('parking_bay') or parking_meta.get('bay')
+                        if meta_bay:
+                            bays = [str(meta_bay)]
+
+                    if total_parking_monthly > 0:
                         bay_str = f" — Bay {', '.join(bays)}" if bays else ""
-                        if months_count == 3:
+                        if is_quarterly_parking:
                             anchor_month = ((run.period_start.month - 1) // 3) * 3 + 1
                             q_num = (anchor_month - 1) // 3 + 1
                             q_start = date(run.period_start.year, anchor_month, 1)
@@ -6143,7 +6294,7 @@ class BillingRunViewSet(OrganizationModelViewSet):
                         else:
                             parking_desc = f"Parking charges ({period_suffix}){bay_str}"
 
-                        parking_qty = qty
+                        parking_qty = Decimal('3') if (is_quarterly_parking and months_count < 3) else qty
                         parking_line_subtotal = (total_parking_monthly * parking_qty).quantize(Decimal('0.01'))
                         parking_item = BillingItem.objects.filter(
                             organization=run.organization, code__iexact='parking'
@@ -6162,8 +6313,8 @@ class BillingRunViewSet(OrganizationModelViewSet):
                             'tax_rate': str(p_tax_rate),
                             'tax_amount': str(p_tax_amount),
                             'total': str(parking_line_subtotal + p_tax_amount),
-                            'source_type': 'parking_assignment',
-                            'source_id': str(parking_assignments.first().id),
+                            'source_type': source_type,
+                            'source_id': source_id,
                             'payer': 'tenant',
                         })
 
