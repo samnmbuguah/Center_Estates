@@ -35,6 +35,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     // SSR-safe: sessionStorage is only available on the client. Reading it
     // during hydration would produce a server/client render mismatch (#418).
     if (typeof window === "undefined") return "";
+    const urlId = new URLSearchParams(window.location.search).get("id");
+    if (urlId) {
+      sessionStorage.setItem("activeProject", urlId);
+      return urlId;
+    }
     return sessionStorage.getItem("activeProject") || "";
   });
   const [loading, setLoading] = useState(true);

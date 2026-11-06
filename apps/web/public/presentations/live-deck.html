@@ -1,852 +1,1036 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Center Estates ERP — Interactive Construction &amp; Mobile Live Deck</title>
-  <link rel="icon" href="/favicon.ico" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Center Estates — Live Construction System Walkthrough (Real Screenshots)</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap');
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background-color: #07162c;
-      color: #0f172a;
-      overflow: hidden;
-      user-select: none;
+    :root {
+      --navy: #0a213d;
+      --navy-dark: #07162c;
+      --navy-light: #12365b;
+      --crimson: #dc2626;
+      --amber: #d97706;
+      --green: #16a34a;
+      --teal: #0d9488;
+      --ink: #0f172a;
+      --muted: #475569;
+      --pale: #f8fafc;
+      --line: #e2e8f0;
     }
-    .mono { font-family: 'JetBrains Mono', monospace; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #07162c;
+      color: var(--ink);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+    }
+    .deck-viewport {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 24px 68px;
+    }
     .slide {
       display: none;
-      opacity: 0;
-      transition: opacity 0.28s ease-in-out;
+      width: 100%;
+      max-width: 1400px;
+      height: 100%;
+      max-height: 820px;
+      background: var(--pale);
+      border-radius: 18px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.55);
+      overflow: hidden;
+      flex-direction: column;
+      position: relative;
+      border: 1px solid rgba(255,255,255,0.12);
     }
-    .slide.active {
+    .slide.active { display: flex; }
+
+    /* Top Slide Header */
+    .slide-top {
+      background: #fff;
+      border-top: 6px solid var(--navy);
+      border-bottom: 1px solid var(--line);
+      padding: 12px 28px;
       display: flex;
-      opacity: 1;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .slide-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .slide-brand img { height: 34px; }
+    .slide-brand-title { font-size: 16px; font-weight: 800; color: var(--navy); }
+    .slide-brand-sub { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+    .slide-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .live-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--crimson);
+      color: #fff;
+      text-decoration: none;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      box-shadow: 0 4px 12px rgba(220,38,38,0.25);
+      transition: transform 0.15s, background 0.15s;
+    }
+    .live-btn:hover { background: #b91c1c; transform: translateY(-1px); }
+    .slide-num {
+      background: var(--navy);
+      color: #fff;
+      font-weight: 800;
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 999px;
+    }
+
+    /* Slide Body */
+    .slide-body {
+      flex: 1;
+      padding: 20px 28px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow: hidden;
+    }
+    .eyebrow {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--crimson);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .slide-title {
+      font-size: clamp(20px, 2.2vw, 28px);
+      font-weight: 800;
+      color: var(--ink);
+      line-height: 1.2;
+    }
+    .slide-subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* Split Content Layout: Left Plain-English Guide + Right Live Screenshot */
+    .feature-split {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 390px 1fr;
+      gap: 20px;
+      min-height: 0;
+      align-items: stretch;
+    }
+    .info-col {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 0;
+    }
+    .info-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px 18px;
+      border-top: 4px solid var(--crimson);
+      box-shadow: 0 2px 6px rgba(15,23,42,0.04);
+    }
+    .info-card.how-to { border-top-color: var(--green); }
+    .info-card h3 {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--navy);
+      margin-bottom: 10px;
+    }
+    .info-card ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .info-card li {
+      font-size: 12.5px;
+      color: var(--muted);
+      line-height: 1.45;
+      padding-left: 18px;
+      position: relative;
+    }
+    .info-card li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: var(--green);
+      font-weight: 800;
+    }
+    .info-card.how-to li::before {
+      content: "➔";
+      color: var(--crimson);
+    }
+    .info-card li strong { color: var(--ink); }
+
+    /* Screenshot Frame */
+    .shot-frame {
+      background: #fff;
+      border: 2px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      box-shadow: 0 10px 25px rgba(15,23,42,0.08);
+      cursor: zoom-in;
+      position: relative;
+    }
+    .shot-frame-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 10px 8px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 8px;
+    }
+    .dots { display: flex; gap: 6px; }
+    .dots span { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .url-pill {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 3px 10px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+    }
+    .shot-img-wrap {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #f8fafc;
+    }
+    .shot-img-wrap img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 6px;
+    }
+    .shot-caption {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 6px;
+    }
+
+    /* Bottom Proof Bar */
+    .proof-bar {
+      background: var(--navy);
+      color: #fff;
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+    .proof-badge {
+      background: var(--crimson);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    /* Dual Screenshot Grid */
+    .dual-shots {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      min-height: 0;
+    }
+
+    /* Bottom Floating Navigation Bar */
+    .nav-bar {
+      position: fixed;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.18);
+      padding: 8px 18px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: #fff;
+      z-index: 100;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+    .nav-btn {
+      background: rgba(255,255,255,0.12);
+      border: none;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .nav-btn:hover { background: var(--crimson); }
+    .nav-counter { font-size: 12.5px; font-weight: 700; color: #cbd5e1; min-width: 90px; text-align: center; }
+
+    /* Zoom Lightbox Modal */
+    #zoom-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(7, 22, 44, 0.92);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      cursor: zoom-out;
+    }
+    #zoom-modal.open { display: flex; }
+    #zoom-modal img {
+      max-width: 96vw;
+      max-height: 92vh;
+      border-radius: 12px;
+      box-shadow: 0 25px 70px rgba(0,0,0,0.7);
+      border: 2px solid #fff;
     }
   </style>
 </head>
-<body class="h-screen w-screen flex flex-col justify-between">
+<body>
 
-  <!-- Top Presentation Control Bar -->
-  <header class="h-14 bg-[#0a213d] border-b border-slate-800 px-6 flex items-center justify-between text-white shrink-0 z-30">
-    <div class="flex items-center gap-3">
-      <a href="/presentations/" class="flex items-center gap-2.5 hover:opacity-90 transition">
-        <img src="/center-estates-logo.png" alt="Center Estates" class="h-8 w-auto bg-white rounded p-0.5" />
-        <div>
-          <span class="font-extrabold tracking-tight text-sm block leading-none">Center Estates ERP</span>
-          <span class="text-[10px] text-amber-400 font-bold tracking-widest uppercase">Interactive Stakeholder Deck</span>
-        </div>
-      </a>
-      <span class="text-slate-600 mx-2">|</span>
-      <span class="text-xs text-slate-300 hidden md:inline">Demo Project: <strong class="text-white">Karam Apartments — Lang'ata (PRJ-KRM-01)</strong></span>
-    </div>
+  <div class="deck-viewport">
 
-    <div class="flex items-center gap-2.5">
-      <span id="slide-counter" class="mono text-xs bg-slate-800 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 font-semibold">01 / 11</span>
-      <button onclick="prevSlide()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold border border-slate-700 transition" title="Previous Slide (Left Arrow)">← Prev</button>
-      <button onclick="nextSlide()" class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-bold transition" title="Next Slide (Right Arrow / Space)">Next →</button>
-      <button onclick="toggleFullScreen()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold border border-slate-700 hidden sm:inline-flex items-center gap-1.5 transition">
-        <span>⛶</span> Fullscreen
-      </button>
-      <a href="/presentations/Center_Estates_Construction_and_Mobile_Presentation.pptx" download class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold hidden lg:inline-flex items-center gap-1.5 transition">
-        ⬇ PPTX
-      </a>
-      <a href="/presentations/" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700 transition">Exit</a>
-    </div>
-  </header>
-
-  <!-- Main Slide Viewport -->
-  <main class="flex-1 relative flex items-center justify-center p-4 md:p-8 overflow-y-auto">
-    <div class="w-full max-w-[1360px] h-full max-h-[760px] bg-slate-50 rounded-2xl shadow-2xl border border-slate-700/60 overflow-hidden flex flex-col relative">
-
-      <!-- ========================================================= -->
-      <!-- SLIDE 1: COVER -->
-      <!-- ========================================================= -->
-      <section class="slide active flex-1 flex-col lg:flex-row bg-[#07162c] text-white overflow-y-auto">
-        <div class="lg:w-[52%] p-8 lg:p-12 flex flex-col justify-between border-r-4 border-red-600 bg-[#07162c]">
+    <!-- SLIDE 1: COVER + REAL SYSTEM SCREENSHOT -->
+    <section class="slide active">
+      <div class="slide-top">
+        <div class="slide-brand">
+          <img src="/center-estates-logo.png" alt="Center Estates" onerror="this.style.display='none'">
           <div>
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-600 text-[11px] font-extrabold tracking-widest uppercase mb-6">
-              Live Stakeholder Briefing
-            </div>
-            <h1 class="text-3xl lg:text-5xl font-black tracking-tight leading-[1.1] mb-5">
-              Eliminating Capital Leakage in Real Estate Construction.
-            </h1>
-            <p class="text-slate-300 text-sm lg:text-base leading-relaxed mb-8">
-              Connecting the physical site gate directly to bank drawdown approvals via <strong class="text-white">BoQ Allowance Shields</strong>, <strong class="text-white">Contractual Stage-Gates</strong>, and <strong class="text-white">Offline-First Mobile Telemetry</strong>.
-            </p>
-            <div class="grid grid-cols-3 gap-3 mb-6">
-              <div class="bg-[#12365b] border border-emerald-500/50 rounded-xl p-3.5 text-center">
-                <div class="text-xl font-black text-emerald-400">100%</div>
-                <div class="text-[11px] text-slate-300 mt-0.5">BoQ-Bound Gate Intake</div>
-              </div>
-              <div class="bg-[#12365b] border border-amber-500/50 rounded-xl p-3.5 text-center">
-                <div class="text-xl font-black text-amber-400">SHA-256</div>
-                <div class="text-[11px] text-slate-300 mt-0.5">Tamper-Evident Seals</div>
-              </div>
-              <div class="bg-[#12365b] border border-red-500/50 rounded-xl p-3.5 text-center">
-                <div class="text-xl font-black text-red-400">0% Leakage</div>
-                <div class="text-[11px] text-slate-300 mt-0.5">Stage-Gate Protected</div>
-              </div>
-            </div>
-          </div>
-          <div class="text-xs text-slate-400 flex items-center justify-between pt-4 border-t border-slate-800">
-            <span>Featured Project: <strong class="text-white">Karam Apartments — Lang'ata (PRJ-KRM-01)</strong></span>
-            <span class="mono text-amber-400">centerestates.com</span>
+            <div class="slide-brand-title">Center Estates ERP — Live Construction Walkthrough</div>
+            <div class="slide-brand-sub">100% Real System Screenshots • Karam Apartments — Lang'ata (PRJ-KRM-01)</div>
           </div>
         </div>
-
-        <div class="lg:w-[48%] p-8 lg:p-10 bg-slate-100 text-slate-900 flex flex-col justify-center">
-          <div class="bg-white rounded-2xl p-7 shadow-lg border border-slate-200 border-t-4 border-t-red-600">
-            <div class="text-xs font-extrabold tracking-widest text-red-600 uppercase mb-1">Executive Overview</div>
-            <h2 class="text-xl lg:text-2xl font-black text-slate-900 mb-5">One Auditable Chain from Site Gate to IPC Drawdown</h2>
-            <ul class="space-y-3.5 text-sm text-slate-600">
-              <li class="flex items-start gap-2.5"><span class="text-red-600 font-bold">▸</span><span><strong class="text-slate-900">Bill of Quantities (BoQ) Shield:</strong> Every material delivery at the gate is validated against contractual budget limits before offloading.</span></li>
-              <li class="flex items-start gap-2.5"><span class="text-red-600 font-bold">▸</span><span><strong class="text-slate-900">Contractual Stage-Gate Engine:</strong> Downstream milestones remain mathematically locked until prerequisite structural works reach 100%.</span></li>
-              <li class="flex items-start gap-2.5"><span class="text-red-600 font-bold">▸</span><span><strong class="text-slate-900">Offline-First Mobile App:</strong> Complete Clerk of Works field diary with local SQLite persistence and automatic delta-sync.</span></li>
-              <li class="flex items-start gap-2.5"><span class="text-red-600 font-bold">▸</span><span><strong class="text-slate-900">Cryptographic Non-Repudiation:</strong> Ed25519 biometric hardware signatures, GPS geofence guards, and SHA-256 evidence seals.</span></li>
-              <li class="flex items-start gap-2.5"><span class="text-red-600 font-bold">▸</span><span><strong class="text-slate-900">Automated Mini-BoQ Valuations:</strong> Real-time Interim Payment Certificates (IPCs) backed by verified field evidence.</span></li>
-            </ul>
-          </div>
+        <div class="slide-actions">
+          <a href="/presentations/" class="live-btn" style="background: var(--navy-light);">← All Downloads (.PPTX / .PDF)</a>
+          <a href="/monitoring?tab=project-memberships&id=ce-construction-karam-001" target="_blank" class="live-btn">↗ Open Karam Apartments Live in System</a>
+          <span class="slide-num">01 / 11</span>
         </div>
-      </section>
-
-      <!-- ========================================================= -->
-      <!-- SLIDE 2: INDUSTRY CHALLENGE -->
-      <!-- ========================================================= -->
-      <section class="slide flex-1 flex-col justify-between p-8 lg:p-10 overflow-y-auto">
+      </div>
+      <div class="slide-body">
         <div>
-          <div class="text-xs font-extrabold uppercase tracking-widest text-red-600 mb-1">01 • Industry Challenge</div>
-          <h2 class="text-2xl lg:text-3xl font-black text-slate-900">The Three Critical Blind Spots in Construction Execution</h2>
-          <p class="text-sm text-slate-500 mt-1">Why 15% to 25% of commercial development capital is lost between the site gate and the finance office.</p>
+          <div class="eyebrow">Simple, Practical Construction Management</div>
+          <h1 class="slide-title">Track Every Shilling, Bag of Cement & Site Milestone — Without Complex Software</h1>
+          <p class="slide-subtitle">Every screen in this walkthrough is captured directly from the live Center Estates system for <strong>Karam Apartments — Lang'ata (PRJ-KRM-01)</strong>. Click any screenshot to zoom in, or click the red button above to open the live screen.</p>
         </div>
+        <div class="feature-split">
+          <div class="info-col">
+            <div class="info-card">
+              <h3>What This Module Does (In Plain English)</h3>
+              <ul>
+                <li><strong>1. Project Overview:</strong> See total budget (KSh 966.56M), completion %, and next milestone at a glance.</li>
+                <li><strong>2. Work Schedule:</strong> Upload your contractor's Excel schedule and see if they are on time or behind.</li>
+                <li><strong>3. Bill of Quantities (BoQ):</strong> Track what is Budgeted, Committed, and Certified item-by-item.</li>
+                <li><strong>4. Daily Site Diary & Gate Deliveries:</strong> Record daily worker counts, weather, and cement/steel deliveries.</li>
+                <li><strong>5. Quality, Snags & Payment Certificates:</strong> Log cube tests & site snags, then issue contractor IPCs.</li>
+              </ul>
+            </div>
+            <div class="info-card how-to">
+              <h3>How to Use This Deck</h3>
+              <ul>
+                <li><strong>Click any screenshot</strong> on the right to inspect it full-screen.</li>
+                <li><strong>Click "↗ Open Live in System"</strong> at the top right of any slide to jump straight to that feature in Center Estates.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="shot-frame" onclick="zoomImage('/presentations/screenshots/01_project_overview.png')">
+            <div class="shot-frame-bar">
+              <div class="dots"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#22c55e"></span></div>
+              <span class="url-pill">https://centerestates.com/monitoring?tab=project-memberships&id=ce-construction-karam-001</span>
+              <span style="font-size:11px;font-weight:700;color:#2563eb;">🔍 Click to Zoom</span>
+            </div>
+            <div class="shot-img-wrap">
+              <img src="/presentations/screenshots/01_project_overview.png" alt="Live Project Overview Screenshot">
+            </div>
+            <div class="shot-caption">Actual Live Screenshot: Karam Apartments — Lang'ata Command Center on centerestates.com</div>
+          </div>
+        </div>
+      </div>
+      <div class="proof-bar">
+        <span class="proof-badge">LIVE SYSTEM PROOF</span>
+        <span>All 9 features shown in this presentation are populated and live right now under Karam Apartments — Lang'ata (PRJ-KRM-01).</span>
+      </div>
+    </section>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-6 flex-1">
-          <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-red-600 shadow-sm flex flex-col justify-between">
+    <!-- SLIDE 2: FEATURE 1 — PROJECT COMMAND CENTER -->
+    <section class="slide">
+      <div class="slide-top">
+        <div class="slide-brand">
+          <img src="/center-estates-logo.png" alt="Center Estates" onerror="this.style.display='none'">
+          <div>
+            <div class="slide-brand-title">Feature 01 • Project Command Center</div>
+            <div class="slide-brand-sub">Menu Path: MAIN ➔ Project Team</div>
+          </div>
+        </div>
+        <div class="slide-actions">
+          <a href="/monitoring?tab=project-memberships&id=ce-construction-karam-001" target="_blank" class="live-btn">↗ Open This Screen Live in System</a>
+          <span class="slide-num">02 / 11</span>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div>
+          <div class="eyebrow">Feature 01 • Executive Project Overview</div>
+          <h1 class="slide-title">One Clear Dashboard for Every Construction Project</h1>
+          <p class="slide-subtitle">Open any development project to see its total contract budget, physical completion %, active stage, and upcoming milestones.</p>
+        </div>
+        <div class="feature-split">
+          <div class="info-col">
+            <div class="info-card">
+              <h3>What You See on This Screen</h3>
+              <ul>
+                <li><strong>Project Identity:</strong> PRJ-KRM-01 Karam Apartments — Lang'ata for Client M/S Karam Logistics Ltd.</li>
+                <li><strong>Overall Physical Progress:</strong> Shows 10% completion (5 of 90 milestones completed) with a clear progress bar.</li>
+                <li><strong>Budget Expenditure:</strong> Displays the approved KSh 966.56M project budget vs. certified expenditure.</li>
+                <li><strong>Next Milestone:</strong> Highlights the immediate active task (Week 01: Mobilisation & Substructure).</li>
+              </ul>
+            </div>
+            <div class="info-card how-to">
+              <h3>How Your Team Uses It</h3>
+              <ul>
+                <li><strong>Step 1:</strong> Click <strong>MAIN ➔ Project Team</strong> in the blue navigation bar.</li>
+                <li><strong>Step 2:</strong> Click <strong>+ New Log</strong> to record today's site activity or <strong>Share / Reports</strong> to export a summary.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="shot-frame" onclick="zoomImage('/presentations/screenshots/01_project_overview.png')">
+            <div class="shot-frame-bar">
+              <div class="dots"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#22c55e"></span></div>
+              <span class="url-pill">centerestates.com/monitoring?tab=project-memberships&id=ce-construction-karam-001</span>
+              <span style="font-size:11px;font-weight:700;color:#2563eb;">🔍 Click to Zoom</span>
+            </div>
+            <div class="shot-img-wrap">
+              <img src="/presentations/screenshots/01_project_overview.png" alt="Project Overview Screenshot">
+            </div>
+            <div class="shot-caption">Live Screenshot: Karam Apartments — Lang'ata Overview & KPI Strip</div>
+          </div>
+        </div>
+      </div>
+      <div class="proof-bar">
+        <span class="proof-badge">PLAIN-ENGLISH SUMMARY</span>
+        <span>Gives the Developer and Project Manager an instant health check of budget and timeline on a single screen.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 3: FEATURE 2 — WORK PROGRAMME & SCHEDULE -->
+    <section class="slide">
+      <div class="slide-top">
+        <div class="slide-brand">
+          <img src="/center-estates-logo.png" alt="Center Estates" onerror="this.style.display='none'">
+          <div>
+            <div class="slide-brand-title">Feature 02 • Work Programme & Schedule</div>
+            <div class="slide-brand-sub">Menu Path: PROGRAMME & CONTROLS ➔ Work Programme</div>
+          </div>
+        </div>
+        <div class="slide-actions">
+          <a href="/monitoring?tab=work-plan&id=ce-construction-karam-001" target="_blank" class="live-btn">↗ Open This Screen Live in System</a>
+          <span class="slide-num">03 / 11</span>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div>
+          <div class="eyebrow">Feature 02 • Work Programme & Timeline</div>
+          <h1 class="slide-title">See Immediately Whether the Contractor Is On Time or Behind Schedule</h1>
+          <p class="slide-subtitle">Import your contractor's standard Excel work plan in one click—no specialized scheduling software required.</p>
+        </div>
+        <div class="feature-split">
+          <div class="info-col">
+            <div class="info-card">
+              <h3>What You See on This Screen</h3>
+              <ul>
+                <li><strong>Overall Progress Card:</strong> Compares actual physical completion (10.1%) against planned progress.</li>
+                <li><strong>Schedule Status:</strong> Clearly flags if the contractor is On Track or Behind Schedule.</li>
+                <li><strong>Activities Complete:</strong> Tracks completed activities out of the total programme (5 / 90 activities).</li>
+                <li><strong>Critical Path Breakdown:</strong> Groups tasks into On Track / Done (11), At Risk (0), Delayed (0), and Not Started (79).</li>
+              </ul>
+            </div>
+            <div class="info-card how-to">
+              <h3>How Your Team Uses It</h3>
+              <ul>
+                <li><strong>Step 1:</strong> Click <strong>PROGRAMME & CONTROLS ➔ Work Programme</strong>.</li>
+                <li><strong>Step 2:</strong> Click <strong>Download Template</strong> or <strong>Import Work Plan</strong> to upload an Excel schedule.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="shot-frame" onclick="zoomImage('/presentations/screenshots/02_work_plan_schedule.png')">
+            <div class="shot-frame-bar">
+              <div class="dots"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#22c55e"></span></div>
+              <span class="url-pill">centerestates.com/monitoring?tab=work-plan&id=ce-construction-karam-001</span>
+              <span style="font-size:11px;font-weight:700;color:#2563eb;">🔍 Click to Zoom</span>
+            </div>
+            <div class="shot-img-wrap">
+              <img src="/presentations/screenshots/02_work_plan_schedule.png" alt="Work Programme Screenshot">
+            </div>
+            <div class="shot-caption">Live Screenshot: Programme & Schedule View for Karam Apartments — Lang'ata</div>
+          </div>
+        </div>
+      </div>
+      <div class="proof-bar">
+        <span class="proof-badge">PLAIN-ENGLISH SUMMARY</span>
+        <span>Replaces static PDF Gantt charts with a live schedule tracker that highlights delays before they become expensive.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 4: FEATURE 3 — BILL OF QUANTITIES (BoQ) -->
+    <section class="slide">
+      <div class="slide-top">
+        <div class="slide-brand">
+          <img src="/center-estates-logo.png" alt="Center Estates" onerror="this.style.display='none'">
+          <div>
+            <div class="slide-brand-title">Feature 03 • Bill of Quantities (BoQ) & Cost Control</div>
+            <div class="slide-brand-sub">Menu Path: COMMERCIAL ➔ BoQ & Cost</div>
+          </div>
+        </div>
+        <div class="slide-actions">
+          <a href="/monitoring?tab=boq&id=ce-construction-karam-001" target="_blank" class="live-btn">↗ Open This Screen Live in System</a>
+          <span class="slide-num">04 / 11</span>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div>
+          <div class="eyebrow">Feature 03 • Bill of Quantities (BoQ) & Cost Control</div>
+          <h1 class="slide-title">Every BoQ Line Item Tracked from Budget to Certified Payment</h1>
+          <p class="slide-subtitle">Replaces error-prone spreadsheets with a structured BoQ register showing Budgeted, Committed, Certified, and Paid amounts.</p>
+        </div>
+        <div class="feature-split">
+          <div class="info-col">
+            <div class="info-card">
+              <h3>What You See on This Screen</h3>
+              <ul>
+                <li><strong>5 Live Cost Totals:</strong> Budgeted (<strong>KES 806.0M</strong>), Committed (<strong>KES 41.4M</strong>), Certified (<strong>KES 119.1M</strong>), and Paid.</li>
+                <li><strong>Itemized BoQ Table:</strong> Shows all 33 BoQ sections and items with Unit, Quantity, Rate, and Amount.</li>
+                <li><strong>Cost State Badges:</strong> Each item shows whether it is currently <code>budgeted</code>, <code>committed</code>, or <code>certified</code>.</li>
+                <li><strong>One-Click Certification:</strong> Quantity Surveyors can advance items as work is verified on site.</li>
+              </ul>
+            </div>
+            <div class="info-card how-to">
+              <h3>How Your Team Uses It</h3>
+              <ul>
+                <li><strong>Step 1:</strong> Click <strong>COMMERCIAL ➔ BoQ & Cost</strong> in the top navigation bar.</li>
+                <li><strong>Step 2:</strong> Click <strong>Import BoQ</strong> to upload the Quantity Surveyor's Excel BoQ file.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="shot-frame" onclick="zoomImage('/presentations/screenshots/03_boq_budget_shield.png')">
+            <div class="shot-frame-bar">
+              <div class="dots"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#22c55e"></span></div>
+              <span class="url-pill">centerestates.com/monitoring?tab=boq&id=ce-construction-karam-001</span>
+              <span style="font-size:11px;font-weight:700;color:#2563eb;">🔍 Click to Zoom</span>
+            </div>
+            <div class="shot-img-wrap">
+              <img src="/presentations/screenshots/03_boq_budget_shield.png" alt="BoQ Cost States Screenshot">
+            </div>
+            <div class="shot-caption">Live Screenshot: BoQ Cost States (33 Items — KES 119.12M Certified on Karam Apartments)</div>
+          </div>
+        </div>
+      </div>
+      <div class="proof-bar">
+        <span class="proof-badge">PLAIN-ENGLISH SUMMARY</span>
+        <span>You always know exactly how much of your construction budget is still untouched, committed, or certified for payment.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 5: FEATURE 4 — DAILY SITE DIARY -->
+    <section class="slide">
+      <div class="slide-top">
+        <div class="slide-brand">
+          <img src="/center-estates-logo.png" alt="Center Estates" onerror="this.style.display='none'">
+          <div>
+            <div class="slide-brand-title">Feature 04 • Clerk of Works Daily Site Diary</div>
+            <div class="slide-brand-sub">Menu Path: SITE OPERATIONS ➔ Daily Logs</div>
+          </div>
+        </div>
+        <div class="slide-actions">
+          <a href="/monitoring?tab=daily-logs&id=ce-construction-karam-001" target="_blank" class="live-btn">↗ Open This Screen Live in System</a>
+          <span class="slide-num">05 / 11</span>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div>
+          <div class="eyebrow">Feature 04 • Clerk of Works Daily Site Diary</div>
+          <h1 class="slide-title">Daily Weather, Workforce Headcount & Site Progress in One Place</h1>
+          <p class="slide-subtitle">Replaces paper site books and WhatsApp messages with a structured daily log recorded from the site phone or office browser.</p>
+        </div>
+        <div class="feature-split">
+          <div class="info-col">
+            <div class="info-card">
+              <h3>What You See on This Screen</h3>
+              <ul>
+                <li><strong>4 Daily Summary Cards:</strong> Daily logs today (1), Workforce on site (<strong>84 workers</strong>), Material deliveries (<strong>4</strong>), and H&S incidents (0).</li>
+                <li><strong>Weather & Date Badges:</strong> Shows exact date (6 Nov 2026) and site weather (Sunny 26°C, Partly Cloudy 24°C).</li>
+                <li><strong>Daily Activities Summary:</strong> Detailed notes on Block A & B shuttering, rebar fixing, and concrete pours.</li>
+              </ul>
+            </div>
+            <div class="info-card how-to">
+              <h3>How Your Team Uses It</h3>
+              <ul>
+                <li><strong>Step 1:</strong> Click <strong>SITE OPERATIONS ➔ Daily Logs</strong> (or open the Mobile App on site).</li>
+                <li><strong>Step 2:</strong> Click <strong>+ Record Daily Log</strong> to log today's weather, worker count, and activities.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="shot-frame" onclick="zoomImage('/presentations/screenshots/04_daily_logs_deliveries.png')">
+            <div class="shot-frame-bar">
+              <div class="dots"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#22c55e"></span></div>
+              <span class="url-pill">centerestates.com/monitoring?tab=daily-logs&id=ce-construction-karam-001</span>
+              <span style="font-size:11px;font-weight:700;color:#2563eb;">🔍 Click to Zoom</span>
+            </div>
+            <div class="shot-img-wrap">
+              <img src="/presentations/screenshots/04_daily_logs_deliveries.png" alt="Daily Site Logs Screenshot">
+            </div>
+            <div class="shot-caption">Live Screenshot: Construction Progress & Daily Site Logs (84 Workers on Site Today)</div>
+          </div>
+        </div>
+      </div>
+      <div class="proof-bar">
+        <span class="proof-badge">PLAIN-ENGLISH SUMMARY</span>
+        <span>Gives you a permanent daily diary of who was on site, what the weather was, and what work was completed every single day.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 6: FEATURE 5 — GATE MATERIAL DELIVERIES -->
+    <section class="slide">
+      <div class="slide-top">
+        <div class="slide-brand">
+          <img src="/center-estates-logo.png" alt="Center Estates" onerror="this.style.display='none'">
+          <div>
+            <div class="slide-brand-title">Feature 05 • Site Gate Material Deliveries</div>
+            <div class="slide-brand-sub">Menu Path: SITE OPERATIONS ➔ Daily Logs (Recent Material Deliveries)</div>
+          </div>
+        </div>
+        <div class="slide-actions">
+          <a href="/monitoring?tab=daily-logs&id=ce-construction-karam-001" target="_blank" class="live-btn">↗ Open This Screen Live in System</a>
+          <span class="slide-num">06 / 11</span>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div>
+          <div class="eyebrow">Feature 05 • Material Deliveries & Gate Verification</div>
+          <h1 class="slide-title">Every Delivery of Cement, Steel & Concrete Is Logged and Checked Against the BoQ</h1>
+          <p class="slide-subtitle">When a truck arrives at the site gate, the Clerk records the supplier, quantity, delivery note number, and linked BoQ item.</p>
+        </div>
+        <div class="feature-split">
+          <div class="info-col">
+            <div class="info-card">
+              <h3>What You See on This Screen</h3>
+              <ul>
+                <li><strong>Bamburi Cement Delivery:</strong> 300 Bags of Ordinary Portland Cement 42.5N (DN-88412 • Truck KDK 412P).</li>
+                <li><strong>Devki Steel Delivery:</strong> 18.5 Tonnes of High Yield Deformed Steel Bars Y16 (DN-44910 • Mill cert verified).</li>
+                <li><strong>Ready-Mix Concrete:</strong> 145 m³ of Structural Concrete C30/37 (Slump test 110mm passed).</li>
+                <li><strong>BoQ Allowance Check:</strong> Ensures cumulative deliveries never exceed the approved BoQ quantity.</li>
+              </ul>
+            </div>
+            <div class="info-card how-to">
+              <h3>How Your Team Uses It</h3>
+              <ul>
+                <li><strong>At the Site Gate:</strong> Clerk selects the BoQ item on the Mobile App, taps the supplier (e.g. Bamburi, Devki), and enters the delivery note.</li>
+                <li><strong>In the Office:</strong> Appears immediately under <strong>Daily Logs ➔ Recent Material Deliveries</strong>.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="shot-frame" onclick="zoomImage('/presentations/screenshots/04b_gate_material_deliveries.png')">
+            <div class="shot-frame-bar">
+              <div class="dots"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#22c55e"></span></div>
+              <span class="url-pill">centerestates.com/monitoring?tab=daily-logs&id=ce-construction-karam-001</span>
+              <span style="font-size:11px;font-weight:700;color:#2563eb;">🔍 Click to Zoom</span>
+            </div>
+            <div class="shot-img-wrap">
+              <img src="/presentations/screenshots/04b_gate_material_deliveries.png" alt="Gate Material Deliveries Screenshot">
+            </div>
+            <div class="shot-caption">Live Screenshot: Recent Material Deliveries Logged for Karam Apartments</div>
+          </div>
+        </div>
+      </div>
+      <div class="proof-bar">
+        <span class="proof-badge">PLAIN-ENGLISH SUMMARY</span>
+        <span>Stops phantom deliveries and material theft by tying every truckload at the gate directly to the approved Bill of Quantities.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 7: FEATURE 6 — MILESTONES & STAGE-GATE PROTECTION -->
+    <section class="slide">
+      <div class="slide-top">
+        <div class="slide-brand">
+          <img src="/center-estates-logo.png" alt="Center Estates" onerror="this.style.display='none'">
+          <div>
+            <div class="slide-brand-title">Feature 06 • Construction Milestones & Stage-Gates</div>
+            <div class="slide-brand-sub">Menu Path: SITE OPERATIONS ➔ Progress & Milestones</div>
+          </div>
+        </div>
+        <div class="slide-actions">
+          <a href="/monitoring?tab=milestones&id=ce-construction-karam-001" target="_blank" class="live-btn">↗ Open This Screen Live in System</a>
+          <span class="slide-num">07 / 11</span>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div>
+          <div class="eyebrow">Feature 06 • Physical Progress & Stage-Gate Control</div>
+          <h1 class="slide-title">Visual Milestone Tracking with Step-by-Step Stage-Gate Protection</h1>
+          <p class="slide-subtitle">Track completed, active, and pending milestones—and prevent premature claims on upper floors before foundations are 100% done.</p>
+        </div>
+        <div class="feature-split">
+          <div class="info-col">
+            <div class="info-card">
+              <h3>What You See on This Screen</h3>
+              <ul>
+                <li><strong>Milestone KPI Cards:</strong> 10% Overall Progress, <strong>5 Completed</strong>, <strong>6 In Progress</strong>, and <strong>79 Not Started</strong>.</li>
+                <li><strong>Visual Performance Chart:</strong> Green bars show actual verified completion for each milestone side-by-side with planned targets.</li>
+                <li><strong>Stage-Gate Protection:</strong> Downstream milestones cannot be claimed above 0% until their prerequisite structural stage hits 100%.</li>
+              </ul>
+            </div>
+            <div class="info-card how-to">
+              <h3>How Your Team Uses It</h3>
+              <ul>
+                <li><strong>Step 1:</strong> Click <strong>SITE OPERATIONS ➔ Progress & Milestones</strong>.</li>
+                <li><strong>Step 2:</strong> Inspect each milestone's verified percentage and linked BoQ valuation items.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="shot-frame" onclick="zoomImage('/presentations/screenshots/05_milestones_stage_gates.png')">
+            <div class="shot-frame-bar">
+              <div class="dots"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#22c55e"></span></div>
+              <span class="url-pill">centerestates.com/monitoring?tab=milestones&id=ce-construction-karam-001</span>
+              <span style="font-size:11px;font-weight:700;color:#2563eb;">🔍 Click to Zoom</span>
+            </div>
+            <div class="shot-img-wrap">
+              <img src="/presentations/screenshots/05_milestones_stage_gates.png" alt="Milestones Screenshot">
+            </div>
+            <div class="shot-caption">Live Screenshot: Programme & Milestones Dashboard on Karam Apartments</div>
+          </div>
+        </div>
+      </div>
+      <div class="proof-bar">
+        <span class="proof-badge">PLAIN-ENGLISH SUMMARY</span>
+        <span>Protects you from paying contractors for upper-floor or finishing works before foundational milestones are 100% certified.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 8: FEATURE 7 — CONCRETE CUBE & QUALITY TESTS -->
+    <section class="slide">
+      <div class="slide-top">
+        <div class="slide-brand">
+          <img src="/center-estates-logo.png" alt="Center Estates" onerror="this.style.display='none'">
+          <div>
+            <div class="slide-brand-title">Feature 07 • Concrete Cube & Material Quality Tests</div>
+            <div class="slide-brand-sub">Menu Path: SITE OPERATIONS ➔ Quality & Testing</div>
+          </div>
+        </div>
+        <div class="slide-actions">
+          <a href="/monitoring?tab=quality-tests&id=ce-construction-karam-001" target="_blank" class="live-btn">↗ Open This Screen Live in System</a>
+          <span class="slide-num">08 / 11</span>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div>
+          <div class="eyebrow">Feature 07 • Quality Assurance & Structural Lab Testing</div>
+          <h1 class="slide-title">Track 7, 14 & 28-Day Concrete Cube Crushing & Steel Tensile Tests</h1>
+          <p class="slide-subtitle">Every structural concrete pour and steel reinforcement batch is tested, recorded, and checked against design strength targets.</p>
+        </div>
+        <div class="feature-split">
+          <div class="info-col">
+            <div class="info-card">
+              <h3>What You See on This Screen</h3>
+              <ul>
+                <li><strong>28-Day Concrete Cube Test:</strong> <code>CUBE-KRM-28D-014</code> (Block A 1st Floor Slab, Grade C30/37) — <strong>34.8 MPa (Passed: Yes)</strong>.</li>
+                <li><strong>14-Day Concrete Cube Test:</strong> <code>CUBE-KRM-14D-019</code> (Block B Columns, Grade C35/45) — <strong>31.2 MPa (Passed: Yes)</strong>.</li>
+                <li><strong>Steel Tensile Test:</strong> <code>STL-KRM-Y16-008</code> (BS 4449 Gr 500B) — <strong>Yield 538 MPa (Passed: Yes)</strong>.</li>
+                <li><strong>Failed Test Alert:</strong> <code>CUBE-KRM-07D-022</code> (14.1 MPa vs 16.5 MPa target) clearly flagged <strong>Passed: No</strong> for structural follow-up.</li>
+              </ul>
+            </div>
+            <div class="info-card how-to">
+              <h3>How Your Team Uses It</h3>
+              <ul>
+                <li><strong>Step 1:</strong> Click <strong>SITE OPERATIONS ➔ Quality & Testing</strong>.</li>
+                <li><strong>Step 2:</strong> Record cube samples at pour time, enter lab MPa results when ready, or click <strong>Export CSV</strong>.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="shot-frame" onclick="zoomImage('/presentations/screenshots/06_quality_cube_tests.png')">
+            <div class="shot-frame-bar">
+              <div class="dots"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#22c55e"></span></div>
+              <span class="url-pill">centerestates.com/monitoring?tab=quality-tests&id=ce-construction-karam-001</span>
+              <span style="font-size:11px;font-weight:700;color:#2563eb;">🔍 Click to Zoom</span>
+            </div>
+            <div class="shot-img-wrap">
+              <img src="/presentations/screenshots/06_quality_cube_tests.png" alt="Quality Tests Screenshot">
+            </div>
+            <div class="shot-caption">Live Screenshot: Quality Tests Register on Karam Apartments — Lang'ata</div>
+          </div>
+        </div>
+      </div>
+      <div class="proof-bar">
+        <span class="proof-badge">PLAIN-ENGLISH SUMMARY</span>
+        <span>Ensures every slab and column meets structural engineering strength requirements before the next floor is built on top of it.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 9: FEATURE 8 — SITE SNAGS & DEFECT TICKETS -->
+    <section class="slide">
+      <div class="slide-top">
+        <div class="slide-brand">
+          <img src="/center-estates-logo.png" alt="Center Estates" onerror="this.style.display='none'">
+          <div>
+            <div class="slide-brand-title">Feature 08 • Site Issues, Snags & Defect Tracking</div>
+            <div class="slide-brand-sub">Menu Path: SITE OPERATIONS ➔ Issues & Snags</div>
+          </div>
+        </div>
+        <div class="slide-actions">
+          <a href="/monitoring?tab=tickets&id=ce-construction-karam-001" target="_blank" class="live-btn">↗ Open This Screen Live in System</a>
+          <span class="slide-num">09 / 11</span>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div>
+          <div class="eyebrow">Feature 08 • Site Snags, Defects & Issue Resolution</div>
+          <h1 class="slide-title">Spot a Defect on Site? Log It, Assign It & Track It Until Fixed</h1>
+          <p class="slide-subtitle">No more forgotten verbal instructions—every site defect is tracked with a priority badge, due date, and one-click resolution.</p>
+        </div>
+        <div class="feature-split">
+          <div class="info-col">
+            <div class="info-card">
+              <h3>What You See on This Screen</h3>
+              <ul>
+                <li><strong>Urgent Structural Snag:</strong> <em>"Insufficient concrete cover (15mm vs 25mm) on Block A 2nd Floor Grid C4 beam"</em> marked <strong>high • urgent</strong>.</li>
+                <li><strong>Medium Snag:</strong> <em>"Honeycombing repair required on Block B Lift Shaft Wall (Level 1)"</em> marked <strong>medium</strong>.</li>
+                <li><strong>Resolved Snag:</strong> <em>"First-fix electrical conduit sleeves missing at Block A Staircase Core"</em> marked <strong>resolved</strong>.</li>
+                <li><strong>Drawing Pin View:</strong> Pin defects directly onto project floor plans so contractors know the exact spot.</li>
+              </ul>
+            </div>
+            <div class="info-card how-to">
+              <h3>How Your Team Uses It</h3>
+              <ul>
+                <li><strong>Step 1:</strong> Click <strong>SITE OPERATIONS ➔ Issues & Snags</strong>.</li>
+                <li><strong>Step 2:</strong> Enter the issue title, pick Risk Level & Due Date, and click <strong>Raise ticket</strong>. Click <strong>Acknowledge</strong> or <strong>Resolve</strong> as fixed.</li>
+              </ul>
+            </div>
+          </div>
+          <div class="shot-frame" onclick="zoomImage('/presentations/screenshots/07_snag_defect_tickets.png')">
+            <div class="shot-frame-bar">
+              <div class="dots"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#22c55e"></span></div>
+              <span class="url-pill">centerestates.com/monitoring?tab=tickets&id=ce-construction-karam-001</span>
+              <span style="font-size:11px;font-weight:700;color:#2563eb;">🔍 Click to Zoom</span>
+            </div>
+            <div class="shot-img-wrap">
+              <img src="/presentations/screenshots/07_snag_defect_tickets.png" alt="Site Snags Screenshot">
+            </div>
+            <div class="shot-caption">Live Screenshot: Issues & Snags Register on Karam Apartments — Lang'ata</div>
+          </div>
+        </div>
+      </div>
+      <div class="proof-bar">
+        <span class="proof-badge">PLAIN-ENGLISH SUMMARY</span>
+        <span>Gives the Resident Engineer and Project Manager a clear checklist of open site defects that must be fixed before contractor sign-off.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 10: FEATURE 9 — INTERIM PAYMENT CERTIFICATES (IPCs) & BANK DRAWDOWNS -->
+    <section class="slide">
+      <div class="slide-top">
+        <div class="slide-brand">
+          <img src="/center-estates-logo.png" alt="Center Estates" onerror="this.style.display='none'">
+          <div>
+            <div class="slide-brand-title">Feature 09 • Contractor Payment Certificates (IPCs) & Bank Drawdowns</div>
+            <div class="slide-brand-sub">Menu Path: FINANCE ➔ Certificates (IPC) & Drawdowns</div>
+          </div>
+        </div>
+        <div class="slide-actions">
+          <a href="/monitoring?tab=certificates&id=ce-construction-karam-001" target="_blank" class="live-btn">↗ Open IPCs Live</a>
+          <a href="/monitoring?tab=drawdowns&id=ce-construction-karam-001" target="_blank" class="live-btn" style="background: var(--green);">↗ Open Drawdowns Live</a>
+          <span class="slide-num">10 / 11</span>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div>
+          <div class="eyebrow">Feature 09 • Financial Control, IPCs & Bank Drawdowns</div>
+          <h1 class="slide-title">Turn Verified Site Work into Payment Certificates (IPCs) & Bank Drawdowns</h1>
+          <p class="slide-subtitle">Once work is verified on site, the Quantity Surveyor issues an Interim Payment Certificate (with 10% retention held back) and Finance approves the drawdown.</p>
+        </div>
+        <div class="dual-shots">
+          <div class="shot-frame" onclick="zoomImage('/presentations/screenshots/08_ipc_certificates.png')">
+            <div class="shot-frame-bar">
+              <div class="dots"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#22c55e"></span></div>
+              <span class="url-pill">FINANCE ➔ Certificates (IPC)</span>
+              <span style="font-size:11px;font-weight:700;color:#2563eb;">🔍 Click to Zoom</span>
+            </div>
+            <div class="shot-img-wrap">
+              <img src="/presentations/screenshots/08_ipc_certificates.png" alt="IPC Certificates Screenshot">
+            </div>
+            <div class="shot-caption">Live Screenshot 1: Interim Payment Certificates (IPC-KRM-001 KES 94.5M & IPC-KRM-002 KES 76.95M)</div>
+          </div>
+          <div class="shot-frame" onclick="zoomImage('/presentations/screenshots/09_drawdown_requests.png')">
+            <div class="shot-frame-bar">
+              <div class="dots"><span style="background:#ef4444"></span><span style="background:#f59e0b"></span><span style="background:#22c55e"></span></div>
+              <span class="url-pill">FINANCE ➔ Drawdowns</span>
+              <span style="font-size:11px;font-weight:700;color:#2563eb;">🔍 Click to Zoom</span>
+            </div>
+            <div class="shot-img-wrap">
+              <img src="/presentations/screenshots/09_drawdown_requests.png" alt="Funding Drawdowns Screenshot">
+            </div>
+            <div class="shot-caption">Live Screenshot 2: Funding Drawdown Requests (DRW-KRM-2026-02 KSh 76.95M Approved)</div>
+          </div>
+        </div>
+      </div>
+      <div class="proof-bar">
+        <span class="proof-badge">PLAIN-ENGLISH SUMMARY</span>
+        <span>Every payment certificate and bank drawdown is backed by verified milestones, passed concrete cube tests, and logged gate deliveries.</span>
+      </div>
+    </section>
+
+    <!-- SLIDE 11: 5-CLICK LIVE DEMO SCRIPT -->
+    <section class="slide">
+      <div class="slide-top">
+        <div class="slide-brand">
+          <img src="/center-estates-logo.png" alt="Center Estates" onerror="this.style.display='none'">
+          <div>
+            <div class="slide-brand-title">5-Minute Live Demo Cheat Sheet</div>
+            <div class="slide-brand-sub">Click Any Row Below to Open That Exact Screen Live in Center Estates</div>
+          </div>
+        </div>
+        <div class="slide-actions">
+          <a href="/presentations/Center_Estates_Construction_and_Mobile_Presentation.pptx" download class="live-btn" style="background: var(--navy);">⬇ Download PowerPoint (.PPTX)</a>
+          <a href="/presentations/Center_Estates_Construction_and_Mobile_Presentation.pdf" download class="live-btn">⬇ Download PDF Deck</a>
+          <span class="slide-num">11 / 11</span>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div>
+          <div class="eyebrow">Interactive Demo Launcher</div>
+          <h1 class="slide-title">Run the Complete Live Demo in 5 Simple Clicks</h1>
+          <p class="slide-subtitle">During your meeting, simply click the 5 links below in order to show the live system in action on <strong>Karam Apartments — Lang'ata</strong>:</p>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;flex:1;justify-content:center;">
+          <a href="/monitoring?tab=project-memberships&id=ce-construction-karam-001" target="_blank" style="text-decoration:none;background:#fff;border:1px solid var(--line);border-left:6px solid var(--navy-light);border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
             <div>
-              <div class="flex items-center gap-3 mb-3">
-                <span class="px-2.5 py-1 rounded bg-red-600 text-white text-xs font-black">01</span>
-                <h3 class="text-lg font-extrabold text-slate-900">Phantom &amp; Over-Deliveries</h3>
-              </div>
-              <p class="text-xs text-slate-500 mb-4">Paper delivery notes signed at the site gate with zero live cross-reference to the approved Bill of Quantities.</p>
-              <ul class="space-y-2.5 text-xs text-slate-600">
-                <li><strong class="text-slate-900">▸ Budget Overruns:</strong> Materials delivered beyond contractual allowances without real-time visibility.</li>
-                <li><strong class="text-slate-900">▸ Supplier Opacity:</strong> No standardized tracking of batch quality or approved manufacturers.</li>
-                <li><strong class="text-slate-900">▸ Retrospective Discovery:</strong> Variances only uncovered months later during final account audits.</li>
-              </ul>
+              <div style="font-size:11px;font-weight:800;color:var(--navy-light);text-transform:uppercase;">Click 1 • MAIN ➔ Project Team</div>
+              <div style="font-size:16px;font-weight:800;color:var(--ink);margin:2px 0;">1. Project Overview & Budget (Karam Apartments — Lang'ata)</div>
+              <div style="font-size:13px;color:var(--muted);">Show the KSh 966.56M budget, 5 of 90 milestones complete, and active project stage.</div>
             </div>
-            <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] font-bold text-red-600">Solved by: BoQ Planned Allowance Shield</div>
-          </div>
+            <span class="live-btn" style="background:var(--navy);">Open Live Screen ↗</span>
+          </a>
 
-          <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-amber-600 shadow-sm flex flex-col justify-between">
+          <a href="/monitoring?tab=boq&id=ce-construction-karam-001" target="_blank" style="text-decoration:none;background:#fff;border:1px solid var(--line);border-left:6px solid var(--green);border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
             <div>
-              <div class="flex items-center gap-3 mb-3">
-                <span class="px-2.5 py-1 rounded bg-amber-600 text-white text-xs font-black">02</span>
-                <h3 class="text-lg font-extrabold text-slate-900">Premature Progress Claims</h3>
-              </div>
-              <p class="text-xs text-slate-500 mb-4">Contractors claiming completion on downstream finishes before critical structural foundations are certified.</p>
-              <ul class="space-y-2.5 text-xs text-slate-600">
-                <li><strong class="text-slate-900">▸ Front-Loaded Claims:</strong> Capital disbursed ahead of actual physical progress on site.</li>
-                <li><strong class="text-slate-900">▸ Subjective Valuations:</strong> Visual estimates disconnected from measured BoQ sub-elements.</li>
-                <li><strong class="text-slate-900">▸ Dispute Exposure:</strong> Lack of immutable stage-gate prerequisites triggers arbitration.</li>
-              </ul>
+              <div style="font-size:11px;font-weight:800;color:var(--green);text-transform:uppercase;">Click 2 • COMMERCIAL ➔ BoQ & Cost</div>
+              <div style="font-size:16px;font-weight:800;color:var(--ink);margin:2px 0;">2. Bill of Quantities (BoQ) & Cost Control (33 Items)</div>
+              <div style="font-size:13px;color:var(--muted);">Show KES 806.0M Budgeted, KES 41.4M Committed, and KES 119.1M Certified across the BoQ items.</div>
             </div>
-            <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] font-bold text-amber-600">Solved by: Contractual Stage-Gate Engine</div>
-          </div>
+            <span class="live-btn" style="background:var(--green);">Open Live Screen ↗</span>
+          </a>
 
-          <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-[#12365b] shadow-sm flex flex-col justify-between">
+          <a href="/monitoring?tab=daily-logs&id=ce-construction-karam-001" target="_blank" style="text-decoration:none;background:#fff;border:1px solid var(--line);border-left:6px solid var(--amber);border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
             <div>
-              <div class="flex items-center gap-3 mb-3">
-                <span class="px-2.5 py-1 rounded bg-[#12365b] text-white text-xs font-black">03</span>
-                <h3 class="text-lg font-extrabold text-slate-900">Disconnected Site Diaries</h3>
-              </div>
-              <p class="text-xs text-slate-500 mb-4">Clerk of Works observations scattered across paper logbooks, email threads, and unverified WhatsApp photos.</p>
-              <ul class="space-y-2.5 text-xs text-slate-600">
-                <li><strong class="text-slate-900">▸ Unverified Media:</strong> Site photos lack hardware GPS coordinates and tamper-evident hashes.</li>
-                <li><strong class="text-slate-900">▸ Missed Concrete Tests:</strong> 7, 14, and 28-day cylinder crushing tests forgotten or unlinked.</li>
-                <li><strong class="text-slate-900">▸ Snag Amnesia:</strong> Structural defects logged verbally fail to reach the QS before payment.</li>
-              </ul>
+              <div style="font-size:11px;font-weight:800;color:var(--amber);text-transform:uppercase;">Click 3 • SITE OPERATIONS ➔ Daily Logs</div>
+              <div style="font-size:16px;font-weight:800;color:var(--ink);margin:2px 0;">3. Daily Site Diary (84 Workers) & Gate Material Deliveries</div>
+              <div style="font-size:13px;color:var(--muted);">Show today's weather & workforce log, then scroll to Bamburi Cement (300 Bags) & Devki Steel (18.5T) deliveries.</div>
             </div>
-            <div class="mt-4 pt-3 border-t border-slate-100 text-[11px] font-bold text-[#12365b]">Solved by: Offline-First Mobile Field App</div>
-          </div>
+            <span class="live-btn" style="background:var(--amber);">Open Live Screen ↗</span>
+          </a>
+
+          <a href="/monitoring?tab=quality-tests&id=ce-construction-karam-001" target="_blank" style="text-decoration:none;background:#fff;border:1px solid var(--line);border-left:6px solid var(--crimson);border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--crimson);text-transform:uppercase;">Click 4 • SITE OPERATIONS ➔ Quality & Testing / Issues & Snags</div>
+              <div style="font-size:16px;font-weight:800;color:var(--ink);margin:2px 0;">4. Concrete Cube Crushing Tests (34.8 MPa) & Site Defect Tickets</div>
+              <div style="font-size:13px;color:var(--muted);">Show the passed 28-day concrete cube test and click 'Issues & Snags' to show the rebar cover defect ticket.</div>
+            </div>
+            <span class="live-btn" style="background:var(--crimson);">Open Live Screen ↗</span>
+          </a>
+
+          <a href="/monitoring?tab=certificates&id=ce-construction-karam-001" target="_blank" style="text-decoration:none;background:#fff;border:1px solid var(--line);border-left:6px solid var(--teal);border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+            <div>
+              <div style="font-size:11px;font-weight:800;color:var(--teal);text-transform:uppercase;">Click 5 • FINANCE ➔ Certificates (IPC) & Drawdowns</div>
+              <div style="font-size:16px;font-weight:800;color:var(--ink);margin:2px 0;">5. Interim Payment Certificates (IPC-KRM-002) & Bank Drawdowns</div>
+              <div style="font-size:13px;color:var(--muted);">Show IPC-KRM-002 (KES 76.95M net payable) and the approved bank drawdown request DRW-KRM-2026-02.</div>
+            </div>
+            <span class="live-btn" style="background:var(--teal);">Open Live Screen ↗</span>
+          </a>
         </div>
+      </div>
+      <div class="proof-bar">
+        <span class="proof-badge">READY FOR DEMO</span>
+        <span>Use Left/Right arrow keys to switch slides, click any image to zoom full-screen, or click any button above to open the live ERP!</span>
+      </div>
+    </section>
 
-        <div class="bg-[#0a213d] text-white rounded-xl px-5 py-3 flex items-center gap-4 text-xs">
-          <span class="px-2.5 py-1 rounded bg-red-600 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Governance Guarantee</span>
-          <span class="font-medium">Traditional oversight relies on trust and post-mortem audits. Center Estates enforces proactive digital stage-gates.</span>
-        </div>
-      </section>
+  </div>
 
-      <!-- ========================================================= -->
-      <!-- SLIDE 3: ARCHITECTURE -->
-      <!-- ========================================================= -->
-      <section class="slide flex-1 flex-col justify-between p-8 lg:p-10 overflow-y-auto">
-        <div>
-          <div class="text-xs font-extrabold uppercase tracking-widest text-red-600 mb-1">02 • Unified Platform Architecture</div>
-          <h2 class="text-2xl lg:text-3xl font-black text-slate-900">End-to-End Architecture: Mobile Field App ↔ REST API ↔ Web ERP</h2>
-          <p class="text-sm text-slate-500 mt-1">A single continuous operating record connecting field engineers, quantity surveyors, and project financiers.</p>
-        </div>
+  <!-- Bottom Navigation Controls -->
+  <div class="nav-bar">
+    <button class="nav-btn" onclick="prevSlide()">← Prev</button>
+    <span class="nav-counter" id="slide-counter">Slide 1 of 11</span>
+    <button class="nav-btn" onclick="nextSlide()">Next →</button>
+    <button class="nav-btn" onclick="toggleFullscreen()" style="background:rgba(220,38,38,0.85);">⛶ Fullscreen</button>
+  </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-6 flex-1">
-          <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-red-600 shadow-sm">
-            <div class="flex items-center gap-2.5 mb-3">
-              <span class="px-2.5 py-1 rounded bg-red-600 text-white text-xs font-black">APP</span>
-              <h3 class="text-base font-extrabold text-slate-900">Mobile Field App (Expo / RN)</h3>
-            </div>
-            <p class="text-xs text-slate-500 mb-4">Authoritative source of physical site truth for Clerks of Works and Resident Engineers.</p>
-            <ul class="space-y-2.5 text-xs text-slate-600">
-              <li><strong class="text-slate-900">▸ Offline-First SQLite:</strong> TinyBase reactive store persists all logs &amp; drafts without 4G.</li>
-              <li><strong class="text-slate-900">▸ Rugged Field UX:</strong> Searchable BoQ picker and one-tap Kenyan supplier chips.</li>
-              <li><strong class="text-slate-900">▸ GPS Geofencing:</strong> Hardware coordinate lock against project site boundaries.</li>
-              <li><strong class="text-slate-900">▸ Biometric Sign-Off:</strong> Ed25519 hardware key signatures on every submission.</li>
-            </ul>
-          </div>
-
-          <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-[#12365b] shadow-sm">
-            <div class="flex items-center gap-2.5 mb-3">
-              <span class="px-2.5 py-1 rounded bg-[#12365b] text-white text-xs font-black">API</span>
-              <h3 class="text-base font-extrabold text-slate-900">Central API (Django &amp; MySQL)</h3>
-            </div>
-            <p class="text-xs text-slate-500 mb-4">Production governance engine running at <code class="mono text-slate-800">api.centerestates.com</code>.</p>
-            <ul class="space-y-2.5 text-xs text-slate-600">
-              <li><strong class="text-slate-900">▸ Atomic Delta-Sync:</strong> Idempotent <code class="mono">/sync/pull</code> and <code class="mono">/sync/push</code> endpoints.</li>
-              <li><strong class="text-slate-900">▸ Stage-Gate Validator:</strong> Rejects progress &gt;0% if prerequisite milestones &lt;100%.</li>
-              <li><strong class="text-slate-900">▸ SHA-256 Evidence Seals:</strong> Cryptographic hash computed over payload + photo bytes.</li>
-              <li><strong class="text-slate-900">▸ Role-Based Access:</strong> Strict separation of Clerk, Consultant, and Owner permissions.</li>
-            </ul>
-          </div>
-
-          <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-emerald-600 shadow-sm">
-            <div class="flex items-center gap-2.5 mb-3">
-              <span class="px-2.5 py-1 rounded bg-emerald-600 text-white text-xs font-black">WEB</span>
-              <h3 class="text-base font-extrabold text-slate-900">Office Web ERP (Next.js 14)</h3>
-            </div>
-            <p class="text-xs text-slate-500 mb-4">Executive command center for Developers, Project Managers, and Quantity Surveyors.</p>
-            <ul class="space-y-2.5 text-xs text-slate-600">
-              <li><strong class="text-slate-900">▸ CPM Work Plan &amp; Gantt:</strong> Predecessor scheduling and critical path tracking.</li>
-              <li><strong class="text-slate-900">▸ Bill of Quantities (BoQ):</strong> Live line-item budgets, rates, and variance shields.</li>
-              <li><strong class="text-slate-900">▸ Mini-BoQ Valuations:</strong> Automated Interim Payment Certificates (IPCs).</li>
-              <li><strong class="text-slate-900">▸ Live Snag Kanban:</strong> Instant visibility into field-reported quality defects.</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="bg-[#0a213d] text-white rounded-xl px-5 py-3 flex items-center gap-4 text-xs">
-          <span class="px-2.5 py-1 rounded bg-red-600 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Governance Guarantee</span>
-          <span class="font-medium">Immutable Field Truth: Office users can review and certify, but can never alter or delete raw field evidence.</span>
-        </div>
-      </section>
-
-      <!-- ========================================================= -->
-      <!-- SLIDE 4: MOBILE GATE DELIVERIES & BoQ SHIELD -->
-      <!-- ========================================================= -->
-      <section class="slide flex-1 flex-col justify-between p-8 lg:p-10 overflow-y-auto">
-        <div>
-          <div class="text-xs font-extrabold uppercase tracking-widest text-red-600 mb-1">03 • Field Material Control</div>
-          <h2 class="text-2xl lg:text-3xl font-black text-slate-900">Site Gate Deliveries Bound to BoQ Allowances</h2>
-          <p class="text-sm text-slate-500 mt-1">Preventing material over-delivery and budget leakage before the truck leaves the site perimeter.</p>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 my-4 flex-1 items-center">
-          <div class="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="bg-white rounded-xl p-5 border border-slate-200 border-t-4 border-t-red-600 shadow-sm">
-              <div class="text-xs font-black text-red-600 uppercase mb-1">01 • BoQ Integration</div>
-              <h3 class="text-base font-extrabold text-slate-900 mb-2">Searchable BoQ Item Picker</h3>
-              <p class="text-xs text-slate-600 leading-relaxed">Clerk selects directly from the project's approved Bill of Quantities (<code class="mono">BOQ-02.04 Cement</code>). Automatically binds item code, unit, and contractual rate.</p>
-            </div>
-            <div class="bg-white rounded-xl p-5 border border-slate-200 border-t-4 border-t-amber-600 shadow-sm">
-              <div class="text-xs font-black text-amber-600 uppercase mb-1">02 • Local Supply Chain</div>
-              <h3 class="text-base font-extrabold text-slate-900 mb-2">Kenyan Supplier Quick-Chips</h3>
-              <p class="text-xs text-slate-600 leading-relaxed">One-tap verified supplier chips (<strong>Bamburi, Apex Steel, Devki, Savannah, Simba, Tononoka</strong>) eliminate typos and standardize procurement audits.</p>
-            </div>
-            <div class="bg-white rounded-xl p-5 border border-slate-200 border-t-4 border-t-emerald-600 shadow-sm">
-              <div class="text-xs font-black text-emerald-600 uppercase mb-1">03 • Budget Guardrail</div>
-              <h3 class="text-base font-extrabold text-slate-900 mb-2">Planned Allowance Shield</h3>
-              <p class="text-xs text-slate-600 leading-relaxed">Live progress bar compares cumulative delivered quantity against total BoQ allowance. Triggers an immediate red warning if intake exceeds budget.</p>
-            </div>
-            <div class="bg-white rounded-xl p-5 border border-slate-200 border-t-4 border-t-[#12365b] shadow-sm">
-              <div class="text-xs font-black text-[#12365b] uppercase mb-1">04 • Activity &amp; Drafts</div>
-              <h3 class="text-base font-extrabold text-slate-900 mb-2">Work Plan Task Tagging</h3>
-              <p class="text-xs text-slate-600 leading-relaxed">Every material intake is tagged to a specific CPM Work Plan activity (<code class="mono">WP-002 First Floor Slab</code>) and persists locally via <code class="mono">useFormDraft</code>.</p>
-            </div>
-          </div>
-
-          <!-- Phone Mockup Card -->
-          <div class="lg:col-span-5 bg-[#0f172a] rounded-3xl p-4 border-4 border-slate-700 shadow-xl text-white max-w-md mx-auto w-full">
-            <div class="bg-[#0a213d] rounded-t-2xl p-3.5 border-b border-slate-700 flex items-center justify-between">
-              <div>
-                <div class="text-xs font-extrabold">← Site Gate Material Intake</div>
-                <div class="text-[10px] text-slate-400">Karam Apartments — Lang'ata (PRJ-KRM-01)</div>
-              </div>
-              <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">GPS LOCK</span>
-            </div>
-            <div class="bg-slate-50 text-slate-900 p-3.5 rounded-b-2xl space-y-2.5 text-xs">
-              <div class="bg-white p-2.5 rounded-lg border border-slate-200">
-                <div class="text-[10px] font-bold text-red-600">LINKED BoQ LINE ITEM</div>
-                <div class="font-extrabold text-slate-900 mt-0.5">🔍 BOQ-02.04 • Ordinary Portland Cement (50kg)</div>
-                <div class="text-[10px] text-slate-500">Unit: 50kg Bags • Rate: KES 920 • Budget: KES 1,104,000</div>
-              </div>
-              <div class="bg-emerald-50 p-2.5 rounded-lg border border-emerald-400">
-                <div class="flex justify-between items-center">
-                  <span class="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-bold">🛡 PLANNED ALLOWANCE SHIELD</span>
-                  <span class="text-[10px] font-bold text-emerald-700">54.2% USED</span>
-                </div>
-                <div class="font-bold text-slate-900 mt-1">Delivered: 650 / 1,200 Bags (+150 Today)</div>
-                <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden mt-1">
-                  <div class="bg-emerald-600 h-full w-[54%]"></div>
-                </div>
-              </div>
-              <div class="bg-white p-2.5 rounded-lg border border-slate-200">
-                <div class="text-[10px] font-bold text-slate-700 mb-1.5">VERIFIED KENYAN SUPPLIER</div>
-                <div class="flex flex-wrap gap-1.5 text-[10px]">
-                  <span class="px-2.5 py-1 rounded-full bg-[#0a213d] text-white font-bold">✓ Bamburi Cement</span>
-                  <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">Apex Steel</span>
-                  <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">Devki</span>
-                  <span class="px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">Savannah</span>
-                </div>
-              </div>
-              <div class="bg-red-600 text-white text-center py-2 rounded-lg font-extrabold text-xs">
-                🔒 RECORD &amp; SEAL GATE DELIVERY (SHA-256)
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-[#0a213d] text-white rounded-xl px-5 py-3 flex items-center gap-4 text-xs">
-          <span class="px-2.5 py-1 rounded bg-red-600 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Governance Guarantee</span>
-          <span class="font-medium">100% Traceability: Every bag of cement and ton of steel is linked to a BoQ line item, supplier, and work plan task.</span>
-        </div>
-      </section>
-
-      <!-- ========================================================= -->
-      <!-- SLIDE 5: CONTRACTUAL STAGE-GATE ENGINE -->
-      <!-- ========================================================= -->
-      <section class="slide flex-1 flex-col justify-between p-8 lg:p-10 overflow-y-auto">
-        <div>
-          <div class="text-xs font-extrabold uppercase tracking-widest text-red-600 mb-1">04 • Contractual Governance</div>
-          <h2 class="text-2xl lg:text-3xl font-black text-slate-900">The Stage-Gate Engine: Mathematical Payout Protection</h2>
-          <p class="text-sm text-slate-500 mt-1">Downstream milestones cannot advance above 0% until all prerequisite structural works reach 100%.</p>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 my-4 flex-1 items-center">
-          <div class="lg:col-span-7 space-y-4">
-            <div class="grid grid-cols-3 gap-3">
-              <div class="bg-white p-4 rounded-xl border-2 border-amber-500 text-center">
-                <div class="text-xs font-extrabold text-slate-900">MS-01: Substructure</div>
-                <span class="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black">50% IN PROGRESS</span>
-                <div class="text-[11px] text-slate-500 mt-1.5">Prerequisite Incomplete</div>
-              </div>
-              <div class="bg-white p-4 rounded-xl border-2 border-red-600 text-center">
-                <div class="text-xs font-extrabold text-slate-900">MS-02: Superstructure</div>
-                <span class="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black">🔒 LOCKED AT 0%</span>
-                <div class="text-[11px] text-red-600 font-semibold mt-1.5">Blocked by MS-01 (&lt;100%)</div>
-              </div>
-              <div class="bg-white p-4 rounded-xl border-2 border-slate-300 text-center">
-                <div class="text-xs font-extrabold text-slate-900">MS-03: Roofing Works</div>
-                <span class="inline-block mt-2 px-2.5 py-0.5 rounded-full bg-slate-700 text-white text-[10px] font-black">🔒 LOCKED AT 0%</span>
-                <div class="text-[11px] text-slate-500 mt-1.5">Blocked by MS-02 (&lt;100%)</div>
-              </div>
-            </div>
-
-            <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-red-600 shadow-sm">
-              <h3 class="text-base font-extrabold text-slate-900 mb-3">Dual-Layer Enforcement (Mobile UI + Backend API)</h3>
-              <ul class="space-y-2.5 text-xs text-slate-600">
-                <li><strong class="text-slate-900">▸ Mobile Stage-Gate Lock Banner:</strong> <code class="mono">MilestoneDetailScreen</code> evaluates <code class="mono">evaluateMilestoneGovernance()</code> in real time, displaying the exact blocking predecessors and disabling the submit button.</li>
-                <li><strong class="text-slate-900">▸ Strict Backend Validation:</strong> Both <code class="mono">PATCH /milestones/&lt;id&gt;/</code> and <code class="mono">POST /sync/push</code> call <code class="mono">milestone.get_incomplete_prerequisites()</code> and return <strong class="text-red-600">HTTP 400</strong> if any predecessor is &lt;100%.</li>
-                <li><strong class="text-slate-900">▸ Zero Premature Drawdowns:</strong> Protects developers and lenders from paying for superstructure or finishes before foundational integrity is 100% certified.</li>
-              </ul>
-            </div>
-          </div>
-
-          <!-- Stage-Gate Phone Mockup -->
-          <div class="lg:col-span-5 bg-[#0f172a] rounded-3xl p-4 border-4 border-slate-700 shadow-xl text-white max-w-md mx-auto w-full">
-            <div class="bg-[#0a213d] rounded-t-2xl p-3.5 border-b border-slate-700 flex items-center justify-between">
-              <div>
-                <div class="text-xs font-extrabold">← Milestone Inspection</div>
-                <div class="text-[10px] text-slate-300">MS-02: Superstructure Frame</div>
-              </div>
-              <span class="px-2 py-0.5 rounded bg-red-500/20 text-red-300 text-[10px] font-bold">STAGE-GATE</span>
-            </div>
-            <div class="bg-slate-50 text-slate-900 p-3.5 rounded-b-2xl space-y-3 text-xs">
-              <div class="bg-red-50 p-3 rounded-xl border-2 border-red-600">
-                <div class="bg-red-600 text-white px-2.5 py-1 rounded font-extrabold text-[11px] inline-block mb-2">
-                  🔒 CONTRACTUAL STAGE-GATE LOCKED
-                </div>
-                <p class="text-[11px] text-red-900 font-semibold leading-snug mb-2">
-                  Progress claims (&gt;0%) are blocked until all prerequisite structural milestones reach 100%:
-                </p>
-                <div class="bg-white p-2 rounded border border-red-300">
-                  <div class="font-extrabold text-slate-900 text-[11px]">⛔ MS-01: Substructure &amp; Raft Foundation</div>
-                  <div class="text-[10px] text-red-600 font-bold">Current Certified Progress: 50% (Requires 100%)</div>
-                </div>
-              </div>
-              <div class="bg-white p-3 rounded-xl border border-slate-200">
-                <div class="flex justify-between text-slate-400 font-bold text-[11px]">
-                  <span>CLAIMED PHYSICAL COMPLETION</span>
-                  <span>0%</span>
-                </div>
-                <div class="w-full h-2.5 bg-slate-200 rounded-full mt-2"></div>
-                <div class="text-[10px] text-slate-400 mt-1">Slider locked at 0% by Stage-Gate Governance Engine</div>
-              </div>
-              <div class="bg-slate-300 text-slate-600 text-center py-2.5 rounded-lg font-extrabold text-xs cursor-not-allowed">
-                🔒 STAGE-GATE LOCKED (CANNOT SUBMIT)
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-[#0a213d] text-white rounded-xl px-5 py-3 flex items-center gap-4 text-xs">
-          <span class="px-2.5 py-1 rounded bg-red-600 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Governance Guarantee</span>
-          <span class="font-medium">Stage-gates turn construction contracts into executable code—eliminating subjective certification bias.</span>
-        </div>
-      </section>
-
-      <!-- ========================================================= -->
-      <!-- SLIDE 6: QUALITY, CONCRETE TESTS & HSE -->
-      <!-- ========================================================= -->
-      <section class="slide flex-1 flex-col justify-between p-8 lg:p-10 overflow-y-auto">
-        <div>
-          <div class="text-xs font-extrabold uppercase tracking-widest text-red-600 mb-1">05 • Quality, Structural Testing &amp; HSE</div>
-          <h2 class="text-2xl lg:text-3xl font-black text-slate-900">Field Snagging, Concrete Cube Lifecycle &amp; Safety Escalation</h2>
-          <p class="text-sm text-slate-500 mt-1">Capturing structural quality tests and engineering defects at the source with live Kanban synchronization.</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-6 flex-1">
-          <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-red-600 shadow-sm">
-            <div class="flex items-center gap-2.5 mb-3">
-              <span class="px-2.5 py-1 rounded bg-red-600 text-white text-xs font-black">SNAGS</span>
-              <h3 class="text-base font-extrabold text-slate-900">Mobile Defect Ticketing</h3>
-            </div>
-            <p class="text-xs text-slate-500 mb-4">Resident Engineers log structural and finishing defects directly from the floor plate.</p>
-            <ul class="space-y-2.5 text-xs text-slate-600">
-              <li><strong class="text-slate-900">▸ Severity &amp; Category:</strong> Urgent / High / Normal routing across Structural, MEP, and Finishes.</li>
-              <li><strong class="text-slate-900">▸ Geotagged Photo Proof:</strong> Mandatory camera capture with hardware GPS coordinates.</li>
-              <li><strong class="text-slate-900">▸ Live Office Kanban:</strong> Syncs immediately to the Web ERP oversight board for contractor resolution.</li>
-              <li><strong class="text-slate-900">▸ Closure Verification:</strong> Requires before-and-after photographic sign-off.</li>
-            </ul>
-          </div>
-
-          <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-amber-600 shadow-sm">
-            <div class="flex items-center gap-2.5 mb-3">
-              <span class="px-2.5 py-1 rounded bg-amber-600 text-white text-xs font-black">CUBES</span>
-              <h3 class="text-base font-extrabold text-slate-900">Concrete Curing Scheduler</h3>
-            </div>
-            <p class="text-xs text-slate-500 mb-4">Automated structural pour compliance aligned with BS 8110 / Eurocode 2 standards.</p>
-            <ul class="space-y-2.5 text-xs text-slate-600">
-              <li><strong class="text-slate-900">▸ Batch &amp; Slump Intake:</strong> Logs concrete grade (e.g. C30/37), mixer truck, and slump test results.</li>
-              <li><strong class="text-slate-900">▸ 7 / 14 / 28-Day Alerts:</strong> Automatically schedules mandatory lab cylinder crushing tests.</li>
-              <li><strong class="text-slate-900">▸ Pass/Fail Thresholds:</strong> Highlights compressive strength shortfalls (MPa) before slab loading.</li>
-              <li><strong class="text-slate-900">▸ Permanent Audit Archive:</strong> Lab certificates attached directly to the structural milestone.</li>
-            </ul>
-          </div>
-
-          <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-[#12365b] shadow-sm">
-            <div class="flex items-center gap-2.5 mb-3">
-              <span class="px-2.5 py-1 rounded bg-[#12365b] text-white text-xs font-black">HSE</span>
-              <h3 class="text-base font-extrabold text-slate-900">Safety &amp; NCA Compliance</h3>
-            </div>
-            <p class="text-xs text-slate-500 mb-4">Immediate escalation protocol for site safety inspections, near-misses, and NCA/DOSHS compliance.</p>
-            <ul class="space-y-2.5 text-xs text-slate-600">
-              <li><strong class="text-slate-900">▸ PPE &amp; Scaffold Audits:</strong> Daily digital checklists completed by the Clerk of Works.</li>
-              <li><strong class="text-slate-900">▸ Incident Root-Cause:</strong> Severity grading and Corrective Action Plan (CAP) workflows.</li>
-              <li><strong class="text-slate-900">▸ Statutory Readiness:</strong> Maintains full National Construction Authority (NCA) inspection logs.</li>
-              <li><strong class="text-slate-900">▸ Zero-Delay Escalation:</strong> High-severity incidents trigger instant executive alerts.</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="bg-[#0a213d] text-white rounded-xl px-5 py-3 flex items-center gap-4 text-xs">
-          <span class="px-2.5 py-1 rounded bg-red-600 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Governance Guarantee</span>
-          <span class="font-medium">Quality assurance records and concrete test certificates form an immutable structural passport for handover.</span>
-        </div>
-      </section>
-
-      <!-- ========================================================= -->
-      <!-- SLIDE 7: FINANCIAL CONTROL & MINI-BoQ VALUATIONS -->
-      <!-- ========================================================= -->
-      <section class="slide flex-1 flex-col justify-between p-8 lg:p-10 overflow-y-auto">
-        <div>
-          <div class="text-xs font-extrabold uppercase tracking-widest text-red-600 mb-1">06 • Commercial &amp; Financial Control</div>
-          <h2 class="text-2xl lg:text-3xl font-black text-slate-900">Earned Value S-Curve &amp; Automated Mini-BoQ Valuations (IPCs)</h2>
-          <p class="text-sm text-slate-500 mt-1">Converting verified field progress into audit-ready Interim Payment Certificates in minutes.</p>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 my-4 flex-1 items-center">
-          <div class="lg:col-span-5 space-y-3.5">
-            <div class="bg-white rounded-xl p-4 border border-slate-200 border-l-4 border-l-[#12365b] shadow-sm">
-              <h3 class="text-sm font-extrabold text-slate-900">1. Mini-BoQ Line-Item Valuation</h3>
-              <p class="text-xs text-slate-600 mt-1">Quantity Surveyors inspect the exact BoQ sub-elements linked to each milestone, calculating certified KES earned value with zero spreadsheet formulas.</p>
-            </div>
-            <div class="bg-white rounded-xl p-4 border border-slate-200 border-l-4 border-l-red-600 shadow-sm">
-              <h3 class="text-sm font-extrabold text-slate-900">2. AI Progress &amp; Variance Audit</h3>
-              <p class="text-xs text-slate-600 mt-1">Automated variance engine compares Planned Value (PV), Earned Value (EV), and Actual Cost (AC), flagging schedule slippage and material anomalies.</p>
-            </div>
-            <div class="bg-white rounded-xl p-4 border border-slate-200 border-l-4 border-l-emerald-600 shadow-sm">
-              <h3 class="text-sm font-extrabold text-slate-900">3. Escrow &amp; Retention Drawdowns</h3>
-              <p class="text-xs text-slate-600 mt-1">Generates bank-ready PDF Interim Payment Certificates with automatic 10% retention deductions and cryptographic links to supporting site photos.</p>
-            </div>
-          </div>
-
-          <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden">
-            <div class="bg-[#0a213d] text-white px-4 py-2.5 text-xs font-bold flex justify-between items-center">
-              <span>Karam Apartments (PRJ-KRM-01) — IPC #4 Valuation Summary</span>
-              <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px]">SHA-256 VERIFIED</span>
-            </div>
-            <div class="p-4 space-y-4">
-              <div class="grid grid-cols-4 gap-2.5 text-center">
-                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <div class="text-[10px] font-bold text-slate-500">CONTRACT SUM</div>
-                  <div class="text-sm font-black text-slate-900 mt-0.5">KES 420.0M</div>
-                </div>
-                <div class="bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">
-                  <div class="text-[10px] font-bold text-emerald-700">CERTIFIED (IPC #4)</div>
-                  <div class="text-sm font-black text-emerald-700 mt-0.5">KES 148.5M</div>
-                </div>
-                <div class="bg-amber-50 p-2.5 rounded-lg border border-amber-200">
-                  <div class="text-[10px] font-bold text-amber-700">RETENTION (10%)</div>
-                  <div class="text-sm font-black text-amber-700 mt-0.5">KES 14.85M</div>
-                </div>
-                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                  <div class="text-[10px] font-bold text-teal-700">BoQ VARIANCE</div>
-                  <div class="text-sm font-black text-teal-700 mt-0.5">-0.4% SAVING</div>
-                </div>
-              </div>
-
-              <table class="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr class="bg-slate-100 text-slate-700 border-b border-slate-200 text-[10px] uppercase font-extrabold">
-                    <th class="py-2 px-2.5">BoQ Code</th>
-                    <th class="py-2 px-2.5">Element</th>
-                    <th class="py-2 px-2.5">Budget (KES)</th>
-                    <th class="py-2 px-2.5">Verified %</th>
-                    <th class="py-2 px-2.5">Certified IPC</th>
-                    <th class="py-2 px-2.5">Audit Status</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-200 text-[11px]">
-                  <tr>
-                    <td class="py-2 px-2.5 mono font-bold">BOQ-01.01</td>
-                    <td class="py-2 px-2.5 font-semibold">Substructure &amp; Raft</td>
-                    <td class="py-2 px-2.5">84,000,000</td>
-                    <td class="py-2 px-2.5 font-bold text-emerald-600">100.0%</td>
-                    <td class="py-2 px-2.5 font-bold">84,000,000</td>
-                    <td class="py-2 px-2.5 text-emerald-600 font-bold">✓ SHA-256 Sealed</td>
-                  </tr>
-                  <tr>
-                    <td class="py-2 px-2.5 mono font-bold">BOQ-02.04</td>
-                    <td class="py-2 px-2.5 font-semibold">Superstructure RC Frame</td>
-                    <td class="py-2 px-2.5">112,000,000</td>
-                    <td class="py-2 px-2.5 font-bold text-emerald-600">57.6%</td>
-                    <td class="py-2 px-2.5 font-bold">64,500,000</td>
-                    <td class="py-2 px-2.5 text-emerald-600 font-bold">✓ GPS + Photo Verified</td>
-                  </tr>
-                  <tr>
-                    <td class="py-2 px-2.5 mono font-bold">BOQ-03.01</td>
-                    <td class="py-2 px-2.5 font-semibold">Roofing &amp; Waterproofing</td>
-                    <td class="py-2 px-2.5">48,000,000</td>
-                    <td class="py-2 px-2.5 font-bold text-red-600">0.0%</td>
-                    <td class="py-2 px-2.5 font-bold">0</td>
-                    <td class="py-2 px-2.5 text-red-600 font-bold">🔒 Stage-Gate Locked</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-[#0a213d] text-white rounded-xl px-5 py-3 flex items-center gap-4 text-xs">
-          <span class="px-2.5 py-1 rounded bg-red-600 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Governance Guarantee</span>
-          <span class="font-medium">Every shilling certified on an Interim Payment Certificate is backed by geotagged photos and sealed gate deliveries.</span>
-        </div>
-      </section>
-
-      <!-- ========================================================= -->
-      <!-- SLIDE 8: ANTI-FRAUD & OFFLINE RESILIENCE -->
-      <!-- ========================================================= -->
-      <section class="slide flex-1 flex-col justify-between p-8 lg:p-10 overflow-y-auto">
-        <div>
-          <div class="text-xs font-extrabold uppercase tracking-widest text-red-600 mb-1">07 • Anti-Fraud Architecture</div>
-          <h2 class="text-2xl lg:text-3xl font-black text-slate-900">Offline Resilience &amp; Cryptographic Non-Repudiation</h2>
-          <p class="text-sm text-slate-500 mt-1">Purpose-built for deep basements and remote sites without sacrificing bank-grade security.</p>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 my-6 flex-1">
-          <div class="bg-white rounded-xl p-5 border border-slate-200 border-t-4 border-t-[#12365b] shadow-sm">
-            <span class="px-2 py-0.5 rounded bg-[#12365b] text-white text-[10px] font-black">01 • OFFLINE</span>
-            <h3 class="text-base font-extrabold text-slate-900 mt-2 mb-2">Offline SQLite Engine</h3>
-            <p class="text-xs text-slate-500 mb-3">Deep excavations and basements rarely have reliable 4G.</p>
-            <ul class="space-y-2 text-xs text-slate-600">
-              <li><strong>▸ Local Persistence:</strong> All BoQ items, milestones, and daily logs cached in SQLite.</li>
-              <li><strong>▸ Draft Recovery:</strong> <code class="mono">useFormDraft</code> prevents data loss if battery dies.</li>
-              <li><strong>▸ Auto Delta-Sync:</strong> Queued payloads sync atomically upon reconnection.</li>
-            </ul>
-          </div>
-
-          <div class="bg-white rounded-xl p-5 border border-slate-200 border-t-4 border-t-emerald-600 shadow-sm">
-            <span class="px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-black">02 • BIOMETRIC</span>
-            <h3 class="text-base font-extrabold text-slate-900 mt-2 mb-2">Hardware Key Signatures</h3>
-            <p class="text-xs text-slate-500 mb-3">Eliminates shared passwords and proxy sign-offs.</p>
-            <ul class="space-y-2 text-xs text-slate-600">
-              <li><strong>▸ Ed25519 Keypair:</strong> Generated inside the mobile device's hardware keystore.</li>
-              <li><strong>▸ Biometric Prompt:</strong> Fingerprint / FaceID required to sign submissions.</li>
-              <li><strong>▸ Non-Repudiation:</strong> Cryptographic proof of the exact certifying engineer.</li>
-            </ul>
-          </div>
-
-          <div class="bg-white rounded-xl p-5 border border-slate-200 border-t-4 border-t-amber-600 shadow-sm">
-            <span class="px-2 py-0.5 rounded bg-amber-600 text-white text-[10px] font-black">03 • GEOFENCE</span>
-            <h3 class="text-base font-extrabold text-slate-900 mt-2 mb-2">GPS Geofence Guard</h3>
-            <p class="text-xs text-slate-500 mb-3">Prevents off-site photo uploads and recycled media fraud.</p>
-            <ul class="space-y-2 text-xs text-slate-600">
-              <li><strong>▸ Perimeter Lock:</strong> Compares hardware GPS coordinates against project polygon.</li>
-              <li><strong>▸ Distance Telemetry:</strong> Records exact meter offset and accuracy radius.</li>
-              <li><strong>▸ Fraud Flagging:</strong> Out-of-bounds submissions flagged for audit.</li>
-            </ul>
-          </div>
-
-          <div class="bg-white rounded-xl p-5 border border-slate-200 border-t-4 border-t-red-600 shadow-sm">
-            <span class="px-2 py-0.5 rounded bg-red-600 text-white text-[10px] font-black">04 • IMMUTABLE</span>
-            <h3 class="text-base font-extrabold text-slate-900 mt-2 mb-2">SHA-256 Evidence Seals</h3>
-            <p class="text-xs text-slate-500 mb-3">Tamper-evident cryptographic sealing at capture.</p>
-            <ul class="space-y-2 text-xs text-slate-600">
-              <li><strong>▸ Composite Hash:</strong> Computed over milestone ID, progress %, notes, GPS, and photo bytes.</li>
-              <li><strong>▸ Server Verification:</strong> Re-verified upon ingestion by <code class="mono">api.centerestates.com</code>.</li>
-              <li><strong>▸ Audit Certificate:</strong> Displayed on Web ERP alongside the Verified badge.</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="bg-[#0a213d] text-white rounded-xl px-5 py-3 flex items-center gap-4 text-xs">
-          <span class="px-2.5 py-1 rounded bg-red-600 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Governance Guarantee</span>
-          <span class="font-medium">Security is embedded directly into the mobile data capture layer—making fraudulent progress claims mathematically impossible.</span>
-        </div>
-      </section>
-
-      <!-- ========================================================= -->
-      <!-- SLIDE 9: LIVE DEMO RUN OF SHOW -->
-      <!-- ========================================================= -->
-      <section class="slide flex-1 flex-col justify-between p-8 lg:p-10 overflow-y-auto">
-        <div>
-          <div class="text-xs font-extrabold uppercase tracking-widest text-red-600 mb-1">08 • Live Demonstration Script</div>
-          <h2 class="text-2xl lg:text-3xl font-black text-slate-900">Recommended 5-Step Live Demonstration Flow (8 Minutes)</h2>
-          <p class="text-sm text-slate-500 mt-1">A high-impact, cohesive walkthrough using Karam Apartments — Lang'ata (PRJ-KRM-01).</p>
-        </div>
-
-        <div class="space-y-3 my-4 flex-1 flex flex-col justify-center">
-          <div class="bg-white rounded-xl p-4 border border-slate-200 flex items-center justify-between gap-4 shadow-sm">
-            <div class="flex items-center gap-4">
-              <span class="px-3 py-1.5 rounded-lg bg-[#12365b] text-white text-xs font-black shrink-0">STEP 01</span>
-              <div>
-                <h3 class="text-sm font-extrabold text-slate-900">Office Baseline Setup (Web ERP)</h3>
-                <p class="text-xs text-slate-600">Open Karam Apartments (PRJ-KRM-01). Show the CPM Work Plan Gantt and approved BoQ allowances.</p>
-              </div>
-            </div>
-            <span class="mono text-xs font-bold bg-slate-100 px-3 py-1 rounded border border-slate-200 shrink-0">1.5 MIN</span>
-          </div>
-
-          <div class="bg-white rounded-xl p-4 border border-slate-200 flex items-center justify-between gap-4 shadow-sm">
-            <div class="flex items-center gap-4">
-              <span class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-black shrink-0">STEP 02</span>
-              <div>
-                <h3 class="text-sm font-extrabold text-slate-900">Site Gate Delivery (Mobile App)</h3>
-                <p class="text-xs text-slate-600">Open Daily Log → Material Delivery. Pick 'BOQ-02.04 Cement', tap 'Bamburi', show Planned Allowance Shield.</p>
-              </div>
-            </div>
-            <span class="mono text-xs font-bold bg-slate-100 px-3 py-1 rounded border border-slate-200 shrink-0">2.0 MIN</span>
-          </div>
-
-          <div class="bg-white rounded-xl p-4 border border-slate-200 flex items-center justify-between gap-4 shadow-sm">
-            <div class="flex items-center gap-4">
-              <span class="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-black shrink-0">STEP 03</span>
-              <div>
-                <h3 class="text-sm font-extrabold text-slate-900">Stage-Gate Lockout (Mobile App)</h3>
-                <p class="text-xs text-slate-600">Open 'Superstructure Frame'. Highlight the red '🔒 Contractual Stage-Gate Locked' banner blocking claims.</p>
-              </div>
-            </div>
-            <span class="mono text-xs font-bold bg-slate-100 px-3 py-1 rounded border border-slate-200 shrink-0">1.5 MIN</span>
-          </div>
-
-          <div class="bg-white rounded-xl p-4 border border-slate-200 flex items-center justify-between gap-4 shadow-sm">
-            <div class="flex items-center gap-4">
-              <span class="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-black shrink-0">STEP 04</span>
-              <div>
-                <h3 class="text-sm font-extrabold text-slate-900">Live Defect Sync (Mobile → Web)</h3>
-                <p class="text-xs text-slate-600">Capture a rebar spacing snag on Mobile. Switch to Web ERP to show immediate appearance on the Kanban board.</p>
-              </div>
-            </div>
-            <span class="mono text-xs font-bold bg-slate-100 px-3 py-1 rounded border border-slate-200 shrink-0">1.5 MIN</span>
-          </div>
-
-          <div class="bg-white rounded-xl p-4 border border-slate-200 flex items-center justify-between gap-4 shadow-sm">
-            <div class="flex items-center gap-4">
-              <span class="px-3 py-1.5 rounded-lg bg-teal-600 text-white text-xs font-black shrink-0">STEP 05</span>
-              <div>
-                <h3 class="text-sm font-extrabold text-slate-900">Mini-BoQ &amp; IPC Valuation (Web ERP)</h3>
-                <p class="text-xs text-slate-600">Open Milestones → Mini-BoQ Valuation. Inspect certified KES value, retention deduction, and AI Progress Audit.</p>
-              </div>
-            </div>
-            <span class="mono text-xs font-bold bg-slate-100 px-3 py-1 rounded border border-slate-200 shrink-0">1.5 MIN</span>
-          </div>
-        </div>
-
-        <div class="bg-[#0a213d] text-white rounded-xl px-5 py-3 flex items-center gap-4 text-xs">
-          <span class="px-2.5 py-1 rounded bg-red-600 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Governance Guarantee</span>
-          <span class="font-medium">Keep the entire demonstration anchored inside Karam Apartments (PRJ-KRM-01) to prove end-to-end data continuity.</span>
-        </div>
-      </section>
-
-      <!-- ========================================================= -->
-      <!-- SLIDE 10: BUSINESS CASE & ROI -->
-      <!-- ========================================================= -->
-      <section class="slide flex-1 flex-col justify-between p-8 lg:p-10 overflow-y-auto">
-        <div>
-          <div class="text-xs font-extrabold uppercase tracking-widest text-red-600 mb-1">09 • Business Case &amp; ROI</div>
-          <h2 class="text-2xl lg:text-3xl font-black text-slate-900">Measurable Financial Impact Across Every Project Stakeholder</h2>
-          <p class="text-sm text-slate-500 mt-1">Why institutional developers, consultants, and project financiers standardize on Center Estates.</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 my-6 flex-1">
-          <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-red-600 shadow-sm">
-            <span class="px-2.5 py-1 rounded bg-red-600 text-white text-xs font-black">DEVELOPERS</span>
-            <h3 class="text-lg font-extrabold text-slate-900 mt-3 mb-2">Real Estate Developers</h3>
-            <p class="text-xs text-slate-500 mb-4">Protects equity capital and accelerates project delivery.</p>
-            <ul class="space-y-2.5 text-xs text-slate-600">
-              <li><strong class="text-slate-900">▸ 15%–20% Cost Protection:</strong> Eliminates phantom deliveries and unapproved BoQ overages.</li>
-              <li><strong class="text-slate-900">▸ Real-Time Visibility:</strong> Live executive S-Curve across all active development sites.</li>
-              <li><strong class="text-slate-900">▸ Seamless Handover:</strong> Completed units transition directly into Center Estates Sales &amp; Lettings.</li>
-            </ul>
-          </div>
-
-          <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-amber-600 shadow-sm">
-            <span class="px-2.5 py-1 rounded bg-amber-600 text-white text-xs font-black">CONSULTANTS</span>
-            <h3 class="text-lg font-extrabold text-slate-900 mt-3 mb-2">Project Managers &amp; QSs</h3>
-            <p class="text-xs text-slate-500 mb-4">Replaces manual spreadsheet reconciliation with automated governance.</p>
-            <ul class="space-y-2.5 text-xs text-slate-600">
-              <li><strong class="text-slate-900">▸ 80% Faster IPC Valuations:</strong> Mini-BoQ calculations generated in minutes instead of days.</li>
-              <li><strong class="text-slate-900">▸ Standardized Site Records:</strong> Automated concrete cube schedules and daily weather/labour logs.</li>
-              <li><strong class="text-slate-900">▸ Dispute Defense:</strong> Time-stamped, geotagged photographic proof resolves contractor claims.</li>
-            </ul>
-          </div>
-
-          <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-emerald-600 shadow-sm">
-            <span class="px-2.5 py-1 rounded bg-emerald-600 text-white text-xs font-black">FINANCIERS</span>
-            <h3 class="text-lg font-extrabold text-slate-900 mt-3 mb-2">Banks &amp; Project Lenders</h3>
-            <p class="text-xs text-slate-500 mb-4">De-risks construction debt drawdowns with cryptographic proof.</p>
-            <ul class="space-y-2.5 text-xs text-slate-600">
-              <li><strong class="text-slate-900">▸ Verified Drawdowns:</strong> Every tranche disbursement tied to 100% stage-gated milestones.</li>
-              <li><strong class="text-slate-900">▸ Anti-Collusion Controls:</strong> Ed25519 biometric signatures + GPS geofence validation.</li>
-              <li><strong class="text-slate-900">▸ ESG &amp; Statutory Audit:</strong> Complete NCA, DOSHS, and structural quality compliance trail.</li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="bg-[#0a213d] text-white rounded-xl px-5 py-3 flex items-center gap-4 text-xs">
-          <span class="px-2.5 py-1 rounded bg-red-600 font-extrabold uppercase tracking-wider text-[10px] shrink-0">Governance Guarantee</span>
-          <span class="font-medium">Center Estates transforms construction monitoring from a passive reporting chore into an active financial shield.</span>
-        </div>
-      </section>
-
-      <!-- ========================================================= -->
-      <!-- SLIDE 11: CLOSING & LIVE Q&A -->
-      <!-- ========================================================= -->
-      <section class="slide flex-1 flex-col justify-between p-8 lg:p-10 overflow-y-auto">
-        <div>
-          <div class="text-xs font-extrabold uppercase tracking-widest text-red-600 mb-1">10 • Summary &amp; Live Q&amp;A</div>
-          <h2 class="text-2xl lg:text-3xl font-black text-slate-900">One Operating Record: From Groundbreaking to Estate Handover</h2>
-          <p class="text-sm text-slate-500 mt-1">The mobile app is live, the backend is synchronized, and Karam Apartments is ready for inspection.</p>
-        </div>
-
-        <div class="my-6 space-y-6">
-          <div class="bg-[#0a213d] text-white rounded-2xl p-6 text-center shadow-lg">
-            <div class="text-xs md:text-sm font-extrabold tracking-wider text-amber-400">
-              GATE INTAKE (BoQ) &nbsp;➔&nbsp; FIELD VERIFICATION &nbsp;➔&nbsp; STAGE-GATE GUARD &nbsp;➔&nbsp; IPC CERTIFICATION &nbsp;➔&nbsp; ESTATE HANDOVER
-            </div>
-            <div class="text-xl md:text-2xl font-black mt-2">
-              Ready for Live Walkthrough &amp; Stakeholder Scenarios
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-[#12365b] shadow-sm">
-              <h3 class="text-base font-extrabold text-slate-900 mb-3">🌐 Live Demonstration Environment</h3>
-              <ul class="space-y-2 text-xs text-slate-600">
-                <li><strong>▸ Web ERP Command Center:</strong> <a href="https://centerestates.com" class="text-red-600 font-bold underline">https://centerestates.com</a></li>
-                <li><strong>▸ Presentation &amp; Resource Hub:</strong> <a href="https://centerestates.com/presentations/" class="text-red-600 font-bold underline">https://centerestates.com/presentations/</a></li>
-                <li><strong>▸ Featured Project:</strong> Karam Apartments — Lang'ata (<code class="mono">PRJ-KRM-01</code>)</li>
-                <li><strong>▸ Automated Test Suite:</strong> 100% Pass Rate (135 Web + 73 Mobile Tests)</li>
-              </ul>
-            </div>
-
-            <div class="bg-white rounded-xl p-6 border border-slate-200 border-t-4 border-t-red-600 shadow-sm">
-              <h3 class="text-base font-extrabold text-slate-900 mb-3">🛡 Platform &amp; Engineering Governance</h3>
-              <ul class="space-y-2 text-xs text-slate-600">
-                <li><strong>▸ Suite:</strong> Center Estates Enterprise Construction &amp; Field Mobility</li>
-                <li><strong>▸ Architecture:</strong> Next.js 14 Web • Expo React Native • Django REST API</li>
-                <li><strong>▸ Security:</strong> Ed25519 Biometrics • SHA-256 Seals • SQLite Offline Sync</li>
-                <li><strong>▸ Organization:</strong> Center Estates Enterprise Engineering</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div class="bg-[#0a213d] text-white rounded-xl px-5 py-3 flex items-center justify-between gap-4 text-xs">
-          <div class="flex items-center gap-3">
-            <span class="px-2.5 py-1 rounded bg-red-600 font-extrabold uppercase tracking-wider text-[10px]">Ready</span>
-            <span class="font-medium">Thank you. Let us open Karam Apartments (PRJ-KRM-01) for the live demonstration.</span>
-          </div>
-          <a href="/" class="px-3 py-1 rounded bg-white text-slate-900 font-extrabold hover:bg-slate-200 transition">Launch ERP →</a>
-        </div>
-      </section>
-
-    </div>
-  </main>
-
-  <!-- Bottom Progress Bar -->
-  <footer class="h-2 bg-slate-900 w-full shrink-0">
-    <div id="progress-bar" class="h-full bg-red-600 transition-all duration-300" style="width: 9.09%"></div>
-  </footer>
+  <!-- Fullscreen Image Zoom Modal -->
+  <div id="zoom-modal" onclick="this.classList.remove('open')">
+    <img id="zoom-img" src="" alt="Zoomed System Screenshot">
+  </div>
 
   <script>
     const slides = Array.from(document.querySelectorAll('.slide'));
     const counter = document.getElementById('slide-counter');
-    const progressBar = document.getElementById('progress-bar');
-    let current = 0;
+    let cur = 0;
 
-    function showSlide(index) {
-      if (index < 0) index = 0;
-      if (index >= slides.length) index = slides.length - 1;
-      slides.forEach((s, i) => {
-        s.classList.toggle('active', i === index);
-      });
-      current = index;
-      const num = String(current + 1).padStart(2, '0');
-      const total = String(slides.length).padStart(2, '0');
-      counter.textContent = `${num} / ${total}`;
-      progressBar.style.width = `${((current + 1) / slides.length) * 100}%`;
+    function showSlide(idx) {
+      cur = (idx + slides.length) % slides.length;
+      slides.forEach((s, i) => s.classList.toggle('active', i === cur));
+      counter.textContent = `Slide ${cur + 1} of ${slides.length}`;
     }
-
-    function nextSlide() { showSlide(current + 1); }
-    function prevSlide() { showSlide(current - 1); }
-
-    function toggleFullScreen() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-      } else {
-        document.exitFullscreen().catch(() => {});
-      }
+    function nextSlide() { showSlide(cur + 1); }
+    function prevSlide() { showSlide(cur - 1); }
+    function zoomImage(src) {
+      document.getElementById('zoom-img').src = src;
+      document.getElementById('zoom-modal').classList.add('open');
     }
-
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+      else document.exitFullscreen().catch(() => {});
+    }
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
-        e.preventDefault();
-        nextSlide();
-      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
-        e.preventDefault();
-        prevSlide();
-      } else if (e.key === 'f' || e.key === 'F') {
-        toggleFullScreen();
-      }
+      if (e.key === 'Escape') document.getElementById('zoom-modal').classList.remove('open');
+      else if (e.key === 'ArrowRight' || e.key === ' ') nextSlide();
+      else if (e.key === 'ArrowLeft') prevSlide();
+      else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
     });
   </script>
 </body>
