@@ -10,6 +10,56 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
+def amortize_advance_payments(project, organization, certificate_number: str, recovery_amount: Decimal, now_ms: Optional[int] = None) -> Decimal:
+    """Automatically amortizes active AdvancePayment records on a project when an IPC
+    with advance_recovery > 0 is issued, logging append-only AdvanceRecovery audit rows."""
+    from .models import AdvancePayment, AdvanceRecovery
+
+    target_recovery = Decimal(str(recovery_amount or 0)).quantize(Decimal("0.01"))
+    if target_recovery <= 0 or not project or not certificate_number:
+        return Decimal("0.00")
+
+    # Idempotency check: if recoveries were already posted for this certificate_number, skip
+    already_posted = AdvanceRecovery.objects.filter(
+        advance_payment__project=project,
+        certificate_number=certificate_number,
+    ).exists()
+    if already_posted:
+        return Decimal("0.00")
+
+    stamp = now_ms or int(time.time() * 1000)
+    advances = list(
+        AdvancePayment.objects.select_for_update()
+        .filter(project=project, status__in=("active", "paid"))
+        .order_by("created_at", "id")
+    )
+    remaining = target_recovery
+    total_amortized = Decimal("0.00")
+
+    for adv in advances:
+        if remaining <= 0:
+            break
+        outstanding = (Decimal(str(adv.amount or 0)) - Decimal(str(adv.recovered_amount or 0))).quantize(Decimal("0.01"))
+        if outstanding <= 0:
+            continue
+        slice_amt = min(remaining, outstanding)
+        AdvanceRecovery.objects.create(
+            advance_payment=adv,
+            certificate_number=certificate_number,
+            amount_recovered=slice_amt,
+            created_at=stamp,
+        )
+        adv.recovered_amount = (Decimal(str(adv.recovered_amount or 0)) + slice_amt).quantize(Decimal("0.01"))
+        adv.updated_at = stamp
+        if adv.recovered_amount >= Decimal(str(adv.amount or 0)):
+            adv.status = "fully_recovered"
+        adv.save(update_fields=["recovered_amount", "updated_at", "status"])
+        remaining -= slice_amt
+        total_amortized += slice_amt
+
+    return total_amortized
+
+
 def calculate_materials_on_site(project, boq_item_ids=None) -> Dict[str, Any]:
     """Calculates JBC/FIDIC Materials on Site (MoS) valuation (default 80% of unfixed delivered materials).
     Unfixed quantity = max(0, total_delivered_qty - max(executed_qty, certified_qty))."""
@@ -258,6 +308,15 @@ def calculate_milestone_valuation(
             if disbursement.status == "pending":
                 disbursement.amount = net_payable
                 disbursement.save(update_fields=["amount"])
+
+        if advance_recovery > 0:
+            amortize_advance_payments(
+                project=project,
+                organization=project.organization,
+                certificate_number=cert.number,
+                recovery_amount=advance_recovery,
+                now_ms=now_ms,
+            )
 
         result["certificate_id"] = cert.id
         result["certificate_number"] = cert.number

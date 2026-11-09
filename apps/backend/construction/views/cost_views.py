@@ -92,21 +92,27 @@ def cost_dashboard(request, project_id):
     ).aggregate(total=Sum("amount"))["total"])
     drawdown_eligibility = _contingency_eligibility(project, organization, budget)
 
-    cert_qs = Certificate.objects.filter(
-        project_id=project.id, organization=organization,
-    ).exclude(status="void")
-    cert_agg = cert_qs.aggregate(total=Sum("amount"), ret_pct=Sum("retention_percent"))
-    cert_total = _money(cert_agg["total"])
-    cert_ret_pct = _money(cert_agg["ret_pct"])
-    cert_retention = (cert_total * cert_ret_pct / Decimal(100)).quantize(CENT) if cert_ret_pct else Decimal("0.00")
-    certified_to_date = (cert_total - cert_retention).quantize(CENT)
-
-    retention_agg = cert_qs.aggregate(
-        total_retention=Sum("retention_amount"),
-        total_advance_recovery=Sum("advance_recovery"),
+    cert_qs = list(
+        Certificate.objects.filter(
+            project_id=project.id, organization=organization,
+        ).exclude(status="void")
     )
-    total_retention_held = _money(retention_agg["total_retention"])
-    total_advance_recovery = _money(retention_agg["total_advance_recovery"])
+    cert_total = Decimal("0.00")
+    cert_retention = Decimal("0.00")
+    total_advance_recovery = Decimal("0.00")
+    for c in cert_qs:
+        amt = _money(c.amount)
+        ret_amt = (
+            _money(c.retention_amount)
+            if c.retention_amount
+            else (amt * _money(c.retention_percent) / Decimal("100")).quantize(CENT)
+        )
+        cert_total += amt
+        cert_retention += ret_amt
+        total_advance_recovery += _money(c.advance_recovery)
+
+    certified_to_date = (cert_total - cert_retention).quantize(CENT)
+    total_retention_held = cert_retention
 
     paid_to_date = _money(Disbursement.objects.filter(
         project_id=project.id, organization=organization, status="paid",

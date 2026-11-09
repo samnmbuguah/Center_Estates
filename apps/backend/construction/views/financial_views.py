@@ -285,7 +285,8 @@ class CertificateViewSet(CertificateBaseViewSet):
         """Generates a JBC/FIDIC-compliant Interim Payment Certificate (IPC) incorporating
         cumulative BoQ work done, Materials on Site (80%), approved variations, retention,
         advance payment recovery, and previous certified deductions."""
-        from ..valuation import calculate_materials_on_site
+        from ..valuation import calculate_materials_on_site, amortize_advance_payments
+        from ..models import ProjectDocument, DocumentVersion
 
         organization = get_active_organization(request)
         data = request.data or {}
@@ -355,6 +356,48 @@ class CertificateViewSet(CertificateBaseViewSet):
             created_at=now_ms,
         )
 
+        # Automatically amortize active Advance Payments when advance_recovery > 0
+        if advance_rec > 0:
+            amortize_advance_payments(
+                project=project,
+                organization=project.organization,
+                certificate_number=cert.number,
+                recovery_amount=advance_rec,
+                now_ms=now_ms,
+            )
+
+        # Register supporting documents in the ProjectDocument register
+        for doc_meta in supporting_docs:
+            if isinstance(doc_meta, dict) and doc_meta.get("name"):
+                doc_title = f"{number} — {doc_meta['name']}"[:255]
+                proj_doc, _ = ProjectDocument.objects.get_or_create(
+                    organization=project.organization,
+                    project=project,
+                    title=doc_title,
+                    defaults={
+                        "discipline": "Commercial / QS",
+                        "created_at": now_ms,
+                    },
+                )
+                remote_url = doc_meta.get("remote_url") or f"/media/ipc/{project.id}/{number}/{doc_meta['name']}"
+                if not DocumentVersion.objects.filter(document=proj_doc, remote_url=remote_url).exists():
+                    next_ver = proj_doc.versions.count() + 1
+                    ext = str(doc_meta["name"]).rsplit(".", 1)[-1].lower() if "." in str(doc_meta["name"]) else "pdf"
+                    DocumentVersion.objects.create(
+                        document=proj_doc,
+                        version=next_ver,
+                        revision_number=f"Rev {next_ver}",
+                        remote_url=remote_url,
+                        file_format=ext[:16],
+                        uploaded_by=request.user,
+                        uploaded_at=now_ms,
+                    )
+                doc_meta["remote_url"] = remote_url
+                doc_meta["document_id"] = proj_doc.id
+        if supporting_docs:
+            cert.supporting_documents = supporting_docs
+            cert.save(update_fields=["supporting_documents"])
+
         # Update certified quantities/amounts on BoQ items submitted in this valuation
         for line in boq_snapshot:
             item_id = line.get("boq_item_id") or line.get("item_number")
@@ -366,7 +409,14 @@ class CertificateViewSet(CertificateBaseViewSet):
                     else BoQItem.objects.filter(project=project, item_number=str(item_id)).first()
                 )
                 if boq_item:
-                    boq_item.certified_amount = max(Decimal(str(boq_item.certified_amount or 0)), val_amt).quantize(Decimal("0.01"))
+                    prev_item_cert = Decimal(str(boq_item.certified_amount or 0))
+                    if line.get("is_incremental"):
+                        new_cert = (prev_item_cert + val_amt).quantize(Decimal("0.01"))
+                        if boq_item.amount and new_cert > Decimal(str(boq_item.amount)):
+                            new_cert = Decimal(str(boq_item.amount)).quantize(Decimal("0.01"))
+                        boq_item.certified_amount = new_cert
+                    else:
+                        boq_item.certified_amount = max(prev_item_cert, val_amt).quantize(Decimal("0.01"))
                     rate = Decimal(str(boq_item.rate or 0))
                     if rate > 0:
                         boq_item.certified_quantity = (boq_item.certified_amount / rate).quantize(Decimal("0.0001"))
@@ -555,7 +605,7 @@ class CertificateViewSet(CertificateBaseViewSet):
         buffer.close()
 
         response = HttpResponse(pdf, content_type="application/pdf")
-        filename = f"IPC_{certificate.certificate_number or certificate.id}.pdf"
+        filename = f"IPC_{cert_num}.pdf"
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
 

@@ -192,6 +192,7 @@ export function IpcGeneration() {
           description: item.name,
           amount: String(item.contract),
           valuation_amount: String(Number(packageValues[item.id] || 0)),
+          is_incremental: prevCert > 0,
         })),
         valuation_metadata: {
           source: "QS valuation",
@@ -420,50 +421,93 @@ export function IpcGeneration() {
               <input type="file" accept=".pdf,.xlsx,.xls" hidden onChange={(e) => setQsFile(e.target.files?.[0] ?? null)} />
             </label>
             {workPackages.length > 0 ? (
-              <div className="table-scroll" style={{ maxHeight: 360 }}>
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Item</th>
-                      <th>Section</th>
-                      <th>Work Package Description</th>
-                      <th className="num">Contract Sum (KES)</th>
-                      <th className="num">This Valuation (KES)</th>
-                      <th className="num">% Certified</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {workPackages.map((item) => {
-                      const value = Number(packageValues[item.id] || 0);
-                      return (
-                        <tr key={item.id}>
-                          <td className="mono">{item.code}</td>
-                          <td style={{ textTransform: "capitalize" }}>{item.section}</td>
-                          <td>{item.name}</td>
-                          <td className="mono num">{money(item.contract, "")}</td>
-                          <td className="num">
-                            <input
-                              inputMode="decimal"
-                              value={packageValues[item.id] ?? ""}
-                              placeholder="0"
-                              style={{ width: 130, textAlign: "right" }}
-                              onChange={(e) => setPackageValues({ ...packageValues, [item.id]: e.target.value })}
-                            />
-                          </td>
-                          <td className="mono num">
-                            {item.contract ? `${Math.min(100, (value / item.contract) * 100).toFixed(1)}%` : "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    <tr style={{ background: "var(--surface-2)" }}>
-                      <td colSpan={4}><b>Total QS Work Package Valuation</b></td>
-                      <td className="mono num"><b>{money(packageTotal)}</b></td>
-                      <td />
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div className="row gap-xs mb-sm" style={{ flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    onClick={() => {
+                      const next: Record<string, string> = {};
+                      for (const wp of workPackages) {
+                        const uncert = Math.max(0, wp.executedValue - wp.certifiedValue);
+                        if (uncert > 0) next[wp.id] = uncert.toFixed(2);
+                      }
+                      setPackageValues(next);
+                    }}
+                  >
+                    Pre-fill Uncertified Progress
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    onClick={() => {
+                      const next: Record<string, string> = {};
+                      for (const wp of workPackages) {
+                        const best = Math.max(wp.executedValue, wp.certifiedValue);
+                        if (best > 0) next[wp.id] = best.toFixed(2);
+                      }
+                      setPackageValues(next);
+                    }}
+                  >
+                    Pre-fill Cumulative Executed
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    onClick={() => setPackageValues({})}
+                  >
+                    Clear All
+                  </button>
+                </div>
+                <div className="table-scroll" style={{ maxHeight: 360 }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Item</th>
+                        <th>Section</th>
+                        <th>Work Package Description</th>
+                        <th className="num">Contract Sum (KES)</th>
+                        <th className="num">Prev. Certified (KES)</th>
+                        <th className="num">This Valuation (KES)</th>
+                        <th className="num">Cum. % Certified</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {workPackages.map((item) => {
+                        const value = Number(packageValues[item.id] || 0);
+                        const cumCert = prevCert > 0 ? item.certifiedValue + value : Math.max(item.certifiedValue, value);
+                        return (
+                          <tr key={item.id}>
+                            <td className="mono">{item.code}</td>
+                            <td style={{ textTransform: "capitalize" }}>{item.section}</td>
+                            <td>{item.name}</td>
+                            <td className="mono num">{money(item.contract, "")}</td>
+                            <td className="mono num muted">{money(item.certifiedValue, "")}</td>
+                            <td className="num">
+                              <input
+                                inputMode="decimal"
+                                value={packageValues[item.id] ?? ""}
+                                placeholder="0"
+                                style={{ width: 130, textAlign: "right" }}
+                                onChange={(e) => setPackageValues({ ...packageValues, [item.id]: e.target.value })}
+                              />
+                            </td>
+                            <td className="mono num">
+                              {item.contract ? `${Math.min(100, (cumCert / item.contract) * 100).toFixed(1)}%` : "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      <tr style={{ background: "var(--surface-2)" }}>
+                        <td colSpan={4}><b>Total QS Work Package Valuation</b></td>
+                        <td className="mono num muted"><b>{money(workPackages.reduce((s, w) => s + w.certifiedValue, 0))}</b></td>
+                        <td className="mono num"><b>{money(packageTotal)}</b></td>
+                        <td />
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </>
             ) : (
               <div className="muted fs-sm">No BoQ work packages are available yet; enter the total valuation below.</div>
             )}
