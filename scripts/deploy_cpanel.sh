@@ -128,6 +128,7 @@ ssh "${SSH_OPTS[@]}" "$REMOTE_HOST" "bash -s" <<EOF
     echo 'Python dependencies unchanged; skipping pip install.'
   fi
   python apps/backend/manage.py migrate --noinput
+  python apps/backend/manage.py backfill_construction_domain || true
   python apps/backend/manage.py collectstatic --noinput
   (crontab -l 2>/dev/null | grep -vF '# center-estates-scheduled-reports'; echo "*/15 * * * * cd ${API_PATH} && ${PYTHON_VENV%/*}/python apps/backend/manage.py run_scheduled_reports >> ${API_PATH}/scheduled-reports.log 2>&1 # center-estates-scheduled-reports") | crontab -
   (crontab -l 2>/dev/null | grep -vF '# center-estates-calendar-notifications'; echo "17 * * * * cd ${API_PATH} && ${PYTHON_VENV%/*}/python apps/backend/manage.py sync_calendar_notifications >> ${API_PATH}/calendar-notifications.log 2>&1 # center-estates-calendar-notifications") | crontab -

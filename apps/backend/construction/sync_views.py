@@ -125,11 +125,24 @@ def _upsert(model, rows, organization, timestamp):
                 instance.percent_complete = 0
             if not Project.objects.filter(id=instance.project_id, organization=organization).exists():
                 raise ValueError("Unknown construction project")
+            if instance.percent_complete > 0:
+                from .views.milestone_views import check_milestone_prerequisites
+                satisfied, incomplete = check_milestone_prerequisites(instance, organization)
+                if not satisfied:
+                    reasons = ", ".join(
+                        f"'{item['milestone_id']}' ({item['percent_complete']}%)" for item in incomplete
+                    )
+                    raise ValueError(
+                        f"Stage-gate locked: Preceding milestone(s) {reasons} must reach 100% before progress can be claimed on '{instance.milestone_id}'."
+                    )
         elif model in (EvidenceFile, Observation, OfficeNote):
             if not MilestoneEntry.objects.filter(id=instance.milestone_entry_id, organization=organization).exists():
                 raise ValueError("Unknown milestone entry")
         instance.updated_at = timestamp
         instance.save()
+        if model is MilestoneEntry:
+            from .views.milestone_views import _sync_workplan_task_progress
+            _sync_workplan_task_progress(instance)
 
 
 def _delete(model, ids, organization, timestamp):
