@@ -28,6 +28,11 @@ interface MilestoneRow {
   id: string;
   project_id: string;
   milestone_id: string;
+  work_plan_task?: number | null;
+  work_plan_task_code?: string | null;
+  work_plan_task_name?: string | null;
+  planned_start_date?: string | null;
+  planned_end_date?: string | null;
   percent_complete: number;
   required_evidence_types: string[];
   required_certifying_role: string;
@@ -158,8 +163,18 @@ export function Milestones() {
         <div className="panel-title"><span>Programme performance</span><span className="chart-legend"><i className="planned" /> Planned <i className="actual" /> Actual</span></div>
         <div className="performance-columns">
           {items.slice(0, 12).map((m, index) => {
-            const planned = Math.min(100, Math.round(((index + 1) / Math.max(items.length, 1)) * 100));
-            return <div key={m.id} title={`${m.milestone_id}: ${m.percent_complete}% actual`}>
+            let planned = Math.min(100, Math.round(((index + 1) / Math.max(items.length, 1)) * 100));
+            if (m.planned_start_date && m.planned_end_date) {
+              const startMs = new Date(m.planned_start_date).getTime();
+              const endMs = new Date(m.planned_end_date).getTime();
+              const nowMs = Date.now();
+              if (!Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs) {
+                if (nowMs <= startMs) planned = 0;
+                else if (nowMs >= endMs) planned = 100;
+                else planned = Math.round(((nowMs - startMs) / (endMs - startMs)) * 100);
+              }
+            }
+            return <div key={m.id} title={`${m.milestone_id}: ${planned}% planned vs ${m.percent_complete}% actual`}>
               <div className="performance-bars"><i style={{ height: `${planned}%` }} /><b style={{ height: `${m.percent_complete}%` }} /></div>
               <span>M{index + 1}</span>
             </div>;
@@ -172,7 +187,7 @@ export function Milestones() {
         <div className="panel-title"><span>Programme activities</span><small>{items.length} activities</small></div>
         {items.slice(0, 12).map((m, index) => (
           <div className="gantt-row" key={m.id}>
-            <span>Activity {index + 1}</span>
+            <span title={m.milestone_id}>{m.work_plan_task_code || `Activity ${index + 1}`}</span>
             <div className="gantt-track"><i style={{ left: `${Math.min(index * 5, 55)}%`, width: `${Math.max(12, Math.min(40, m.percent_complete / 2.5))}%` }} /></div>
             <strong>{m.percent_complete} pct</strong>
           </div>
@@ -182,20 +197,24 @@ export function Milestones() {
       <div className="card">
         <div className="panel-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>Milestone register</span>
-          <button
-            className="btn ghost sm"
-            onClick={handleAutoMapAll}
-            disabled={autoMappingAll || loading}
-            title="Automatically match project BoQ line items across all milestones"
-          >
-            <Sparkles size={14} className={autoMappingAll ? "spin" : ""} />
-            <span>{autoMappingAll ? "Auto-Mapping..." : "Auto-Map All BoQ"}</span>
-          </button>
+          {can("projects.edit") && (
+            <button
+              className="btn ghost sm"
+              onClick={handleAutoMapAll}
+              disabled={autoMappingAll || loading}
+              title="Automatically distribute unallocated project BoQ line items across milestones"
+            >
+              <Sparkles size={14} className={autoMappingAll ? "spin" : ""} />
+              <span>{autoMappingAll ? "Auto-Mapping..." : "Auto-Map All BoQ"}</span>
+            </button>
+          )}
         </div>
+        <div className="table-scroll">
         <table>
           <thead>
             <tr>
               <th>Milestone ID</th>
+              <th>Work Plan Schedule</th>
               <th>Stage-Gate Prerequisites</th>
               <th>% Complete</th>
               <th>Required Evidence</th>
@@ -218,6 +237,15 @@ export function Milestones() {
               return (
                 <tr key={m.id}>
                   <td className="mono">{m.milestone_id}</td>
+                  <td style={{ fontSize: 11, whiteSpace: "nowrap" }}>
+                    {m.planned_start_date || m.planned_end_date ? (
+                      <span className="muted">
+                        {m.planned_start_date || "—"} → {m.planned_end_date || "—"}
+                      </span>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
                   <td>
                     {prereqs.length === 0 ? (
                       <span className="muted" style={{ fontSize: 11 }}>—</span>
@@ -245,7 +273,7 @@ export function Milestones() {
                   <td style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{m.payment_instruction || "—"}</td>
                   <td className="mono">{m.payment_value ? Number(m.payment_value).toLocaleString() : "—"}</td>
                   <td>{statusBadge(m)}</td>
-                  <td>
+                  <td style={{ whiteSpace: "nowrap" }}>
                     <button
                       className="btn ghost sm"
                       onClick={() => setSelectedMiniBoQ(m)}
@@ -254,19 +282,22 @@ export function Milestones() {
                     >
                       <Coins size={14} /> Mini-BoQ
                     </button>
-                    {!m.submitted_at && (
+                    {!m.submitted_at && (can("projects.edit") || can("site.reporting.view")) && (
                       <>
                         <button className="btn ghost sm" onClick={() => startEdit(m)} title="Edit"><Pencil size={14} /></button>
-                        <button className="btn ghost sm" onClick={() => setConfirmTarget(m)} title="Delete"><Trash2 size={14} /></button>
+                        {can("projects.edit") && (
+                          <button className="btn ghost sm" onClick={() => setConfirmTarget(m)} title="Delete"><Trash2 size={14} /></button>
+                        )}
                       </>
                     )}
                   </td>
                 </tr>
               );
             })}
-            {items.length === 0 && <tr><td colSpan={9} className="empty">No milestones yet.</td></tr>}
+            {items.length === 0 && <tr><td colSpan={10} className="empty">No milestones yet.</td></tr>}
           </tbody>
         </table>
+        </div>
       </div>
 
       <details className="card collapsible-card" open={!!editId}>

@@ -10,6 +10,69 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
+def calculate_materials_on_site(project, boq_item_ids=None) -> Dict[str, Any]:
+    """Calculates JBC/FIDIC Materials on Site (MoS) valuation (default 80% of unfixed delivered materials).
+    Unfixed quantity = max(0, total_delivered_qty - max(executed_qty, certified_qty))."""
+    from django.db.models import Sum
+    from .models import BoQItem, MaterialDelivery
+
+    meta = project.metadata if isinstance(getattr(project, "metadata", None), dict) else {}
+    mos_pct = Decimal(str(meta.get("materials_on_site_percent", 80.0)))
+    mos_ratio = mos_pct / Decimal("100")
+
+    deliveries_qs = MaterialDelivery.objects.filter(
+        project_id=str(project.id),
+        boq_item__isnull=False,
+    )
+    if boq_item_ids is not None:
+        deliveries_qs = deliveries_qs.filter(boq_item_id__in=boq_item_ids)
+
+    delivered_by_item = {
+        row["boq_item_id"]: Decimal(str(row["total_qty"] or 0))
+        for row in deliveries_qs.values("boq_item_id").annotate(total_qty=Sum("quantity"))
+    }
+    if not delivered_by_item:
+        return {"mos_percent": float(mos_pct), "mos_gross_value": 0.0, "mos_certified_value": 0.0, "lines": []}
+
+    boq_items = BoQItem.objects.filter(id__in=list(delivered_by_item.keys()), project=project)
+    mos_gross = Decimal("0.00")
+    mos_certified = Decimal("0.00")
+    lines = []
+
+    for item in boq_items:
+        delivered_qty = delivered_by_item.get(item.id, Decimal("0"))
+        fixed_qty = max(
+            Decimal(str(item.executed_quantity or 0)),
+            Decimal(str(item.certified_quantity or 0)),
+        )
+        unfixed_qty = max(Decimal("0"), delivered_qty - fixed_qty)
+        if unfixed_qty <= 0:
+            continue
+        rate = Decimal(str(item.rate or 0))
+        raw_val = (unfixed_qty * rate).quantize(Decimal("0.01"))
+        cert_val = (raw_val * mos_ratio).quantize(Decimal("0.01"))
+        mos_gross += raw_val
+        mos_certified += cert_val
+        lines.append({
+            "boq_item_id": item.id,
+            "item_number": item.item_number,
+            "description": item.description,
+            "unit": item.unit,
+            "delivered_quantity": float(delivered_qty),
+            "fixed_quantity": float(fixed_qty),
+            "unfixed_quantity": float(unfixed_qty),
+            "rate": float(rate),
+            "mos_certified_value": float(cert_val),
+        })
+
+    return {
+        "mos_percent": float(mos_pct),
+        "mos_gross_value": float(mos_gross),
+        "mos_certified_value": float(mos_certified),
+        "lines": lines,
+    }
+
+
 def calculate_milestone_valuation(
     milestone_entry,
     project=None,
@@ -17,9 +80,10 @@ def calculate_milestone_valuation(
     auto_create_certificate: bool = True,
 ) -> Dict[str, Any]:
     """Calculates the mini-BoQ valuation for a milestone entry based on allocated line items,
+    aggregates multi-milestone progress per BoQ item without overwriting, includes Materials on Site,
     computes contractual deductions (retention, advance payment recovery), and automatically
     generates or updates the Interim Payment Certificate (IPC) and pending Disbursement."""
-    from .models import Project, MilestoneBoQItem, Certificate, Disbursement
+    from .models import Project, MilestoneEntry, MilestoneBoQItem, Certificate, Disbursement
 
     if not project:
         project = Project.objects.filter(id=milestone_entry.project_id).first()
@@ -41,11 +105,20 @@ def calculate_milestone_valuation(
     boq_snapshot = []
 
     if allocations:
+        # Preload all milestone percentages on this project so multi-milestone BoQ items sum accurately
+        all_ms_pcts = dict(
+            MilestoneEntry.objects.filter(
+                project_id=str(project.id),
+                deleted_at__isnull=True,
+            ).values_list("milestone_id", "percent_complete")
+        )
+        all_ms_pcts[milestone_entry.milestone_id] = float(percent_complete)
+
         for alloc in allocations:
             item = alloc.boq_item
             rate = Decimal(str(item.rate or 0))
             allocated_qty = Decimal(str(alloc.allocated_quantity or 0))
-            certified_qty = allocated_qty * progress_ratio
+            certified_qty = (allocated_qty * progress_ratio).quantize(Decimal("0.0001"))
             line_amount = (certified_qty * rate).quantize(Decimal("0.01"))
             current_gross += line_amount
 
@@ -60,12 +133,25 @@ def calculate_milestone_valuation(
                 "certified_quantity": float(certified_qty),
                 "line_amount": float(line_amount),
             })
-            
-            # Sync certified progress to the master BoQ item
+
+            # Sync cumulative certified progress across ALL milestones sharing this BoQ item
             if auto_create_certificate:
-                item.certified_quantity = max(item.certified_quantity or Decimal("0"), certified_qty)
+                item_allocs = MilestoneBoQItem.objects.filter(project=project, boq_item=item)
+                cumulative_cert_qty = sum(
+                    Decimal(str(a.allocated_quantity or 0))
+                    * (Decimal(str(all_ms_pcts.get(a.milestone_id, 0) or 0)) / Decimal("100"))
+                    for a in item_allocs
+                )
+                if item.quantity and cumulative_cert_qty > item.quantity:
+                    cumulative_cert_qty = Decimal(str(item.quantity))
+                item.certified_quantity = max(
+                    Decimal(str(item.certified_quantity or 0)),
+                    cumulative_cert_qty,
+                ).quantize(Decimal("0.0001"))
                 item.certified_amount = (item.certified_quantity * rate).quantize(Decimal("0.01"))
-                if percent_complete >= 100:
+                if item.quantity and item.certified_quantity >= item.quantity:
+                    item.cost_state = "certified"
+                elif percent_complete >= 100 and item.cost_state in ("budgeted", "ascertained", "committed"):
                     item.cost_state = "certified"
                 item.save(update_fields=["certified_quantity", "certified_amount", "cost_state"])
     else:
@@ -74,6 +160,13 @@ def calculate_milestone_valuation(
             current_gross = (Decimal(str(milestone_entry.payment_value)) * progress_ratio).quantize(Decimal("0.01"))
         else:
             current_gross = Decimal("0.00")
+
+    # 1b. Materials on Site (MoS) for allocated BoQ items
+    mos_data = calculate_materials_on_site(
+        project,
+        boq_item_ids=[a.boq_item_id for a in allocations] if allocations else None,
+    )
+    mos_certified = Decimal(str(mos_data["mos_certified_value"]))
 
     # 2. Contractual Deductions
     meta = project.metadata if isinstance(getattr(project, "metadata", None), dict) else {}
@@ -90,6 +183,8 @@ def calculate_milestone_valuation(
         "percent_complete": float(percent_complete),
         "allocated_items_count": len(allocations),
         "current_gross": float(current_gross),
+        "materials_on_site": float(mos_certified),
+        "materials_on_site_lines": mos_data["lines"],
         "retention_percent": float(retention_pct),
         "retention_amount": float(retention_amount),
         "advance_recovery_percent": float(advance_recovery_pct),

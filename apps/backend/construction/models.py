@@ -297,6 +297,14 @@ class MilestoneEntry(SyncBase):
 
     project_id = models.CharField(max_length=36, db_index=True)
     milestone_id = models.CharField(max_length=255, db_index=True)
+    work_plan_task = models.ForeignKey(
+        "construction.WorkPlanTask",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="milestones",
+        help_text="Direct WBS WorkPlanTask linked to this stage-gate milestone",
+    )
     percent_complete = models.PositiveSmallIntegerField()
     submitted_at = models.BigIntegerField(null=True, blank=True)
     # Biometric-bound signature carried with the submission (set on submit):

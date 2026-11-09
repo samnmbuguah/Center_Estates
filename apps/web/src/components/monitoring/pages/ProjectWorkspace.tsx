@@ -292,7 +292,7 @@ export function ProjectWorkspace() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr minmax(260px, 360px)", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <div className="card" style={{ padding: 20, background: "var(--surface)", border: "1px solid var(--border)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>

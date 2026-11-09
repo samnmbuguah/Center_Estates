@@ -18,9 +18,9 @@ from rest_framework.response import Response
 from core.tenancy import get_active_organization
 
 from ..models import (
-    AdvancePayment, AdvanceRecovery, AdminAuditLog, Certificate, ChatMessage,
-    ContingencyDrawdown, Disbursement, DrawdownRequest, Notification,
-    ProvisionalSum, Requisition,
+    AdvancePayment, AdvanceRecovery, AdminAuditLog, BoQItem, Certificate, ChatMessage,
+    ContingencyDrawdown, Disbursement, DrawdownRequest, Notification, Project,
+    ProvisionalSum, Requisition, Variation,
 )
 from ..serializers import (
     AdminAuditLogSerializer, AdvancePaymentSerializer, AdvanceRecoverySerializer,
@@ -264,11 +264,135 @@ class CertificateViewSet(CertificateBaseViewSet):
     def perform_destroy(self, instance):
         raise ValidationError({"certificate": "Certificates cannot be deleted; void the record instead."})
 
+    @action(detail=True, methods=["post"], url_path="void")
+    def void(self, request, pk=None):
+        certificate = self.get_object()
+        if certificate.status == "void":
+            raise ValidationError({"status": "A void certificate is immutable."})
+        reason = str(request.data.get("reason") or request.data.get("void_reason") or "").strip()
+        if not reason:
+            raise ValidationError({"reason": "A reason is required to void a certificate."})
+        certificate.status = "void"
+        certificate.void_reason = reason
+        certificate.voided_by = request.user
+        certificate.voided_at = int(time() * 1000)
+        certificate.save(update_fields=["status", "void_reason", "voided_by", "voided_at"])
+        return Response(self.get_serializer(certificate).data)
+
+    @action(detail=False, methods=["post"], url_path="generate-ipc")
+    @transaction.atomic
+    def generate_ipc(self, request):
+        """Generates a JBC/FIDIC-compliant Interim Payment Certificate (IPC) incorporating
+        cumulative BoQ work done, Materials on Site (80%), approved variations, retention,
+        advance payment recovery, and previous certified deductions."""
+        from ..valuation import calculate_materials_on_site
+
+        organization = get_active_organization(request)
+        data = request.data or {}
+        project_id = str(data.get("project_id") or "").strip()
+        project = (
+            Project.objects.filter(id=project_id, organization=organization).first()
+            if organization else Project.objects.filter(id=project_id).first()
+        )
+        if not project:
+            raise ValidationError({"project_id": "Project not found."})
+
+        number = str(data.get("number") or "").strip()
+        if not number:
+            existing_count = Certificate.objects.filter(project_id=project.id).count()
+            number = f"IPC-{project.code or 'PRJ'}-{existing_count + 1:03d}"
+
+        cert_type = str(data.get("cert_type") or "interim").strip()
+        cur_gross = Decimal(str(data.get("current_gross") or 0)).quantize(Decimal("0.01"))
+        variations = Decimal(str(data.get("variations") or data.get("variations_amount") or 0)).quantize(Decimal("0.01"))
+        retention_pct = Decimal(str(data.get("retention_percent") or 5)).quantize(Decimal("0.01"))
+        advance_rec = Decimal(str(data.get("advance_recovery") or 0)).quantize(Decimal("0.01"))
+        prev_cert = Decimal(str(data.get("previous_certified") or 0)).quantize(Decimal("0.01"))
+
+        mos_info = calculate_materials_on_site(project)
+        mos_val = Decimal(str(data.get("materials_on_site") or mos_info.get("mos_certified_value") or 0)).quantize(Decimal("0.01"))
+
+        gross = (cur_gross + variations + mos_val).quantize(Decimal("0.01"))
+        retention_amt = (gross * retention_pct / Decimal("100")).quantize(Decimal("0.01"))
+        net_payable = max(Decimal("0.00"), (gross - retention_amt - advance_rec)).quantize(Decimal("0.01"))
+
+        boq_snapshot = data.get("boq_items") or []
+        valuation_meta = data.get("valuation_metadata") or {}
+        valuation_meta["materials_on_site"] = float(mos_val)
+        valuation_meta["materials_on_site_lines"] = mos_info.get("lines", [])
+        supporting_docs = data.get("supporting_documents") or []
+
+        now_ms = int(time() * 1000)
+        cert = Certificate.objects.create(
+            organization=project.organization,
+            project_id=str(project.id),
+            cert_type=cert_type,
+            number=number,
+            contractor_name=str(data.get("contractor_name") or project.client_name or "Main Contractor"),
+            amount=gross,
+            previous_certified=prev_cert,
+            current_gross=cur_gross,
+            variations_amount=variations,
+            retention_percent=retention_pct,
+            retention_amount=retention_amt,
+            advance_recovery=advance_rec,
+            net_payable=net_payable,
+            boq_snapshot=boq_snapshot,
+            valuation_metadata=valuation_meta,
+            supporting_documents=supporting_docs,
+            issued_by=request.user,
+            issued_at=now_ms,
+            status="issued",
+        )
+
+        Disbursement.objects.create(
+            organization=project.organization,
+            project_id=str(project.id),
+            certificate=cert,
+            amount=net_payable,
+            status="pending",
+            managed_by=request.user,
+            created_at=now_ms,
+        )
+
+        # Update certified quantities/amounts on BoQ items submitted in this valuation
+        for line in boq_snapshot:
+            item_id = line.get("boq_item_id") or line.get("item_number")
+            val_amt = Decimal(str(line.get("valuation_amount") or 0))
+            if item_id and val_amt > 0:
+                boq_item = (
+                    BoQItem.objects.filter(project=project, id=item_id).first()
+                    if str(item_id).isdigit()
+                    else BoQItem.objects.filter(project=project, item_number=str(item_id)).first()
+                )
+                if boq_item:
+                    boq_item.certified_amount = max(Decimal(str(boq_item.certified_amount or 0)), val_amt).quantize(Decimal("0.01"))
+                    rate = Decimal(str(boq_item.rate or 0))
+                    if rate > 0:
+                        boq_item.certified_quantity = (boq_item.certified_amount / rate).quantize(Decimal("0.0001"))
+                    boq_item.cost_state = "certified"
+                    boq_item.save(update_fields=["certified_amount", "certified_quantity", "cost_state"])
+
+        return Response({
+            "certificate": self.get_serializer(cert).data,
+            "breakdown": {
+                "previous_certified": str(prev_cert),
+                "current_gross": str(cur_gross),
+                "materials_on_site": str(mos_val),
+                "variations": str(variations),
+                "gross": str(gross),
+                "retention_percent": str(retention_pct),
+                "retention_amount": str(retention_amt),
+                "advance_recovery": str(advance_rec),
+                "net_payable": str(net_payable),
+            },
+        }, status=201)
+
     @action(detail=True, methods=["get"], url_path="pdf")
     def generate_pdf(self, request, pk=None):
         """Generates an audit-grade Interim Payment Certificate (IPC) PDF using ReportLab."""
         certificate = self.get_object()
-        project = certificate.project
+        project = Project.objects.filter(id=certificate.project_id).first()
         org = certificate.organization
 
         from io import BytesIO
@@ -340,15 +464,22 @@ class CertificateViewSet(CertificateBaseViewSet):
             datetime.datetime.fromtimestamp(certificate.issued_at / 1000, tz=datetime.timezone.utc).strftime("%d %B %Y")
             if certificate.issued_at else "Draft / Pending"
         )
+        cert_num = getattr(certificate, "number", None) or getattr(certificate, "certificate_number", None) or f"IPC-{certificate.id}"
+        proj_name = f"{project.name} ({project.code or ''})" if project else certificate.project_id
+        proj_contract = (getattr(project, "contract_type", None) or "Standard FIDIC/JBC") if project else "Standard FIDIC/JBC"
+        proj_client = (project.client_name if project and project.client_name else "M/S Client")
+        proj_loc = (project.location if project and project.location else "Nairobi, Kenya")
+        proj_budget = float(project.budget or 0) if project else 0.0
+
         meta_data = [
-            [Paragraph("<b>Certificate No:</b>", body_style), Paragraph(certificate.certificate_number or f"IPC-{certificate.id}", bold_style),
+            [Paragraph("<b>Certificate No:</b>", body_style), Paragraph(str(cert_num), bold_style),
              Paragraph("<b>Issue Date:</b>", body_style), Paragraph(issued_date_str, body_style)],
-            [Paragraph("<b>Project:</b>", body_style), Paragraph(f"{project.name} ({project.code or ''})", body_style),
-             Paragraph("<b>Contract Type:</b>", body_style), Paragraph(getattr(project, "contract_type", "Standard FIDIC/JBCC") or "Standard", body_style)],
-            [Paragraph("<b>Client:</b>", body_style), Paragraph(project.client_name or "M/S Client", body_style),
+            [Paragraph("<b>Project:</b>", body_style), Paragraph(proj_name, body_style),
+             Paragraph("<b>Contract Type:</b>", body_style), Paragraph(proj_contract, body_style)],
+            [Paragraph("<b>Client:</b>", body_style), Paragraph(proj_client, body_style),
              Paragraph("<b>Status:</b>", body_style), Paragraph(certificate.status.upper(), bold_style)],
-            [Paragraph("<b>Site Location:</b>", body_style), Paragraph(project.location or "Nairobi, Kenya", body_style),
-             Paragraph("<b>Tender Sum:</b>", body_style), Paragraph(f"KES {project.budget:,.2f}" if project.budget else "KES 0.00", bold_style)],
+            [Paragraph("<b>Site Location:</b>", body_style), Paragraph(proj_loc, body_style),
+             Paragraph("<b>Tender Sum:</b>", body_style), Paragraph(f"KES {proj_budget:,.2f}", bold_style)],
         ]
         meta_table = Table(meta_data, colWidths=[35*mm, 55*mm, 35*mm, 55*mm])
         meta_table.setStyle(TableStyle([
@@ -364,23 +495,25 @@ class CertificateViewSet(CertificateBaseViewSet):
 
         # Valuation Breakdown Table
         elements.append(Paragraph("Valuation Summary & Statutory Deductions", heading_style))
-        cur_gross = float(certificate.current_gross or 0)
-        variations = float(certificate.variations or 0)
-        total_gross = cur_gross + variations
+        cur_gross = float(certificate.current_gross or certificate.amount or 0)
+        variations = float(getattr(certificate, "variations_amount", 0) or 0)
+        mos_val = float((certificate.valuation_metadata or {}).get("materials_on_site") or 0)
+        total_gross = cur_gross + variations + mos_val
         retention_pct = float(certificate.retention_percent or 5.0)
         retention_amt = float(certificate.retention_amount or (total_gross * retention_pct / 100.0))
         advance_rec = float(certificate.advance_recovery or 0)
         prev_cert = float(certificate.previous_certified or 0)
-        net_payable = float(certificate.net_payable or (total_gross - retention_amt - advance_rec - prev_cert))
+        net_payable = float(certificate.net_payable or (total_gross - retention_amt - advance_rec))
 
         val_data = [
             [Paragraph("<b>Item Description</b>", bold_style), Paragraph("<b>Amount (KES)</b>", bold_style)],
-            [Paragraph("1. Total Gross Work Completed to Date", body_style), Paragraph(f"{cur_gross:,.2f}", body_style)],
-            [Paragraph("2. Approved Contract Variations & Change Orders", body_style), Paragraph(f"{variations:,.2f}", body_style)],
+            [Paragraph("1. Gross Permanent Works Executed", body_style), Paragraph(f"{cur_gross:,.2f}", body_style)],
+            [Paragraph("2. Materials on Site (Unfixed @ 80%)", body_style), Paragraph(f"{mos_val:,.2f}", body_style)],
+            [Paragraph("3. Approved Contract Variations & Change Orders", body_style), Paragraph(f"{variations:,.2f}", body_style)],
             [Paragraph("<b>Subtotal (Gross Valuation)</b>", bold_style), Paragraph(f"<b>{total_gross:,.2f}</b>", bold_style)],
-            [Paragraph(f"3. Less: Retention Fund ({retention_pct:.1f}%)", body_style), Paragraph(f"({retention_amt:,.2f})", body_style)],
-            [Paragraph("4. Less: Mobilisation Advance Payment Recovery", body_style), Paragraph(f"({advance_rec:,.2f})", body_style)],
-            [Paragraph("5. Less: Previously Certified Interim Payments", body_style), Paragraph(f"({prev_cert:,.2f})", body_style)],
+            [Paragraph(f"4. Less: Retention Fund ({retention_pct:.1f}%)", body_style), Paragraph(f"({retention_amt:,.2f})", body_style)],
+            [Paragraph("5. Less: Mobilisation Advance Payment Recovery", body_style), Paragraph(f"({advance_rec:,.2f})", body_style)],
+            [Paragraph("6. Reference: Previously Certified Interim Payments", body_style), Paragraph(f"{prev_cert:,.2f}", body_style)],
             [Paragraph("<b>NET CERTIFIED AMOUNT PAYABLE</b>", bold_style), Paragraph(f"<b>KES {net_payable:,.2f}</b>", bold_style)],
         ]
         val_table = Table(val_data, colWidths=[120*mm, 60*mm])

@@ -45,3 +45,4 @@ describe("ed25519Signer", () => {
     expect(sig.length).toBeGreaterThan(0);
   });
 });
+

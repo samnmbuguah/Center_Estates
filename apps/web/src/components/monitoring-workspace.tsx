@@ -1,44 +1,41 @@
 "use client";
 
-import { lazy, Suspense, useState, useEffect, useRef } from "react";
+import React, { lazy, Suspense, useState, useEffect } from "react";
 import { ModuleShell } from "@/components/module-shell";
-import { constructionNav } from "@/lib/module-nav";
 import { WorkspaceProvider, useWorkspace } from "@/components/monitoring/context/WorkspaceContext";
-import { fetchDashboard, fetchTickets, fetchDailyLogs, fetchRequisitions, type Ticket, type DailyLog, type Requisition } from "@/components/monitoring/api";
+import {
+  fetchDashboard,
+  fetchTickets,
+  fetchRequisitions,
+  type Ticket,
+  type Requisition,
+} from "@/components/monitoring/api";
 import { usePropertyContext } from "@/lib/property-context";
-import { useAuth } from "@/components/auth-provider";
 import { BrandedLoader } from "@/components/branded-loader";
 
 const Projects = lazy(() => import("@/components/monitoring/pages/Projects").then(m => ({ default: m.Projects })));
 const ProjectWorkspace = lazy(() => import("@/components/monitoring/pages/ProjectWorkspace").then(m => ({ default: m.ProjectWorkspace })));
-const ProjectDetail = lazy(() => import("@/components/monitoring/pages/ProjectDetail").then(m => ({ default: m.ProjectDetail })));
 const Timeline = lazy(() => import("@/components/monitoring/pages/Timeline").then(m => ({ default: m.Timeline })));
-const Finance = lazy(() => import("@/components/monitoring/pages/Finance").then(m => ({ default: m.Finance })));
 const FinancialRequisitions = lazy(() => import("@/components/monitoring/pages/FinancialRequisitions").then(m => ({ default: m.FinancialRequisitions })));
 const Disbursements = lazy(() => import("@/components/monitoring/pages/Disbursements").then(m => ({ default: m.Disbursements })));
 const CostDashboard = lazy(() => import("@/components/monitoring/pages/CostDashboard").then(m => ({ default: m.CostDashboard })));
 const IpcGeneration = lazy(() => import("@/components/monitoring/pages/IpcGeneration").then(m => ({ default: m.IpcGeneration })));
 const Reports = lazy(() => import("@/components/monitoring/pages/Reports").then(m => ({ default: m.Reports })));
 const ExecutiveDashboard = lazy(() => import("@/components/monitoring/pages/ExecutiveDashboard").then(m => ({ default: m.ExecutiveDashboard })));
-const BimViewer = lazy(() => import("@/components/monitoring/pages/BimViewer").then(m => ({ default: m.BimViewer })));
 const ProjectLifecycle = lazy(() => import("@/components/monitoring/pages/ProjectLifecycle").then(m => ({ default: m.ProjectLifecycle })));
 const PreConstruction = lazy(() => import("@/components/monitoring/pages/PreConstruction").then(m => ({ default: m.PreConstruction })));
 const DailyLogs = lazy(() => import("@/components/monitoring/pages/DailyLogs").then(m => ({ default: m.DailyLogs })));
 const SiteVisits = lazy(() => import("@/components/monitoring/pages/SiteVisits").then(m => ({ default: m.SiteVisits })));
-const SiteRecords = lazy(() => import("@/components/monitoring/pages/SiteRecords").then(m => ({ default: m.SiteRecords })));
 const QualityTests = lazy(() => import("@/components/monitoring/pages/QualityTests").then(m => ({ default: m.QualityTests })));
 const Issues = lazy(() => import("@/components/monitoring/pages/Issues").then(m => ({ default: m.Issues })));
 const RfiList = lazy(() => import("@/components/monitoring/pages/RfiList").then(m => ({ default: m.RfiList })));
-const Notices = lazy(() => import("@/components/monitoring/pages/Notices").then(m => ({ default: m.Notices })));
 const Tickets = lazy(() => import("@/components/monitoring/pages/Tickets").then(m => ({ default: m.Tickets })));
 const Subcontractors = lazy(() => import("@/components/monitoring/pages/Subcontractors").then(m => ({ default: m.Subcontractors })));
 const Stakeholders = lazy(() => import("@/components/monitoring/pages/Stakeholders").then(m => ({ default: m.Stakeholders })));
 const Milestones = lazy(() => import("@/components/monitoring/pages/Milestones").then(m => ({ default: m.Milestones })));
 const MilestoneVerifications = lazy(() => import("@/components/monitoring/pages/MilestoneVerifications").then(m => ({ default: m.MilestoneVerifications })));
 const Approvals = lazy(() => import("@/components/monitoring/pages/Approvals").then(m => ({ default: m.Approvals })));
-const CashFlow = lazy(() => import("@/components/monitoring/pages/CashFlow").then(m => ({ default: m.CashFlow })));
 const BoqCostStates = lazy(() => import("@/components/monitoring/pages/BoqCostStates").then(m => ({ default: m.BoqCostStates })));
-const BoQReview = lazy(() => import("@/components/monitoring/pages/BoQReview").then(m => ({ default: m.BoQReview })));
 const BoQMaterialReconciliation = lazy(() => import("@/components/monitoring/pages/BoQMaterialReconciliation").then(m => ({ default: m.BoQMaterialReconciliation })));
 const Variations = lazy(() => import("@/components/monitoring/pages/Variations").then(m => ({ default: m.Variations })));
 const AdvancePayments = lazy(() => import("@/components/monitoring/pages/AdvancePayments").then(m => ({ default: m.AdvancePayments })));
@@ -46,7 +43,6 @@ const ConsultantPayments = lazy(() => import("@/components/monitoring/pages/Cons
 const ContingencyDrawdowns = lazy(() => import("@/components/monitoring/pages/ContingencyDrawdowns").then(m => ({ default: m.ContingencyDrawdowns })));
 const DrawdownRequests = lazy(() => import("@/components/monitoring/pages/DrawdownRequests").then(m => ({ default: m.DrawdownRequests })));
 const ProvisionalSums = lazy(() => import("@/components/monitoring/pages/ProvisionalSums").then(m => ({ default: m.ProvisionalSums })));
-const RetentionRegister = lazy(() => import("@/components/monitoring/pages/RetentionRegister").then(m => ({ default: m.RetentionRegister })));
 const WorkOrderSummary = lazy(() => import("@/components/monitoring/pages/WorkOrderSummary").then(m => ({ default: m.WorkOrderSummary })));
 const Ingestion = lazy(() => import("@/components/monitoring/pages/Ingestion").then(m => ({ default: m.Ingestion })));
 const Store = lazy(() => import("@/components/monitoring/pages/Store").then(m => ({ default: m.Store })));
@@ -62,16 +58,12 @@ const DroneDatasets = lazy(() => import("@/components/monitoring/pages/DroneData
 const SatelliteDatasets = lazy(() => import("@/components/monitoring/pages/SatelliteDatasets").then(m => ({ default: m.SatelliteDatasets })));
 const ProjectDocuments = lazy(() => import("@/components/monitoring/pages/ProjectDocuments").then(m => ({ default: m.ProjectDocuments })));
 const DocumentRevisions = lazy(() => import("@/components/monitoring/pages/DocumentRevisions").then(m => ({ default: m.DocumentRevisions })));
-const MonthlyReports = lazy(() => import("@/components/monitoring/pages/MonthlyReports").then(m => ({ default: m.MonthlyReports })));
 const CalendarPage = lazy(() => import("@/components/monitoring/pages/CalendarPage"));
 const ChatPage = lazy(() => import("@/components/monitoring/pages/ChatPage"));
 const NotificationsPage = lazy(() => import("@/components/monitoring/pages/NotificationsPage"));
-const Administration = lazy(() => import("@/components/monitoring/pages/Administration").then(m => ({ default: m.Administration })));
-const RolesPermissions = lazy(() => import("@/components/monitoring/pages/RolesPermissions").then(m => ({ default: m.RolesPermissions })));
-const Users = lazy(() => import("@/components/monitoring/pages/Users").then(m => ({ default: m.Users })));
 const AdminAuditLog = lazy(() => import("@/components/monitoring/pages/AdminAuditLog").then(m => ({ default: m.AdminAuditLog })));
 
-type Tab =
+export type Tab =
   | "overview"
   | "projects"
   | "project-memberships"
@@ -89,6 +81,7 @@ type Tab =
   | "milestone-verifications"
   | "requirement-waivers"
   | "approvals"
+  | "cost-dashboard"
   | "boq"
   | "variations"
   | "provisional-sums"
@@ -137,11 +130,11 @@ type Tab =
 const tabLabels: Record<Tab, string> = {
   overview: "Command Center Overview",
   projects: "Project Portfolio",
-  "project-memberships": "Project Team & Responsibility",
+  "project-memberships": "Project Command Center",
   lifecycle: "Project Lifecycle & Milestones",
   calendar: "Site & Operational Calendar",
-  milestones: "Physical Progress & Milestones",
-  "daily-logs": "Site Daily Logs & Weather",
+  milestones: "Stage-Gates & Mini-BoQ",
+  "daily-logs": "Site Daily Logs & HSE",
   tickets: "Site Issues & Escalations",
   "ticket-comments": "Issue Discussions & Attachments",
   risks: "Risk Register & Matrix",
@@ -152,6 +145,7 @@ const tabLabels: Record<Tab, string> = {
   "milestone-verifications": "Progress Verification & Certification",
   "requirement-waivers": "Requirement Waivers",
   approvals: "Statutory & Governance Approvals",
+  "cost-dashboard": "Commercial Cost & Cash Flow",
   boq: "Bill of Quantities & Cost States",
   variations: "Variations & Scope Changes",
   "provisional-sums": "Provisional Sums Register",
@@ -162,7 +156,7 @@ const tabLabels: Record<Tab, string> = {
   "work-orders": "Subcontract Work Orders",
   subcontractors: "Subcontractor Register",
   ingestion: "BoQ & Programme Import",
-  materials: "Site Deliveries & Ingestion",
+  materials: "BoQ Material Reconciliation",
   "store-items": "Store & Inventory Ledger",
   "store-suppliers": "Material Suppliers",
   "material-requisitions": "Material Requisitions",
@@ -182,7 +176,7 @@ const tabLabels: Record<Tab, string> = {
   "satellite-datasets": "Satellite Orthomosaics",
   reports: "Executive & Site Reports",
   "site-visits": "Site Visits & Field Inspections",
-  stakeholders: "Project Stakeholders",
+  stakeholders: "Project Team & Stakeholders",
   chat: "Project AI Assistant & Team Chat",
   notifications: "System Notifications",
   "audit-log": "Audit Log & Access Trail",
@@ -192,170 +186,112 @@ const tabLabels: Record<Tab, string> = {
   "role-dev": "Project Developer Dashboard",
   "role-sales": "Sales Dashboard",
   "role-marketing": "Buyer / Marketing Dashboard",
-  "role-clerk": "Clerk Dashboard",
-  "role-valuer": "Valuer Dashboard",
-  "role-facilities": "Facilities Dashboard",
+  "role-clerk": "Clerk of Works Dashboard",
+  "role-valuer": "Quantity Surveyor / Valuer Dashboard",
+  "role-facilities": "Facilities Handover Dashboard",
   "role-admin": "Administrator Dashboard",
 };
 
 /** Exact horizontal navigation items aligned with MonitoringERP */
 export const monitoringHorizontalNav = [
   { id: "overview", label: "Overview" },
-  { id: "tickets", label: "Tickets" },
   { id: "work-plan", label: "Programme" },
-  { id: "milestones", label: "Milestones" },
-  { id: "requisitions", label: "Financials" },
+  { id: "milestones", label: "Stage-Gates & Mini-BoQ" },
+  { id: "cost-dashboard", label: "Cost & Cash Flow" },
+  { id: "boq", label: "Master BoQ" },
+  { id: "certificates", label: "IPCs" },
+  { id: "daily-logs", label: "Daily Logs" },
+  { id: "tickets", label: "Issues" },
   { id: "risks", label: "Risks" },
+  { id: "materials", label: "Materials" },
   { id: "documents", label: "Documents" },
   { id: "reports", label: "Reports" },
-  { id: "site-visits", label: "Site Visits" },
-  { id: "daily-logs", label: "Daily Logs" },
-  { id: "materials", label: "Procurement" },
-  { id: "stakeholders", label: "Stakeholders" },
 ];
 
-function RoleKpiCard({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div
-      className="card"
-      style={{
-        padding: "14px 16px",
-        borderRadius: 10,
-        background: "var(--surface)",
-        border: "1px solid var(--border)",
-        borderLeft: `3px solid ${color}`,
-      }}
-    >
-      <div className="muted" style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 22, fontWeight: 800, color, marginTop: 4 }}>
-        {value}
-      </div>
-    </div>
-  );
-}
+const ROLE_META: Record<string, { title: string; subtitle: string; tableTitle: string }> = {
+  "role-pm": {
+    title: "Project Manager Command View",
+    subtitle: "Programme delivery, stage-gate verifications, risk exposure, and commercial utilization.",
+    tableTitle: "Active Project Portfolio",
+  },
+  "role-finance": {
+    title: "Finance & Commercial Controls",
+    subtitle: "Certified IPC valuations, retention reserves, advance recoveries, and pending requisitions.",
+    tableTitle: "Project Financial Portfolio",
+  },
+  "role-site": {
+    title: "Site Agent Field Operations",
+    subtitle: "Daily site logs, inspections, active work packages, and HSE compliance.",
+    tableTitle: "Site Operations Portfolio",
+  },
+  "role-clerk": {
+    title: "Clerk of Works Verification Hub",
+    subtitle: "Field measurements, photographic evidence, material deliveries, and cube test tracking.",
+    tableTitle: "Projects Under Site Inspection",
+  },
+  "role-valuer": {
+    title: "Quantity Surveyor & Valuation Hub",
+    subtitle: "Mini-BoQ stage-gate valuations, variation orders, and Interim Payment Certificates (IPCs).",
+    tableTitle: "Projects Requiring Valuation",
+  },
+  "role-admin": {
+    title: "Construction Operations Overview",
+    subtitle: "Cross-portfolio governance, team assignments, verifications, and commercial health.",
+    tableTitle: "Portfolio Activity Register",
+  },
+};
 
-function ProjectManagerDashboard() {
+function UnifiedRoleDashboard({ roleKey }: { roleKey: string }) {
+  const { activeProject } = useWorkspace();
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const pid = sessionStorage.getItem("activeProject") || "";
-    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
-    fetchTickets(pid || undefined).then(setTickets).catch(() => {});
-  }, []);
-
-  const d = (data ?? {}) as Record<string, unknown>;
-  const projects = (d.projects ?? {}) as Record<string, unknown>;
-  const activeProjects = Number((projects as Record<string, unknown>).total ?? 0);
-  const overdueMilestones = Number(d.pending_verifications ?? 0);
-  const openRisks = Number(d.tickets_open ?? 0);
-  const costData = (d.cost ?? {}) as Record<string, unknown>;
-  const budgetUtilization = d.cost ? Math.round(((Number(costData.certified_to_date) || 0) / (Number(costData.budget) || 1)) * 100) : 0;
-  const teamMembers = Number((d.team as Record<string, unknown>)?.total ?? 0);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Project Manager Dashboard</h2>
-      {error && (
-        <div style={{ background: "rgba(220, 38, 38, 0.08)", border: "1px solid rgba(220, 38, 38, 0.25)", borderRadius: 8, color: "#dc2626", padding: "10px 14px", fontSize: 13 }}>
-          {error}
-        </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        {[
-          { label: "Active Projects", value: String(activeProjects), color: "var(--brand-primary, #2563eb)" },
-          { label: "Overdue Milestones", value: String(overdueMilestones), color: overdueMilestones > 0 ? "var(--color-danger, #dc2626)" : "var(--color-emerald-strong, #16a34a)" },
-          { label: "Open Risks", value: String(openRisks), color: openRisks > 0 ? "var(--color-warning, #d97706)" : "var(--color-emerald-strong, #16a34a)" },
-          { label: "Budget Utilization", value: `${budgetUtilization}%`, color: "var(--color-info, #0284c7)" },
-          { label: "Team Members", value: String(teamMembers), color: "var(--brand-primary, #2563eb)" },
-        ].map((kpi) => (
-          <RoleKpiCard key={kpi.label} label={kpi.label} value={kpi.value} color={kpi.color} />
-        ))}
-      </div>
-
-      <div className="data-panel">
-        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>Project Portfolio</span>
-        </div>
-        <div className="table-scroll">
-          <table className="fc-data-table">
-            <thead><tr><th>Project</th><th>Progress</th><th>Status</th><th>Budget</th></tr></thead>
-            <tbody>
-              {((d.recentProjects ?? (d.projects as Record<string, unknown>)?.items ?? []) as unknown[]).length === 0 ? (
-                <tr><td colSpan={4} style={{ textAlign: "center", padding: 24 }} className="muted">No active projects.</td></tr>
-              ) : (
-                ((d.recentProjects ?? (d.projects as Record<string, unknown>)?.items ?? []) as unknown[]).slice(0, 8).map((p, i) => {
-                  const pr = p as Record<string, unknown>;
-                  return (
-                    <tr key={String(pr.id ?? i)}>
-                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
-                      <td>
-                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
-                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.progress ?? 0)}%` }} /></div>
-                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.progress ?? 0)}%</span>
-                        </div>
-                      </td>
-                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.status ?? "active")}</span></td>
-                      <td className="mono" style={{ fontSize: 12 }}>{pr.budget ? `KES ${Number(pr.budget).toLocaleString()}` : "—"}</td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="data-panel" style={{ padding: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Recent Tickets</div>
-        {tickets.length === 0 ? (
-          <div className="muted" style={{ fontSize: 12, textAlign: "center", padding: 16 }}>No recent tickets.</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {tickets.slice(0, 5).map((t) => (
-              <div key={t.id} style={{ alignItems: "center", borderBottom: "1px solid var(--line)", display: "flex", gap: 10, padding: "10px 0" }}>
-                <span className="status-pill" style={{ fontSize: 11 }}>{t.priority ?? "medium"}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <strong style={{ display: "block", fontSize: 12 }}>{t.title ?? "—"}</strong>
-                  <span className="muted" style={{ fontSize: 11 }}>{String((t as unknown as Record<string, unknown>).project_name ?? "")}</span>
-                </div>
-                <span className="muted" style={{ fontSize: 11 }}>{t.status ?? "open"}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function FinanceDashboard() {
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const pid = sessionStorage.getItem("activeProject") || "";
+    const pid = activeProject?.id || "";
     fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
-    fetchRequisitions().then(setRequisitions).catch(() => {});
-  }, []);
+    fetchTickets(pid || undefined).then(setTickets).catch(() => {});
+    if (roleKey === "role-finance") {
+      fetchRequisitions().then(setRequisitions).catch(() => {});
+    }
+  }, [activeProject?.id, roleKey]);
+
+  const meta = ROLE_META[roleKey] ?? {
+    title: tabLabels[roleKey as Tab] || "Role Command View",
+    subtitle: "Portfolio KPIs, milestone progress, and commercial status.",
+    tableTitle: "Project Portfolio",
+  };
 
   const d = (data ?? {}) as Record<string, unknown>;
+  const kpisObj = (d.kpis ?? {}) as Record<string, unknown>;
+  const projectsObj = (d.projects ?? {}) as Record<string, unknown>;
   const cost = (d.cost ?? {}) as Record<string, unknown>;
-  const totalBudget = Number(cost.budget ?? 0);
-  const certifiedValue = Number(cost.certified_to_date ?? 0);
-  const paidValue = Number(cost.paid_to_date ?? 0);
-  const outstanding = totalBudget - paidValue;
-  const costVariance = Number(cost.cost_variance ?? 0);
-  const maxBar = Math.max(totalBudget, certifiedValue, paidValue, 1);
+
+  const projectItems = Array.isArray(d.projects)
+    ? (d.projects as Record<string, unknown>[])
+    : (((projectsObj.items ?? d.recentProjects ?? []) as Record<string, unknown>[]));
+
+  const totalProjects = Number(kpisObj.portfolioProjects ?? projectsObj.total ?? projectItems.length ?? 0);
+  const openTickets = Number(kpisObj.openTickets ?? d.tickets_open ?? tickets.length ?? 0);
+  const pendingVerifications = Number(kpisObj.submittedMilestones ?? d.pending_verifications ?? 0);
+  const totalBudget = Number(cost.budget ?? kpisObj.paidValue ?? 0);
+  const certifiedValue = Number(cost.certified_to_date ?? kpisObj.certifiedValue ?? 0);
+
+  const kpis = [
+    { label: "Portfolio Projects", value: String(totalProjects), color: "var(--brand-primary, #2563eb)" },
+    { label: "Submitted Milestones", value: String(pendingVerifications), color: "var(--color-info, #0284c7)" },
+    { label: "Open Site Issues", value: String(openTickets), color: openTickets > 0 ? "var(--color-warning, #d97706)" : "var(--color-emerald-strong, #16a34a)" },
+    { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "var(--color-emerald-strong, #16a34a)" },
+  ];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Finance Dashboard</h2>
+      <div>
+        <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>{meta.title}</h2>
+        <p className="muted" style={{ fontSize: 13, margin: "4px 0 0" }}>{meta.subtitle}</p>
+      </div>
+
       {error && (
         <div style={{ background: "rgba(220, 38, 38, 0.08)", border: "1px solid rgba(220, 38, 38, 0.25)", borderRadius: 8, color: "#dc2626", padding: "10px 14px", fontSize: 13 }}>
           {error}
@@ -363,52 +299,58 @@ function FinanceDashboard() {
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        {[
-          { label: "Total Budget", value: `KES ${(totalBudget / 1e6).toFixed(1)}M`, color: "var(--brand-primary, #2563eb)" },
-          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "var(--color-info, #0284c7)" },
-          { label: "Paid Value", value: `KES ${(paidValue / 1e6).toFixed(1)}M`, color: "var(--color-emerald-strong, #16a34a)" },
-          { label: "Outstanding", value: `KES ${(outstanding / 1e6).toFixed(1)}M`, color: outstanding > 0 ? "var(--color-warning, #d97706)" : "var(--color-emerald-strong, #16a34a)" },
-          { label: "Cost Variance", value: `${costVariance > 0 ? "+" : ""}${costVariance}%`, color: costVariance > 0 ? "var(--color-danger, #dc2626)" : "var(--color-emerald-strong, #16a34a)" },
-        ].map((kpi) => (
-          <RoleKpiCard key={kpi.label} label={kpi.label} value={kpi.value} color={kpi.color} />
-        ))}
-      </div>
-
-      <div className="data-panel" style={{ padding: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>Budget vs Certified vs Paid</div>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 20, height: 140, padding: "0 12px" }}>
-          {[
-            { label: "Budget", value: totalBudget, color: "var(--brand-primary, #2563eb)" },
-            { label: "Certified", value: certifiedValue, color: "var(--color-info, #0284c7)" },
-            { label: "Paid", value: paidValue, color: "var(--color-emerald-strong, #16a34a)" },
-          ].map((bar) => (
-            <div key={bar.label} style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ background: bar.color, borderRadius: 4, height: `${Math.max(4, (bar.value / maxBar) * 100)}%`, minHeight: 4, transition: "height 0.3s" }} title={`KES ${(bar.value / 1e6).toFixed(1)}M`} />
-              <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>{bar.label}</div>
-              <div className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>{`KES ${(bar.value / 1e6).toFixed(1)}M`}</div>
+        {kpis.map((kpi) => (
+          <div
+            key={kpi.label}
+            className="card"
+            style={{
+              padding: "14px 16px",
+              borderRadius: 10,
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderLeft: `3px solid ${kpi.color}`,
+            }}
+          >
+            <div className="muted" style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {kpi.label}
             </div>
-          ))}
-        </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: kpi.color, marginTop: 4 }}>
+              {kpi.value}
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="data-panel">
         <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>Requisitions Pending Approval</span>
+          <span style={{ fontSize: 13, fontWeight: 800 }}>{meta.tableTitle}</span>
         </div>
         <div className="table-scroll">
           <table className="fc-data-table">
-            <thead><tr><th>Reference</th><th>Project</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Code</th>
+                <th>Stage</th>
+                <th>Budget</th>
+              </tr>
+            </thead>
             <tbody>
-              {requisitions.filter((r) => r.status === "submitted" || r.status === "reviewed").length === 0 ? (
-                <tr><td colSpan={5} style={{ textAlign: "center", padding: 24 }} className="muted">No pending requisitions.</td></tr>
+              {projectItems.length === 0 ? (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: "center", padding: 24 }} className="muted">
+                    No active projects found.
+                  </td>
+                </tr>
               ) : (
-                requisitions.filter((r) => r.status === "submitted" || r.status === "reviewed").slice(0, 8).map((r) => (
-                  <tr key={r.id}>
-                    <td><span className="mono" style={{ fontSize: 12, color: "var(--color-violet)", fontWeight: 700 }}>{String((r as unknown as Record<string, unknown>).reference ?? `REQ-${r.id}`)}</span></td>
-                    <td style={{ fontSize: 12 }}>{String((r as unknown as Record<string, unknown>).project_name ?? "—")}</td>
-                    <td className="mono" style={{ fontSize: 12 }}>KES {Number(r.amount ?? 0).toLocaleString()}</td>
-                    <td><span className="status-pill" style={{ fontSize: 11 }}>{r.status}</span></td>
-                    <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>{(r as unknown as Record<string, unknown>).created_at ? new Date(String((r as unknown as Record<string, unknown>).created_at)).toLocaleDateString("en-GB") : "—"}</td>
+                projectItems.slice(0, 8).map((pr, i) => (
+                  <tr key={String(pr.id ?? i)}>
+                    <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
+                    <td className="mono" style={{ fontSize: 12 }}>{String(pr.code ?? "—")}</td>
+                    <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.stage ?? pr.status ?? "active")}</span></td>
+                    <td className="mono" style={{ fontSize: 12 }}>
+                      {pr.budget ? `KES ${Number(pr.budget).toLocaleString()}` : totalBudget ? `KES ${(totalBudget / 1e6).toFixed(1)}M` : "—"}
+                    </td>
                   </tr>
                 ))
               )}
@@ -416,633 +358,94 @@ function FinanceDashboard() {
           </table>
         </div>
       </div>
-    </div>
-  );
-}
 
-function SiteAgentDashboard() {
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    const pid = sessionStorage.getItem("activeProject") || "";
-    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
-    fetchTickets(pid || undefined).then(setTickets).catch(() => {});
-    fetchDailyLogs(pid || undefined, 10).then((r) => setDailyLogs(r.results)).catch(() => {});
-  }, []);
-
-  const d = (data ?? {}) as Record<string, unknown>;
-  const projects = (d.projects ?? {}) as Record<string, unknown>;
-  const activeProjects = Number((projects as Record<string, unknown>).total ?? 0);
-  const todayTasks = Number(d.milestones_due_today ?? 0);
-  const pendingInspections = Number(d.pending_verifications ?? 0);
-  const openIssues = Number(d.tickets_open ?? 0);
-  const safetyScore = Number(d.safety_score ?? 95);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Site Agent Dashboard</h2>
-      {error && (
-        <div style={{ background: "rgba(220, 38, 38, 0.08)", border: "1px solid rgba(220, 38, 38, 0.25)", borderRadius: 8, color: "#dc2626", padding: "10px 14px", fontSize: 13 }}>
-          {error}
-        </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        {[
-          { label: "Active Projects", value: String(activeProjects), color: "var(--brand-primary, #2563eb)" },
-          { label: "Today's Tasks", value: String(todayTasks), color: "var(--color-info, #0284c7)" },
-          { label: "Pending Inspections", value: String(pendingInspections), color: pendingInspections > 0 ? "var(--color-warning, #d97706)" : "var(--color-emerald-strong, #16a34a)" },
-          { label: "Open Issues", value: String(openIssues), color: openIssues > 0 ? "var(--color-danger, #dc2626)" : "var(--color-emerald-strong, #16a34a)" },
-          { label: "Safety Score", value: `${safetyScore}%`, color: safetyScore >= 90 ? "var(--color-emerald-strong, #16a34a)" : safetyScore >= 70 ? "var(--color-warning, #d97706)" : "var(--color-danger, #dc2626)" },
-        ].map((kpi) => (
-          <RoleKpiCard key={kpi.label} label={kpi.label} value={kpi.value} color={kpi.color} />
-        ))}
-      </div>
-
-      <div className="data-panel">
-        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>Today&apos;s Tasks</span>
-        </div>
-        {tickets.filter((t) => t.status === "open" || t.status === "acknowledged").length === 0 ? (
-          <div className="muted" style={{ fontSize: 12, textAlign: "center", padding: 24 }}>No tasks for today. All clear.</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {tickets.filter((t) => t.status === "open" || t.status === "acknowledged").slice(0, 6).map((t) => (
-              <div key={t.id} style={{ alignItems: "center", borderBottom: "1px solid var(--line)", display: "flex", gap: 10, padding: "10px 0" }}>
-                <span className="status-pill" style={{ fontSize: 11 }}>{t.priority ?? "medium"}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <strong style={{ display: "block", fontSize: 12 }}>{t.title ?? "—"}</strong>
-                  <span className="muted" style={{ fontSize: 11 }}>{String((t as unknown as Record<string, unknown>).project_name ?? "")}</span>
-                </div>
-                <span className="muted" style={{ fontSize: 11 }}>{t.status ?? "open"}</span>
-              </div>
-            ))}
+      {roleKey === "role-finance" && requisitions.length > 0 && (
+        <div className="data-panel">
+          <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
+            <span style={{ fontSize: 13, fontWeight: 800 }}>Pending Payment Requisitions</span>
           </div>
-        )}
-      </div>
-
-      <div className="data-panel">
-        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>Recent Daily Logs</span>
-        </div>
-        {dailyLogs.length === 0 ? (
-          <div className="muted" style={{ fontSize: 12, textAlign: "center", padding: 24 }}>No daily logs recorded yet.</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {dailyLogs.slice(0, 5).map((log) => (
-              <div key={log.id} style={{ alignItems: "center", borderBottom: "1px solid var(--line)", display: "flex", gap: 10, padding: "10px 0" }}>
-                <span style={{ fontSize: 16 }}>📋</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <strong style={{ display: "block", fontSize: 12 }}>{log.weather ?? "Log"} — {log.log_date ?? "—"}</strong>
-                  <span className="muted" style={{ fontSize: 11 }}>{log.notes ?? "—"}</span>
-                </div>
-              </div>
-            ))}
+          <div className="table-scroll">
+            <table className="fc-data-table">
+              <thead>
+                <tr><th>Title</th><th>Amount</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                {requisitions.slice(0, 6).map((r) => (
+                  <tr key={r.id}>
+                    <td><strong style={{ fontSize: 12 }}>{r.title}</strong></td>
+                    <td className="mono" style={{ fontSize: 12 }}>KES {Number(r.amount ?? 0).toLocaleString()}</td>
+                    <td><span className="status-pill" style={{ fontSize: 11 }}>{r.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
-
-    </div>
-  );
-}
-
-function RoleDevDashboard() {
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    const pid = sessionStorage.getItem("activeProject") || "";
-    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
-  }, []);
-  const d = (data ?? {}) as Record<string, unknown>;
-  const projects = (d.projects ?? {}) as Record<string, unknown>;
-  const cost = (d.cost ?? {}) as Record<string, unknown>;
-  const activeProjects = Number(projects.total ?? 0);
-  const portfolioProjects = Number(projects.total ?? 0);
-  const totalBudget = Number(cost.budget ?? 0);
-  const certifiedValue = Number(cost.certified_to_date ?? 0);
-  const budgetUtilization = totalBudget > 0 ? Math.round((certifiedValue / totalBudget) * 100) : 0;
-  const openRisks = Number(d.tickets_open ?? 0);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Project Developer Dashboard</h2>
-      <p className="muted" style={{ fontSize: 13, margin: 0 }}>Portfolio overview for project developers and committee members.</p>
-      {error && (
-        <div style={{ background: "rgba(220, 38, 38, 0.08)", border: "1px solid rgba(220, 38, 38, 0.25)", borderRadius: 8, color: "#dc2626", padding: "10px 14px", fontSize: 13 }}>
-          {error}
-        </div>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        {[
-          { label: "Active Projects", value: String(activeProjects), color: "var(--brand-primary, #2563eb)" },
-          { label: "Portfolio Projects", value: String(portfolioProjects), color: "var(--color-info, #0284c7)" },
-          { label: "Budget Utilization", value: `${budgetUtilization}%`, color: "var(--color-emerald-strong, #16a34a)" },
-          { label: "High Risks", value: String(openRisks), color: openRisks > 0 ? "var(--color-danger, #dc2626)" : "var(--color-emerald-strong, #16a34a)" },
-        ].map((kpi) => (
-          <RoleKpiCard key={kpi.label} label={kpi.label} value={kpi.value} color={kpi.color} />
-        ))}
-      </div>
-      <div className="data-panel">
-        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>Project Portfolio</span>
-        </div>
-        <div className="table-scroll">
-          <table className="fc-data-table">
-            <thead><tr><th>Project</th><th>Stage</th><th>Progress</th></tr></thead>
-            <tbody>
-              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
-                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No active projects.</td></tr>
-              ) : (
-                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 8).map((p, i) => {
-                  const pr = p as Record<string, unknown>;
-                  return (
-                    <tr key={String(pr.id ?? i)}>
-                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
-                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.stage ?? pr.status ?? "active")}</span></td>
-                      <td>
-                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
-                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.physical_progress ?? pr.progress ?? 0)}%` }} /></div>
-                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.physical_progress ?? pr.progress ?? 0)}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RoleSalesDashboard() {
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    const pid = sessionStorage.getItem("activeProject") || "";
-    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
-  }, []);
-  const d = (data ?? {}) as Record<string, unknown>;
-  const projects = (d.projects ?? {}) as Record<string, unknown>;
-  const cost = (d.cost ?? {}) as Record<string, unknown>;
-  const totalProjects = Number(projects.total ?? 0);
-  const certifiedValue = Number(cost.certified_to_date ?? 0);
-  const paidValue = Number(cost.paid_to_date ?? 0);
-  const outstanding = certifiedValue - paidValue;
-  const openRisks = Number(d.tickets_open ?? 0);
-  const pendingVerifications = Number(d.pending_verifications ?? 0);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Sales Dashboard</h2>
-      <p className="muted" style={{ fontSize: 13, margin: 0 }}>Sales pipeline and project activity overview.</p>
-      {error && (
-        <div style={{ background: "rgba(220, 38, 38, 0.08)", border: "1px solid rgba(220, 38, 38, 0.25)", borderRadius: 8, color: "#dc2626", padding: "10px 14px", fontSize: 13 }}>
-          {error}
-        </div>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        {[
-          { label: "Total Projects", value: String(totalProjects), color: "var(--brand-primary, #2563eb)" },
-          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "var(--color-info, #0284c7)" },
-          { label: "Outstanding", value: `KES ${(outstanding / 1e6).toFixed(1)}M`, color: outstanding > 0 ? "var(--color-warning, #d97706)" : "var(--color-emerald-strong, #16a34a)" },
-          { label: "Open Risks", value: String(openRisks), color: openRisks > 0 ? "var(--color-danger, #dc2626)" : "var(--color-emerald-strong, #16a34a)" },
-          { label: "Pending Verifications", value: String(pendingVerifications), color: pendingVerifications > 0 ? "var(--color-warning, #d97706)" : "var(--color-emerald-strong, #16a34a)" },
-        ].map((kpi) => (
-          <RoleKpiCard key={kpi.label} label={kpi.label} value={kpi.value} color={kpi.color} />
-        ))}
-      </div>
-      <div className="data-panel">
-        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>Project Sales Summary</span>
-        </div>
-        <div className="table-scroll">
-          <table className="fc-data-table">
-            <thead><tr><th>Project</th><th>Status</th><th>Progress</th></tr></thead>
-            <tbody>
-              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
-                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No projects found.</td></tr>
-              ) : (
-                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 8).map((p, i) => {
-                  const pr = p as Record<string, unknown>;
-                  return (
-                    <tr key={String(pr.id ?? i)}>
-                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
-                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.status ?? "active")}</span></td>
-                      <td>
-                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
-                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.progress ?? 0)}%` }} /></div>
-                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.progress ?? 0)}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RoleMarketingDashboard() {
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    const pid = sessionStorage.getItem("activeProject") || "";
-    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
-  }, []);
-  const d = (data ?? {}) as Record<string, unknown>;
-  const projects = (d.projects ?? {}) as Record<string, unknown>;
-  const cost = (d.cost ?? {}) as Record<string, unknown>;
-  const totalProjects = Number(projects.total ?? 0);
-  const certifiedValue = Number(cost.certified_to_date ?? 0);
-  const totalBudget = Number(cost.budget ?? 0);
-  const budgetUtilization = totalBudget > 0 ? Math.round((certifiedValue / totalBudget) * 100) : 0;
-  const openIssues = Number(d.tickets_open ?? 0);
-  const milestonesDue = Number(d.milestones_due_today ?? 0);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Buyer / Marketing Dashboard</h2>
-      <p className="muted" style={{ fontSize: 13, margin: 0 }}>Marketing and buyer engagement overview.</p>
-      {error && (
-        <div style={{ background: "rgba(220, 38, 38, 0.08)", border: "1px solid rgba(220, 38, 38, 0.25)", borderRadius: 8, color: "#dc2626", padding: "10px 14px", fontSize: 13 }}>
-          {error}
-        </div>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        {[
-          { label: "Project Count", value: String(totalProjects), color: "var(--brand-primary, #2563eb)" },
-          { label: "Lead Pipeline", value: String(totalProjects), color: "var(--color-info, #0284c7)" },
-          { label: "Marketing Spend", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "var(--color-warning, #d97706)" },
-          { label: "Budget Utilization", value: `${budgetUtilization}%`, color: "var(--color-emerald-strong, #16a34a)" },
-        ].map((kpi) => (
-          <RoleKpiCard key={kpi.label} label={kpi.label} value={kpi.value} color={kpi.color} />
-        ))}
-      </div>
-      <div className="data-panel">
-        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>Projects Overview</span>
-        </div>
-        <div className="table-scroll">
-          <table className="fc-data-table">
-            <thead><tr><th>Project</th><th>Status</th><th>Progress</th></tr></thead>
-            <tbody>
-              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
-                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No projects found.</td></tr>
-              ) : (
-                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 8).map((p, i) => {
-                  const pr = p as Record<string, unknown>;
-                  return (
-                    <tr key={String(pr.id ?? i)}>
-                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
-                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.status ?? "active")}</span></td>
-                      <td>
-                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
-                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.progress ?? 0)}%` }} /></div>
-                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.progress ?? 0)}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {milestonesDue > 0 && (
-        <div className="card" style={{ padding: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Upcoming Deadlines</div>
-          <div style={{ fontSize: 12 }} className="muted">{milestonesDue} milestones due today. {openIssues} open issues to review.</div>
         </div>
       )}
     </div>
   );
 }
 
-function RoleClerkDashboard() {
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    const pid = sessionStorage.getItem("activeProject") || "";
-    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
-  }, []);
-  const d = (data ?? {}) as Record<string, unknown>;
-  const projects = (d.projects ?? {}) as Record<string, unknown>;
-  const cost = (d.cost ?? {}) as Record<string, unknown>;
-  const totalProjects = Number(projects.total ?? 0);
-  const pendingVerifications = Number(d.pending_verifications ?? 0);
-  const openTickets = Number(d.tickets_open ?? 0);
-  const paidValue = Number(cost.paid_to_date ?? 0);
-  const certifiedValue = Number(cost.certified_to_date ?? 0);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Clerk Dashboard</h2>
-      <p className="muted" style={{ fontSize: 13, margin: 0 }}>Document management and administrative tasks overview.</p>
-      {error && (
-        <div style={{ background: "rgba(220, 38, 38, 0.08)", border: "1px solid rgba(220, 38, 38, 0.25)", borderRadius: 8, color: "#dc2626", padding: "10px 14px", fontSize: 13 }}>
-          {error}
-        </div>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        {[
-          { label: "Total Projects", value: String(totalProjects), color: "var(--brand-primary, #2563eb)" },
-          { label: "Pending Approvals", value: String(pendingVerifications), color: pendingVerifications > 0 ? "var(--color-warning, #d97706)" : "var(--color-emerald-strong, #16a34a)" },
-          { label: "Open Tickets", value: String(openTickets), color: openTickets > 0 ? "var(--color-danger, #dc2626)" : "var(--color-emerald-strong, #16a34a)" },
-          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "var(--color-info, #0284c7)" },
-        ].map((kpi) => (
-          <RoleKpiCard key={kpi.label} label={kpi.label} value={kpi.value} color={kpi.color} />
-        ))}
-      </div>
-      <div className="data-panel">
-        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>Document Activity</span>
-        </div>
-        <div className="table-scroll">
-          <table className="fc-data-table">
-            <thead><tr><th>Project</th><th>Status</th><th>Progress</th></tr></thead>
-            <tbody>
-              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
-                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No projects found.</td></tr>
-              ) : (
-                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 8).map((p, i) => {
-                  const pr = p as Record<string, unknown>;
-                  return (
-                    <tr key={String(pr.id ?? i)}>
-                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
-                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.status ?? "active")}</span></td>
-                      <td>
-                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
-                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.progress ?? 0)}%` }} /></div>
-                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.progress ?? 0)}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div className="card" style={{ padding: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Payment Summary</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
-          <div><span className="muted">Certified:</span> <span className="mono" style={{ fontWeight: 700 }}>KES {(certifiedValue / 1e6).toFixed(1)}M</span></div>
-          <div><span className="muted">Paid:</span> <span className="mono" style={{ fontWeight: 700 }}>KES {(paidValue / 1e6).toFixed(1)}M</span></div>
-        </div>
-      </div>
-    </div>
-  );
-}
+const AdvanceRecoveriesView = () => <AdvancePayments recoveryOnly />;
 
-function RoleValuerDashboard() {
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    const pid = sessionStorage.getItem("activeProject") || "";
-    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
-  }, []);
-  const d = (data ?? {}) as Record<string, unknown>;
-  const projects = (d.projects ?? {}) as Record<string, unknown>;
-  const cost = (d.cost ?? {}) as Record<string, unknown>;
-  const totalProjects = Number(projects.total ?? 0);
-  const totalBudget = Number(cost.budget ?? 0);
-  const certifiedValue = Number(cost.certified_to_date ?? 0);
-  const costVariance = Number(cost.cost_variance ?? 0);
-  const pendingVerifications = Number(d.pending_verifications ?? 0);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Valuer Dashboard</h2>
-      <p className="muted" style={{ fontSize: 13, margin: 0 }}>Valuation and progress verification overview.</p>
-      {error && (
-        <div style={{ background: "rgba(220, 38, 38, 0.08)", border: "1px solid rgba(220, 38, 38, 0.25)", borderRadius: 8, color: "#dc2626", padding: "10px 14px", fontSize: 13 }}>
-          {error}
-        </div>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        {[
-          { label: "Projects", value: String(totalProjects), color: "var(--brand-primary, #2563eb)" },
-          { label: "Total Budget", value: `KES ${(totalBudget / 1e6).toFixed(1)}M`, color: "var(--color-info, #0284c7)" },
-          { label: "Certified Value", value: `KES ${(certifiedValue / 1e6).toFixed(1)}M`, color: "var(--color-emerald-strong, #16a34a)" },
-          { label: "Cost Variance", value: `${costVariance > 0 ? "+" : ""}${costVariance}%`, color: costVariance > 0 ? "var(--color-danger, #dc2626)" : "var(--color-emerald-strong, #16a34a)" },
-          { label: "Pending Verifications", value: String(pendingVerifications), color: pendingVerifications > 0 ? "var(--color-warning, #d97706)" : "var(--color-emerald-strong, #16a34a)" },
-        ].map((kpi) => (
-          <RoleKpiCard key={kpi.label} label={kpi.label} value={kpi.value} color={kpi.color} />
-        ))}
-      </div>
-      <div className="data-panel" style={{ padding: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 12 }}>Valuation Summary</div>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 20, height: 120, padding: "0 12px" }}>
-          {[
-            { label: "Budget", value: totalBudget, color: "var(--brand-primary, #2563eb)" },
-            { label: "Certified", value: certifiedValue, color: "var(--color-info, #0284c7)" },
-          ].map((bar) => (
-            <div key={bar.label} style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ background: bar.color, borderRadius: 4, height: `${totalBudget > 0 ? Math.max(4, (bar.value / totalBudget) * 100) : 4}%`, minHeight: 4, transition: "height 0.3s" }} title={`KES ${(bar.value / 1e6).toFixed(1)}M`} />
-              <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>{bar.label}</div>
-              <div className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>{`KES ${(bar.value / 1e6).toFixed(1)}M`}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className="data-panel">
-        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>Projects Requiring Verification</span>
-        </div>
-        <div className="table-scroll">
-          <table className="fc-data-table">
-            <thead><tr><th>Project</th><th>Status</th><th>Progress</th></tr></thead>
-            <tbody>
-              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
-                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No projects requiring verification.</td></tr>
-              ) : (
-                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 6).map((p, i) => {
-                  const pr = p as Record<string, unknown>;
-                  return (
-                    <tr key={String(pr.id ?? i)}>
-                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
-                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.status ?? "active")}</span></td>
-                      <td>
-                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
-                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.progress ?? 0)}%` }} /></div>
-                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.progress ?? 0)}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RoleFacilitiesDashboard() {
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    const pid = sessionStorage.getItem("activeProject") || "";
-    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
-  }, []);
-  const d = (data ?? {}) as Record<string, unknown>;
-  const projects = (d.projects ?? {}) as Record<string, unknown>;
-  const cost = (d.cost ?? {}) as Record<string, unknown>;
-  const totalProjects = Number(projects.total ?? 0);
-  const totalBudget = Number(cost.budget ?? 0);
-  const paidValue = Number(cost.paid_to_date ?? 0);
-  const openTickets = Number(d.tickets_open ?? 0);
-  const safetyScore = Number(d.safety_score ?? 0);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Facilities Dashboard</h2>
-      <p className="muted" style={{ fontSize: 13, margin: 0 }}>Facilities management and operational overview.</p>
-      {error && (
-        <div style={{ background: "rgba(220, 38, 38, 0.08)", border: "1px solid rgba(220, 38, 38, 0.25)", borderRadius: 8, color: "#dc2626", padding: "10px 14px", fontSize: 13 }}>
-          {error}
-        </div>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        {[
-          { label: "Active Facilities", value: String(totalProjects), color: "var(--brand-primary, #2563eb)" },
-          { label: "Maintenance Requests", value: String(openTickets), color: openTickets > 0 ? "var(--color-warning, #d97706)" : "var(--color-emerald-strong, #16a34a)" },
-          { label: "Utilization Rate", value: `${totalBudget > 0 ? Math.round((paidValue / totalBudget) * 100) : 0}%`, color: "var(--color-info, #0284c7)" },
-          { label: "Safety Score", value: `${safetyScore}%`, color: safetyScore >= 90 ? "var(--color-emerald-strong, #16a34a)" : safetyScore >= 70 ? "var(--color-warning, #d97706)" : "var(--color-danger, #dc2626)" },
-        ].map((kpi) => (
-          <RoleKpiCard key={kpi.label} label={kpi.label} value={kpi.value} color={kpi.color} />
-        ))}
-      </div>
-      <div className="data-panel">
-        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>Facilities Overview</span>
-        </div>
-        <div className="table-scroll">
-          <table className="fc-data-table">
-            <thead><tr><th>Facility</th><th>Status</th><th>Progress</th></tr></thead>
-            <tbody>
-              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
-                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No facilities found.</td></tr>
-              ) : (
-                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 8).map((p, i) => {
-                  const pr = p as Record<string, unknown>;
-                  return (
-                    <tr key={String(pr.id ?? i)}>
-                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
-                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.status ?? "active")}</span></td>
-                      <td>
-                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
-                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.progress ?? 0)}%` }} /></div>
-                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.progress ?? 0)}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div className="card" style={{ padding: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Budget Summary</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
-          <div><span className="muted">Total Budget:</span> <span className="mono" style={{ fontWeight: 700 }}>KES {(totalBudget / 1e6).toFixed(1)}M</span></div>
-          <div><span className="muted">Spent:</span> <span className="mono" style={{ fontWeight: 700 }}>KES {(paidValue / 1e6).toFixed(1)}M</span></div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RoleAdminDashboard() {
-  const [data, setData] = useState<Record<string, unknown> | null>(null);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    const pid = sessionStorage.getItem("activeProject") || "";
-    fetchDashboard(pid || undefined).then(setData).catch((e) => setError((e as Error).message));
-  }, []);
-  const d = (data ?? {}) as Record<string, unknown>;
-  const projects = (d.projects ?? {}) as Record<string, unknown>;
-  const cost = (d.cost ?? {}) as Record<string, unknown>;
-  const team = (d.team ?? {}) as Record<string, unknown>;
-  const totalProjects = Number(projects.total ?? 0);
-  const teamMembers = Number(team.total ?? 0);
-  const totalBudget = Number(cost.budget ?? 0);
-  const openTickets = Number(d.tickets_open ?? 0);
-  const pendingVerifications = Number(d.pending_verifications ?? 0);
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>Administrator Dashboard</h2>
-      <p className="muted" style={{ fontSize: 13, margin: 0 }}>System administration and user management overview.</p>
-      {error && (
-        <div style={{ background: "rgba(220, 38, 38, 0.08)", border: "1px solid rgba(220, 38, 38, 0.25)", borderRadius: 8, color: "#dc2626", padding: "10px 14px", fontSize: 13 }}>
-          {error}
-        </div>
-      )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        {[
-          { label: "Total Projects", value: String(totalProjects), color: "var(--brand-primary, #2563eb)" },
-          { label: "Team Members", value: String(teamMembers), color: "var(--color-info, #0284c7)" },
-          { label: "System Health", value: `${openTickets === 0 ? "100" : Math.max(0, 100 - openTickets)}%`, color: openTickets === 0 ? "var(--color-emerald-strong, #16a34a)" : "var(--color-warning, #d97706)" },
-          { label: "Pending Tasks", value: String(pendingVerifications), color: pendingVerifications > 0 ? "var(--color-warning, #d97706)" : "var(--color-emerald-strong, #16a34a)" },
-        ].map((kpi) => (
-          <RoleKpiCard key={kpi.label} label={kpi.label} value={kpi.value} color={kpi.color} />
-        ))}
-      </div>
-      <div className="data-panel">
-        <div className="panel-title" style={{ borderBottom: "1px solid var(--line)" }}>
-          <span style={{ fontSize: 13, fontWeight: 800 }}>Recent Audit Activity</span>
-        </div>
-        <div className="table-scroll">
-          <table className="fc-data-table">
-            <thead><tr><th>Project</th><th>Status</th><th>Progress</th></tr></thead>
-            <tbody>
-              {((projects.items ?? d.recentProjects ?? []) as unknown[]).length === 0 ? (
-                <tr><td colSpan={3} style={{ textAlign: "center", padding: 24 }} className="muted">No recent activity.</td></tr>
-              ) : (
-                ((projects.items ?? d.recentProjects ?? []) as unknown[]).slice(0, 8).map((p, i) => {
-                  const pr = p as Record<string, unknown>;
-                  return (
-                    <tr key={String(pr.id ?? i)}>
-                      <td><strong style={{ fontSize: 12 }}>{String(pr.name ?? "—")}</strong></td>
-                      <td><span className="status-pill" style={{ fontSize: 11 }}>{String(pr.status ?? "active")}</span></td>
-                      <td>
-                        <div style={{ alignItems: "center", display: "flex", gap: 8, minWidth: 120 }}>
-                          <div className="progress" style={{ flex: 1 }}><span style={{ width: `${Number(pr.progress ?? 0)}%` }} /></div>
-                          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>{Number(pr.progress ?? 0)}%</span>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div className="card" style={{ padding: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 10 }}>Budget Overview</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 12 }}>
-          <div><span className="muted">Total Budget:</span> <span className="mono" style={{ fontWeight: 700 }}>KES {(totalBudget / 1e6).toFixed(1)}M</span></div>
-          <div><span className="muted">Open Tickets:</span> <span className="mono" style={{ fontWeight: 700 }}>{openTickets}</span></div>
-        </div>
-      </div>
-    </div>
-  );
-}
+/** Declarative OCP Tab Registry: adding a new view requires only one entry here */
+const TAB_REGISTRY: Record<string, React.ComponentType> = {
+  overview: ExecutiveDashboard,
+  projects: Projects,
+  "project-memberships": ProjectWorkspace,
+  lifecycle: ProjectLifecycle,
+  calendar: CalendarPage,
+  milestones: Milestones,
+  "daily-logs": DailyLogs,
+  tickets: Tickets,
+  "ticket-comments": Tickets,
+  risks: Issues,
+  "safety-incidents": DailyLogs,
+  "quality-tests": QualityTests,
+  rfis: RfiList,
+  "work-plan": Timeline,
+  "milestone-verifications": MilestoneVerifications,
+  "requirement-waivers": PreConstruction,
+  approvals: Approvals,
+  "cost-dashboard": CostDashboard,
+  boq: BoqCostStates,
+  variations: Variations,
+  "provisional-sums": ProvisionalSums,
+  "contingency-drawdowns": ContingencyDrawdowns,
+  "advance-payments": AdvancePayments,
+  "advance-recoveries": AdvanceRecoveriesView,
+  "consultant-payments": ConsultantPayments,
+  "work-orders": WorkOrderSummary,
+  subcontractors: Subcontractors,
+  ingestion: Ingestion,
+  materials: BoQMaterialReconciliation,
+  "store-items": Store,
+  "store-suppliers": Suppliers,
+  "material-requisitions": MaterialRequisitions,
+  "purchase-orders": PurchaseOrders,
+  "stock-movements": StockMovements,
+  requisitions: FinancialRequisitions,
+  certificates: IpcGeneration,
+  disbursements: Disbursements,
+  drawdowns: DrawdownRequests,
+  documents: ProjectDocuments,
+  "document-versions": DocumentRevisions,
+  "bim-models": BimModels,
+  "bim-verification": BimVerificationHub,
+  "iqsk-rates": IQSKRatesHandbook,
+  "bim-discrepancies": BimDiscrepancies,
+  "drone-datasets": DroneDatasets,
+  "satellite-datasets": SatelliteDatasets,
+  reports: Reports,
+  "site-visits": SiteVisits,
+  stakeholders: Stakeholders,
+  chat: ChatPage,
+  notifications: NotificationsPage,
+  "audit-log": AdminAuditLog,
+};
 
 function WorkspaceContent() {
   const { activeProperty } = usePropertyContext();
-  const { session } = useAuth();
   const [tab, setTab] = useState<Tab>(() => {
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search).get("tab") as Tab | null;
@@ -1050,20 +453,6 @@ function WorkspaceContent() {
     }
     return "overview";
   });
-
-  // Super administrators land on the operations dashboard, not the
-  // client-facing Command Center overview. Applied after mount so the
-  // SSR render (session is null server-side) matches the client hydration.
-  const initialTabRef = useRef(true);
-  useEffect(() => {
-    if (!initialTabRef.current) return;
-    initialTabRef.current = false;
-    if (session?.user.isSuperuser && !new URLSearchParams(window.location.search).get("tab")) {
-      setTab("role-admin");
-    }
-  }, [session]);
-
-  const { activeProject } = useWorkspace();
 
   const handleSelectTab = (id: string) => {
     setTab(id as Tab);
@@ -1074,12 +463,14 @@ function WorkspaceContent() {
     }
   };
 
+  const ActiveComponent = TAB_REGISTRY[tab];
+
   return (
     <ModuleShell
       moduleKey="monitoring"
       moduleName="Construction Management"
       eyebrow="Construction & Site Operations"
-      title="Construction Management Workspace"
+      title={tabLabels[tab] || "Construction Management Workspace"}
       subtitle="Full lifecycle site monitoring, commercial controls, BIM/GIS, progress certification, and risk engineering."
       accent="var(--color-brand-blue)"
       activeId={tab}
@@ -1087,66 +478,13 @@ function WorkspaceContent() {
     >
       <Suspense fallback={<BrandedLoader compact message="Preparing this view" />}>
         <div key={activeProperty?.id ?? "portfolio"} className="monitoring-workspace-container" style={{ padding: "8px 0" }}>
-        {tab === "overview" && <ExecutiveDashboard />}
-        {tab === "projects" && <Projects />}
-        {tab === "project-memberships" && <ProjectWorkspace />}
-        {tab === "lifecycle" && <ProjectLifecycle />}
-        {tab === "calendar" && <CalendarPage />}
-        {tab === "milestones" && <Milestones />}
-        {tab === "daily-logs" && <DailyLogs />}
-        {tab === "tickets" && <Tickets />}
-        {tab === "ticket-comments" && <Tickets />}
-        {tab === "risks" && <Issues />}
-        {tab === "safety-incidents" && <DailyLogs />}
-        {tab === "quality-tests" && <QualityTests />}
-        {tab === "rfis" && <RfiList />}
-        {tab === "work-plan" && <Timeline />}
-        {tab === "milestone-verifications" && <MilestoneVerifications />}
-        {tab === "requirement-waivers" && <PreConstruction />}
-        {tab === "approvals" && <Approvals />}
-        {tab === "boq" && <BoqCostStates />}
-        {tab === "variations" && <Variations />}
-        {tab === "provisional-sums" && <ProvisionalSums />}
-        {tab === "contingency-drawdowns" && <ContingencyDrawdowns />}
-        {tab === "advance-payments" && <AdvancePayments />}
-        {tab === "advance-recoveries" && <AdvancePayments recoveryOnly />}
-        {tab === "consultant-payments" && <ConsultantPayments />}
-        {tab === "work-orders" && <WorkOrderSummary />}
-        {tab === "subcontractors" && <Subcontractors />}
-        {(tab === "ingestion" || tab === "materials") && <Ingestion />}
-        {tab === "store-items" && <Store />}
-        {tab === "store-suppliers" && <Suppliers />}
-        {tab === "material-requisitions" && <MaterialRequisitions />}
-        {tab === "purchase-orders" && <PurchaseOrders />}
-        {tab === "stock-movements" && <StockMovements />}
-        {tab === "requisitions" && <FinancialRequisitions />}
-        {tab === "certificates" && <IpcGeneration />}
-        {tab === "disbursements" && <Disbursements />}
-        {tab === "drawdowns" && <DrawdownRequests />}
-        {tab === "documents" && <ProjectDocuments />}
-        {tab === "document-versions" && <DocumentRevisions />}
-        {tab === "bim-models" && <BimModels />}
-        {tab === "bim-verification" && <BimVerificationHub />}
-        {tab === "iqsk-rates" && <IQSKRatesHandbook />}
-        {tab === "bim-discrepancies" && <BimDiscrepancies />}
-        {tab === "drone-datasets" && <DroneDatasets />}
-        {tab === "satellite-datasets" && <SatelliteDatasets />}
-        {tab === "reports" && <Reports />}
-        {tab === "site-visits" && <SiteVisits />}
-        {tab === "stakeholders" && <Stakeholders />}
-        {tab === "chat" && <ChatPage />}
-        {tab === "notifications" && <NotificationsPage />}
-        {tab === "audit-log" && <AdminAuditLog />}
-        {tab === "role-pm" && <ProjectManagerDashboard />}
-        {tab === "role-finance" && <FinanceDashboard />}
-        {tab === "role-site" && <SiteAgentDashboard />}
-        {tab === "role-dev" && <RoleDevDashboard />}
-        {tab === "role-sales" && <RoleSalesDashboard />}
-        {tab === "role-marketing" && <RoleMarketingDashboard />}
-        {tab === "role-clerk" && <RoleClerkDashboard />}
-        {tab === "role-valuer" && <RoleValuerDashboard />}
-        {tab === "role-facilities" && <RoleFacilitiesDashboard />}
-        {tab === "role-admin" && <RoleAdminDashboard />}
+          {ActiveComponent ? (
+            <ActiveComponent />
+          ) : tab.startsWith("role-") ? (
+            <UnifiedRoleDashboard roleKey={tab} />
+          ) : (
+            <ExecutiveDashboard />
+          )}
         </div>
       </Suspense>
     </ModuleShell>

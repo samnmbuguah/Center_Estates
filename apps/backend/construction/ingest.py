@@ -407,28 +407,119 @@ def _preview_tasks_sheet(ws):
     return tasks
 
 
-def generate_weekly_milestones_for_project(project, organization, now_ms_stamp: int):
-    tasks = WorkPlanTask.objects.filter(project=project).order_by("start_date")
-    entries = []
+def _require_ingest_permission(request, organization):
+    """Ensure the user is an organization admin, superuser, or holds PM/QS/Site write permission."""
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    if not organization:
+        return True
+    from organizations.models import Membership
+    membership = Membership.objects.filter(
+        organization=organization, user=user, is_active=True
+    ).select_related("role").first()
+    if not membership:
+        return False
+    if membership.is_organization_admin:
+        return True
+    perms = set(membership.effective_permissions()) if hasattr(membership, "effective_permissions") else set()
+    allowed = {
+        "*",
+        "monitoring.commercial",
+        "monitoring.project_admin",
+        "monitoring.site",
+        "monitoring.finance",
+    }
+    return bool(perms & allowed) or not perms
+
+
+def generate_weekly_milestones_for_project(project, organization, now_ms_stamp: int, mode: str = "stage_gate"):
+    """Generates or updates stage-gate MilestoneEntry rows directly linked via FK to WorkPlanTask.
+    In 'stage_gate' mode (default, aligned with FIDIC/JBC WBS practice), each WorkPlanTask maps 1:1
+    to a stage-gate milestone with automatic predecessor stage-gate prerequisites.
+    In 'weekly' mode, tasks are subdivided into 7-day sub-milestones."""
+    tasks = list(WorkPlanTask.objects.filter(project=project).order_by("start_date", "task_id"))
+    if not tasks:
+        return []
+
+    task_id_to_milestone_id = {
+        str(t.task_id).strip(): f"{t.task_id}: {t.task_name}"[:255]
+        for t in tasks
+    }
+    created_or_updated = []
+
     for task in tasks:
-        current = task.start_date
-        week = 1
-        while current <= task.end_date:
-            label = f"Week {week}: {task.task_name}"
-            entries.append(MilestoneEntry(
-                id=str(uuid.uuid4()),
-                project_id=str(project.id),
-                organization=organization,
-                milestone_id=label,
-                percent_complete=0,
-                created_at=now_ms_stamp,
-                updated_at=now_ms_stamp,
-            ))
-            current += datetime.timedelta(days=7)
-            week += 1
-    if entries:
-        MilestoneEntry.objects.bulk_create(entries)
-    return entries
+        if mode == "weekly":
+            current = task.start_date
+            week = 1
+            while current <= task.end_date:
+                label = f"Week {week}: {task.task_name}"[:255]
+                entry = MilestoneEntry.objects.filter(
+                    project_id=str(project.id), milestone_id=label, deleted_at__isnull=True
+                ).first()
+                if not entry:
+                    entry = MilestoneEntry.objects.create(
+                        id=str(uuid.uuid4()),
+                        project_id=str(project.id),
+                        organization=organization,
+                        milestone_id=label,
+                        work_plan_task=task,
+                        percent_complete=int(task.percent_complete or 0),
+                        created_at=now_ms_stamp,
+                        updated_at=now_ms_stamp,
+                    )
+                else:
+                    entry.work_plan_task = task
+                    entry.updated_at = now_ms_stamp
+                    entry.save(update_fields=["work_plan_task", "updated_at"])
+                created_or_updated.append(entry)
+                current += datetime.timedelta(days=7)
+                week += 1
+        else:
+            label = f"{task.task_id}: {task.task_name}"[:255]
+            prereq_labels = []
+            if task.predecessors:
+                for raw_pred in str(task.predecessors).replace(";", ",").split(","):
+                    p_code = raw_pred.strip()
+                    if p_code and p_code in task_id_to_milestone_id:
+                        prereq_labels.append(task_id_to_milestone_id[p_code])
+
+            entry = (
+                MilestoneEntry.objects.filter(
+                    project_id=str(project.id), work_plan_task=task, deleted_at__isnull=True
+                ).first()
+                or MilestoneEntry.objects.filter(
+                    project_id=str(project.id), milestone_id=label, deleted_at__isnull=True
+                ).first()
+                or MilestoneEntry.objects.filter(
+                    project_id=str(project.id), milestone_id=task.task_name[:255], deleted_at__isnull=True
+                ).first()
+            )
+            if not entry:
+                entry = MilestoneEntry.objects.create(
+                    id=str(uuid.uuid4()),
+                    project_id=str(project.id),
+                    organization=organization,
+                    milestone_id=label,
+                    work_plan_task=task,
+                    percent_complete=int(task.percent_complete or 0),
+                    prerequisites=prereq_labels,
+                    required_evidence_types=["photo", "geo_tag"],
+                    required_certifying_role="qs",
+                    created_at=now_ms_stamp,
+                    updated_at=now_ms_stamp,
+                )
+            else:
+                entry.work_plan_task = task
+                if prereq_labels and not entry.prerequisites:
+                    entry.prerequisites = prereq_labels
+                entry.updated_at = now_ms_stamp
+                entry.save(update_fields=["work_plan_task", "prerequisites", "updated_at"])
+            created_or_updated.append(entry)
+
+    return created_or_updated
 
 
 # ── HTTP Views & Endpoints ──────────────────────────────────────────────────
@@ -543,8 +634,11 @@ def ingestion_preview(request, project_id: str):
 
 @api_view(["POST"])
 def ingest_commit_json(request, project_id: str):
-    """Commits pre-parsed Work Plan tasks and/or BoQ items into database records."""
+    """Commits pre-parsed Work Plan tasks and/or BoQ items into database records using
+    non-destructive upsert so existing MilestoneBoQItem allocations and field progress survive."""
     organization = get_active_organization(request)
+    if not _require_ingest_permission(request, organization):
+        return Response({"error": "Permission denied: QS or Project Manager role required to commit baselines."}, status=403)
     try:
         project = Project.objects.get(id=project_id, organization=organization)
     except Project.DoesNotExist:
@@ -554,6 +648,7 @@ def ingest_commit_json(request, project_id: str):
     data = request.data or {}
     wp_data = data.get("work_plan_tasks")
     boq_data = data.get("boq_items")
+    milestone_mode = str(data.get("milestone_mode") or "stage_gate")
 
     res = {
         "work_plan_tasks": 0,
@@ -564,66 +659,83 @@ def ingest_commit_json(request, project_id: str):
 
     with transaction.atomic():
         if isinstance(wp_data, list):
-            WorkPlanTask.objects.filter(project=project).delete()
-            tasks = []
-            for t in wp_data:
-                task_id = str(t.get("task_id") or uuid.uuid4().hex[:8])
+            upserted_tasks = 0
+            for idx, t in enumerate(wp_data, start=1):
+                task_id = str(t.get("task_id") or f"T-{idx:03d}")[:20]
                 task_name = str(t.get("task_name") or "").strip()
                 if not task_name:
                     continue
                 start = _parse_date(t.get("start_date")) or datetime.date.today()
                 end = _parse_date(t.get("end_date")) or datetime.date.today()
-                duration = int(t.get("duration_days") or 0)
-                tasks.append(WorkPlanTask(
+                duration = int(t.get("duration_days") or max(1, (end - start).days))
+                WorkPlanTask.objects.update_or_create(
                     project=project,
-                    organization=organization,
                     task_id=task_id,
-                    task_name=task_name,
-                    start_date=start,
-                    end_date=end,
-                    duration_days=duration,
-                    predecessors=str(t.get("predecessors") or ""),
-                    resource=str(t.get("resource") or ""),
-                    responsible_party=str(t.get("responsible_party") or t.get("resource") or ""),
-                    percent_complete=Decimal(str(t.get("percent_complete") or 0)),
-                    wbs_level=int(t.get("wbs_level") or 0),
-                    approval_status="approved",
-                ))
-            if tasks:
-                WorkPlanTask.objects.bulk_create(tasks)
-                res["work_plan_tasks"] = len(tasks)
-                milestones = generate_weekly_milestones_for_project(project, organization, now)
+                    defaults={
+                        "organization": organization,
+                        "task_name": task_name,
+                        "start_date": start,
+                        "end_date": end,
+                        "duration_days": duration,
+                        "predecessors": str(t.get("predecessors") or ""),
+                        "resource": str(t.get("resource") or ""),
+                        "responsible_party": str(t.get("responsible_party") or t.get("resource") or ""),
+                        "percent_complete": Decimal(str(t.get("percent_complete") or 0)),
+                        "wbs_level": int(t.get("wbs_level") or 0),
+                        "approval_status": "approved",
+                    },
+                )
+                upserted_tasks += 1
+            if upserted_tasks:
+                res["work_plan_tasks"] = upserted_tasks
+                milestones = generate_weekly_milestones_for_project(
+                    project, organization, now, mode=milestone_mode
+                )
                 res["milestones_created"] = len(milestones)
 
         if isinstance(boq_data, list):
-            BoQItem.objects.filter(project=project).delete()
-            items = []
-            for b in boq_data:
+            upserted_items = 0
+            for idx, b in enumerate(boq_data, start=1):
                 desc = str(b.get("description") or "").strip()
                 if not desc:
                     continue
+                section = str(b.get("section") or "general")[:30]
+                item_number = str(b.get("item_number") or f"{idx}")[:20]
                 qty = _parse_decimal(b.get("quantity"))
                 rate = _parse_decimal(b.get("rate"))
                 amt = _parse_decimal(b.get("amount"))
                 if amt is None and qty is not None and rate is not None:
                     amt = Decimal(str(round(float(qty) * float(rate), 2)))
 
-                items.append(BoQItem(
-                    project=project,
-                    organization=organization,
-                    section=str(b.get("section") or "general"),
-                    item_number=str(b.get("item_number") or ""),
-                    description=desc,
-                    unit=str(b.get("unit") or ""),
-                    quantity=qty,
-                    rate=rate,
-                    amount=amt,
-                    approval_status="approved",
-                    cost_state="budgeted",
-                ))
-            if items:
-                BoQItem.objects.bulk_create(items)
-                res["boq_items"] = len(items)
+                existing = BoQItem.objects.filter(
+                    project=project, section=section, item_number=item_number
+                ).first()
+                if existing:
+                    existing.description = desc
+                    existing.unit = str(b.get("unit") or existing.unit or "")
+                    existing.quantity = qty
+                    existing.rate = rate
+                    existing.amount = amt
+                    existing.approval_status = "approved"
+                    existing.save(update_fields=[
+                        "description", "unit", "quantity", "rate", "amount", "approval_status"
+                    ])
+                else:
+                    BoQItem.objects.create(
+                        project=project,
+                        organization=organization,
+                        section=section,
+                        item_number=item_number,
+                        description=desc,
+                        unit=str(b.get("unit") or ""),
+                        quantity=qty,
+                        rate=rate,
+                        amount=amt,
+                        approval_status="approved",
+                        cost_state="budgeted",
+                    )
+                upserted_items += 1
+            res["boq_items"] = upserted_items
 
     return Response(res, status=200)
 
@@ -653,12 +765,15 @@ def ingestion_status(request, project_id: str):
 @api_view(["POST"])
 def generate_milestones_endpoint(request, project_id: str):
     organization = get_active_organization(request)
+    if not _require_ingest_permission(request, organization):
+        return Response({"error": "Permission denied"}, status=403)
     try:
         project = Project.objects.get(id=project_id, organization=organization)
     except Project.DoesNotExist:
         return Response({"error": "Project not found"}, status=404)
 
-    entries = generate_weekly_milestones_for_project(project, organization, _now_ms())
+    mode = str((request.data or {}).get("mode") or "stage_gate")
+    entries = generate_weekly_milestones_for_project(project, organization, _now_ms(), mode=mode)
     return Response({"ok": True, "milestones_created": len(entries)}, status=200)
 
 

@@ -53,6 +53,7 @@ export function BoQAllocationDrawer({
   const [search, setSearch] = useState("");
 
   const [allBoqItems, setAllBoqItems] = useState<ProjectBoqItem[]>([]);
+  const [allocatedElsewhere, setAllocatedElsewhere] = useState<Record<number, number>>({});
   const [allocatedItems, setAllocatedItems] = useState<
     { boq_item_id: number; allocated_quantity: number; notes?: string }[]
   >([]);
@@ -74,6 +75,13 @@ export function BoQAllocationDrawer({
 
       .then(([boqList, miniBoqRes]) => {
         setAllBoqItems(Array.isArray(boqList) ? boqList : []);
+        const elsewhereMap: Record<number, number> = {};
+        if (miniBoqRes?.allocated_elsewhere && typeof miniBoqRes.allocated_elsewhere === "object") {
+          for (const [k, v] of Object.entries(miniBoqRes.allocated_elsewhere)) {
+            elsewhereMap[Number(k)] = Number(v || 0);
+          }
+        }
+        setAllocatedElsewhere(elsewhereMap);
         const existing = (miniBoqRes?.items || []).map((it: any) => ({
           boq_item_id: it.boq_item_id || it.boq_item?.id,
           allocated_quantity: Number(it.allocated_quantity || 0),
@@ -110,7 +118,10 @@ export function BoQAllocationDrawer({
     if (allocatedMap.has(item.id)) {
       setAllocatedItems(allocatedItems.filter((it) => it.boq_item_id !== item.id));
     } else {
-      const defaultQty = Number(item.quantity) || 1;
+      const contractQty = Number(item.quantity) || 0;
+      const elsewhereQty = allocatedElsewhere[item.id] || 0;
+      const remainingQty = Math.max(0, contractQty - elsewhereQty);
+      const defaultQty = remainingQty > 0 ? remainingQty : contractQty || 1;
       setAllocatedItems([
         ...allocatedItems,
         { boq_item_id: item.id, allocated_quantity: defaultQty, notes: "" },
@@ -278,16 +289,24 @@ export function BoQAllocationDrawer({
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {filteredBoq.map((item) => {
                 const isAllocated = allocatedMap.has(item.id);
-                const currentQty = allocatedMap.get(item.id) ?? Number(item.quantity);
+                const contractQty = Number(item.quantity || 0);
+                const elsewhereQty = allocatedElsewhere[item.id] || 0;
+                const remainingContractQty = Math.max(0, contractQty - elsewhereQty);
+                const currentQty = allocatedMap.get(item.id) ?? remainingContractQty;
                 const rate = Number(item.rate || 0);
                 const subtotal = currentQty * rate;
+                const isOverAllocated = isAllocated && (elsewhereQty + currentQty > contractQty * 1.0001);
 
                 return (
                   <div
                     key={item.id}
                     style={{
                       border: "1px solid",
-                      borderColor: isAllocated ? "var(--color-brand-blue, #0066cc)" : "var(--border)",
+                      borderColor: isOverAllocated
+                        ? "#dc2626"
+                        : isAllocated
+                          ? "var(--color-brand-blue, #0066cc)"
+                          : "var(--border)",
                       background: isAllocated ? "rgba(0, 102, 204, 0.02)" : "var(--surface)",
                       borderRadius: 8,
                       padding: "10px 14px",
@@ -315,8 +334,13 @@ export function BoQAllocationDrawer({
                           {item.description}
                         </strong>
                       </div>
-                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                        Contract Scope: {Number(item.quantity).toLocaleString()} {item.unit} @ KES {rate.toLocaleString()}
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <span>Contract Scope: {contractQty.toLocaleString()} {item.unit} @ KES {rate.toLocaleString()}</span>
+                        {elsewhereQty > 0 && (
+                          <span style={{ color: "#b45309", fontWeight: 600 }}>
+                            Allocated elsewhere: {elsewhereQty.toLocaleString()} {item.unit} · Available: {remainingContractQty.toLocaleString()} {item.unit}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -328,7 +352,8 @@ export function BoQAllocationDrawer({
                           <input
                             type="number"
                             min={0}
-                            max={Number(item.quantity) * 1.5}
+                            max={remainingContractQty}
+                            step="any"
                             value={currentQty}
                             onChange={(e) => handleUpdateQty(item.id, Number(e.target.value) || 0)}
                             style={{
@@ -337,7 +362,7 @@ export function BoQAllocationDrawer({
                               fontSize: 12,
                               padding: "2px 8px",
                               borderRadius: 4,
-                              border: "1px solid var(--border)",
+                              border: `1px solid ${isOverAllocated ? "#dc2626" : "var(--border)"}`,
                               textAlign: "right",
                               fontFamily: "monospace",
                             }}

@@ -8,6 +8,15 @@ export function money(v: number | string | null | undefined, currency = "KSh"): 
   return `${currency} ${num.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 }
 
+export function moneyExact(v: unknown, currency = "KES"): string {
+  const num = Number(v ?? 0);
+  const formatted = (Number.isFinite(num) ? num : 0).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return currency ? `${currency} ${formatted}` : formatted;
+}
+
 export function pct(v: number | null | undefined, digits = 0): string {
   if (v == null || !Number.isFinite(Number(v))) return "—";
   return `${Number(v).toFixed(digits)}%`;

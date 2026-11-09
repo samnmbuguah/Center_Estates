@@ -48,8 +48,8 @@ from .base import ConstructionScopedViewSet, scoped_viewset
 
 DailyLogViewSet = scoped_viewset("DailyLogViewSet", DailyLog, DailyLogSerializer, ("notes", "weather"))
 RiskViewSet = scoped_viewset("RiskViewSet", Risk, RiskSerializer, ("reference", "description"))
-WorkPlanTaskViewSet = scoped_viewset("WorkPlanTaskViewSet", WorkPlanTask, WorkPlanTaskSerializer, ("task_name", "task_id"))
-BoQItemViewSet = scoped_viewset("BoQItemViewSet", BoQItem, BoQItemSerializer, ("description", "item_number"))
+WorkPlanTaskBaseViewSet = scoped_viewset("WorkPlanTaskBaseViewSet", WorkPlanTask, WorkPlanTaskSerializer, ("task_name", "task_id"))
+BoQItemBaseViewSet = scoped_viewset("BoQItemBaseViewSet", BoQItem, BoQItemSerializer, ("description", "item_number"))
 QualityTestViewSet = scoped_viewset("QualityTestViewSet", QualityTest, QualityTestSerializer, ("test_type", "result"))
 RfiViewSet = scoped_viewset("RfiViewSet", Rfi, RfiSerializer, ("title", "question", "number"))
 SafetyIncidentViewSet = scoped_viewset("SafetyIncidentViewSet", SafetyIncident, SafetyIncidentSerializer, ("description", "action_taken"))
@@ -66,9 +66,88 @@ SubcontractorViewSet = scoped_viewset("SubcontractorViewSet", Subcontractor, Sub
 WorkOrderViewSet = scoped_viewset("ConstructionWorkOrderViewSet", WorkOrder, WorkOrderSerializer, ("order_number", "description", "boq_section"))
 VariationBaseViewSet = scoped_viewset("VariationBaseViewSet", Variation, VariationSerializer, ("description", "variation_number"))
 
+
+BOQ_VALID_TRANSITIONS = {
+    "budgeted": {"ascertained", "committed", "certified"},
+    "ascertained": {"committed", "certified"},
+    "committed": {"certified"},
+    "certified": {"paid"},
+    "paid": set(),
+}
+
+
+class WorkPlanTaskViewSet(WorkPlanTaskBaseViewSet):
+    write_permission = 'monitoring.site'
+
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+        task = serializer.instance
+        if task and "percent_complete" in serializer.validated_data:
+            pct = max(0, min(100, int(Decimal(str(task.percent_complete or 0)))))
+            MilestoneEntry.objects.filter(
+                project_id=str(task.project_id),
+                work_plan_task=task,
+                submitted_at__isnull=True,
+                deleted_at__isnull=True,
+            ).update(percent_complete=pct, updated_at=int(time() * 1000))
+
+
+class BoQItemViewSet(BoQItemBaseViewSet):
+    write_permission = 'monitoring.commercial'
+
+    @action(detail=True, methods=["post"], url_path="transition")
+    def transition(self, request, pk=None):
+        item = self.get_object()
+        target_state = str(request.data.get("target_state") or request.data.get("cost_state") or "").strip().lower()
+        allowed = BOQ_VALID_TRANSITIONS.get(item.cost_state, set())
+        if target_state not in allowed:
+            raise ValidationError({
+                "target_state": f"Cannot transition BoQ item from '{item.cost_state}' to '{target_state}'."
+            })
+
+        update_fields = ["cost_state"]
+        item.cost_state = target_state
+        if target_state == "certified":
+            cert_qty = request.data.get("certified_quantity")
+            cert_amt = request.data.get("certified_amount")
+            if cert_qty is not None and str(cert_qty).strip() != "":
+                item.certified_quantity = Decimal(str(cert_qty))
+            elif not item.certified_quantity:
+                item.certified_quantity = item.quantity or Decimal("0")
+            if cert_amt is not None and str(cert_amt).strip() != "":
+                item.certified_amount = Decimal(str(cert_amt))
+            else:
+                item.certified_amount = (
+                    Decimal(str(item.certified_quantity or 0)) * Decimal(str(item.rate or 0))
+                ).quantize(Decimal("0.01"))
+            update_fields.extend(["certified_quantity", "certified_amount"])
+
+        item.save(update_fields=update_fields)
+        return Response(self.get_serializer(item).data)
+
+    @action(detail=False, methods=["post"], url_path="bulk-transition")
+    @transaction.atomic
+    def bulk_transition(self, request):
+        target_state = str(request.data.get("target_state") or "").strip().lower()
+        item_ids = request.data.get("item_ids") or []
+        if target_state not in ("ascertained", "committed", "certified", "paid"):
+            raise ValidationError({"target_state": "Invalid target cost state."})
+        qs = self.get_queryset().filter(id__in=item_ids)
+        updated = 0
+        for item in qs:
+            if target_state in BOQ_VALID_TRANSITIONS.get(item.cost_state, set()):
+                item.cost_state = target_state
+                fields = ["cost_state"]
+                if target_state == "certified" and not item.certified_amount:
+                    item.certified_quantity = item.quantity or Decimal("0")
+                    item.certified_amount = item.amount or Decimal("0.00")
+                    fields.extend(["certified_quantity", "certified_amount"])
+                item.save(update_fields=fields)
+                updated += 1
+        return Response({"ok": True, "updated": updated})
+
+
 # Permission assignments
-WorkPlanTaskViewSet.write_permission = 'monitoring.site'
-BoQItemViewSet.write_permission = 'monitoring.commercial'
 QualityTestViewSet.write_permission = 'monitoring.site'
 RfiViewSet.write_permission = 'monitoring.site'
 SafetyIncidentViewSet.write_permission = 'monitoring.site'

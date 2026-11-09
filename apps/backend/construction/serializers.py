@@ -33,7 +33,12 @@ ProjectSerializer = serializer_for(Project, {
     "created_at": serializers.IntegerField(read_only=True),
     "portfolio_project_name": serializers.CharField(source="portfolio_project.name", read_only=True),
 })
-MilestoneSerializer = serializer_for(MilestoneEntry)
+MilestoneSerializer = serializer_for(MilestoneEntry, {
+    "work_plan_task_code": serializers.CharField(source="work_plan_task.task_id", read_only=True, default=""),
+    "work_plan_task_name": serializers.CharField(source="work_plan_task.task_name", read_only=True, default=""),
+    "planned_start_date": serializers.DateField(source="work_plan_task.start_date", read_only=True, default=None),
+    "planned_end_date": serializers.DateField(source="work_plan_task.end_date", read_only=True, default=None),
+})
 MilestoneVerificationSerializer = serializer_for(MilestoneVerification, {
     "milestone_name": serializers.CharField(source="milestone_entry.milestone_id", read_only=True),
     "verifier_name": serializers.CharField(source="verifier.username", read_only=True),

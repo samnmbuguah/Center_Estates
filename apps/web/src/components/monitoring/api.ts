@@ -181,11 +181,29 @@ export class ApiError extends Error {
 function normalizePath(rawPath: string): string {
   let p = rawPath.replace(/\/+/g, "/");
 
-  // Rewrite /projects/ingest/status/ before nested project ID check
+  // Preserve real nested project endpoints that exist in construction/urls.py without trailing slash
+  const directProjectEndpointMatch = p.match(
+    /^\/projects\/([^/]+)\/(cost-dashboard|cash-flow-forecast|boq-material-reconciliation|ingest\/(?:preview|commit|status|generate))(?:\/)?(\?.*)?$/
+  );
+  if (directProjectEndpointMatch) {
+    let effectiveProjectId = directProjectEndpointMatch[1];
+    if ((!effectiveProjectId || effectiveProjectId === "undefined" || effectiveProjectId === "null") && typeof window !== "undefined") {
+      try {
+        effectiveProjectId = sessionStorage.getItem("activeProject") || localStorage.getItem("activeProject") || "";
+      } catch {}
+    }
+    const sub = directProjectEndpointMatch[2];
+    const qs = directProjectEndpointMatch[3] || "";
+    if (effectiveProjectId) {
+      return `/projects/${effectiveProjectId}/${sub}${qs}`;
+    }
+  }
+
+  // Rewrite /projects/ingest/status/ without ID
   p = p.replace(/^\/projects\/ingest(?:\/status)?/, "/dashboard");
 
   // Handle nested /projects/:id/subresource paths and direct /projects/subresource paths
-  const subresourcePattern = "(boq-items|cost-dashboard|lifecycle|milestones|variations|boq-review|boq-material-reconciliation|contingency-drawdowns|quality-tests|consultant-payments|subcontractors|work-orders|provisional-sums|advance-payments|anomalies|waivers|bim-models|bim-discrepancies|drone-datasets|satellite-datasets|ingest\\/status|documents|members)";
+  const subresourcePattern = "(boq-items|lifecycle|milestones|variations|boq-review|contingency-drawdowns|quality-tests|consultant-payments|subcontractors|work-orders|provisional-sums|advance-payments|anomalies|waivers|bim-models|bim-discrepancies|drone-datasets|satellite-datasets|documents|members)";
   const nestedMatch = p.match(new RegExp(`^\\/projects\\/([^/]+)\\/${subresourcePattern}(?:\\/|\\?(.*))?$`));
   const directSubMatch = !nestedMatch ? p.match(new RegExp(`^\\/projects\\/${subresourcePattern}(?:\\/|\\?(.*))?$`)) : null;
 
@@ -202,9 +220,9 @@ function normalizePath(rawPath: string): string {
     }
 
     let targetEndpoint = subresource;
-    if (subresource === "cost-dashboard" || subresource === "anomalies" || subresource === "ingest/status") {
+    if (subresource === "anomalies") {
       targetEndpoint = "dashboard";
-    } else if (subresource === "boq-items" || subresource === "boq-review" || subresource === "boq-material-reconciliation") {
+    } else if (subresource === "boq-items" || subresource === "boq-review") {
       targetEndpoint = "boq";
     } else if (subresource === "waivers") {
       targetEndpoint = "requirement-waivers";
@@ -224,6 +242,11 @@ function normalizePath(rawPath: string): string {
   p = p.replace(/^\/projects\/lifecycle/, "/lifecycle");
   p = p.replace(/^\/projects\/milestones/, "/milestones");
 
+  // Finance & BoQ action rewrites
+  p = p.replace(/^\/finance\/ipc\/generate/, "/certificates/generate-ipc");
+  p = p.replace(/^\/finance\/boq\/bulk-transition/, "/boq/bulk-transition");
+  p = p.replace(/^\/finance\/boq\/([^/]+)\/transition/, "/boq/$1/transition");
+
   // General alias rewrites
   p = p.replace(/^\/users/, "/project-memberships");
   p = p.replace(/^\/(?:finance\/)?drawdown-requests/, "/drawdowns");
@@ -235,7 +258,7 @@ function normalizePath(rawPath: string): string {
   p = p.replace(/^\/store\/items/, "/store-items");
   p = p.replace(/^\/issues/, "/tickets");
   p = p.replace(/^\/milestones\/pending-verification/, "/milestone-verifications");
-  p = p.replace(/^\/reports\/(weekly|scurve|exec-dashboard|compliance)/, "/dashboard");
+  p = p.replace(/^\/reports\/(exec-dashboard|compliance)/, "/dashboard");
   p = p.replace(/^\/audit\/logs/, "/audit-log");
   p = p.replace(/^\/audit\/verify\//, "/audit/verify/");
   p = p.replace(/^\/ai\/status/, "/dashboard");
@@ -566,7 +589,10 @@ export const payDisbursement = (id: number) => post<Disbursement>(`/finance/disb
 export const voidDisbursement = (id: number, reason: string) => post<Disbursement>(`/finance/disbursements/${id}/void`, { reason });
 
 export async function fetchCertificatePdf(id: number): Promise<Blob> {
-  const res = await fetch(`${API_BASE}/finance/certificates/${id}/pdf`, { headers: authHeaders() });
+  const res = await fetch(`${API_BASE}/certificates/${id}/pdf/`, {
+    headers: authHeaders(),
+    credentials: "include",
+  });
   if (!res.ok) throw new ApiError(res.status, "Couldn't generate the certificate PDF.");
   return res.blob();
 }
@@ -655,10 +681,10 @@ export const updateMilestone = (projectId: string, milestoneId: string, data: an
 export const deleteMilestone = (projectId: string, milestoneId: string) => del(`/projects/${projectId}/milestones/${milestoneId}`);
 
 export const fetchMilestoneMiniBoQ = (milestoneDbId: string | number) =>
-  get<{ milestone_id: string; percent_complete: number; items: any[]; valuation: any }>(`/milestones/${milestoneDbId}/mini-boq`);
+  get<{ milestone_id: string; percent_complete: number; items: any[]; valuation: any; allocated_elsewhere?: Record<string, number> }>(`/milestones/${milestoneDbId}/mini-boq`);
 
 export const saveMilestoneMiniBoQ = (milestoneDbId: string | number, items: { boq_item_id: number; allocated_quantity: number; notes?: string }[]) =>
-  post<{ milestone_id: string; percent_complete: number; items: any[]; valuation: any }>(`/milestones/${milestoneDbId}/mini-boq`, { items });
+  post<{ milestone_id: string; percent_complete: number; items: any[]; valuation: any; allocated_elsewhere?: Record<string, number> }>(`/milestones/${milestoneDbId}/mini-boq`, { items });
 
 export const autoMapBoQToMilestones = (projectId: string, milestoneId?: string) =>
   post<{ status: string; mapped_allocations: number; message: string }>("/milestones/auto-map-boq", { project_id: projectId, milestone_id: milestoneId });

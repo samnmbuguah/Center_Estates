@@ -4,8 +4,7 @@ import { ArrowLeft, CheckCircle, Filter, Upload, Download } from "lucide-react";
 import { fetchBoqItems, fetchProjects, transitionCostState, bulkTransitionCostState, boqTemplateUrl } from "../api";
 import { useAuth } from "../auth";
 import { ErrorBanner } from "../components";
-
-const money = (v: unknown) => Number(v ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+import { moneyExact as money } from "../lib/format";
 
 const STATE_COLORS: Record<string, string> = {
   budgeted: "var(--muted)",
@@ -16,6 +15,14 @@ const STATE_COLORS: Record<string, string> = {
 };
 
 const STATE_ORDER = ["budgeted", "ascertained", "committed", "certified", "paid"];
+
+const VALID_NEXT_STATES: Record<string, string[]> = {
+  budgeted: ["ascertained", "committed"],
+  ascertained: ["committed"],
+  committed: ["certified"],
+  certified: ["paid"],
+  paid: [],
+};
 
 interface ProjectOption { id: string; name: string }
 
@@ -59,27 +66,7 @@ export function BoqCostStates() {
     total: items.filter((i) => i.cost_state === s).reduce((sum, i) => sum + Number(i.amount || 0), 0),
   }));
 
-  const canTransition = (current: string, target: string): boolean => {
-    const valid: Record<string, string[]> = {
-      budgeted: ["ascertained", "committed"],
-      ascertained: ["committed"],
-      committed: ["certified"],
-      certified: ["paid"],
-      paid: [],
-    };
-    return valid[current]?.includes(target) ?? false;
-  };
-
-  const validNextStates = (current: string): string[] => {
-    const valid: Record<string, string[]> = {
-      budgeted: ["ascertained", "committed"],
-      ascertained: ["committed"],
-      committed: ["certified"],
-      certified: ["paid"],
-      paid: [],
-    };
-    return valid[current] ?? [];
-  };
+  const validNextStates = (current: string): string[] => VALID_NEXT_STATES[current] ?? [];
 
   async function handleTransition(itemId: number, target: string, extra?: Record<string, unknown>) {
     try {

@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 
 from organizations.models import Organization, Role
-from properties.models import Project as PortfolioProject
+from properties.models import Project as PortfolioProject, Property
 from construction.models import (
     Project as ConstructionProject,
     WorkPlanTask,
@@ -75,12 +75,37 @@ class Command(BaseCommand):
         self.stdout.write(f"Importing Karam Apartments into Organization: {org.name} ({org.id})")
 
         with transaction.atomic():
+            # 0. Dedicated Property Record
+            property_rec, _ = Property.objects.update_or_create(
+                organization=org,
+                code="CE-NRB-007",
+                defaults={
+                    "name": "Karam Apartments — Lang'ata",
+                    "property_type": "Residential",
+                    "status": Property.Status.ACTIVE,
+                    "address": "Plot L.R. No. Nairobi/Block 106/1601 & 106/1602, Lang'ata",
+                    "city": "Nairobi",
+                    "country": "KE",
+                    "latitude": Decimal("-1.332000"),
+                    "longitude": Decimal("36.758000"),
+                    "total_blocks": 2,
+                    "total_units_count": 96,
+                    "created_by": admin_user,
+                    "metadata": {
+                        "client": "M/S Karam Logistics Ltd",
+                        "floors": 12,
+                        "units": 96,
+                    },
+                },
+            )
+
             # 1. Portfolio Project
             portfolio_prj, _ = PortfolioProject.objects.update_or_create(
                 organization=org,
                 code=portfolio_code,
                 defaults={
                     "name": "Karam Apartments — Lang'ata",
+                    "property": property_rec,
                     "status": PortfolioProject.Status.ACTIVE,
                     "lifecycle_stage": PortfolioProject.LifecycleStage.CONSTRUCTION,
                     "starts_on": datetime.date(2026, 8, 17),
@@ -349,7 +374,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"Created {len(boq_to_create)} BoQ items (Total: KES 966,558,567.00)."))
 
             # 5. Weekly Milestones (90 Weeks)
-            MilestoneEntry.objects.filter(project_id=construction_prj.id).delete()
+            existing_milestones = {m.milestone_id: m for m in MilestoneEntry.objects.filter(project_id=construction_prj.id)}
             major_stages = [
                 (1, 10, "Mobilisation, Excavation & Substructure Bases"),
                 (11, 20, "Ground Floor Slab & Columns to 2nd Floor"),
@@ -361,10 +386,12 @@ class Command(BaseCommand):
                 (86, 90, "Testing, Commissioning, External Works & Final Handover"),
             ]
 
-            start_dt = datetime.date(2026, 8, 17)
             milestones_to_create = []
             for wk in range(1, 91):
                 stage_desc = next((desc for s, e, desc in major_stages if s <= wk <= e), "General Construction")
+                m_title = f"Week {wk:02d}: {stage_desc}"[:250]
+                if m_title in existing_milestones:
+                    continue
                 milestones_to_create.append(
                     MilestoneEntry(
                         id=str(uuid.uuid4()),
@@ -372,14 +399,17 @@ class Command(BaseCommand):
                         created_at=now_ms,
                         updated_at=now_ms,
                         project_id=construction_prj.id,
-                        milestone_id=f"Week {wk:02d}: {stage_desc}"[:250],
+                        milestone_id=m_title,
                         percent_complete=0,
                         required_evidence_types=["site_photo", "clerk_diary", "survey_level"],
                         required_certifying_role="Resident Engineer",
                     )
                 )
-            MilestoneEntry.objects.bulk_create(milestones_to_create)
-            self.stdout.write(self.style.SUCCESS(f"Created {len(milestones_to_create)} weekly milestones."))
+            if milestones_to_create:
+                MilestoneEntry.objects.bulk_create(milestones_to_create)
+                self.stdout.write(self.style.SUCCESS(f"Created {len(milestones_to_create)} new weekly milestones."))
+            else:
+                self.stdout.write(self.style.SUCCESS("All 90 weekly milestones already exist and are intact."))
 
             # 6. Project Documents
             docs_data = [
@@ -457,7 +487,7 @@ class Command(BaseCommand):
 
             # 9. Project Memberships for Testing
             cow_role = Role.objects.filter(organization=org, slug__icontains="clerk").first() or Role.objects.filter(organization=org).first()
-            active_users = User.objects.filter(organization=org, is_active=True)
+            active_users = User.objects.filter(erp_memberships__organization=org, is_active=True).distinct()
             for u in active_users:
                 ProjectMembership.objects.update_or_create(
                     user=u,

@@ -134,6 +134,10 @@ def cost_dashboard(request, project_id):
     total_recovered = _money(advance_agg["total_recovered"])
     advance_outstanding = (total_advance - total_recovered).quantize(CENT)
 
+    from ..valuation import calculate_materials_on_site
+    mos_data = calculate_materials_on_site(project)
+    mos_certified = _money(mos_data.get("mos_certified_value", 0))
+
     forecast = (budget + approved_vars + total_contingency).quantize(CENT)
     return Response({
         "project_id": str(project.id),
@@ -151,6 +155,8 @@ def cost_dashboard(request, project_id):
         "paid_to_date": str(paid_to_date),
         "total_retention_held": str(total_retention_held),
         "total_advance_recovery": str(total_advance_recovery),
+        "materials_on_site": str(mos_certified),
+        "materials_on_site_lines": mos_data.get("lines", []),
         "boq_total": str(_money(boq_agg["total_amount"])),
         "boq_certified_total": str(_money(boq_agg["total_certified"])),
         "boq_by_state": boq_by_state,
