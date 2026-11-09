@@ -3,14 +3,19 @@ Unit and integration tests for BimBoqVerifier quantity take-off and IQSK benchma
 """
 from decimal import Decimal
 import tempfile
-import ifcopenshell
-import ifcopenshell.guid
+import unittest
+try:
+    import ifcopenshell
+    import ifcopenshell.guid
+except ImportError:
+    ifcopenshell = None
 from django.test import TestCase
 
 from construction.models import IQSKCostRate
 from construction.services.bim_verifier import BimBoqVerifier
 
 
+@unittest.skipIf(ifcopenshell is None, "ifcopenshell is not installed in this environment")
 class BimBoqVerifierTestCase(TestCase):
     @classmethod
     def setUpTestData(cls):

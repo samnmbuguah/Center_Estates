@@ -1,13 +1,15 @@
 """
 API Views for BIM Model Ingestion, Automated Quantity Verification & IQSK Benchmarks.
 """
+import time
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db.models import Q, Count
 
-from construction.models import IQSKCostRate
+from core.tenancy import get_active_organization
+from construction.models import BimDiscrepancy, IQSKCostRate, Project
 from construction.serializers_verification import (
     IQSKCostRateSerializer,
     BimBoqVerificationUploadSerializer
@@ -19,11 +21,12 @@ class BimBoqVerifyView(APIView):
     """
     POST /api/v1/construction/bim/verify-quantities/
     Ingests structural BIM (.ifc) and Bill of Quantities (.xlsx / .csv),
-    computes physical quantities, flags variances/omissions, and benchmarks
-    costs against the IQSK Construction Costs Handbook.
+    computes physical quantities, flags variances/omissions, benchmarks
+    costs against the IQSK Construction Costs Handbook, and automatically
+    logs detected discrepancies into the project's BimDiscrepancy register.
     """
     parser_classes = [MultiPartParser, FormParser, JSONParser]
-    permission_classes = [permissions.AllowAny]  # Can be tightened if auth required
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
         serializer = BimBoqVerificationUploadSerializer(data=request.data)
@@ -33,6 +36,7 @@ class BimBoqVerifyView(APIView):
         ifc_file = serializer.validated_data["ifc_file"]
         boq_file = serializer.validated_data.get("boq_file")
         boq_json = serializer.validated_data.get("boq_json")
+        project_id = str(request.data.get("project_id") or request.query_params.get("project_id") or "").strip()
 
         try:
             ifc_bytes = ifc_file.read()
@@ -53,6 +57,46 @@ class BimBoqVerifyView(APIView):
             # If BoQ items exist, run reconciliation audit
             if boq_items:
                 audit_result = verifier.reconcile()
+
+                # Automatically persist discrepancies to BimDiscrepancy register if project_id is provided
+                logged_discrepancies = 0
+                if project_id:
+                    org = get_active_organization(request)
+                    project = (
+                        Project.objects.filter(id=project_id, organization=org).first()
+                        if org else Project.objects.filter(id=project_id).first()
+                    )
+                    if project:
+                        now_ms = int(time.time() * 1000)
+                        for row in audit_result.get("audit_matrix", []):
+                            row_status = str(row.get("status") or "")
+                            if row_status in ("CRITICAL_DISCREPANCY", "OMISSION", "VARIANCE"):
+                                key_slug = str(row.get("key") or "elem")[:18]
+                                disc_id = f"bim-{str(project.id)[:12]}-{key_slug}"[:36]
+                                sev = "high" if row_status in ("CRITICAL_DISCREPANCY", "OMISSION") else "medium"
+                                desc = (
+                                    f"[{row_status}] {row.get('label', key_slug)}: "
+                                    f"BIM Model QTO = {row.get('model_qty', 0)} {row.get('unit', '')} vs "
+                                    f"BoQ = {row.get('boq_qty', 0)} {row.get('unit', '')} "
+                                    f"(Variance: {row.get('variance_pct', 0):.1f}%, Exposure: KES {row.get('financial_exposure', 0):,.2f})"
+                                )
+                                BimDiscrepancy.objects.update_or_create(
+                                    id=disc_id,
+                                    defaults={
+                                        "project": project,
+                                        "organization": project.organization,
+                                        "milestone_ref": key_slug,
+                                        "description": desc,
+                                        "severity": sev,
+                                        "status": "open",
+                                        "confidence_score": 95,
+                                        "created_at": now_ms,
+                                        "updated_at": now_ms,
+                                    },
+                                )
+                                logged_discrepancies += 1
+                audit_result["logged_discrepancies"] = logged_discrepancies
+
                 return Response({
                     "status": "success",
                     "filename": ifc_file.name,

@@ -43,6 +43,7 @@ class ConstructionApiTests(TestCase):
         self.project = Project.objects.create(
             id="construction-project-1", organization=self.organization,
             portfolio_project=portfolio, name="Project One", code="P1", stage="active",
+            onboarding_complete=True,
             created_at=int(time() * 1000), budget=Decimal("5000000"),
             site_latitude=-1.2676, site_longitude=36.8108, geofence_radius_m=250,
         )
@@ -804,10 +805,10 @@ class ConstructionApiTests(TestCase):
             quantity=Decimal("160.00"),
             unit="m3",
             supplier="Bamburi Special Products",
-            delivery_date=1,
+            delivery_date="2026-11-05",
             boq_item_id=item.id,
+            received_by=self.user,
             created_at=1,
-            updated_at=1,
         )
         url = f"/api/v1/construction/projects/{self.project.id}/boq-material-reconciliation"
         response = self.client.get(url, **self.headers)
@@ -857,7 +858,7 @@ class ConstructionApiTests(TestCase):
         )
         # Attempting to update m2 progress while m1 is only 50% should fail
         url = f"/api/v1/construction/milestones/{m2.id}/"
-        response = self.client.patch(url, {"percent_complete": 25}, format="json", **self.headers)
+        response = self.mobile_client().patch(url, {"percent_complete": 25}, format="json", **self.headers)
         self.assertEqual(response.status_code, 400)
         self.assertIn("Stage-gate locked", str(response.data))
 
@@ -871,10 +872,197 @@ class ConstructionApiTests(TestCase):
         # Once m1 reaches 100%, m2 can advance
         m1.percent_complete = 100
         m1.save()
-        res_ok = self.client.patch(url, {"percent_complete": 25}, format="json", **self.headers)
+        res_ok = self.mobile_client().patch(url, {"percent_complete": 25}, format="json", **self.headers)
         self.assertEqual(res_ok.status_code, 200)
         m2.refresh_from_db()
         self.assertEqual(m2.percent_complete, 25)
+
+    def test_multi_certificate_retention_and_auto_advance_amortization(self):
+        now = int(time() * 1000)
+        adv = AdvancePayment.objects.create(
+            organization=self.organization,
+            project=self.project,
+            contractor_name="Main Contractor",
+            amount=Decimal("500000.00"),
+            recovered_amount=Decimal("0.00"),
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+        # Issue IPC-002 and IPC-003 via generate_ipc with 5% retention and 50,000 advance recovery each
+        for num in ("IPC-002", "IPC-003"):
+            res = self.client.post(
+                "/api/v1/construction/certificates/generate-ipc/",
+                {
+                    "project_id": self.project.id,
+                    "number": num,
+                    "current_gross": "1000000.00",
+                    "retention_percent": "5",
+                    "advance_recovery": "50000.00",
+                    "supporting_documents": [{"name": f"{num}_valuation.pdf", "size": 10240, "type": "application/pdf"}],
+                },
+                format="json",
+                **self.headers,
+            )
+            self.assertEqual(res.status_code, 201, res.data)
+
+        # Verify AdvancePayment was automatically amortized by 100,000 (50k x 2)
+        adv.refresh_from_db()
+        self.assertEqual(adv.recovered_amount, Decimal("100000.00"))
+        self.assertEqual(AdvanceRecovery.objects.filter(advance_payment=adv).count(), 2)
+
+        # Verify supporting documents were registered in ProjectDocument
+        self.assertTrue(
+            ProjectDocument.objects.filter(project=self.project, title__icontains="IPC-002").exists()
+        )
+
+        # Verify Cost Dashboard computes retention per certificate (50,000 + 50,000 = 100,000), NOT 10% of total
+        cd = self.client.get(
+            f"/api/v1/construction/projects/{self.project.id}/cost-dashboard", **self.headers
+        )
+        self.assertEqual(cd.status_code, 200)
+        # Total gross across IPC-001 (1M, 0% ret), IPC-002 (1M, 5% ret = 50k), IPC-003 (1M, 5% ret = 50k) -> 3M gross, 100k retention -> 2.9M certified_to_date
+        self.assertEqual(Decimal(cd.data["total_retention_held"]), Decimal("100000.00"))
+        self.assertEqual(Decimal(cd.data["certified_to_date"]), Decimal("2900000.00"))
+
+    def test_mobile_push_enforces_stage_gates_and_syncs_workplan_task(self):
+        import datetime
+        from .models import WorkPlanTask
+
+        task = WorkPlanTask.objects.create(
+            organization=self.organization,
+            project=self.project,
+            task_id="WBS-10",
+            task_name="Roofing Structure",
+            start_date=datetime.date(2026, 9, 1),
+            end_date=datetime.date(2026, 9, 30),
+            duration_days=30,
+            percent_complete=Decimal("0"),
+            approval_status="approved",
+        )
+        prereq = MilestoneEntry.objects.create(
+            id="ms-prereq-wall",
+            organization=self.organization,
+            project_id=self.project.id,
+            milestone_id="WBS-09: Ring Beam",
+            percent_complete=60,
+            created_at=1,
+            updated_at=1,
+        )
+        mobile = self.mobile_client()
+        ts = int(time() * 1000)
+
+        # Pushing progress on dependent milestone while prerequisite is at 60% must fail (400)
+        blocked = mobile.post(
+            "/api/v1/construction/sync/push",
+            {
+                "changes": {
+                    "milestone_entries": {
+                        "created": [
+                            {
+                                "id": "ms-roof-1",
+                                "project_id": self.project.id,
+                                "milestone_id": "WBS-10: Roofing Structure",
+                                "percent_complete": 50,
+                                "prerequisites": ["WBS-09: Ring Beam"],
+                            }
+                        ]
+                    }
+                }
+            },
+            format="json",
+            **self.headers,
+        )
+        self.assertEqual(blocked.status_code, 400)
+        self.assertIn("Stage-gate locked", str(blocked.data))
+
+        # Complete prerequisite and push again -> succeeds and rolls up to WorkPlanTask
+        prereq.percent_complete = 100
+        prereq.save()
+        ok = mobile.post(
+            "/api/v1/construction/sync/push",
+            {
+                "changes": {
+                    "milestone_entries": {
+                        "created": [
+                            {
+                                "id": "ms-roof-1",
+                                "project_id": self.project.id,
+                                "milestone_id": "WBS-10: Roofing Structure",
+                                "percent_complete": 80,
+                                "prerequisites": ["WBS-09: Ring Beam"],
+                                "submitted_at": ts,
+                            }
+                        ]
+                    }
+                }
+            },
+            format="json",
+            **self.headers,
+        )
+        self.assertEqual(ok.status_code, 200, ok.data)
+        task.refresh_from_db()
+        self.assertEqual(task.percent_complete, Decimal("80.0"))
+        self.assertEqual(task.status, "in_progress")
+
+    def test_procurement_po_receipt_and_issue_sync_with_boq_and_mos(self):
+        boq = BoQItem.objects.create(
+            organization=self.organization,
+            project=self.project,
+            section="Superstructure",
+            item_number="STL-01",
+            description="High yield steel reinforcement bars",
+            unit="tonne",
+            quantity=Decimal("100.00"),
+            rate=Decimal("120000.00"),
+            amount=Decimal("12000000.00"),
+            approval_status="approved",
+            cost_state="budgeted",
+        )
+        item = StoreItem.objects.create(
+            organization=self.organization,
+            code="STL-01",
+            name="High yield steel reinforcement bars",
+            unit="tonne",
+            created_at=1,
+        )
+        supplier = StoreSupplier.objects.create(organization=self.organization, name="Devki Steel Mills")
+        po_res = self.client.post(
+            "/api/v1/construction/purchase-orders/",
+            {
+                "project": self.project.id,
+                "supplier": supplier.id,
+                "number": "PO-STL-01",
+                "lines": [{"item": item.id, "quantity": "40", "unit_price": "120000"}],
+            },
+            format="json",
+            **self.headers,
+        )
+        self.assertEqual(po_res.status_code, 201)
+        order = PurchaseOrder.objects.get(number="PO-STL-01")
+
+        # Receive PO -> logs MaterialDelivery and transitions BoQItem to 'committed'
+        rec_res = self.client.post(
+            f"/api/v1/construction/purchase-orders/{order.id}/receive/", {}, format="json", **self.headers
+        )
+        self.assertEqual(rec_res.status_code, 200)
+        boq.refresh_from_db()
+        self.assertEqual(boq.cost_state, "committed")
+        delivery = MaterialDelivery.objects.filter(project_id=self.project.id, boq_item=boq).first()
+        self.assertIsNotNone(delivery)
+        self.assertEqual(delivery.quantity, Decimal("40.00"))
+
+        # Issue 15 tonnes to site -> increments BoQItem.executed_quantity to 15
+        iss_res = self.client.post(
+            f"/api/v1/construction/store-items/{item.id}/issue/",
+            {"quantity": "15", "project": self.project.id, "reference": "ISS-STL-01"},
+            format="json",
+            **self.headers,
+        )
+        self.assertEqual(iss_res.status_code, 200)
+        boq.refresh_from_db()
+        self.assertEqual(boq.executed_quantity, Decimal("15.0000"))
+
 
 
 

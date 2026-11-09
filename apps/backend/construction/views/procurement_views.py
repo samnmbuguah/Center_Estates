@@ -2,6 +2,7 @@
 Procurement & store ViewSets:
   StoreItem, StoreSupplier, MaterialRequisition, PurchaseOrder, StockMovement.
 """
+import datetime
 from decimal import Decimal
 from time import time
 
@@ -13,7 +14,7 @@ from rest_framework.response import Response
 from core.tenancy import get_active_organization
 
 from ..models import (
-    MaterialRequisition, MaterialRequisitionLine,
+    BoQItem, MaterialDelivery, MaterialRequisition, MaterialRequisitionLine,
     Project, PurchaseOrder, PurchaseOrderLine,
     StockMovement, StoreItem, StoreSupplier,
 )
@@ -22,6 +23,37 @@ from ..serializers import (
     StockMovementSerializer, StoreItemSerializer, StoreSupplierSerializer,
 )
 from .base import ConstructionScopedViewSet
+
+
+def _match_boq_item(project, store_item):
+    """Finds a matching BoQItem on the project for a StoreItem by code or name."""
+    if not project or not store_item:
+        return None
+    qs = BoQItem.objects.filter(project=project)
+    if store_item.code:
+        exact = qs.filter(item_number__iexact=store_item.code).first()
+        if exact:
+            return exact
+    if store_item.name:
+        by_name = qs.filter(description__icontains=store_item.name).first()
+        if by_name:
+            return by_name
+    return None
+
+
+def _sync_issue_to_boq(project, store_item, issued_qty: Decimal, now_ms: int):
+    """When materials are issued from Store to a project site, increments the matched
+    BoQItem's executed_quantity (converting unfixed Materials on Site into fixed works)."""
+    boq_item = _match_boq_item(project, store_item)
+    if not boq_item or issued_qty <= 0:
+        return
+    cur_exec = Decimal(str(boq_item.executed_quantity or 0))
+    new_exec = (cur_exec + issued_qty).quantize(Decimal("0.0001"))
+    if boq_item.quantity and new_exec > Decimal(str(boq_item.quantity)):
+        new_exec = Decimal(str(boq_item.quantity)).quantize(Decimal("0.0001"))
+    boq_item.executed_quantity = new_exec
+    boq_item.progress_updated_at = now_ms
+    boq_item.save(update_fields=["executed_quantity", "progress_updated_at"])
 
 
 class StoreItemViewSet(ConstructionScopedViewSet):
@@ -55,6 +87,7 @@ class StoreItemViewSet(ConstructionScopedViewSet):
             raise ValidationError({"quantity": "The issue exceeds available stock."})
         locked.quantity_on_hand = new_balance
         locked.save(update_fields=("quantity_on_hand",))
+        now = int(time() * 1000)
         StockMovement.objects.create(
             organization=organization,
             project=project,
@@ -63,8 +96,10 @@ class StoreItemViewSet(ConstructionScopedViewSet):
             quantity=signed_quantity,
             reference=reference,
             created_by=request.user,
-            created_at=int(time() * 1000),
+            created_at=now,
         )
+        if movement_type == "issue" and project and signed_quantity < 0:
+            _sync_issue_to_boq(project, locked, abs(signed_quantity), now)
         return Response(StoreItemSerializer(locked).data)
 
     @action(detail=True, methods=("post",))
@@ -190,6 +225,8 @@ class MaterialRequisitionViewSet(ConstructionScopedViewSet):
                 created_by=request.user,
                 created_at=now,
             )
+            if requisition.project:
+                _sync_issue_to_boq(requisition.project, item, line.quantity, now)
         requisition.status = "fulfilled"
         requisition.save(update_fields=("status",))
         return Response(self.get_serializer(requisition).data)
@@ -244,6 +281,7 @@ class PurchaseOrderViewSet(ConstructionScopedViewSet):
         if order.status != "sent":
             raise ValidationError({"status": "Only a sent purchase order can be received."})
         now = int(time() * 1000)
+        today_str = datetime.date.today().isoformat()
         for line in order.lines.all():
             item = StoreItem.objects.select_for_update().get(pk=line.item_id)
             item.quantity_on_hand += line.quantity
@@ -258,6 +296,24 @@ class PurchaseOrderViewSet(ConstructionScopedViewSet):
                 created_by=request.user,
                 created_at=now,
             )
+            if order.project:
+                matched_boq = _match_boq_item(order.project, item)
+                MaterialDelivery.objects.create(
+                    organization=organization,
+                    project_id=str(order.project.id),
+                    delivery_date=today_str,
+                    material=str(item.name or item.code or "Store Item")[:120],
+                    quantity=line.quantity,
+                    unit=str(item.unit or "")[:20],
+                    supplier=str(order.supplier.name if order.supplier else "")[:120],
+                    remarks=f"Auto-logged from Purchase Order {order.number}",
+                    boq_item=matched_boq,
+                    received_by=request.user,
+                    created_at=now,
+                )
+                if matched_boq and matched_boq.cost_state in ("budgeted", "ascertained"):
+                    matched_boq.cost_state = "committed"
+                    matched_boq.save(update_fields=["cost_state"])
         order.status = "received"
         order.received_at = now
         order.save(update_fields=("status", "received_at"))
