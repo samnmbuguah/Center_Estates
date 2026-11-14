@@ -868,6 +868,14 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
     setSelected(readyIds);
   }, [run?.id, chargeTypeFilter, billingTarget, rawCandidates.length]);
 
+  useEffect(() => {
+    if (!previewCandidate) return;
+    const updated = rawCandidates.find((c) => c.id === previewCandidate.id);
+    if (updated && updated !== previewCandidate) {
+      setPreviewCandidate(updated);
+    }
+  }, [rawCandidates, previewCandidate]);
+
   if (loading && allRuns.length === 0) return <LoadingState rows={6} />;
 
   return (
@@ -1100,6 +1108,10 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
           onRecordMeter={(c) => {
             setPreviewCandidate(null);
             setRecordMeterCandidate(c);
+          }}
+          onRefresh={async () => {
+            await mutate("prepare");
+            await load();
           }}
         />
       )}

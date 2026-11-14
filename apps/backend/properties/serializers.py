@@ -111,15 +111,44 @@ class BillingReadinessIssueSerializer(serializers.ModelSerializer):
 
 
 class BillingCandidateSerializer(serializers.ModelSerializer):
+    lease_id = serializers.UUIDField(source='lease.id', read_only=True)
     tenant_name = serializers.CharField(source='lease.tenant.name', read_only=True)
     property_name = serializers.CharField(source='lease.unit.property.name', read_only=True)
     unit_code = serializers.CharField(source='lease.unit.code', read_only=True)
     lease_reference = serializers.CharField(source='lease.reference', read_only=True)
     invoice_number = serializers.CharField(source='invoice.number', read_only=True, default='')
+    parking_fee = serializers.SerializerMethodField()
+    parking_bay = serializers.SerializerMethodField()
+
     class Meta:
         model = BillingCandidate
         exclude = ('organization', 'excluded_by')
         read_only_fields = tuple(field.name for field in BillingCandidate._meta.fields if field.name not in ('id', 'organization'))
+
+    def get_parking_fee(self, obj):
+        lease = getattr(obj, 'lease', None)
+        if not lease:
+            return '0.00'
+        meta = lease.metadata if isinstance(lease.metadata, dict) else {}
+        pf = meta.get('parking_fee') or meta.get('monthly_parking_fee')
+        if pf is None and isinstance(meta.get('parking'), dict):
+            pf = meta['parking'].get('monthly_fee')
+        if pf is not None and str(pf).strip() != '':
+            return str(pf)
+        for bp in lease.billing_profiles.all():
+            if bp.is_active and bp.billing_item and 'PARK' in str(bp.billing_item.code or '').upper():
+                return str(bp.amount)
+        return '0.00'
+
+    def get_parking_bay(self, obj):
+        lease = getattr(obj, 'lease', None)
+        if not lease:
+            return ''
+        meta = lease.metadata if isinstance(lease.metadata, dict) else {}
+        bay = meta.get('parking_bay')
+        if not bay and isinstance(meta.get('parking'), dict):
+            bay = meta['parking'].get('bay')
+        return str(bay or '')
 
 
 class BillingRunSerializer(serializers.ModelSerializer):

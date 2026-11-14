@@ -519,6 +519,7 @@ export function LeasesView({
                   <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Start</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>End</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Monthly Rent</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Parking</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Escalation %</TableCell>
                   <TableCell align="center" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Status</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "text.secondary" }}>Outstanding</TableCell>
@@ -561,6 +562,40 @@ export function LeasesView({
                         <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700 }}>
                           {kM(l.monthly_rent)}
                         </Typography>
+                      </TableCell>
+                      <TableCell align="right" onClick={(e) => { e.stopPropagation(); openEditModal(l); }}>
+                        {(() => {
+                          const pf = Number((l as any).parking_fee ?? (l as any).metadata?.parking_fee ?? (l as any).metadata?.parking_monthly_fee ?? 0);
+                          const pb = String((l as any).parking_bay ?? (l as any).metadata?.parking_bay ?? "").trim();
+                          return pf > 0 ? (
+                            <Stack sx={{ alignItems: "flex-end" }} spacing={0.25}>
+                              <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 700, color: "#7e22ce" }}>
+                                {kM(pf)}/mo
+                              </Typography>
+                              {pb && (
+                                <Typography variant="caption" sx={{ fontSize: 10, color: "text.secondary" }}>
+                                  🚗 {pb}
+                                </Typography>
+                              )}
+                            </Stack>
+                          ) : (
+                            <Chip
+                              size="small"
+                              label="+ Set Parking"
+                              variant="outlined"
+                              onClick={(e) => { e.stopPropagation(); openEditModal(l); }}
+                              sx={{
+                                fontSize: 10,
+                                height: 20,
+                                fontWeight: 700,
+                                color: "#7e22ce",
+                                borderColor: "rgba(147, 51, 234, 0.35)",
+                                bgcolor: "rgba(147, 51, 234, 0.04)",
+                                cursor: "pointer",
+                              }}
+                            />
+                          );
+                        })()}
                       </TableCell>
                       <TableCell align="center">
                         <Typography variant="body2" sx={{ fontFamily: "ui-monospace, monospace", fontWeight: 600 }}>

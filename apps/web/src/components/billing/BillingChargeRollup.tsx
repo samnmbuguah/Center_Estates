@@ -68,11 +68,15 @@ export function BillingChargeRollup({
       (cand.billing_items || []).some((it) => (it.code || "").toLowerCase().includes("electr"))
     );
 
+    const hasParking = candidates.some((cand) =>
+      (cand.billing_items || []).some((it) => (it.code || "").toLowerCase().includes("park"))
+    );
+
     const typeConfigs: Array<{ type: InvoiceChargeType; label: string; icon: ReactNode; color: string }> = [
       { type: "rent", label: "Rent", icon: <Building2 size={17} />, color: "var(--color-blue)" },
       { type: "service_charge", label: "Service charge", icon: <ReceiptText size={17} />, color: "var(--color-violet-strong)" },
       { type: "utility", label: hasElectricity ? "Utilities (Electricity)" : "Utilities", icon: hasElectricity ? <Zap size={17} /> : <Droplets size={17} />, color: hasElectricity ? "#d97706" : "#06b6d4" },
-      { type: "other", label: "Other charges", icon: <ListChecks size={17} />, color: "var(--text-faint)" },
+      { type: "other", label: hasParking ? "Parking & other charges" : "Parking & other", icon: <ListChecks size={17} />, color: hasParking ? "#7e22ce" : "var(--text-faint)" },
     ];
 
     return typeConfigs.map((config) => {

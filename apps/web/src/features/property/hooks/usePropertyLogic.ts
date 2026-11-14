@@ -662,6 +662,17 @@ export function usePropertyLogic({
           }
         }
       }
+      if (!found && lease && invoiceType === "parking") {
+        const meta = (lease as unknown as Record<string, unknown>).metadata as Record<string, unknown> | undefined;
+        const pf = (lease as any).parking_fee ?? meta?.parking_fee ?? meta?.monthly_parking_fee ?? (meta?.parking as any)?.monthly_fee;
+        if (pf != null && String(pf).trim() !== "") {
+          const v = Number(pf);
+          if (!Number.isNaN(v) && v > 0) {
+            total = v * months;
+            found = true;
+          }
+        }
+      }
       if (found && total > 0) {
         setInvoiceDraft((prev) => (prev.invoice_type === invoiceType && prev.lease === leaseId ? { ...prev, subtotal: String(Math.round(total)) } : prev));
         setInvoicePreview(null);

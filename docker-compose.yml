@@ -91,6 +91,23 @@ services:
       retries: 5
       start_period: 20s
 
+  mobile:
+    container_name: center-estates-mobile
+    image: node:22-slim
+    restart: unless-stopped
+    working_dir: /repo/apps/mobile
+    volumes:
+      - .:/repo
+      - /root/.expo:/root/.expo
+    ports:
+      - "8081:8081"
+    environment:
+      CI: "1"
+      EXPO_NO_DEVTOOLS: "1"
+      EXPO_PUBLIC_API_BASE: "https://api.centerestates.com/api/v1/construction"
+      EXPO_PUBLIC_API_BASE_URL: "https://api.centerestates.com/api/v1/construction"
+    command: ["sh", "-c", "./node_modules/.bin/expo start --go --tunnel ngrok < /dev/null"]
+
 volumes:
   postgres_data:
   media_data:

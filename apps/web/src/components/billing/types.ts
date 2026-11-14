@@ -1,6 +1,7 @@
 export type Candidate = {
-  id: string; tenant_name: string; property_name: string; unit_code: string;
+  id: string; lease_id?: string; tenant_name: string; property_name: string; unit_code: string;
   lease_reference: string; due_date: string;
+  parking_fee?: string; parking_bay?: string;
   billing_items: Array<{
     code: string;
     description: string;

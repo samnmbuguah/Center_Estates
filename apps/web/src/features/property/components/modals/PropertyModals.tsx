@@ -963,6 +963,7 @@ export function PropertyModals(props: PropertyModalsProps) {
                     <option value="rent">Rent</option>
                     <option value="security_deposit">Security Deposit</option>
                     <option value="service_charge">Service charge</option>
+                    <option value="parking">Parking charges</option>
                     <option value="utility">Utility</option>
                     <option value="move_in">Move-in charges</option>
                     <option value="other">Other</option>
@@ -989,7 +990,7 @@ export function PropertyModals(props: PropertyModalsProps) {
                 </div>
               </div>
               <div>
-                <Field label={`Billable Amount / ${{ rent: "Rent", security_deposit: "Security Deposit", service_charge: "Service charge", utility: "Utility", move_in: "Move-in charges", other: "Other charge" }[invoiceDraft.invoice_type] || "Charge"} (Excl. VAT)${billingContext && billingContext.months_count > 1 ? ` — ${billingContext.months_count} Months Total` : ""}`} required>
+                <Field label={`Billable Amount / ${{ rent: "Rent", security_deposit: "Security Deposit", service_charge: "Service charge", parking: "Parking charges", utility: "Utility", move_in: "Move-in charges", other: "Other charge" }[invoiceDraft.invoice_type] || "Charge"} (Excl. VAT)${billingContext && billingContext.months_count > 1 ? ` — ${billingContext.months_count} Months Total` : ""}`} required>
                   <input type="number" min="0.01" step="0.01" required placeholder="e.g. 100000" value={invoiceDraft.subtotal} onChange={(e) => updateInvoiceDraft("subtotal", e.target.value)} data-testid="invoice-subtotal" />
                 </Field>
                 <span style={{ fontSize: 11, color: "var(--muted)", display: "block", marginTop: 2 }}>

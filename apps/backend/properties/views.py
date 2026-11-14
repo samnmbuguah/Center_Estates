@@ -3224,10 +3224,14 @@ class TenantViewSet(OrganizationModelViewSet):
                         'bill_utilities': True,
                         **calculations,
                     }
-                    if lease_data.get('parking_bay'):
+                    if lease_data.get('parking_bay') or lease_data.get('parking_monthly_fee') or lease_data.get('parking_fee'):
+                        pf_raw = str(lease_data.get('parking_monthly_fee') or lease_data.get('parking_fee') or '0').replace(',', '').strip()
+                        pb_raw = str(lease_data.get('parking_bay') or '').strip()
+                        lease_meta['parking_fee'] = pf_raw
+                        lease_meta['parking_bay'] = pb_raw
                         lease_meta['parking'] = {
-                            'bay': str(lease_data.get('parking_bay')),
-                            'monthly_fee': str(lease_data.get('parking_monthly_fee', '0')),
+                            'bay': pb_raw,
+                            'monthly_fee': pf_raw,
                         }
                     if lease_data.get('opening_balance_amount'):
                         lease_meta['opening_balance'] = {
@@ -3249,6 +3253,12 @@ class TenantViewSet(OrganizationModelViewSet):
                         metadata=lease_meta,
                     )
                     _inherit_unit_charge_profiles(lease)
+                    LeaseViewSet()._sync_lease_recurring_profiles(lease, {
+                        'service_charge': str(monthly_service),
+                        'service_charge_rate_per_sqft': str(service_rate) if service_rate else '',
+                        'parking_fee': str(lease_data.get('parking_monthly_fee') or lease_data.get('parking_fee') or '0').replace(',', '').strip(),
+                        'parking_bay': str(lease_data.get('parking_bay') or '').strip(),
+                    })
                     if is_active_initial:
                         generate_rent_schedule(lease)
                         unit.status = Unit.Status.OCCUPIED
@@ -3496,6 +3506,24 @@ class LeaseViewSet(OrganizationModelViewSet):
             lease.save(update_fields=('metadata', 'updated_at'))
 
     @staticmethod
+    def _refresh_open_billing_runs_for_properties(organization, property_ids):
+        """Re-prepare any open (preparing/review) BillingRuns for the given properties so updated lease/parking charges immediately appear."""
+        if not property_ids:
+            return
+        open_runs = BillingRun.objects.filter(
+            organization=organization,
+            status__in=(BillingRun.Status.PREPARING, BillingRun.Status.REVIEW),
+        ).filter(
+            Q(property_id__in=property_ids) | Q(property__isnull=True)
+        )
+        run_viewset = BillingRunViewSet()
+        for run in open_runs:
+            try:
+                run_viewset._execute_prepare(run)
+            except Exception as exc:
+                logging.getLogger(__name__).warning(f"Failed to auto-refresh BillingRun {run.id}: {exc}")
+
+    @staticmethod
     def _offer_letter(lease):
         """Return the current offer payload without exposing internal lease metadata."""
         offer = dict((lease.metadata or {}).get('offer_letter') or {})
@@ -3607,6 +3635,8 @@ class LeaseViewSet(OrganizationModelViewSet):
         self._sync_lease_recurring_profiles(lease, dict(self.request.data))
         if is_new_tenant:
             self._issue_offer_letter(lease, self.request.user, require_acceptance=True)
+        if lease.unit and lease.unit.property_id:
+            self._refresh_open_billing_runs_for_properties(organization, [lease.unit.property_id])
 
     @transaction.atomic
     def perform_update(self, serializer):
@@ -3614,6 +3644,8 @@ class LeaseViewSet(OrganizationModelViewSet):
         self._sync_lease_recurring_profiles(lease, dict(self.request.data))
         if lease.status in (Lease.Status.ACTIVE, Lease.Status.EXPIRING):
             generate_rent_schedule(lease)
+        if lease.unit and lease.unit.property_id:
+            self._refresh_open_billing_runs_for_properties(lease.organization, [lease.unit.property_id])
 
     @transaction.atomic
     @action(detail=False, methods=('post',), url_path='bulk-import')
@@ -3828,6 +3860,7 @@ class LeaseViewSet(OrganizationModelViewSet):
         billing_day = request.data.get('billing_day')
         target_status = request.data.get('status')
 
+        touched_property_ids = set()
         for lease in leases:
             dirty = False
             metadata = dict(lease.metadata or {})
@@ -3896,7 +3929,12 @@ class LeaseViewSet(OrganizationModelViewSet):
                 if sync_payload:
                     self._sync_lease_recurring_profiles(lease, sync_payload)
                 generate_rent_schedule(lease)
+                if lease.unit and lease.unit.property_id:
+                    touched_property_ids.add(lease.unit.property_id)
                 updated_count += 1
+
+        if touched_property_ids:
+            self._refresh_open_billing_runs_for_properties(organization, list(touched_property_ids))
 
         return Response({'updated_count': updated_count, 'message': f'Successfully updated {updated_count} leases.'})
 

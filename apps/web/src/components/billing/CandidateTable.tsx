@@ -81,16 +81,17 @@ export function CandidateTable({
         <Box className="billing-filter-toolbar">
           {billingTarget === "tenant" && <Stack className="billing-charge-filters" direction="row">
             {([
-              { key: "all", label: "All charges" },
+              { key: "all" as const, label: "All charges" },
               {
-                key: "rent",
+                key: "rent" as const,
                 label: !rentDueThisPeriod && rentFrequency !== "monthly"
                   ? "Rent (Off-cycle)"
                   : `Rent${typeCounts.rent ? ` (${typeCounts.rent})` : ""}`,
               },
-              { key: "service_charge", label: `Service charge${typeCounts.service_charge ? ` (${typeCounts.service_charge})` : ""}` },
-              { key: "utility", label: `Utilities${typeCounts.utility ? ` (${typeCounts.utility})` : ""}` },
-            ] as const).map((item) => <Chip key={item.key} size="small" label={item.label} clickable onClick={() => onChargeTypeFilter(item.key)} color={chargeTypeFilter === item.key ? "primary" : "default"} variant={chargeTypeFilter === item.key ? "filled" : "outlined"} />)}
+              { key: "service_charge" as const, label: `Service charge${typeCounts.service_charge ? ` (${typeCounts.service_charge})` : ""}` },
+              { key: "utility" as const, label: `Utilities${typeCounts.utility ? ` (${typeCounts.utility})` : ""}` },
+              ...(typeCounts.other ? [{ key: "other" as const, label: `Parking & Other (${typeCounts.other})` }] : []),
+            ]).map((item) => <Chip key={item.key} size="small" label={item.label} clickable onClick={() => onChargeTypeFilter(item.key)} color={chargeTypeFilter === item.key ? "primary" : "default"} variant={chargeTypeFilter === item.key ? "filled" : "outlined"} />)}
           </Stack>}
           <Stack className="billing-search-controls" direction="row">
             <TextField

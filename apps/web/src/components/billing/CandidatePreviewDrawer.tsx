@@ -1,25 +1,28 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { DetailDrawer, money } from "@/components/module-ui";
 import { useAuth } from "@/components/auth-provider";
 import { Candidate, InvoiceChargeType, invoiceChargeType, issueResolution, isMissingWaterReading, missingMeterUtilityType } from "./types";
 import { printInvoiceDraft } from "./invoice-draft-print";
-import { downloadApiPdf } from "@/lib/api";
+import { apiFetch, csrfFromCookie, downloadApiPdf } from "@/lib/api";
 
 export function CandidatePreviewDrawer({
   candidate,
   activeFilter = "all",
   onClose,
   onRecordMeter,
+  onRefresh,
 }: {
   candidate: Candidate;
   activeFilter?: InvoiceChargeType | "all";
   onClose: () => void;
   onRecordMeter?: (c: Candidate) => void;
+  onRefresh?: () => Promise<void> | void;
 }) {
   const { session } = useAuth();
+  const orgId = session?.activeOrganizationId ?? null;
   const currentOrg = session?.organizations.find((o) => o.id === session?.activeOrganizationId) || session?.organizations[0];
   const orgName = currentOrg?.company_name || currentOrg?.name || "Legend Management";
   const isMissingWater = isMissingWaterReading(candidate);
@@ -39,6 +42,69 @@ export function CandidatePreviewDrawer({
 
   const totalAmount = primaryItems.reduce((sum, it) => sum + Number(it.total ?? it.amount ?? 0), 0);
   const utilityTotalAmount = secondaryUtilityItems.reduce((sum, it) => sum + Number(it.total ?? it.amount ?? 0), 0);
+
+  const existingParkingItem = allItems.find((it) => String(it.code || "").toUpperCase().includes("PARK"));
+  const isQuarterlyRun = allItems.some((it) => /Q\d \d{4}|3 Months/i.test(String(it.description || "")));
+
+  const [showParkingEditor, setShowParkingEditor] = useState(false);
+  const [parkingMonthlyFee, setParkingMonthlyFee] = useState<string>("");
+  const [parkingBay, setParkingBay] = useState<string>("");
+  const [savingParking, setSavingParking] = useState(false);
+  const [parkingMessage, setParkingMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    const rawPf = candidate.parking_fee && Number(candidate.parking_fee) > 0
+      ? String(candidate.parking_fee)
+      : existingParkingItem
+        ? String(Number((existingParkingItem as any).unit_rate || (Number(existingParkingItem.total || existingParkingItem.amount || 0) / (isQuarterlyRun ? 3 : 1))).toFixed(2))
+        : "";
+    setParkingMonthlyFee(rawPf);
+    setParkingBay(candidate.parking_bay || "");
+    setParkingMessage(null);
+    setShowParkingEditor(false);
+  }, [candidate.id, candidate.parking_fee, candidate.parking_bay, existingParkingItem, isQuarterlyRun]);
+
+  const handleSaveParking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!candidate.lease_id || !orgId) return;
+    setSavingParking(true);
+    setParkingMessage(null);
+    try {
+      await apiFetch("/auth/csrf/");
+      const res = await apiFetch(
+        `/property/leases/${candidate.lease_id}/`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "X-CSRFToken": csrfFromCookie() },
+          body: JSON.stringify({
+            parking_fee: parkingMonthlyFee.trim() !== "" ? Number(parkingMonthlyFee) : 0,
+            parking_bay: parkingBay.trim(),
+          }),
+        },
+        orgId
+      );
+      if (res.ok) {
+        setParkingMessage({
+          type: "success",
+          text: "Parking charge saved & Q4 invoice updated!",
+        });
+        setShowParkingEditor(false);
+        if (onRefresh) {
+          await onRefresh();
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setParkingMessage({
+          type: "error",
+          text: typeof err === "object" ? Object.values(err).flat().join(" ") : "Failed to save parking charge.",
+        });
+      }
+    } catch {
+      setParkingMessage({ type: "error", text: "Network error while saving parking charge." });
+    } finally {
+      setSavingParking(false);
+    }
+  };
 
   const handlePrint = (itemsOverride?: typeof allItems, suffix?: string) => {
     try {
@@ -242,10 +308,175 @@ export function CandidatePreviewDrawer({
             <strong style={{ fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--text-secondary, var(--color-slate-700))", fontWeight: 800 }}>
               {isUtilityFocus ? "Monthly Utility / Electricity Invoice Breakdown" : "Consolidated Lease & Parking Breakdown"}
             </strong>
-            <span style={{ fontSize: 12, color: "var(--text-secondary, var(--color-slate-600))", fontWeight: 700 }}>
-              {primaryItems.length} line {primaryItems.length === 1 ? "item" : "items"}
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {!isUtilityFocus && candidate.lease_id && (
+                <button
+                  type="button"
+                  onClick={() => setShowParkingEditor((prev) => !prev)}
+                  style={{
+                    background: existingParkingItem ? "rgba(147, 51, 234, 0.1)" : "rgba(147, 51, 234, 0.14)",
+                    color: "#7e22ce",
+                    border: "1px solid rgba(147, 51, 234, 0.35)",
+                    borderRadius: 6,
+                    padding: "4px 10px",
+                    fontSize: 11,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  {existingParkingItem ? "🚗 Edit Parking Charge" : "🚗 + Add / Set Parking Charge"}
+                </button>
+              )}
+              <span style={{ fontSize: 12, color: "var(--text-secondary, var(--color-slate-600))", fontWeight: 700 }}>
+                {primaryItems.length} line {primaryItems.length === 1 ? "item" : "items"}
+              </span>
+            </div>
           </div>
+
+          {parkingMessage && (
+            <div
+              style={{
+                padding: "10px 18px",
+                background: parkingMessage.type === "success" ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                color: parkingMessage.type === "success" ? "#047857" : "#b91c1c",
+                borderBottom: "1px solid var(--border)",
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              {parkingMessage.type === "success" ? "✓ " : "⚠️ "}
+              {parkingMessage.text}
+            </div>
+          )}
+
+          {!isUtilityFocus && !existingParkingItem && !showParkingEditor && candidate.lease_id && (
+            <div
+              style={{
+                padding: "10px 18px",
+                background: "rgba(147, 51, 234, 0.05)",
+                borderBottom: "1px solid var(--border)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                fontSize: 12,
+              }}
+            >
+              <div style={{ color: "var(--text-secondary)" }}>
+                🚗 <strong>Parking Charges:</strong> Currently <strong>KES 0.00</strong> on this lease. Set a monthly parking fee to automatically include {isQuarterlyRun ? "quarterly (×3 months)" : "monthly"} parking on this invoice.
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowParkingEditor(true)}
+                style={{
+                  background: "#7e22ce",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "5px 12px",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                + Set Parking Fee
+              </button>
+            </div>
+          )}
+
+          {showParkingEditor && candidate.lease_id && (
+            <form
+              onSubmit={handleSaveParking}
+              style={{
+                padding: "14px 18px",
+                background: "rgba(147, 51, 234, 0.06)",
+                borderBottom: "1px solid rgba(147, 51, 234, 0.25)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <strong style={{ fontSize: 12, color: "#6b21a8", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                  🚗 Configure Lease Parking Charge ({candidate.unit_code})
+                </strong>
+                {isQuarterlyRun && Number(parkingMonthlyFee || 0) > 0 && (
+                  <span style={{ fontSize: 11.5, fontWeight: 800, color: "#6b21a8", background: "rgba(147, 51, 234, 0.14)", padding: "2px 8px", borderRadius: 6 }}>
+                    Quarterly Invoice Line: {money.format(Number(parkingMonthlyFee) * 3)} (KES {Number(parkingMonthlyFee).toLocaleString()}/mo × 3 mos)
+                  </span>
+                )}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 4 }}>
+                    Monthly Parking Fee (KES)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g. 5000.00"
+                    value={parkingMonthlyFee}
+                    onChange={(e) => setParkingMonthlyFee(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "7px 10px",
+                      borderRadius: 6,
+                      border: "1px solid var(--border)",
+                      background: "var(--surface)",
+                      fontSize: 13,
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", marginBottom: 4 }}>
+                    Parking Bay / Slot Code (optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. BAY-01, B1-04"
+                    value={parkingBay}
+                    onChange={(e) => setParkingBay(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "7px 10px",
+                      borderRadius: 6,
+                      border: "1px solid var(--border)",
+                      background: "var(--surface)",
+                      fontSize: 13,
+                    }}
+                  />
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    type="button"
+                    className="btn ghost sm"
+                    onClick={() => setShowParkingEditor(false)}
+                    disabled={savingParking}
+                    style={{ height: 34 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn primary sm"
+                    disabled={savingParking}
+                    style={{
+                      height: 34,
+                      background: "#7e22ce",
+                      color: "#ffffff",
+                      border: "none",
+                      fontWeight: 800,
+                      padding: "0 14px",
+                    }}
+                  >
+                    {savingParking ? "Saving…" : "Save & Update Invoice"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
 
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, textAlign: "left" }}>
             <thead>

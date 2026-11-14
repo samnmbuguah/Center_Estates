@@ -28,6 +28,9 @@
     "backend:test:e2e": "cd apps/backend && DB_NAME=center_estates_test .venv/bin/python manage.py test --settings=config.settings_test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.1"
+    "@playwright/test": "^1.65.0"
+  },
+  "dependencies": {
+    "@testing-library/dom": "^10.4.2"
   }
 }
