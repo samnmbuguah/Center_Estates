@@ -133,12 +133,18 @@ class BillingCandidateSerializer(serializers.ModelSerializer):
         pf = meta.get('parking_fee') or meta.get('monthly_parking_fee')
         if pf is None and isinstance(meta.get('parking'), dict):
             pf = meta['parking'].get('monthly_fee')
-        if pf is not None and str(pf).strip() != '':
+        if pf is not None and str(pf).strip() not in ('', '0', '0.0', '0.00'):
             return str(pf)
         for bp in lease.billing_profiles.all():
             if bp.is_active and bp.billing_item and 'PARK' in str(bp.billing_item.code or '').upper():
                 return str(bp.amount)
-        return '0.00'
+        active_assignments = [
+            pa for pa in lease.parking_assignments.all()
+            if getattr(pa, 'status', '') != 'released' and (getattr(pa, 'monthly_fee', 0) or 0) > 0
+        ]
+        if active_assignments:
+            return str(sum((pa.monthly_fee for pa in active_assignments), Decimal('0.00')))
+        return str(pf) if pf is not None and str(pf).strip() != '' else '0.00'
 
     def get_parking_bay(self, obj):
         lease = getattr(obj, 'lease', None)
@@ -148,7 +154,14 @@ class BillingCandidateSerializer(serializers.ModelSerializer):
         bay = meta.get('parking_bay')
         if not bay and isinstance(meta.get('parking'), dict):
             bay = meta['parking'].get('bay')
-        return str(bay or '')
+        if bay and str(bay).strip():
+            return str(bay).strip()
+        codes = [
+            pa.parking_space.code
+            for pa in lease.parking_assignments.select_related('parking_space').all()
+            if getattr(pa, 'status', '') != 'released' and getattr(pa, 'parking_space_id', None)
+        ]
+        return ', '.join(codes) if codes else ''
 
 
 class BillingRunSerializer(serializers.ModelSerializer):
@@ -673,19 +686,32 @@ class LeaseSerializer(serializers.ModelSerializer):
         pf = meta.get('parking_fee') or meta.get('monthly_parking_fee')
         if pf is None and isinstance(meta.get('parking'), dict):
             pf = meta['parking'].get('monthly_fee')
-        if pf is not None and str(pf).strip() != '':
+        if pf is not None and str(pf).strip() not in ('', '0', '0.0', '0.00'):
             return str(pf)
         for bp in obj.billing_profiles.all():
             if bp.is_active and bp.billing_item and 'PARK' in str(bp.billing_item.code or '').upper():
                 return str(bp.amount)
-        return '0.00'
+        active_assignments = [
+            pa for pa in obj.parking_assignments.all()
+            if getattr(pa, 'status', '') != 'released' and (getattr(pa, 'monthly_fee', 0) or 0) > 0
+        ]
+        if active_assignments:
+            return str(sum((pa.monthly_fee for pa in active_assignments), Decimal('0.00')))
+        return str(pf) if pf is not None and str(pf).strip() != '' else '0.00'
 
     def get_parking_bay(self, obj):
         meta = obj.metadata if isinstance(obj.metadata, dict) else {}
         bay = meta.get('parking_bay')
         if not bay and isinstance(meta.get('parking'), dict):
             bay = meta['parking'].get('bay')
-        return str(bay or '')
+        if bay and str(bay).strip():
+            return str(bay).strip()
+        codes = [
+            pa.parking_space.code
+            for pa in obj.parking_assignments.select_related('parking_space').all()
+            if getattr(pa, 'status', '') != 'released' and getattr(pa, 'parking_space_id', None)
+        ]
+        return ', '.join(codes) if codes else ''
 
     def validate_monthly_rent(self, value):
         # A zero-rent lease is a real occupancy state for a tenant whose rent

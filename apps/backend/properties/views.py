@@ -2869,6 +2869,16 @@ class TenantViewSet(OrganizationModelViewSet):
             space.save(update_fields=('status', 'unit', 'updated_at'))
             parking_total += monthly_fee
 
+        if parking_total > 0 or seen_spaces:
+            allocated_codes = list(
+                ParkingSpace.objects.filter(pk__in=seen_spaces).order_by('code').values_list('code', flat=True)
+            )
+            meta = dict(lease.metadata or {})
+            meta['parking_fee'] = str(parking_total)
+            if allocated_codes:
+                meta['parking_bay'] = ', '.join(allocated_codes)
+            lease.metadata = meta
+            lease.save(update_fields=('metadata', 'updated_at'))
         if parking_total > 0:
             parking_item, _ = BillingItem.objects.get_or_create(
                 organization=organization, code='PARKING',
@@ -3467,6 +3477,17 @@ class LeaseViewSet(OrganizationModelViewSet):
         except Exception:
             parking_val = Decimal('0')
 
+        if parking_val <= 0 and raw_parking_fee is None:
+            active_assignments = list(
+                lease.parking_assignments.exclude(status=ParkingAssignment.Status.RELEASED).select_related('parking_space')
+            )
+            if active_assignments:
+                parking_val = sum((pa.monthly_fee for pa in active_assignments), Decimal('0.00'))
+                if not metadata.get('parking_bay'):
+                    codes = [pa.parking_space.code for pa in active_assignments if pa.parking_space_id]
+                    if codes:
+                        metadata['parking_bay'] = ', '.join(codes)
+
         parking_freq_str = str(
             metadata.get('parking_billing_frequency')
             or parking_meta.get('billing_frequency')
@@ -3640,7 +3661,13 @@ class LeaseViewSet(OrganizationModelViewSet):
 
     @transaction.atomic
     def perform_update(self, serializer):
-        lease = serializer.save()
+        existing_meta = dict(getattr(serializer.instance, 'metadata', None) or {})
+        incoming_meta = serializer.validated_data.get('metadata')
+        if isinstance(incoming_meta, dict):
+            merged_meta = {**existing_meta, **incoming_meta}
+            lease = serializer.save(metadata=merged_meta)
+        else:
+            lease = serializer.save()
         self._sync_lease_recurring_profiles(lease, dict(self.request.data))
         if lease.status in (Lease.Status.ACTIVE, Lease.Status.EXPIRING):
             generate_rent_schedule(lease)
@@ -3784,6 +3811,16 @@ class LeaseViewSet(OrganizationModelViewSet):
             ).exists():
                 errors['unit'] = 'Unit already has a current lease.'
 
+            try:
+                parking_raw = str(row.get('parking_fee') or row.get('parking_monthly_fee') or '0').replace(',', '').strip() or '0'
+                parking_fee = Decimal(parking_raw).quantize(Decimal('0.01'))
+                if parking_fee < 0:
+                    raise ValueError
+            except Exception:
+                parking_fee = Decimal('0.00')
+                errors['parking_fee'] = 'Parking fee must be zero or positive.'
+            parking_bay = str(row.get('parking_bay') or '').strip()
+
             normalized = {
                 'tenant': tenant.name if tenant else tenant_key, 'tenant_code': tenant.code if tenant else '',
                 'unit_code': unit.code if unit else unit_code,
@@ -3792,6 +3829,8 @@ class LeaseViewSet(OrganizationModelViewSet):
                 'rent_rate_per_sqft': str(rent_rate) if rent_rate is not None else '',
                 'service_charge': str(service_charge),
                 'service_charge_rate_per_sqft': str(sc_rate) if sc_rate is not None else '',
+                'parking_fee': str(parking_fee),
+                'parking_bay': parking_bay,
                 'billing_day': billing_day,
                 'escalation_percent': str(escalation_percent),
                 'escalation_interval_months': escalation_interval,
@@ -3816,14 +3855,16 @@ class LeaseViewSet(OrganizationModelViewSet):
                         'service_charge': str(service_charge),
                         'rent_rate_per_sqft': str(rent_rate) if rent_rate is not None else '',
                         'service_charge_rate_per_sqft': str(sc_rate) if sc_rate is not None else '',
+                        'parking_fee': str(parking_fee),
+                        'parking_bay': parking_bay,
                     },
                 )
                 _inherit_unit_charge_profiles(lease)
                 self._sync_lease_recurring_profiles(lease, {
                     'service_charge': str(service_charge),
                     'service_charge_rate_per_sqft': str(sc_rate) if sc_rate is not None else '',
-                    'parking_fee': str(row.get('parking_fee') or row.get('parking_monthly_fee') or '0').replace(',', '').strip(),
-                    'parking_bay': str(row.get('parking_bay') or '').strip(),
+                    'parking_fee': str(parking_fee),
+                    'parking_bay': parking_bay,
                 })
                 created.append(str(lease.id))
             results.append({'row': index, 'data': normalized, 'errors': errors})

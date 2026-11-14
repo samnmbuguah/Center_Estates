@@ -196,7 +196,7 @@ export function BatchParkingModal({
               },
               body: JSON.stringify({
                 parking_fee: feeNum.toFixed(2),
-                metadata: { parking_bay: r.parkingBay.trim() },
+                parking_bay: r.parkingBay.trim(),
               }),
             },
             session?.activeOrganizationId
@@ -247,13 +247,14 @@ export function BatchParkingModal({
           </Box>
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-              Configure Parking Charges {propertyName ? `— ${propertyName}` : ""}
+              Lease Parking Schedule {propertyName ? `— ${propertyName}` : ""}
             </Typography>
             <Typography variant="caption" sx={{ color: "rgba(255,255,255,0.85)", fontSize: 12 }}>
-              Set monthly parking fees and bay numbers per lease.{" "}
+              Connected directly to each tenant&apos;s Lease — saving here permanently updates the Lease so{" "}
               {multiplier > 1
-                ? `Automatically billed ×${multiplier} months on consolidated ${rentFrequency} invoices.`
-                : "Automatically included on recurring lease invoices."}
+                ? `parking is billed ×${multiplier} months on consolidated ${rentFrequency} invoices automatically.`
+                : "parking is included on recurring lease invoices automatically."}{" "}
+              <strong>Parking Bay is optional</strong>; only Monthly Fee (KES) is required.
             </Typography>
           </Box>
         </Box>
@@ -366,11 +367,11 @@ export function BatchParkingModal({
                 <TableCell sx={{ fontWeight: 800, fontSize: 11, textTransform: "uppercase" }}>
                   Tenant & Lease
                 </TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: 11, textTransform: "uppercase", width: 180 }}>
-                  Parking Bay / Slot
-                </TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: 11, textTransform: "uppercase", width: 175 }}>
                   Monthly Fee (KES)
+                </TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: 11, textTransform: "uppercase", width: 195 }}>
+                  Parking Bay / Notes (Optional)
                 </TableCell>
                 <TableCell
                   align="right"
@@ -415,16 +416,6 @@ export function BatchParkingModal({
                     <TableCell>
                       <TextField
                         size="small"
-                        fullWidth
-                        placeholder="e.g. BAY-01"
-                        value={row.parkingBay}
-                        onChange={(e) => handleUpdateRow(row.leaseId, "parkingBay", e.target.value)}
-                        sx={{ "& .MuiInputBase-input": { fontSize: 12, py: 0.65 } }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        size="small"
                         type="number"
                         fullWidth
                         placeholder="0.00"
@@ -435,6 +426,16 @@ export function BatchParkingModal({
                           htmlInput: { min: 0, step: "0.01" },
                         }}
                         sx={{ "& .MuiInputBase-input": { fontSize: 12.5, fontWeight: 700, py: 0.65 } }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        placeholder="Optional (e.g. BAY-01)"
+                        value={row.parkingBay}
+                        onChange={(e) => handleUpdateRow(row.leaseId, "parkingBay", e.target.value)}
+                        sx={{ "& .MuiInputBase-input": { fontSize: 12, py: 0.65 } }}
                       />
                     </TableCell>
                     <TableCell align="right">

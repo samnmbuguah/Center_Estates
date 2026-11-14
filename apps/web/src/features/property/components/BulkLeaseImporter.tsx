@@ -10,14 +10,14 @@ import { usePropertyContext } from "@/lib/property-context";
 type SourceRow = Record<string, string>;
 type PreviewRow = { row: number; data: SourceRow; errors: Record<string, string> };
 
-const headers = ["tenant_code", "unit_code", "starts_on", "ends_on", "monthly_rent", "rent_rate_per_sqft", "service_charge", "service_charge_rate_per_sqft", "billing_day", "escalation_percent", "escalation_interval_months"];
+const headers = ["tenant_code", "unit_code", "starts_on", "ends_on", "monthly_rent", "rent_rate_per_sqft", "service_charge", "service_charge_rate_per_sqft", "parking_fee", "parking_bay", "billing_day", "escalation_percent", "escalation_interval_months"];
 
 function downloadTemplate() {
   const csv = [
     headers,
-    ["TNT-0001", "A-101", "2026-09-01", "2027-08-31", "25000", "", "0", "", "1", "0", "12"],
-    ["TNT-0002", "B-201", "01/09/2026", "31/08/2027", "50000", "", "0", "", "1", "0", "12"],
-    ["TNT-0003", "G-01", "2026-09-01", "2028-08-31", "", "850", "", "25", "1", "10", "12"],
+    ["TNT-0001", "A-101", "2026-09-01", "2027-08-31", "25000", "", "0", "", "0", "", "1", "0", "12"],
+    ["TNT-0002", "B-201", "01/09/2026", "31/08/2027", "50000", "", "0", "", "5000", "BAY-01", "1", "0", "12"],
+    ["TNT-0003", "G-01", "2026-09-01", "2028-08-31", "", "850", "", "25", "10000", "BAY-02, BAY-03", "1", "10", "12"],
   ]
     .map((row) => row.map((value) => `"${value}"`).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -41,6 +41,8 @@ export const headerAliases: Record<string, string[]> = {
   rent_rate_per_sqft: ["rent_rate_per_sqft", "rent_per_sqft", "rate_per_sqft", "rate"],
   service_charge: ["service_charge"],
   service_charge_rate_per_sqft: ["service_charge_rate_per_sqft", "service_charge_rate", "sc_rate", "service_rate"],
+  parking_fee: ["parking_fee", "parking_monthly_fee", "monthly_parking_fee", "parking"],
+  parking_bay: ["parking_bay", "bay", "parking_slot", "parking_space"],
   billing_day: ["billing_day"],
   escalation_percent: ["escalation_percent", "escalation"],
   escalation_interval_months: ["escalation_interval_months", "escalation_interval"],
@@ -60,7 +62,7 @@ export function parseLeaseGrid(parsed: string[][]): LeaseGridParse {
       const clean: SourceRow = { ...row };
       // Spreadsheet exports quote thousands separators ("11,305.94"); the
       // API parses plain decimals, so strip grouping commas up front.
-      for (const key of ["monthly_rent", "rent_rate_per_sqft", "service_charge", "service_charge_rate_per_sqft", "escalation_percent"]) {
+      for (const key of ["monthly_rent", "rent_rate_per_sqft", "service_charge", "service_charge_rate_per_sqft", "parking_fee", "escalation_percent"]) {
         if (clean[key]) clean[key] = clean[key].replace(/,/g, "").trim();
       }
       if (clean.starts_on) clean.starts_on = normalizeDateString(clean.starts_on);
@@ -237,12 +239,17 @@ export function BulkLeaseImporter({ open, onClose, onDone }: { open: boolean; on
             </Box>
           )}
         </Alert>
-        <Table size="small"><TableHead><TableRow><TableCell>Row</TableCell><TableCell>Tenant</TableCell><TableCell>Unit</TableCell><TableCell>Term</TableCell><TableCell>Rent</TableCell><TableCell>Service Charge</TableCell><TableCell>Inherited deposit</TableCell><TableCell>Validation</TableCell></TableRow></TableHead>
+        <Table size="small"><TableHead><TableRow><TableCell>Row</TableCell><TableCell>Tenant</TableCell><TableCell>Unit</TableCell><TableCell>Term</TableCell><TableCell>Rent</TableCell><TableCell>Service Charge</TableCell><TableCell>Parking</TableCell><TableCell>Inherited deposit</TableCell><TableCell>Validation</TableCell></TableRow></TableHead>
           <TableBody>{preview.map((row) => <TableRow key={row.row} sx={Object.keys(row.errors).length ? { bgcolor: "error.lighter" } : undefined}>
             <TableCell>{row.row}</TableCell><TableCell>{row.data.tenant}</TableCell><TableCell>{row.data.unit_code}</TableCell>
             <TableCell sx={{ whiteSpace: "nowrap" }}>{row.data.starts_on} – {row.data.ends_on}</TableCell>
             <TableCell sx={{ whiteSpace: "nowrap" }}>{row.data.monthly_rent ? `KES ${Number(row.data.monthly_rent).toLocaleString()}` : "—"}</TableCell>
             <TableCell>{row.data.service_charge ? `KES ${Number(row.data.service_charge).toLocaleString()}` : "—"}</TableCell>
+            <TableCell sx={{ whiteSpace: "nowrap" }}>
+              {Number(row.data.parking_fee || 0) > 0
+                ? `KES ${Number(row.data.parking_fee).toLocaleString()}${row.data.parking_bay ? ` (${row.data.parking_bay})` : ""}`
+                : "—"}
+            </TableCell>
             <TableCell>{row.data.deposit}</TableCell>
             <TableCell>{Object.values(row.errors).join(" ") || "Ready"}</TableCell>
           </TableRow>)}</TableBody>

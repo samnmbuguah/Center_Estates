@@ -97,6 +97,12 @@ describe("BulkLeaseImporter grid parsing", () => {
     expect(result.rows[0]).toMatchObject({ service_charge_rate_per_sqft: "25" });
   });
 
+  it("maps parking fee and parking bay aliases and strips grouped amounts", () => {
+    const result = parseLeaseGrid(parseCsv('tenant_code,unit_code,starts_on,ends_on,Parking,Bay\nTNT-1,A-1,2026-09-01,2027-08-31,"5,000",BAY-01'));
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]).toMatchObject({ parking_fee: "5000", parking_bay: "BAY-01" });
+  });
+
   it("warns about every defaulted column", () => {
     expect(defaultColumnWarnings(["tenant_code", "unit_code", "starts_on", "ends_on", "monthly_rent", "service_charge", "billing_day", "escalation_percent", "escalation_interval_months"])).toEqual([]);
     const warnings = defaultColumnWarnings(["tenant_code", "unit_code"]);
