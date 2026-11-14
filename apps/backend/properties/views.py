@@ -4658,7 +4658,7 @@ def _allocate_receipt(*, receipt, organization, amount, user, invoice=None):
 
 class ReceiptViewSet(OrganizationModelViewSet):
     write_permission = 'property.finance'
-    queryset = Receipt.objects.select_related('tenant', 'owner', 'invoice')
+    queryset = Receipt.objects.select_related('tenant', 'owner', 'invoice').prefetch_related('allocations__invoice')
     serializer_class = ReceiptSerializer
     search_fields = ('number', 'tenant__name', 'owner__name', 'external_reference')
 
@@ -6679,7 +6679,9 @@ class BillingRunViewSet(OrganizationModelViewSet):
                 item_period_end = str(primary_item.get('period_end') or run.period_end)
 
                 is_lease_group = group_key.startswith("lease:")
-                if is_lease_group:
+                group_codes = [str(it.get('code') or '').strip().lower() for it in group_items]
+                has_rent_in_group = 'rent' in group_codes
+                if is_lease_group and (has_rent_in_group or len(group_items) > 1):
                     invoice_type = 'rent'
                     charge_type = 'rent'
                 else:

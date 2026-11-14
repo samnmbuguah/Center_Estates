@@ -20,6 +20,7 @@ const CHARGE_TYPE_LABELS: Record<string, string> = {
   sc: "Service Charge",
   water: "Water",
   utility: "Utilities",
+  parking: "🚗 Parking",
   management_fee: "Mgmt Fee",
 };
 
@@ -28,6 +29,7 @@ function normalizeChargeType(raw?: string): string {
   if (s === "rent") return "rent";
   if (s === "sc" || s === "service_charge" || s.includes("service")) return "service_charge";
   if (s === "water" || s === "electricity" || s.includes("utility")) return "utility";
+  if (s === "parking" || s.includes("park")) return "parking";
   if (s.includes("mgmt") || s.includes("management") || s.includes("commission")) return "management_fee";
   return "other";
 }
@@ -38,6 +40,7 @@ function ChargeTypeBadge({ chargeType }: { chargeType?: string }) {
     rent:           { bg: "rgba(59,130,246,0.12)",  color: "var(--color-info)" },
     service_charge: { bg: "rgba(139,92,246,0.12)",  color: "var(--color-violet)" },
     utility:        { bg: "rgba(20,184,166,0.12)",  color: "var(--color-teal)" },
+    parking:        { bg: "rgba(124,58,237,0.12)",  color: "#6d28d9" },
     management_fee: { bg: "rgba(245,158,11,0.12)",  color: "var(--color-warning)" },
     other:          { bg: "rgba(100,116,139,0.12)", color: "var(--text-soft)" },
   };
@@ -85,22 +88,28 @@ export function ReceiptsView({
   const PAGE_SIZE = 20;
 
   const receipts = currentReceipts;
+  const isReceiptApplied = (r: ReceiptRow) => Boolean(r.invoice || (r as any).is_applied);
   const receiptTotal = receipts.reduce((s, r) => s + Number(r.amount ?? 0), 0);
-  const appliedTotal = receipts.filter((r) => r.invoice).reduce((s, r) => s + Number(r.amount ?? 0), 0);
-  const unappliedTotal = receipts.filter((r) => !r.invoice).reduce((s, r) => s + Number(r.amount ?? 0), 0);
+  const appliedTotal = receipts.filter((r) => isReceiptApplied(r)).reduce((s, r) => s + Number(r.amount ?? 0), 0);
+  const unappliedTotal = receipts.filter((r) => !isReceiptApplied(r)).reduce((s, r) => s + Number(r.amount ?? 0), 0);
   const tenantNames = [...new Set(receipts.map((r) => r.tenant_name).filter(Boolean))];
   const paymentMethods = [...new Set(receipts.map((r) => r.payment_method).filter(Boolean))];
 
   // Dynamic distribution counts
   const counts = useMemo(() => {
-    const charge: Record<string, number> = { rent: 0, service_charge: 0, utility: 0, management_fee: 0, other: 0 };
+    const charge: Record<string, number> = { rent: 0, service_charge: 0, utility: 0, parking: 0, management_fee: 0, other: 0 };
     const recipient: Record<string, number> = { tenant: 0, owner: 0 };
-    const appliedCount = receipts.filter((r) => Boolean(r.invoice)).length;
-    const unappliedCount = receipts.filter((r) => !r.invoice).length;
+    const appliedCount = receipts.filter((r) => isReceiptApplied(r)).length;
+    const unappliedCount = receipts.filter((r) => !isReceiptApplied(r)).length;
 
     for (const r of receipts) {
-      const ct = normalizeChargeType((r as any).charge_type);
-      charge[ct] = (charge[ct] || 0) + 1;
+      const rawCharges: string[] = Array.isArray((r as any).charges) && (r as any).charges.length > 0
+        ? (r as any).charges
+        : [(r as any).charge_type];
+      const uniqueNorms = Array.from(new Set(rawCharges.filter(Boolean).map((c) => normalizeChargeType(c))));
+      for (const ct of uniqueNorms) {
+        charge[ct] = (charge[ct] || 0) + 1;
+      }
       const rt = String((r as any).recipient_type || "tenant").toLowerCase();
       recipient[rt] = (recipient[rt] || 0) + 1;
     }
@@ -117,13 +126,16 @@ export function ReceiptsView({
   };
 
   const filtered = receipts.filter((r) => {
-    if (filter === "applied" && !r.invoice) return false;
-    if (filter === "unapplied" && r.invoice) return false;
+    if (filter === "applied" && !isReceiptApplied(r)) return false;
+    if (filter === "unapplied" && isReceiptApplied(r)) return false;
     if (filterTenant && r.tenant_name !== filterTenant) return false;
     if (filterMethod && r.payment_method !== filterMethod) return false;
     if (filterChargeType) {
-      const ct = normalizeChargeType((r as any).charge_type);
-      if (ct !== filterChargeType) return false;
+      const rawCharges: string[] = Array.isArray((r as any).charges) && (r as any).charges.length > 0
+        ? (r as any).charges
+        : [(r as any).charge_type];
+      const uniqueNorms = rawCharges.filter(Boolean).map((c) => normalizeChargeType(c));
+      if (!uniqueNorms.includes(filterChargeType)) return false;
     }
     if (filterRecipientType) {
       const rt = String((r as any).recipient_type || "tenant").toLowerCase();
@@ -396,7 +408,13 @@ export function ReceiptsView({
                         )}
                       </TableCell>
                       <TableCell>
-                        {(r as any).charge_type ? (
+                        {Array.isArray((r as any).charges) && (r as any).charges.length > 0 ? (
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                            {Array.from(new Set(((r as any).charges as string[]).map((c) => normalizeChargeType(c)))).map((ct) => (
+                              <ChargeTypeBadge key={ct} chargeType={ct} />
+                            ))}
+                          </div>
+                        ) : (r as any).charge_type ? (
                           <ChargeTypeBadge chargeType={(r as any).charge_type} />
                         ) : (
                           <Typography variant="body2" color="text.secondary">—</Typography>
@@ -418,8 +436,8 @@ export function ReceiptsView({
                         </Typography>
                       </TableCell>
                       <TableCell align="center">
-                        <StatusPill tone={r.invoice ? "green" : "yellow"}>
-                          {r.invoice ? "Applied" : "Unapplied"}
+                        <StatusPill tone={isReceiptApplied(r) ? "green" : "yellow"}>
+                          {isReceiptApplied(r) ? "Applied" : "Unapplied"}
                         </StatusPill>
                       </TableCell>
                       <TableCell align="right">

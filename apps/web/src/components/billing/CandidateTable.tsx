@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, Button, Checkbox, Chip, FormControlLabel, LinearProgress, MenuItem, Paper, Stack, TextField, Tooltip, Typography } from "@mui/material";
-import { Calendar, Droplets, Eye, FileText, Gauge, Search, User, Zap, Flame } from "lucide-react";
+import { Calendar, Car, Droplets, Eye, FileText, Gauge, Search, User, Zap, Flame } from "lucide-react";
 import { EmptyState, money, StatusPill } from "@/components/module-ui";
 import { Candidate, statusToneMap, InvoiceChargeType, invoiceChargeType, isMissingWaterReading, missingMeterUtilityType } from "./types";
 import { useAuth } from "@/components/auth-provider";
@@ -30,6 +30,7 @@ export function CandidateTable({
   onPreview,
   onOverride,
   onRecordMeter,
+  onConfigureParking,
   onNavigate,
 }: {
   candidates: Candidate[];
@@ -55,6 +56,7 @@ export function CandidateTable({
   onPreview: (c: Candidate) => void;
   onOverride: (c: Candidate) => void;
   onRecordMeter?: (c: Candidate) => void;
+  onConfigureParking?: (c?: Candidate) => void;
   onSingleInvoice: () => void;
   onNavigate: (tab: string) => void;
 }) {
@@ -308,11 +310,21 @@ export function CandidateTable({
                                   icon={
                                     isElectricity ? (
                                       <Zap size={11} color={chipColor} />
+                                    ) : isParking ? (
+                                      <Car size={11} color={chipColor} />
                                     ) : isPending && isUtility ? (
                                       <Droplets size={11} color={chipColor} />
                                     ) : undefined
                                   }
                                   label={label}
+                                  onClick={
+                                    isParking && onConfigureParking
+                                      ? (e) => {
+                                          e.stopPropagation();
+                                          onConfigureParking(c);
+                                        }
+                                      : undefined
+                                  }
                                   variant="outlined"
                                   sx={{
                                     fontSize: 10,
@@ -321,12 +333,47 @@ export function CandidateTable({
                                     bgcolor: chipBg,
                                     borderColor: chipBorder,
                                     color: chipColor,
+                                    cursor: isParking && onConfigureParking ? "pointer" : undefined,
                                   }}
                                 />
                               </Tooltip>
                             );
                           });
                         })()}
+                        {billingTarget === "tenant" &&
+                          Boolean(c.lease_id) &&
+                          onConfigureParking &&
+                          !(c.billing_items || []).some((it: any) =>
+                            String(it.code || "").toLowerCase().includes("park")
+                          ) && (
+                            <Tooltip title="Click to add or configure monthly parking fee & bay for this lease">
+                              <Chip
+                                size="small"
+                                icon={<Car size={11} color="#6d28d9" />}
+                                label="+ Parking"
+                                variant="outlined"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onConfigureParking(c);
+                                }}
+                                sx={{
+                                  fontSize: 9.5,
+                                  height: 21,
+                                  fontWeight: 700,
+                                  color: "#6d28d9",
+                                  borderStyle: "dashed",
+                                  borderColor: "rgba(124, 58, 237, 0.45)",
+                                  bgcolor: "rgba(124, 58, 237, 0.04)",
+                                  cursor: "pointer",
+                                  "& .MuiChip-icon": { ml: 0.5 },
+                                  "&:hover": {
+                                    bgcolor: "rgba(124, 58, 237, 0.12)",
+                                    borderStyle: "solid",
+                                  },
+                                }}
+                              />
+                            </Tooltip>
+                          )}
                         {isHold && !(c.billing_items || []).some((it: any) => invoiceChargeType(it.code) === "utility") && (
                           <Tooltip title={`Metered ${missingUtilityLabel.toLowerCase()} is required for this tenancy. Reading must be recorded before generating the consolidated bill.`}>
                             <Chip
@@ -487,6 +534,29 @@ export function CandidateTable({
                           <Typography variant="body2" sx={{ maxWidth: 460, fontSize: 13 }}>
                             Rent for this property is configured with <strong style={{ textTransform: "capitalize" }}>{rentFrequency}</strong> frequency. No rent charges are due for {formattedMonth}.
                           </Typography>
+                        </>
+                      ) : chargeTypeFilter === "other" && onConfigureParking ? (
+                        <>
+                          <Car size={32} style={{ opacity: 0.75, color: "#6d28d9" }} />
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "var(--text-primary)" }}>No parking charges configured yet</Typography>
+                          <Typography variant="body2" sx={{ maxWidth: 460, fontSize: 13 }}>
+                            Set monthly parking fees and bay numbers for leases in this property to automatically include parking on their invoices.
+                          </Typography>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={<Car size={15} />}
+                            onClick={() => onConfigureParking()}
+                            sx={{
+                              mt: 1,
+                              bgcolor: "#6d28d9",
+                              fontWeight: 700,
+                              textTransform: "none",
+                              "&:hover": { bgcolor: "#5b21b6" },
+                            }}
+                          >
+                            Configure Parking Charges
+                          </Button>
                         </>
                       ) : (
                         <>

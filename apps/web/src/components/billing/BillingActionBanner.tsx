@@ -3,14 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Box, Button, CircularProgress, IconButton, Menu, MenuItem, Paper, Step, StepLabel, Stepper, Tooltip, Typography } from "@mui/material";
-import { FilePlus2, HandCoins, MoreHorizontal, RotateCcw, Send, Settings2, Zap } from "lucide-react";
+import { Car, FilePlus2, HandCoins, MoreHorizontal, RotateCcw, Send, Settings2, Zap } from "lucide-react";
 import { CHARGE_TYPE_LABEL, InvoiceChargeType } from "./types";
 import { BillingGuidelinesModal } from "./BillingGuidelinesModal";
 
 export function BillingActionBanner({
   hasRun, isPreparing, isReview, formattedMonth, ready, selectedCount,
   chargeTypeFilter = "all", billingTarget = "tenant", blockingOpen, busy,
-  pendingWaterCount = 0, pendingUtilityCount = 0, onLogMeters, onBatchReadings,
+  pendingWaterCount = 0, pendingUtilityCount = 0, onLogMeters, onBatchReadings, onConfigureParking,
   canFinance, onInitialize, onRecheck, onGenerate, onSingleInvoice, onLettingFeeInvoice,
   requireUtilityReadings = true, onOpenPolicyModal, onTogglePolicy, policyToggling = false, propertyName,
 }: {
@@ -19,7 +19,7 @@ export function BillingActionBanner({
   chargeTypeFilter?: InvoiceChargeType | "all"; billingTarget?: "tenant" | "landlord";
   typeCounts?: Record<string, number>; onChargeTypeFilter?: (t: InvoiceChargeType | "all") => void;
   blockingOpen: boolean; busy: string; canFinance: boolean; canApprove: boolean;
-  pendingWaterCount?: number; pendingUtilityCount?: number; onLogMeters?: () => void; onBatchReadings?: () => void;
+  pendingWaterCount?: number; pendingUtilityCount?: number; onLogMeters?: () => void; onBatchReadings?: () => void; onConfigureParking?: () => void;
   onInitialize: () => void; onRecheck: () => void; onApprove: () => void;
   onGenerate: () => void; onSingleInvoice: () => void;
   onLettingFeeInvoice?: () => void;
@@ -75,6 +75,21 @@ export function BillingActionBanner({
             disabled={!canFinance || selectedCount === 0 || Boolean(busy) || blockingOpen}
             onClick={onGenerate}
           >{generateLabel}</Button>
+          {onConfigureParking && canFinance && billingTarget === "tenant" && hasRun && (
+            <Button
+              variant="outlined"
+              startIcon={<Car size={16} />}
+              onClick={onConfigureParking}
+              sx={{
+                borderColor: "rgba(124, 58, 237, 0.45)",
+                color: "#6d28d9",
+                fontWeight: 700,
+                "&:hover": { borderColor: "#6d28d9", bgcolor: "rgba(124, 58, 237, 0.06)" },
+              }}
+            >
+              Configure Parking
+            </Button>
+          )}
           {onLettingFeeInvoice && canFinance && billingTarget === "landlord" && (
             <Button variant="outlined" startIcon={<HandCoins size={17} />} onClick={onLettingFeeInvoice}>
               Issue letting-fee invoice
@@ -85,6 +100,11 @@ export function BillingActionBanner({
           </Tooltip>
           <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
             <MenuItem onClick={() => { setMenuAnchor(null); onSingleInvoice(); }}><FilePlus2 size={16} /> Create one-off invoice</MenuItem>
+            {onConfigureParking && billingTarget === "tenant" && (
+              <MenuItem onClick={() => { setMenuAnchor(null); onConfigureParking(); }}>
+                <Car size={16} /> Configure Parking Schedule
+              </MenuItem>
+            )}
             {onOpenPolicyModal && (
               <MenuItem onClick={() => { setMenuAnchor(null); onOpenPolicyModal(); }}>
                 <Settings2 size={16} /> Invoicing Policy ({requireUtilityReadings ? "Gate ON" : "Gate OFF"})

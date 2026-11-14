@@ -16,6 +16,7 @@ import { CandidatePreviewDrawer } from "./billing/CandidatePreviewDrawer";
 import { OverrideDialog } from "./billing/OverrideDialog";
 import { QuickRecordMeterModal } from "./billing/QuickRecordMeterModal";
 import { BatchMeterReadingWizard } from "./billing/BatchMeterReadingWizard";
+import { BatchParkingModal } from "./billing/BatchParkingModal";
 import { missingMeterUtilityType } from "./billing/types";
 import { LettingFeeModal } from "@/features/property/components/modals/LettingFeeModal";
 import { BillingPolicyModal } from "./billing/BillingPolicyModal";
@@ -63,6 +64,8 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
   const [overrideNotes, setOverrideNotes] = useState("");
   const [lettingModalOpen, setLettingModalOpen] = useState(false);
   const [batchReadingsOpen, setBatchReadingsOpen] = useState(false);
+  const [batchParkingOpen, setBatchParkingOpen] = useState(false);
+  const [parkingFocusCandidateId, setParkingFocusCandidateId] = useState<string | null>(null);
   const [policyModalOpen, setPolicyModalOpen] = useState(false);
 
   const { activeProperty } = usePropertyContext();
@@ -1019,6 +1022,10 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         ).length}
         onLogMeters={() => router.push("/facility?tab=meters")}
         onBatchReadings={() => setBatchReadingsOpen(true)}
+        onConfigureParking={() => {
+          setParkingFocusCandidateId(null);
+          setBatchParkingOpen(true);
+        }}
         onChargeTypeFilter={(t: InvoiceChargeType | "all") => {
           setChargeTypeFilter(t);
           const matching = rawCandidates.filter((c) => isCandidateReady(c, t)).map((c) => c.id);
@@ -1083,6 +1090,10 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         onPreview={setPreviewCandidate}
         onOverride={(c) => setOverrideIssue(c.issue_summary?.[0] ? { id: c.id, code: c.issue_summary[0].code, message: c.issue_summary[0].message, severity: c.issue_summary[0].severity, status: "open" } : null)}
         onRecordMeter={setRecordMeterCandidate}
+        onConfigureParking={(c) => {
+          setParkingFocusCandidateId(c ? String(c.id) : null);
+          setBatchParkingOpen(true);
+        }}
         onSingleInvoice={() => onSingleInvoice({ mode, period_start, period_end, months_count: (() => {
           const [sy, sm] = period_start.split("-").map(Number);
           const [ey, em] = period_end.split("-").map(Number);
@@ -1148,6 +1159,24 @@ export function PropertyBillingDashboard({ onNavigate, onSingleInvoice, onLettin
         propertyId={properties[0]?.id}
         onComplete={async () => {
           setNotice("All meter readings recorded! Refreshing billing queue…");
+          await mutate("prepare");
+          await load();
+        }}
+      />
+
+      <BatchParkingModal
+        open={batchParkingOpen}
+        onClose={() => {
+          setBatchParkingOpen(false);
+          setParkingFocusCandidateId(null);
+        }}
+        candidates={rawCandidates}
+        propertyName={activeProp?.name}
+        rentFrequency={rentFrequency}
+        formattedPeriod={formattedPeriod}
+        focusCandidateId={parkingFocusCandidateId}
+        onComplete={async () => {
+          setNotice("Parking schedule saved! Refreshing candidate invoices…");
           await mutate("prepare");
           await load();
         }}

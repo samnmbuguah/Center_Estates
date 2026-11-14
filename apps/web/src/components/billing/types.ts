@@ -5,6 +5,9 @@ export type Candidate = {
   billing_items: Array<{
     code: string;
     description: string;
+    quantity?: string;
+    unit_rate?: string;
+    subtotal?: string;
     total?: string;
     amount?: string;
     billed?: boolean;

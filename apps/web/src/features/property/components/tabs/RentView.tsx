@@ -84,14 +84,25 @@ export function RentView({
     if (s === "rent") return "rent";
     if (s === "sc" || s === "service_charge" || s.includes("service")) return "service_charge";
     if (s === "water" || s === "electricity" || s === "utility" || s.includes("utility")) return "utility";
+    if (s === "parking" || s.includes("park")) return "parking";
     if (s.includes("mgmt") || s.includes("management") || s.includes("commission") || s.includes("landlord")) return "management_fee";
     return "other";
+  };
+
+  const invoiceNormalizedTypes = (inv: InvoiceRow): string[] => {
+    const metaCharges = (inv.metadata as Record<string, unknown> | undefined)?.charges;
+    if (Array.isArray(metaCharges) && metaCharges.length > 0) {
+      const unique = Array.from(new Set(metaCharges.map((c) => normalizeType(String(c)))));
+      if (unique.length > 0) return unique;
+    }
+    return [normalizeType(inv.invoice_type)];
   };
 
   const typeLabelMap: Record<string, string> = {
     rent: "Rent",
     service_charge: "Service Charge",
     utility: "Utilities",
+    parking: "Parking",
     management_fee: "Management Fee",
     other: "Other",
   };
@@ -111,8 +122,8 @@ export function RentView({
 
       // Type filter
       if (typeFilter !== "all") {
-        const norm = normalizeType(inv.invoice_type);
-        if (norm !== typeFilter) return false;
+        const norms = invoiceNormalizedTypes(inv);
+        if (!norms.includes(typeFilter)) return false;
       }
 
       // Recipient type filter (Tenant vs Owner — sectional title)
@@ -145,13 +156,14 @@ export function RentView({
       return true;
     });
 
-    const charge: Record<string, number> = { all: base.length, rent: 0, service_charge: 0, utility: 0, management_fee: 0 };
+    const charge: Record<string, number> = { all: base.length, rent: 0, service_charge: 0, utility: 0, parking: 0, management_fee: 0 };
     const recipient: Record<string, number> = { all: base.length, tenant: 0, owner: 0 };
     const status: Record<string, number> = { all: base.length, draft: 0, issued: 0, partial: 0, paid: 0, overdue: 0, void: 0 };
 
     for (const inv of base) {
-      const norm = normalizeType(inv.invoice_type);
-      charge[norm] = (charge[norm] || 0) + 1;
+      for (const norm of invoiceNormalizedTypes(inv)) {
+        charge[norm] = (charge[norm] || 0) + 1;
+      }
 
       const rt = String((inv as any).recipient_type || "tenant").toLowerCase();
       recipient[rt] = (recipient[rt] || 0) + 1;
@@ -224,16 +236,27 @@ export function RentView({
     const norm = normalizeType(rawType);
     switch (norm) {
       case "rent":
-        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(59, 130, 246, 0.12)", color: "var(--color-info)", fontWeight: 700, fontSize: 11 }}>Rent</span>;
+        return <span key="rent" style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(59, 130, 246, 0.12)", color: "var(--color-info)", fontWeight: 700, fontSize: 11 }}>Rent</span>;
       case "service_charge":
-        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(139, 92, 246, 0.12)", color: "var(--color-violet)", fontWeight: 700, fontSize: 11 }}>Service Charge</span>;
+        return <span key="sc" style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(139, 92, 246, 0.12)", color: "var(--color-violet)", fontWeight: 700, fontSize: 11 }}>Service Charge</span>;
       case "utility":
-        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(20, 184, 166, 0.12)", color: "var(--color-teal)", fontWeight: 700, fontSize: 11 }}>Utility</span>;
+        return <span key="utility" style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(20, 184, 166, 0.12)", color: "var(--color-teal)", fontWeight: 700, fontSize: 11 }}>Utility</span>;
+      case "parking":
+        return <span key="parking" style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(124, 58, 237, 0.12)", color: "#6d28d9", fontWeight: 700, fontSize: 11 }}>🚗 Parking</span>;
       case "management_fee":
-        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(245, 158, 11, 0.12)", color: "var(--color-warning)", fontWeight: 700, fontSize: 11 }}>Mgmt Fee</span>;
+        return <span key="mgmt" style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(245, 158, 11, 0.12)", color: "var(--color-warning)", fontWeight: 700, fontSize: 11 }}>Mgmt Fee</span>;
       default:
-        return <span style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(100, 116, 139, 0.12)", color: "var(--text-soft)", fontWeight: 700, fontSize: 11 }}>{rawType || "Invoice"}</span>;
+        return <span key={String(rawType)} style={{ padding: "2px 8px", borderRadius: 4, background: "rgba(100, 116, 139, 0.12)", color: "var(--text-soft)", fontWeight: 700, fontSize: 11 }}>{rawType || "Invoice"}</span>;
     }
+  };
+
+  const renderInvoiceBadges = (inv: InvoiceRow) => {
+    const norms = invoiceNormalizedTypes(inv);
+    return (
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        {norms.map((n) => getTypeBadge(n))}
+      </div>
+    );
   };
 
   return (
@@ -336,6 +359,7 @@ export function RentView({
             { key: "rent", label: "Rent", count: counts.charge.rent },
             { key: "service_charge", label: "Service Charge", count: counts.charge.service_charge },
             { key: "utility", label: "Utilities", count: counts.charge.utility },
+            { key: "parking", label: "Parking", count: counts.charge.parking },
             { key: "management_fee", label: "Mgmt Fees", count: counts.charge.management_fee },
           ] as const).map((t) => (
             <button
@@ -500,7 +524,7 @@ export function RentView({
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        {getTypeBadge(inv.invoice_type)}
+                        {renderInvoiceBadges(inv)}
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontWeight: 700 }}>{String(inv.tenant_name ?? "—")}</Typography>

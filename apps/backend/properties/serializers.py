@@ -798,8 +798,11 @@ class ReceiptSerializer(serializers.ModelSerializer):
     payer_name = serializers.SerializerMethodField()
     wallet_credit = serializers.SerializerMethodField()
     # Charge classification — allows UI to filter receipts by what they paid for
-    charge_type = serializers.CharField(source='invoice.invoice_type', read_only=True, default='')
-    recipient_type = serializers.CharField(source='invoice.recipient_type', read_only=True, default='')
+    charge_type = serializers.SerializerMethodField()
+    recipient_type = serializers.SerializerMethodField()
+    is_applied = serializers.SerializerMethodField()
+    allocated_invoices = serializers.SerializerMethodField()
+    charges = serializers.SerializerMethodField()
 
     class Meta:
         model = Receipt
@@ -811,6 +814,58 @@ class ReceiptSerializer(serializers.ModelSerializer):
             'paying_for': {'read_only': True},
             'external_reference_key': {'read_only': True},
         }
+
+    def _primary_invoice(self, obj):
+        if obj.invoice_id and obj.invoice:
+            return obj.invoice
+        allocs = list(obj.allocations.all())
+        for alloc in allocs:
+            if alloc.invoice_id and alloc.invoice:
+                return alloc.invoice
+        return None
+
+    def get_charge_type(self, obj):
+        inv = self._primary_invoice(obj)
+        return inv.invoice_type if inv and inv.invoice_type else ''
+
+    def get_recipient_type(self, obj):
+        inv = self._primary_invoice(obj)
+        if inv and inv.recipient_type:
+            return inv.recipient_type
+        return 'owner' if obj.payer_type == Receipt.PayerType.LANDLORD else 'tenant'
+
+    def get_is_applied(self, obj):
+        return bool(obj.invoice_id) or len(list(obj.allocations.all())) > 0
+
+    def get_allocated_invoices(self, obj):
+        nums = []
+        if obj.invoice_id and obj.invoice and obj.invoice.number:
+            nums.append(obj.invoice.number)
+        for alloc in obj.allocations.all():
+            if alloc.invoice_id and alloc.invoice and alloc.invoice.number and alloc.invoice.number not in nums:
+                nums.append(alloc.invoice.number)
+        return nums
+
+    def get_charges(self, obj):
+        codes = []
+        invoices = []
+        if obj.invoice_id and obj.invoice:
+            invoices.append(obj.invoice)
+        for alloc in obj.allocations.all():
+            if alloc.invoice_id and alloc.invoice and alloc.invoice not in invoices:
+                invoices.append(alloc.invoice)
+        for inv in invoices:
+            meta_charges = (inv.metadata or {}).get('charges') if isinstance(inv.metadata, dict) else None
+            if isinstance(meta_charges, list) and meta_charges:
+                for c in meta_charges:
+                    cu = str(c or '').strip().upper()
+                    if cu and cu not in codes:
+                        codes.append(cu)
+            elif inv.invoice_type:
+                cu = str(inv.invoice_type).strip().upper()
+                if cu and cu not in codes:
+                    codes.append(cu)
+        return codes
 
     def validate_amount(self, value):
         if value <= 0:

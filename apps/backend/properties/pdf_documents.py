@@ -535,19 +535,152 @@ def landlord_invoice_pdf(invoice: LandlordInvoice, generated_by="System", dispos
     )
 
 
+def _invoice_charge_summary(invoice: Invoice) -> str:
+    """Return a human-readable charge summary including consolidated lines (Rent, Service Charge, Parking)."""
+    lines = list(invoice.lines.all())
+    if len(lines) > 1:
+        line_titles = []
+        for ln in lines:
+            desc = str(ln.description or "").strip()
+            if desc:
+                line_titles.append(desc)
+        if line_titles:
+            return " + ".join(line_titles)
+    meta_charges = (invoice.metadata or {}).get("charges")
+    if isinstance(meta_charges, list) and len(meta_charges) > 1:
+        labels = []
+        for c in meta_charges:
+            lbl = str(c or "").replace("_", " ").title()
+            if lbl and lbl not in labels:
+                labels.append(lbl)
+        if labels:
+            return " · ".join(labels)
+    if len(lines) == 1 and lines[0].description:
+        return str(lines[0].description)
+    return str(invoice.invoice_type or "Rent").replace("_", " ").title()
+
+
 def receipt_pdf(receipt: Receipt, generated_by="System"):
-    s = _styles(); tenant = receipt.tenant; invoice = receipt.invoice
-    prop = invoice.lease.unit.property if invoice else tenant.property
-    story = [Paragraph(f"Receipt no. <b>{receipt.number}</b>", s["Small"]), Spacer(1, 4 * mm)]
-    story.append(_info_table([
-        ("Received from", tenant.name, "Receipt date", receipt.received_on.strftime("%d %b %Y")),
-        ("Tenant account", tenant.code, "Payment method", receipt.payment_method.replace("_", " ").title()),
+    s = _styles()
+    tenant = receipt.tenant
+    owner = getattr(receipt, "owner", None)
+    payer_name = tenant.name if tenant else (owner.name if owner else "Payer")
+    payer_code = tenant.code if tenant else (getattr(owner, "code", "") or "—")
+
+    allocations = list(
+        receipt.allocations.select_related(
+            "invoice__lease__unit__property",
+            "invoice__unit__property",
+        ).all()
+    )
+    allocated_by_invoice: dict[str, tuple[Invoice, Decimal]] = {}
+    for alloc in allocations:
+        if alloc.invoice_id:
+            key = str(alloc.invoice_id)
+            inv_obj, cur_amt = allocated_by_invoice.get(key, (alloc.invoice, Decimal("0.00")))
+            allocated_by_invoice[key] = (inv_obj, cur_amt + (alloc.amount or Decimal("0.00")))
+
+    invoice = receipt.invoice
+    if invoice and str(invoice.id) not in allocated_by_invoice:
+        allocated_by_invoice[str(invoice.id)] = (invoice, receipt.amount)
+
+    allocated_list = list(allocated_by_invoice.values())
+    primary_invoice = invoice or (allocated_list[0][0] if allocated_list else None)
+    unit = (
+        primary_invoice.unit or (primary_invoice.lease.unit if primary_invoice.lease else None)
+        if primary_invoice else None
+    )
+    prop = (
+        unit.property if unit
+        else (tenant.property if tenant else None)
+    )
+    invoice_numbers = ", ".join(inv.number for inv, _ in allocated_list) if allocated_list else "Unapplied receipt"
+    is_applied = bool(allocated_list)
+
+    info_rows = [
+        ("Received from", payer_name, "Receipt date", receipt.received_on.strftime("%d %b %Y")),
+        ("Account no.", payer_code, "Payment method", receipt.payment_method.replace("_", " ").title()),
         ("Property", prop.name if prop else "—", "Cheque / reference", receipt.external_reference or "—"),
-        ("Invoice", invoice.number if invoice else "Unapplied receipt", "Posting status", "Applied" if invoice else "Unapplied"),
-    ], s))
-    story.extend([Spacer(1, 6 * mm), Paragraph("Amount received", s["Section"]), Table([[Paragraph(amount_in_words(receipt.amount), s["Small"]), Paragraph(f"<b>{_money(receipt.amount)}</b>", s["Right"])]], colWidths=[115 * mm, 57 * mm], style=[("BACKGROUND", (0, 0), (-1, -1), PALE), ("BOX", (0, 0), (-1, -1), .6, LINE), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 10), ("BOTTOMPADDING", (0, 0), (-1, -1), 10)]), Spacer(1, 6 * mm)])
-    description = invoice.invoice_type.replace("_", " ").title() if invoice else "Unapplied payment"
-    story.append(Table([["ACCOUNT", "DESCRIPTION", "INVOICE", "AMOUNT"], [tenant.code, description, invoice.number if invoice else "—", _money(receipt.amount)]], colWidths=[38 * mm, 70 * mm, 35 * mm, 35 * mm], style=[("BACKGROUND", (0, 0), (-1, 0), NAVY), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"), ("FONTSIZE", (0, 0), (-1, -1), 8), ("GRID", (0, 0), (-1, -1), .4, LINE), ("ALIGN", (-1, 1), (-1, -1), "RIGHT"), ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7)]))
+        ("Invoice(s)", invoice_numbers, "Posting status", "Applied" if is_applied else "Unapplied"),
+    ]
+    if unit:
+        info_rows.append(("Unit / floor", f"{unit.code} / {unit.floor or '—'}", "Lease no.", primary_invoice.lease.reference if primary_invoice and primary_invoice.lease else "—"))
+
+    story = [Paragraph(f"Receipt no. <b>{receipt.number}</b>", s["Small"]), Spacer(1, 4 * mm)]
+    story.append(_info_table(info_rows, s))
+    story.extend([
+        Spacer(1, 6 * mm),
+        Paragraph("Amount received", s["Section"]),
+        Table(
+            [[Paragraph(amount_in_words(receipt.amount), s["Small"]), Paragraph(f"<b>{_money(receipt.amount)}</b>", s["Right"])]],
+            colWidths=[115 * mm, 57 * mm],
+            style=[
+                ("BACKGROUND", (0, 0), (-1, -1), PALE),
+                ("BOX", (0, 0), (-1, -1), .6, LINE),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 10),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+            ],
+        ),
+        Spacer(1, 6 * mm),
+    ])
+
+    table_rows = [["ACCOUNT", "DESCRIPTION / BREAKDOWN", "INVOICE", "AMOUNT"]]
+    total_allocated = Decimal("0.00")
+    if allocated_list:
+        for inv_obj, alloc_amt in allocated_list:
+            total_allocated += alloc_amt
+            lines = list(inv_obj.lines.all())
+            if len(lines) > 1:
+                header_desc = f"<b>Consolidated Invoice ({_billing_period_label(inv_obj)})</b>"
+                bullet_lines = [
+                    f"• {ln.description}: {_money(ln.total)}"
+                    for ln in lines
+                ]
+                desc_html = f"{header_desc}<br/><font color='#475569' size='7.5'>{'<br/>'.join(bullet_lines)}</font>"
+            elif len(lines) == 1 and lines[0].description:
+                desc_html = str(lines[0].description)
+            else:
+                desc_html = str(inv_obj.invoice_type or "Rent").replace("_", " ").title()
+            table_rows.append([
+                payer_code,
+                Paragraph(desc_html, s["Small"]),
+                inv_obj.number,
+                _money(alloc_amt),
+            ])
+        unapplied_rem = receipt.amount - total_allocated
+        if unapplied_rem > Decimal("0.00"):
+            table_rows.append([
+                payer_code,
+                Paragraph("Advance credit retained in account wallet", s["Small"]),
+                "Wallet Credit",
+                _money(unapplied_rem),
+            ])
+    else:
+        table_rows.append([
+            payer_code,
+            Paragraph("Unapplied payment (retained in account wallet)", s["Small"]),
+            "—",
+            _money(receipt.amount),
+        ])
+
+    story.append(
+        Table(
+            table_rows,
+            colWidths=[34 * mm, 76 * mm, 33 * mm, 35 * mm],
+            style=[
+                ("BACKGROUND", (0, 0), (-1, 0), NAVY),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                ("GRID", (0, 0), (-1, -1), .4, LINE),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ALIGN", (-1, 1), (-1, -1), "RIGHT"),
+                ("TOPPADDING", (0, 0), (-1, -1), 7),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ],
+        )
+    )
     brand = _branding(receipt.organization)
     story.extend([Spacer(1, 10 * mm), Paragraph(f"Served by: {receipt.received_by.get_full_name() or receipt.received_by.get_username()}", s["Small"]), Paragraph(f"This computer-generated receipt is valid without a physical stamp. Verify it from the {brand['name']} tenant ledger.", s["Tiny"])])
     return _doc_response(receipt.organization, f"receipt-{receipt.number}.pdf", story, title="Official Receipt", property_name=prop.name if prop else "Portfolio", period=f"Receipt date: {receipt.received_on:%d %b %Y}", generated_by=generated_by)
@@ -555,15 +688,15 @@ def receipt_pdf(receipt: Receipt, generated_by="System"):
 
 def tenant_statement_pdf(tenant, start: date | None = None, end: date | None = None, generated_by="System"):
     s = _styles(); end = end or date.today(); start = start or end.replace(month=1, day=1)
-    invoices = Invoice.objects.filter(organization=tenant.organization, lease__tenant=tenant).select_related("lease__unit__property")
+    invoices = Invoice.objects.filter(organization=tenant.organization, lease__tenant=tenant).select_related("lease__unit__property").prefetch_related("lines")
     receipts = Receipt.objects.filter(organization=tenant.organization, tenant=tenant)
     credits = CreditNote.objects.filter(organization=tenant.organization, invoice__lease__tenant=tenant).exclude(status="void")
     opening = (invoices.filter(issued_on__lt=start).aggregate(v=Sum("amount"))["v"] or Decimal("0")) - (receipts.filter(received_on__lt=start).aggregate(v=Sum("amount"))["v"] or Decimal("0")) - (credits.filter(issued_on__lt=start).aggregate(v=Sum("amount"))["v"] or Decimal("0"))
     events = []
     for row in invoices.filter(issued_on__range=(start, end)):
-        events.append((row.issued_on, row.number, row.number, row.invoice_type.replace("_", " ").title(), row.amount, Decimal("0")))
+        events.append((row.issued_on, row.number, row.number, _invoice_charge_summary(row), row.amount, Decimal("0")))
     for row in receipts.filter(received_on__range=(start, end)):
-        events.append((row.received_on, row.number, row.external_reference, "Rent payment", Decimal("0"), row.amount))
+        events.append((row.received_on, row.number, row.external_reference, "Payment receipt", Decimal("0"), row.amount))
     for row in credits.filter(issued_on__range=(start, end)):
         events.append((row.issued_on, row.number, row.invoice.number, f"Credit note: {row.reason}", Decimal("0"), row.amount))
     events.sort(key=lambda item: (item[0], item[1]))
